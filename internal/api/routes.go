@@ -57,6 +57,7 @@ func (s *Server) Handler() http.Handler {
 
 			r.Get("/auth/me", s.handleMe)
 			r.Get("/status", s.handleStatus)
+			r.Get("/certificates", s.handleCertificates)
 
 			r.Route("/proxy-hosts", func(r chi.Router) {
 				r.Get("/", s.handleListProxyHosts)

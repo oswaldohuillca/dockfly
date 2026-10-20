@@ -4,6 +4,7 @@ import { ArrowLeft, ExternalLink, Lock, Pencil, RotateCcw, Trash2 } from 'lucide
 import { toast } from 'sonner';
 
 import { ProviderIcon } from '@/components/brand-icons';
+import { CertBadge } from '@/components/cert-badge';
 import { Dropzone, selectionSummary } from '@/components/dropzone';
 import { SiteDialog } from '@/components/site-dialog';
 import { SiteGit } from '@/components/site-git';
@@ -25,6 +26,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { api, ApiError, errorMessage, type Deployment, type Site } from '@/lib/api';
 import type { Selection } from '@/lib/collect-files';
 import { formatBytes, formatDate, plural, timeAgo } from '@/lib/format';
+import { useCertificates } from '@/lib/use-certificates';
 
 export function SiteDetail({ id }: { id: number }) {
   const navigate = useNavigate();
@@ -35,6 +37,7 @@ export function SiteDetail({ id }: { id: number }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [uploading, setUploading] = useState('');
+  const certs = useCertificates();
 
   const load = useCallback(async () => {
     try {
@@ -124,6 +127,7 @@ export function SiteDetail({ id }: { id: number }) {
             <CardTitle className="flex items-center gap-2 text-xl">
               {site.name}
               {site.spa && <Badge variant="outline">SPA</Badge>}
+              {site.ssl && <CertBadge domains={site.domains} certs={certs} />}
             </CardTitle>
             <CardDescription className="flex flex-wrap gap-x-4 gap-y-1">
               {site.domains.map((d) => (

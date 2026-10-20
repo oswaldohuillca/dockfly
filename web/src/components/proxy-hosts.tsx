@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Box, ExternalLink, Globe, Lock, Pencil, Plus, Search, Server, Trash2 } from 'lucide-react';
+import { Box, ExternalLink, Globe, Pencil, Plus, Search, Server, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { CertBadge } from '@/components/cert-badge';
 import { ProxyHostDialog } from '@/components/proxy-host-dialog';
 import {
   AlertDialog,
@@ -20,6 +21,7 @@ import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { api, errorMessage, type ProxyHost, type ProxyHostInput, type TargetType } from '@/lib/api';
+import { useCertificates } from '@/lib/use-certificates';
 import { cn } from '@/lib/utils';
 
 const targets: Record<TargetType, { label: string; icon: typeof Box }> = {
@@ -40,6 +42,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
   // null = cerrado, {} = nuevo, host = editar
   const [editing, setEditing] = useState<Partial<ProxyHost> | null>(null);
   const [deleting, setDeleting] = useState<ProxyHost | null>(null);
+  const certs = useCertificates();
 
   const load = useCallback(async () => {
     try {
@@ -152,9 +155,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
                       </TableCell>
                       <TableCell>
                         {h.ssl ? (
-                          <Badge variant="secondary" className="gap-1 text-emerald-600 dark:text-emerald-400">
-                            <Lock /> Let&apos;s Encrypt
-                          </Badge>
+                          <CertBadge domains={h.domains} certs={certs} />
                         ) : (
                           <Badge variant="outline" className="text-muted-foreground">
                             HTTP

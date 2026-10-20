@@ -31,6 +31,7 @@ type Server struct {
 	Docker   *docker.Client // nil si Docker no está disponible
 	Traefik  traefik.Options
 	Super    *traefik.Supervisor // nil si Traefik está desactivado (desarrollo)
+	Certs    *traefik.CertTracker
 	Frontend fs.FS
 	Version  string
 	Log      *slog.Logger

@@ -179,6 +179,19 @@ export type SiteInput = Pick<Site, 'name' | 'domains' | 'ssl' | 'force_https' | 
 /** Lo que se sube: un .zip, o los archivos de una carpeta con su ruta relativa. */
 export type UploadPayload = { archive: File } | { files: { path: string; file: File }[] };
 
+export type CertState = 'valid' | 'expiring' | 'expired' | 'error' | 'pending';
+
+export interface CertStatus {
+  domain: string;
+  status: CertState;
+  not_after?: string;
+  issuer?: string;
+  staging: boolean;
+  error?: string;
+  error_at?: string;
+  hint?: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -214,6 +227,7 @@ export const api = {
   logout: () => request<void>('POST', '/auth/logout'),
   me: () => request<User>('GET', '/auth/me'),
   status: () => request<Status>('GET', '/status'),
+  certificates: () => request<CertStatus[]>('GET', '/certificates'),
   listProxyHosts: () => request<ProxyHost[]>('GET', '/proxy-hosts'),
   createProxyHost: (data: ProxyHostInput) => request<SaveResult>('POST', '/proxy-hosts', data),
   updateProxyHost: (id: number, data: ProxyHostInput) => request<SaveResult>('PUT', `/proxy-hosts/${id}`, data),

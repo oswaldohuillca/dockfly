@@ -42,6 +42,7 @@ type Options struct {
 
 func (o Options) DynamicDir() string { return filepath.Join(o.DataDir, "traefik", "dynamic") }
 func (o Options) StaticFile() string { return filepath.Join(o.DataDir, "traefik", "traefik.yml") }
+func (o Options) ACMEFile() string   { return filepath.Join(o.DataDir, "traefik", "acme.json") }
 
 // WriteStatic escribe traefik.yml. Traefik solo lo lee al arrancar.
 func WriteStatic(o Options) error {
@@ -50,7 +51,7 @@ func WriteStatic(o Options) error {
 	}
 
 	acme := map[string]any{
-		"storage":       filepath.Join(o.DataDir, "traefik", "acme.json"),
+		"storage":       o.ACMEFile(),
 		"httpChallenge": map[string]any{"entryPoint": "web"},
 	}
 	if o.ACMEEmail != "" {
@@ -78,7 +79,8 @@ func WriteStatic(o Options) error {
 
 	cfg := map[string]any{
 		"global": map[string]any{"checkNewVersion": false, "sendAnonymousUsage": false},
-		"log":    map[string]any{"level": o.LogLevel, "noColor": true},
+		// JSON: Dockfly lo analiza (errores de Let's Encrypt) y lo reescribe legible.
+		"log": map[string]any{"level": o.LogLevel, "noColor": true, "format": "json"},
 		"entryPoints": map[string]any{
 			"web":       entryPoint(o.HTTPAddr),
 			"websecure": entryPoint(o.HTTPSAddr),

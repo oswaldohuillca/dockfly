@@ -132,6 +132,8 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
+	certs := &traefik.CertTracker{}
+
 	srv := &api.Server{
 		Store:    st,
 		Signer:   signer,
@@ -149,6 +151,7 @@ func run(log *slog.Logger) error {
 		MaxUploadMB:  maxUpload,
 		Secrets:      box,
 		Git:          gitauth.New(st, box),
+		Certs:        certs,
 		DataDir:      dataDir,
 		Restart: func() {
 			restart.Store(true)
@@ -172,6 +175,7 @@ func run(log *slog.Logger) error {
 			Bin:        env("DOCKFLY_TRAEFIK_BIN", "/usr/local/bin/traefik"),
 			ConfigFile: opts.StaticFile(),
 			Log:        log.With("component", "traefik"),
+			Certs:      certs,
 		}
 		wg.Go(func() { srv.Super.Run(ctx) })
 	} else {
