@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/dockfly/dockfly/internal/docker"
+	"github.com/dockfly/dockfly/internal/dockerproxy"
 	"github.com/dockfly/dockfly/internal/gitprovider"
 	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
@@ -53,8 +54,14 @@ type Config struct {
 	LogDir    string
 	Log       *slog.Logger
 	Network   string // red de Dockfly: Traefik y las apps se ven en ella
+	// ComposeProxy, si no es nil, es el proxy del socket con permisos
+	// mínimos con el que habla el auxiliar de Compose. SelfContainer es el
+	// contenedor de Dockfly, que se conecta a la red interna de cada ejecución.
+	ComposeProxy  *dockerproxy.Proxy
+	SelfContainer string
 	// HostDockerSocket es la ruta del socket de Docker en el host (no en el
-	// contenedor de Dockfly): la monta el auxiliar de Compose.
+	// contenedor de Dockfly). Sin proxy, la monta el auxiliar de Compose
+	// (solo en desarrollo: tiene acceso total a Docker).
 	HostDockerSocket string
 	// Apply regenera la configuración de Traefik (la API sabe hacerlo).
 	Apply func(ctx context.Context) error
@@ -69,6 +76,12 @@ type Manager struct {
 	mu      sync.Mutex
 	running map[int64]context.CancelCauseFunc
 	appLock map[int64]*sync.Mutex // una operación a la vez por app
+}
+
+// SetComposeProxy activa el proxy del socket para el auxiliar de Compose.
+// Se llama al arrancar, antes de Run.
+func (m *Manager) SetComposeProxy(p *dockerproxy.Proxy, self string) {
+	m.cfg.ComposeProxy, m.cfg.SelfContainer = p, self
 }
 
 func New(cfg Config) *Manager {

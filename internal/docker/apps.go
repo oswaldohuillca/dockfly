@@ -211,6 +211,69 @@ func (c *Client) CreateNetwork(ctx context.Context, name string) error {
 	return err
 }
 
+// CreateInternalNetwork crea una red sin salida a internet ni al host, con
+// etiquetas. Devuelve error si ya existe.
+func (c *Client) CreateInternalNetwork(ctx context.Context, name string, labels map[string]string) error {
+	return c.do(ctx, http.MethodPost, "/networks/create",
+		map[string]any{"Name": name, "CheckDuplicate": true, "Internal": true, "Labels": labels}, nil)
+}
+
+// DisconnectNetwork saca un contenedor de una red (si no estaba, no es error).
+func (c *Client) DisconnectNetwork(ctx context.Context, network, container string) error {
+	err := c.do(ctx, http.MethodPost, "/networks/"+url.PathEscape(network)+"/disconnect",
+		map[string]any{"Container": container, "Force": true}, nil)
+	var apiErr *APIError
+	if errors.As(err, &apiErr) && (apiErr.Status == http.StatusNotFound || apiErr.Status == http.StatusForbidden) {
+		return nil
+	}
+	return err
+}
+
+// RemoveNetwork borra una red (si no existe, no es error).
+func (c *Client) RemoveNetwork(ctx context.Context, network string) error {
+	err := c.do(ctx, http.MethodDelete, "/networks/"+url.PathEscape(network), nil, nil)
+	var apiErr *APIError
+	if errors.As(err, &apiErr) && apiErr.Status == http.StatusNotFound {
+		return nil
+	}
+	return err
+}
+
+// NetworksWithLabel devuelve los nombres de las redes con una etiqueta ("clave" o "clave=valor").
+func (c *Client) NetworksWithLabel(ctx context.Context, label string) ([]string, error) {
+	filters, _ := json.Marshal(map[string][]string{"label": {label}})
+	var raw []struct {
+		Name string `json:"Name"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/networks?filters="+url.QueryEscape(string(filters)), nil, &raw); err != nil {
+		return nil, err
+	}
+	names := make([]string, len(raw))
+	for i, n := range raw {
+		names[i] = n.Name
+	}
+	return names, nil
+}
+
+// ContainerIP devuelve la IP de un contenedor en una red.
+func (c *Client) ContainerIP(ctx context.Context, container, network string) (string, error) {
+	var raw struct {
+		NetworkSettings struct {
+			Networks map[string]struct {
+				IPAddress string `json:"IPAddress"`
+			} `json:"Networks"`
+		} `json:"NetworkSettings"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/containers/"+url.PathEscape(container)+"/json", nil, &raw); err != nil {
+		return "", err
+	}
+	ip := raw.NetworkSettings.Networks[network].IPAddress
+	if ip == "" {
+		return "", fmt.Errorf("el contenedor %s no tiene IP en la red %s", container, network)
+	}
+	return ip, nil
+}
+
 // Exec ejecuta un comando dentro de un contenedor y devuelve su salida
 // (stdout y stderr).
 func (c *Client) Exec(ctx context.Context, container string, cmd []string) (string, error) {

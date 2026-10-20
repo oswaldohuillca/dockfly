@@ -1,4 +1,5 @@
-// Package docker es un cliente mínimo de la API de Docker sobre el socket unix.
+// Package docker es un cliente mínimo de la API de Docker sobre el socket unix
+// (o por TCP, p. ej. detrás de un proxy del socket).
 // Evitamos el SDK oficial porque añade decenas de MB de dependencias para
 // las pocas llamadas que necesitamos.
 package docker
@@ -28,26 +29,75 @@ type Client struct {
 	stream *http.Client
 }
 
+// New conecta con el socket unix de Docker, o con "tcp://host:puerto".
 func New(socket string) *Client {
+	c := &Client{Socket: socket}
 	transport := &http.Transport{
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			var d net.Dialer
-			return d.DialContext(ctx, "unix", socket)
-		},
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return c.Dial(ctx) },
 	}
-	return &Client{
-		Socket: socket,
-		http:   &http.Client{Timeout: 15 * time.Second, Transport: transport},
-		stream: &http.Client{Transport: transport},
-	}
+	c.http = &http.Client{Timeout: 15 * time.Second, Transport: transport}
+	c.stream = &http.Client{Transport: transport}
+	return c
 }
 
-// Available indica si el socket existe y responde.
+// Dial abre una conexión con la API de Docker.
+func (c *Client) Dial(ctx context.Context) (net.Conn, error) {
+	var d net.Dialer
+	if addr, ok := strings.CutPrefix(c.Socket, "tcp://"); ok {
+		return d.DialContext(ctx, "tcp", addr)
+	}
+	return d.DialContext(ctx, "unix", strings.TrimPrefix(c.Socket, "unix://"))
+}
+
+// Available indica si Docker responde.
 func (c *Client) Available(ctx context.Context) bool {
-	if _, err := os.Stat(c.Socket); err != nil {
-		return false
+	if !strings.HasPrefix(c.Socket, "tcp://") {
+		if _, err := os.Stat(strings.TrimPrefix(c.Socket, "unix://")); err != nil {
+			return false
+		}
 	}
 	return c.do(ctx, http.MethodGet, "/_ping", nil, nil) == nil
+}
+
+// SelfInfo es lo que Dockfly necesita saber de su propio contenedor.
+type SelfInfo struct {
+	// IPs por red.
+	IPs map[string]string
+	// Mounts son los orígenes en el host de sus montajes (rutas o volúmenes).
+	Mounts []string
+}
+
+// Self inspecciona el contenedor de Dockfly (ok=false si no corre en Docker).
+func (c *Client) Self(ctx context.Context) (SelfInfo, bool) {
+	host, err := os.Hostname()
+	if err != nil {
+		return SelfInfo{}, false
+	}
+	var raw struct {
+		Mounts []struct {
+			Type   string `json:"Type"`
+			Name   string `json:"Name"`
+			Source string `json:"Source"`
+		} `json:"Mounts"`
+		NetworkSettings struct {
+			Networks map[string]struct {
+				IPAddress string `json:"IPAddress"`
+			} `json:"Networks"`
+		} `json:"NetworkSettings"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/containers/"+url.PathEscape(host)+"/json", nil, &raw); err != nil {
+		return SelfInfo{}, false
+	}
+	info := SelfInfo{IPs: map[string]string{}}
+	for n, s := range raw.NetworkSettings.Networks {
+		info.IPs[n] = s.IPAddress
+	}
+	for _, m := range raw.Mounts {
+		if m.Source != "" {
+			info.Mounts = append(info.Mounts, m.Source)
+		}
+	}
+	return info, true
 }
 
 type Container struct {

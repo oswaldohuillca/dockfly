@@ -86,7 +86,7 @@ func WriteStatic(o Options) error {
 	}
 	if o.DockerSocket != "" {
 		docker := map[string]any{
-			"endpoint":         "unix://" + o.DockerSocket,
+			"endpoint":         dockerEndpoint(o.DockerSocket),
 			"exposedByDefault": false,
 		}
 		if o.DockerNet != "" {
@@ -477,4 +477,12 @@ func streamConfig(streams []Stream, into map[string]any) {
 	for proto, sec := range sections {
 		into[proto] = map[string]any{"routers": sec["routers"], "services": sec["services"]}
 	}
+}
+
+// dockerEndpoint acepta la ruta del socket o una dirección "tcp://…".
+func dockerEndpoint(socket string) string {
+	if strings.HasPrefix(socket, "tcp://") || strings.HasPrefix(socket, "unix://") {
+		return socket
+	}
+	return "unix://" + socket
 }

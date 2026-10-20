@@ -96,8 +96,11 @@ func (m *Manager) Remove(ctx context.Context, app *store.App, removeData bool) e
 		if removeData {
 			cmd = append(cmd, "--volumes")
 		}
-		if app.CurrentDeploymentID == nil {
-			return nil
+		// Aunque ningún despliegue llegara a funcionar, Compose pudo dejar
+		// creadas redes o volúmenes del proyecto.
+		deps, err := m.cfg.Store.ListAppDeployments(ctx, app.ID, 1)
+		if err != nil || len(deps) == 0 {
+			return err
 		}
 		return m.runHelper(ctx, app, cmd, nil, nil, io.Discard)
 	}

@@ -31,6 +31,8 @@ type ContainerSpec struct {
 	KeepCaps bool
 	// Binds monta rutas del host ("origen:destino"). Solo para auxiliares.
 	Binds []string
+	// Network, si no está vacío, es la red del contenedor (en vez de bridge).
+	Network string
 }
 
 func (c *Client) raw(ctx context.Context, client *http.Client, method, path string, body io.Reader, contentType string) (*http.Response, error) {
@@ -134,6 +136,9 @@ func (c *Client) CreateContainer(ctx context.Context, spec ContainerSpec) (strin
 	}
 	if len(spec.Binds) > 0 {
 		host["Binds"] = spec.Binds
+	}
+	if spec.Network != "" {
+		host["NetworkMode"] = spec.Network
 	}
 	body := map[string]any{
 		"Image":      spec.Image,

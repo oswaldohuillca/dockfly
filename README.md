@@ -136,6 +136,50 @@ Los binarios para Linux, macOS y Windows están en cada release; también se pue
 
 Con un token no se puede cambiar la contraseña, la verificación en dos pasos ni crear otros tokens.
 
+### Seguridad de Docker
+
+Las apps de **Compose** se despliegan con un contenedor auxiliar con la CLI de Docker. Ese
+auxiliar no recibe el socket de Docker: habla con un **proxy con permisos mínimos** de Dockfly,
+por una red interna propia de cada despliegue, que rechaza lo que daría el control del servidor:
+
+- contenedores `privileged`, `cap_add`, `devices`/GPUs, `network_mode: host` y namespaces del host;
+- montar rutas sensibles del host (`/`, `/etc`, `/home`, `/root`, sockets…) o los datos de Dockfly;
+- tocar contenedores, volúmenes o redes de otras apps (o del propio Dockfly), y los `prune`.
+
+Si un `docker-compose.yml` necesita algo de eso, Compose muestra el motivo en el log del
+despliegue (`Dockfly: los contenedores privilegiados… no están permitidos`).
+
+Para no darle a Dockfly el socket completo, puede ir detrás de
+[docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy):
+
+```yaml
+services:
+  socket-proxy:
+    image: tecnativa/docker-socket-proxy
+    volumes: ["/var/run/docker.sock:/var/run/docker.sock:ro"]
+    environment:
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      VOLUMES: 1
+      BUILD: 1
+      EXEC: 1
+      INFO: 1
+      POST: 1
+      ALLOW_START: 1
+      ALLOW_STOP: 1
+      ALLOW_RESTARTS: 1
+  dockfly:
+    image: ghcr.io/<propietario>/dockfly
+    environment:
+      DOCKFLY_DOCKER_SOCKET: tcp://socket-proxy:2375
+    # …sin montar /var/run/docker.sock
+```
+
+Con docker-socket-proxy, los `build:` de los `docker-compose.yml` no funcionan: BuildKit
+necesita un canal (`/grpc`) que su HAProxy no reenvía. Las apps con Dockerfile y las imágenes
+ya construidas funcionan igual.
+
 ### Verificación en dos pasos
 
 En *Mi cuenta* (menú del usuario) se activa la verificación en dos pasos con cualquier app TOTP
@@ -188,7 +232,8 @@ n8n y Uptime Kuma.
 | `DOCKFLY_ACME_EMAIL` | — | Email para Let's Encrypt (opcional) |
 | `DOCKFLY_ACME_STAGING` | `false` | Usa el entorno de pruebas de Let's Encrypt |
 | `DOCKFLY_NETWORK` | `dockfly` | Red Docker compartida con las apps |
-| `DOCKFLY_DOCKER_SOCKET` | `/var/run/docker.sock` | Socket de Docker |
+| `DOCKFLY_DOCKER_SOCKET` | `/var/run/docker.sock` | Socket de Docker, o `tcp://host:puerto` detrás de un proxy del socket |
+| `DOCKFLY_COMPOSE_PROXY` | `1` | `0` desactiva el proxy con permisos mínimos de las apps de Compose (no recomendado) |
 | `DOCKFLY_TRAEFIK` | `on` | `off` para no lanzar Traefik (desarrollo) |
 | `DOCKFLY_TRUSTED_PROXIES` | — | Rangos CIDR (separados por comas) de los proxies que tienen delante el panel. Solo de ellos se acepta `X-Forwarded-For`. Vacío = panel expuesto directamente |
 | `DOCKFLY_BUILD_TIMEOUT_MIN` | `15` | Tiempo máximo de un build |

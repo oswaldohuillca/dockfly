@@ -26,6 +26,7 @@ import (
 	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/cli"
 	"github.com/dockfly/dockfly/internal/docker"
+	"github.com/dockfly/dockfly/internal/dockerproxy"
 	"github.com/dockfly/dockfly/internal/gitauth"
 	"github.com/dockfly/dockfly/internal/notify"
 	"github.com/dockfly/dockfly/internal/pages"
@@ -90,9 +91,13 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
+	// Docker: el socket montado o, detrás de un proxy del socket,
+	// DOCKFLY_DOCKER_SOCKET=tcp://socket-proxy:2375.
 	var dc *docker.Client
 	socket := env("DOCKFLY_DOCKER_SOCKET", "/var/run/docker.sock")
-	if _, err := os.Stat(socket); err == nil {
+	if strings.HasPrefix(socket, "tcp://") {
+		dc = docker.New(socket)
+	} else if _, err := os.Stat(socket); err == nil {
 		dc = docker.New(socket)
 	} else {
 		log.Warn("socket de Docker no disponible: no se podrán listar contenedores", "socket", socket)
@@ -194,6 +199,7 @@ func run(log *slog.Logger) error {
 	})
 	if dc != nil {
 		ensureNetwork(ctx, log, dc, opts.DockerNet)
+		startComposeProxy(ctx, log, dc, srv.Apps)
 	}
 	if err := srv.PrepareCertificates(ctx); err != nil {
 		return fmt.Errorf("escribiendo los certificados propios: %w", err)
@@ -299,6 +305,25 @@ func ensureNetwork(ctx context.Context, log *slog.Logger, dc *docker.Client, net
 		return
 	}
 	log.Info("Dockfly conectado a la red de las apps", "red", network)
+}
+
+// startComposeProxy activa el proxy del socket de Docker con permisos
+// mínimos para el auxiliar de Compose (solo si Dockfly corre en Docker: el
+// auxiliar llega a él por una red interna de cada ejecución).
+func startComposeProxy(ctx context.Context, log *slog.Logger, dc *docker.Client, m *apps.Manager) {
+	if env("DOCKFLY_COMPOSE_PROXY", "1") == "0" {
+		log.Warn("proxy de Docker desactivado: las apps de Compose tienen acceso total a Docker")
+		return
+	}
+	self, ok := dc.Self(ctx)
+	host, _ := os.Hostname()
+	if !ok || host == "" {
+		log.Warn("Dockfly no corre en Docker: las apps de Compose tendrán acceso total a Docker")
+		return
+	}
+	m.SetComposeProxy(&dockerproxy.Proxy{Dial: dc.Dial, Log: log.With("component", "docker-proxy"), Protected: self.Mounts}, host)
+	m.CleanupProxyNetworks(ctx)
+	log.Info("proxy de Docker para Compose activo")
 }
 
 // buildConfig lee los límites de los builds de las variables de entorno.

@@ -6,7 +6,10 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
+	"net/http"
 	"path"
+	"slices"
 	"strings"
 	"time"
 
@@ -100,26 +103,39 @@ func (m *Manager) deployCompose(ctx context.Context, app *store.App, d *store.Ap
 	return nil
 }
 
-// runHelper ejecuta un comando en el contenedor auxiliar de Compose, con el
-// socket de Docker del host y, si archive no es nil, el proyecto en /project.
+// runHelper ejecuta un comando en el contenedor auxiliar de Compose y, si
+// archive no es nil, con el proyecto en /project. El auxiliar habla con
+// Docker a través del proxy con permisos mínimos (solo su proyecto, nada de
+// contenedores privilegiados) o, sin proxy, con el socket del host.
 func (m *Manager) runHelper(ctx context.Context, app *store.App, cmd, env []string, archive io.Reader, log io.Writer) error {
 	dc := m.cfg.Docker
 	ctx, cancel := context.WithTimeout(ctx, composeTimeout)
 	defer cancel()
-	socket := m.cfg.HostDockerSocket
-	if socket == "" {
-		socket = "/var/run/docker.sock"
-	}
-	id, err := dc.CreateContainer(ctx, docker.ContainerSpec{
+	spec := docker.ContainerSpec{
 		Name:       fmt.Sprintf("dockfly-compose-%s-%d", app.Name, time.Now().UnixNano()),
 		Image:      ComposeImage,
 		Cmd:        cmd,
 		Env:        env,
 		WorkingDir: "/project",
-		KeepCaps:   true,
-		Binds:      []string{socket + ":/var/run/docker.sock"},
 		Labels:     map[string]string{labelHelper: app.Name},
-	})
+	}
+	if m.cfg.ComposeProxy != nil {
+		sess, err := m.proxySession(ctx, app)
+		if err != nil {
+			return fmt.Errorf("preparando el proxy de Docker: %w", err)
+		}
+		defer sess.close()
+		spec.Network = sess.network
+		spec.Env = append(slices.Clone(env), "DOCKER_HOST=tcp://"+sess.addr)
+	} else {
+		socket := m.cfg.HostDockerSocket
+		if socket == "" {
+			socket = "/var/run/docker.sock"
+		}
+		spec.KeepCaps = true
+		spec.Binds = []string{socket + ":/var/run/docker.sock"}
+	}
+	id, err := dc.CreateContainer(ctx, spec)
 	if err != nil {
 		return fmt.Errorf("creando el contenedor de Compose: %w", err)
 	}
@@ -155,6 +171,67 @@ func (m *Manager) runHelper(ctx context.Context, app *store.App, cmd, env []stri
 		return fmt.Errorf("docker compose terminó con código %d", code)
 	}
 	return nil
+}
+
+// proxySession es la conexión de una ejecución del auxiliar con el proxy:
+// una red interna en la que solo están el auxiliar y Dockfly, y un servidor
+// que escucha únicamente en la IP de Dockfly en esa red. Quien llega a él
+// es, por fuerza, el auxiliar de este proyecto.
+type proxySession struct {
+	network, addr string
+	close         func()
+}
+
+func (m *Manager) proxySession(ctx context.Context, app *store.App) (*proxySession, error) {
+	dc, self := m.cfg.Docker, m.cfg.SelfContainer
+	network := fmt.Sprintf("dockfly-compose-%s-%d", app.Name, time.Now().UnixNano())
+	if err := dc.CreateInternalNetwork(ctx, network, map[string]string{labelHelper: app.Name}); err != nil {
+		return nil, err
+	}
+	cleanup := func() {
+		bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		_ = dc.DisconnectNetwork(bg, network, self)
+		if err := dc.RemoveNetwork(bg, network); err != nil {
+			m.cfg.Log.Warn("borrando la red del auxiliar de Compose", "red", network, "error", err)
+		}
+	}
+	if err := dc.ConnectNetwork(ctx, network, self); err != nil {
+		cleanup()
+		return nil, err
+	}
+	ip, err := dc.ContainerIP(ctx, self, network)
+	if err != nil {
+		cleanup()
+		return nil, err
+	}
+	ln, err := net.Listen("tcp", net.JoinHostPort(ip, "2375"))
+	if err != nil {
+		cleanup()
+		return nil, err
+	}
+	srv := &http.Server{Handler: m.cfg.ComposeProxy.Handler(ComposeProject(app)), ReadHeaderTimeout: 30 * time.Second}
+	go func() { _ = srv.Serve(ln) }()
+	return &proxySession{network: network, addr: ln.Addr().String(), close: func() {
+		_ = srv.Close()
+		cleanup()
+	}}, nil
+}
+
+// CleanupProxyNetworks borra las redes de auxiliares que quedaran de una
+// ejecución interrumpida (p. ej. si Dockfly se reinició a mitad).
+func (m *Manager) CleanupProxyNetworks(ctx context.Context) {
+	if m.cfg.ComposeProxy == nil {
+		return
+	}
+	names, err := m.cfg.Docker.NetworksWithLabel(ctx, labelHelper)
+	if err != nil {
+		return
+	}
+	for _, n := range names {
+		_ = m.cfg.Docker.DisconnectNetwork(ctx, n, m.cfg.SelfContainer)
+		_ = m.cfg.Docker.RemoveNetwork(ctx, n)
+	}
 }
 
 func (m *Manager) ensureImage(ctx context.Context, image string, log io.Writer) error {
