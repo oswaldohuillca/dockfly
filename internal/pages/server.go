@@ -68,12 +68,34 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	defer root.Close()
 
 	w.Header().Set("X-Content-Type-Options", "nosniff")
-	name, status := resolve(root, r.URL.Path, route.SPA)
+	rules := loadRules(route.Dir)
+	urlPath := path.Clean("/" + r.URL.Path)
+
+	// Primero, si la ruta es un archivo real (sin el respaldo del modo SPA).
+	name, status := resolve(root, urlPath, false)
+	target := urlPath
+	if to, code, ok := rules.Match(urlPath); ok {
+		if code != http.StatusOK {
+			// Las redirecciones se aplican antes que los archivos.
+			if !strings.Contains(to, "?") && r.URL.RawQuery != "" {
+				to += "?" + r.URL.RawQuery
+			}
+			rules.ApplyHeaders(w.Header(), urlPath)
+			http.Redirect(w, r, to, code)
+			return
+		}
+		// Una reescritura solo actúa si la ruta no es ya un archivo.
+		target = to
+	}
+	if status != http.StatusOK {
+		name, status = resolve(root, target, route.SPA)
+	}
 	if name == "" {
+		rules.ApplyHeaders(w.Header(), urlPath)
 		http.NotFound(w, r)
 		return
 	}
-	serveFile(w, r, root, name, status, route.DeploymentID)
+	serveFile(w, r, root, name, status, route.DeploymentID, func(h http.Header) { rules.ApplyHeaders(h, urlPath) })
 }
 
 // resolve traduce una ruta URL al archivo que hay que servir, con la misma
@@ -113,8 +135,12 @@ func notFoundFile(root *os.Root, spa bool) (string, int) {
 }
 
 // hidden oculta los archivos que empiezan por punto (.env, .htaccess…),
-// salvo .well-known, que se usa para verificaciones de dominio.
+// salvo .well-known (verificaciones de dominio), y los de configuración del
+// sitio (_redirects, _headers).
 func hidden(p string) bool {
+	if p == redirectsFile || p == headersFile {
+		return true
+	}
 	for seg := range strings.SplitSeq(p, "/") {
 		if strings.HasPrefix(seg, ".") && seg != ".well-known" {
 			return true
@@ -128,7 +154,9 @@ func isFile(root *os.Root, name string) bool {
 	return err == nil && fi.Mode().IsRegular()
 }
 
-func serveFile(w http.ResponseWriter, r *http.Request, root *os.Root, name string, status int, deploymentID int64) {
+// serveFile sirve name. extra aplica las cabeceras de _headers, después de
+// las de Dockfly para que el sitio pueda sobrescribirlas (p. ej. Cache-Control).
+func serveFile(w http.ResponseWriter, r *http.Request, root *os.Root, name string, status int, deploymentID int64, extra func(http.Header)) {
 	f, err := root.Open(name)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
@@ -150,6 +178,7 @@ func serveFile(w http.ResponseWriter, r *http.Request, root *os.Root, name strin
 	// hacer rollback el navegador descarga la versión correcta.
 	w.Header().Set("Cache-Control", "public, max-age=0, must-revalidate")
 	w.Header().Set("ETag", fmt.Sprintf(`"%d-%x-%x"`, deploymentID, fi.Size(), fi.ModTime().UnixNano()))
+	extra(w.Header())
 
 	if status != http.StatusOK {
 		// ServeContent siempre responde 200; para 404.html escribimos a mano.

@@ -330,3 +330,69 @@ func TestAddTar(t *testing.T) {
 		t.Error("sin prefix debe incluirse todo el árbol")
 	}
 }
+
+func TestRedirectsAndHeaders(t *testing.T) {
+	site := deploy(t, map[string]string{
+		"index.html":      "home",
+		"nuevo/post.html": "post nuevo",
+		"app/index.html":  "app shell",
+		"existe.html":     "archivo real",
+		"_redirects": `# comentario
+/viejo            /nuevo            301
+/blog/*           /nuevo/:splat     301
+/u/:id            https://perfil.com/:id
+/app/*            /app/index.html   200
+/existe           /index.html       200
+/temporal         /                 307
+`,
+		"_headers": `/*
+  X-Frame-Options: DENY
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+/sin-frame
+  ! X-Frame-Options
+`,
+		"assets/a.js":    "js",
+		"sin-frame.html": "embebible",
+	})
+	srv := &Server{}
+	srv.SetRoutes(map[string]Route{"s.test": {Dir: site, DeploymentID: 3}})
+
+	redirect := func(path, wantLoc string, wantCode int) {
+		t.Helper()
+		rec := get(srv, "s.test", path)
+		if rec.Code != wantCode || rec.Header().Get("Location") != wantLoc {
+			t.Errorf("%s: %d %q, esperaba %d %q", path, rec.Code, rec.Header().Get("Location"), wantCode, wantLoc)
+		}
+	}
+	redirect("/viejo", "/nuevo", 301)
+	redirect("/blog/2026/hola?ref=x", "/nuevo/2026/hola?ref=x", 301)
+	redirect("/u/oswa", "https://perfil.com/oswa", 302) // sin código: 302, como Cloudflare Pages
+	redirect("/temporal", "/", 307)
+
+	cases := []struct{ path, body string }{
+		{"/app/usuarios/42", "app shell"}, // reescritura: misma URL, otro archivo
+		{"/existe", "archivo real"},       // la reescritura no pisa un archivo que existe
+		{"/nuevo/post", "post nuevo"},
+	}
+	for _, c := range cases {
+		if rec := get(srv, "s.test", c.path); rec.Code != 200 || rec.Body.String() != c.body {
+			t.Errorf("%s: %d %q, esperaba %q", c.path, rec.Code, rec.Body.String(), c.body)
+		}
+	}
+
+	if h := get(srv, "s.test", "/").Header(); h.Get("X-Frame-Options") != "DENY" {
+		t.Errorf("las cabeceras de /* deben aplicarse: %v", h)
+	}
+	if h := get(srv, "s.test", "/assets/a.js").Header(); h.Get("Cache-Control") != "public, max-age=31536000, immutable" {
+		t.Errorf("_headers debe poder sobrescribir el Cache-Control de Dockfly: %q", h.Get("Cache-Control"))
+	}
+	if h := get(srv, "s.test", "/sin-frame").Header(); h.Get("X-Frame-Options") != "" {
+		t.Errorf("«! Cabecera» debe quitarla: %v", h)
+	}
+	for _, p := range []string{"/_redirects", "/_headers"} {
+		if rec := get(srv, "s.test", p); rec.Code != 404 {
+			t.Errorf("%s no debe servirse: %d", p, rec.Code)
+		}
+	}
+}

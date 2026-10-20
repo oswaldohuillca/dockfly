@@ -37,6 +37,21 @@ Se conservan los 10 más recientes por sitio.
 - `404.html` personalizado, o modo **SPA** (cualquier ruta sirve `index.html`).
 - Compresión gzip/brotli, SSL de Let's Encrypt y ETag por despliegue.
 - Los archivos que empiezan por punto (`.env`, `.git`…) nunca se sirven, salvo `.well-known`.
+- **`_redirects` y `_headers`** en la raíz del build, con el formato de Cloudflare Pages:
+
+  ```
+  # _redirects
+  /viejo        /nuevo           301
+  /blog/*       /noticias/:splat 301
+  /app/*        /app/index.html  200   # reescritura: misma URL, otro archivo
+  ```
+  ```
+  # _headers
+  /assets/*
+    Cache-Control: public, max-age=31536000, immutable
+  ```
+  Las redirecciones se aplican antes que los archivos; las reescrituras (200), solo si el
+  archivo pedido no existe.
 
 Los archivos los sirve un servidor interno de Dockfly (`127.0.0.1:8099`) al que Traefik reenvía
 los dominios de cada sitio; no hace falta ningún contenedor extra.
