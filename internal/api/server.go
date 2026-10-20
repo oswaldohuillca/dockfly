@@ -155,6 +155,11 @@ func (s *Server) Apply(ctx context.Context) error {
 			table[d] = pr
 		}
 	}
+	if rt, ok, err := s.previewRoutes(ctx, sites, table, acl); err != nil {
+		return err
+	} else if ok {
+		routes = append(routes, rt)
+	}
 
 	// Primero el servidor estático y luego Traefik: así, cuando Traefik
 	// empiece a enrutar un dominio nuevo, el servidor ya sabe qué servir.

@@ -164,35 +164,131 @@ func (s *Server) handleListBranches(w http.ResponseWriter, r *http.Request) {
 
 // --- Ajustes ---
 
+type settingsView struct {
+	PublicURL         string `json:"public_url"`
+	PreviewDomain     string `json:"preview_domain"`
+	PreviewAccessList *int64 `json:"preview_access_list_id"`
+	// PreviewSSL indica si hay un certificado comodín para las previews.
+	PreviewSSL bool `json:"preview_ssl"`
+}
+
+func (s *Server) settings(ctx context.Context) (settingsView, error) {
+	var v settingsView
+	var err error
+	if v.PublicURL, err = s.Store.GetSetting(ctx, store.SettingPublicURL); err != nil {
+		return v, err
+	}
+	if v.PreviewDomain, err = s.previewDomain(ctx); err != nil {
+		return v, err
+	}
+	if raw, _ := s.Store.GetSetting(ctx, store.SettingPreviewAccessList); raw != "" {
+		if id, err := strconv.ParseInt(raw, 10, 64); err == nil {
+			v.PreviewAccessList = &id
+		}
+	}
+	if v.PreviewDomain != "" {
+		plan, err := s.loadCertPlan(ctx)
+		if err != nil {
+			return v, err
+		}
+		v.PreviewSSL = plan.resolver([]string{"*." + v.PreviewDomain}) != ""
+	}
+	return v, nil
+}
+
 func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
-	publicURL, err := s.Store.GetSetting(r.Context(), store.SettingPublicURL)
+	v, err := s.settings(r.Context())
 	if err != nil {
 		s.internalError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"public_url": publicURL})
+	writeJSON(w, http.StatusOK, v)
 }
 
+// handlePutSettings guarda solo los ajustes que vienen en la petición.
 func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 	var in struct {
-		PublicURL string `json:"public_url"`
+		PublicURL     *string `json:"public_url"`
+		PreviewDomain *string `json:"preview_domain"`
+		// 0 = sin lista de acceso.
+		PreviewAccessList *int64 `json:"preview_access_list_id"`
 	}
 	if !decode(w, r, &in) {
 		return
 	}
-	publicURL := strings.TrimRight(strings.TrimSpace(in.PublicURL), "/")
+	ctx := r.Context()
+	var warnings []string
+	if in.PreviewDomain != nil || in.PreviewAccessList != nil {
+		if !s.putPreviewSettings(w, r, in.PreviewDomain, in.PreviewAccessList) {
+			return
+		}
+		if err := s.Apply(ctx); err != nil {
+			s.internalError(w, fmt.Errorf("aplicando configuración: %w", err))
+			return
+		}
+	}
+	if in.PublicURL != nil {
+		publicURL, ok := s.putPublicURL(w, r, *in.PublicURL)
+		if !ok {
+			return
+		}
+		warnings = s.syncGitHubWebhooks(r, publicURL)
+	}
+	v, err := s.settings(ctx)
+	if err != nil {
+		s.internalError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"settings": v, "warnings": warnings})
+}
+
+func (s *Server) putPreviewSettings(w http.ResponseWriter, r *http.Request, domain *string, aclID *int64) bool {
+	ctx := r.Context()
+	if domain != nil {
+		d := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(*domain)), ".")
+		if d != "" {
+			list, err := normalizeDomains([]string{d})
+			if err != nil || len(list) != 1 || strings.HasPrefix(list[0], "*.") || !strings.Contains(list[0], ".") {
+				writeError(w, http.StatusBadRequest, "el dominio de previews debe ser del tipo previews.midominio.com (sin *.)")
+				return false
+			}
+			d = list[0]
+		}
+		if err := s.Store.SetSetting(ctx, store.SettingPreviewDomain, d); err != nil {
+			s.internalError(w, err)
+			return false
+		}
+	}
+	if aclID != nil {
+		raw := ""
+		if *aclID != 0 {
+			if !s.checkAccessList(w, r, aclID) {
+				return false
+			}
+			raw = strconv.FormatInt(*aclID, 10)
+		}
+		if err := s.Store.SetSetting(ctx, store.SettingPreviewAccessList, raw); err != nil {
+			s.internalError(w, err)
+			return false
+		}
+	}
+	return true
+}
+
+func (s *Server) putPublicURL(w http.ResponseWriter, r *http.Request, raw string) (string, bool) {
+	publicURL := strings.TrimRight(strings.TrimSpace(raw), "/")
 	if publicURL != "" {
 		u, err := url.Parse(publicURL)
 		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || (u.Path != "" && u.Path != "/") {
 			writeError(w, http.StatusBadRequest, "la URL pública debe ser del tipo https://dockfly.midominio.com")
-			return
+			return "", false
 		}
 	}
 	if err := s.Store.SetSetting(r.Context(), store.SettingPublicURL, publicURL); err != nil {
 		s.internalError(w, err)
-		return
+		return "", false
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"public_url": publicURL, "warnings": s.syncGitHubWebhooks(r, publicURL)})
+	return publicURL, true
 }
 
 // --- Repositorio de un sitio ---
@@ -410,7 +506,7 @@ func (s *Server) handleTriggerBuild(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "el sitio no está enlazado a ningún repositorio")
 		return
 	}
-	b, err := s.Builds.Enqueue(r.Context(), site.ID, store.TriggerManual, site.Branch, gitprovider.Commit{})
+	b, err := s.Builds.Enqueue(r.Context(), site.ID, store.TriggerManual, site.Branch, "", gitprovider.Commit{})
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
@@ -583,16 +679,16 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ignorado"})
 		return
 	}
-	if push.Branch != site.Branch {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ignorado: la rama " + push.Branch + " no se despliega"})
-		return
-	}
-	b, err := s.Builds.Enqueue(r.Context(), site.ID, store.TriggerPush, push.Branch, push.Commit)
+	id, status, err := s.handleSitePush(r.Context(), site, push)
 	if err != nil {
 		writeError(w, http.StatusServiceUnavailable, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusAccepted, map[string]any{"status": "en cola", "build_id": b.ID})
+	if id == 0 {
+		writeJSON(w, http.StatusOK, map[string]string{"status": status})
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]any{"status": status, "build_id": id})
 }
 
 // handleClearBuildCache vacía la caché de dependencias del sitio (útil si

@@ -178,6 +178,7 @@ func run(log *slog.Logger) error {
 	buildCfg.Pages, buildCfg.LogDir = pagesStorage, filepath.Join(dataDir, "builds")
 	buildCfg.Log, buildCfg.Publish = log.With("component", "builder"), srv.Publish
 	buildCfg.OnFinish = srv.OnBuildFinished
+	buildCfg.StatusURL = srv.StatusURL
 	certs.OnError = srv.OnCertError
 	srv.Builds = builder.New(buildCfg)
 	srv.Apps = apps.New(apps.Config{

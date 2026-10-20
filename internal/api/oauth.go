@@ -415,7 +415,7 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	for _, a := range appList {
-		if a.Source == store.AppSourceImage || a.GitConnectionID == nil || !slices.Contains(ids, *a.GitConnectionID) ||
+		if push.Deleted || a.Source == store.AppSourceImage || a.GitConnectionID == nil || !slices.Contains(ids, *a.GitConnectionID) ||
 			a.Repo != push.Repo || a.Branch != push.Branch {
 			continue
 		}
@@ -426,16 +426,25 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 		}
 		builds = append(builds, d.ID)
 	}
+	handled := false
 	for _, site := range sites {
-		if site.Repo != push.Repo || site.Branch != push.Branch {
+		if site.Repo != push.Repo {
 			continue
 		}
-		b, err := s.Builds.Enqueue(ctx, site.ID, store.TriggerPush, push.Branch, push.Commit)
+		id, _, err := s.handleSitePush(ctx, site, push)
 		if err != nil {
 			writeError(w, http.StatusServiceUnavailable, err.Error())
 			return
 		}
-		builds = append(builds, b.ID)
+		if id != 0 {
+			builds = append(builds, id)
+		} else if push.Deleted {
+			handled = true
+		}
+	}
+	if handled && len(builds) == 0 {
+		writeJSON(w, http.StatusOK, map[string]string{"status": "rama borrada"})
+		return
 	}
 	if len(builds) == 0 {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ignorado: ningún sitio despliega " + push.Repo + "@" + push.Branch})

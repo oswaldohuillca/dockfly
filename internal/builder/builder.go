@@ -64,6 +64,9 @@ type Config struct {
 	Publish func(ctx context.Context, siteID, deploymentID int64) error
 	// OnFinish, si no es nil, se llama al terminar cada build (notificaciones).
 	OnFinish func(ctx context.Context, buildID int64)
+	// StatusURL, si no es nil, da el enlace del estado del commit: el sitio
+	// publicado si el build salió bien (depID != 0) o el panel si no.
+	StatusURL func(ctx context.Context, site *store.Site, b *store.Build, depID int64) string
 
 	Concurrency int
 	Timeout     time.Duration
@@ -141,10 +144,11 @@ func (m *Manager) recover(ctx context.Context) {
 }
 
 // Enqueue crea un build y lo pone en cola. Los builds que esperaban para el
-// mismo sitio se cancelan: solo tiene sentido construir el commit más nuevo.
-func (m *Manager) Enqueue(ctx context.Context, siteID int64, trigger, branch string, commit gitprovider.Commit) (*store.Build, error) {
+// mismo sitio (y la misma preview) se cancelan: solo tiene sentido construir
+// el commit más nuevo. preview vacío es un build de producción.
+func (m *Manager) Enqueue(ctx context.Context, siteID int64, trigger, branch, preview string, commit gitprovider.Commit) (*store.Build, error) {
 	b := &store.Build{
-		SiteID: siteID, Status: store.BuildQueued, Trigger: trigger, Branch: branch,
+		SiteID: siteID, Status: store.BuildQueued, Trigger: trigger, Branch: branch, Preview: preview,
 		CommitSHA: commit.SHA, CommitMessage: commit.Message,
 	}
 	if err := m.cfg.Store.CreateBuild(ctx, b); err != nil {
@@ -243,6 +247,46 @@ func (m *Manager) run(parent context.Context, id int64) {
 	if m.cfg.OnFinish != nil && status != store.BuildCanceled {
 		m.cfg.OnFinish(context.WithoutCancel(parent), id)
 	}
+	state, desc := gitprovider.StateSuccess, "Publicado"
+	if b.Preview != "" {
+		desc = "Preview publicada"
+	}
+	if status != store.BuildSuccess {
+		state, desc = gitprovider.StateFailure, msg
+		depID = 0
+	}
+	if fresh, err := st.GetBuild(context.WithoutCancel(parent), id); err == nil {
+		m.report(context.WithoutCancel(parent), fresh, state, desc, depID)
+	}
+}
+
+// report marca el commit del build en GitHub/GitLab. Es informativo: si
+// falla (p. ej. una GitHub App creada antes de pedir el permiso de
+// estados), solo se registra.
+func (m *Manager) report(ctx context.Context, b *store.Build, state, desc string, depID int64) {
+	if b.CommitSHA == "" {
+		return
+	}
+	site, err := m.cfg.Store.GetSite(ctx, b.SiteID)
+	if err != nil {
+		return
+	}
+	prov, _, err := m.provider(ctx, site)
+	if err != nil {
+		return
+	}
+	st := gitprovider.Status{State: state, Name: "dockfly/" + site.Name, Description: desc}
+	if b.Preview != "" {
+		st.Name += " (preview)"
+	}
+	if m.cfg.StatusURL != nil {
+		st.URL = m.cfg.StatusURL(ctx, site, b, depID)
+	}
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	if err := prov.SetStatus(ctx, site.Repo, b.CommitSHA, st); err != nil {
+		m.cfg.Log.Warn("no se pudo marcar el estado del commit", "site", site.ID, "sha", short(b.CommitSHA), "error", err)
+	}
 }
 
 // Env descifra las variables de entorno del build de un sitio.
@@ -292,6 +336,11 @@ func (m *Manager) pipeline(ctx context.Context, b *store.Build, log io.Writer) (
 		_ = st.SetBuildCommit(ctx, b.ID, commit.SHA, commit.Message)
 	}
 	fmt.Fprintf(log, "▶ %s@%s (%s): %s\n", site.Repo, short(commit.SHA), b.Branch, commit.Message)
+	if b.Preview != "" {
+		fmt.Fprintf(log, "▶ Preview de la rama %s\n", b.Branch)
+	}
+	b.CommitSHA = commit.SHA
+	m.report(ctx, b, gitprovider.StatePending, "Construyendo…", 0)
 
 	staging, err := m.cfg.Pages.NewStaging(site.ID)
 	if err != nil {
@@ -321,7 +370,7 @@ func (m *Manager) pipeline(ctx context.Context, b *store.Build, log io.Writer) (
 	fmt.Fprintf(log, "▶ Publicando %d archivos (%s)…\n", files, humanBytes(size))
 	dep := &store.Deployment{
 		SiteID: site.ID, Source: providerName, FileCount: files, TotalBytes: size,
-		CommitSHA: commit.SHA, CommitMessage: commit.Message, Branch: b.Branch,
+		CommitSHA: commit.SHA, CommitMessage: commit.Message, Branch: b.Branch, Preview: b.Preview,
 	}
 	if err := st.CreateDeployment(ctx, dep); err != nil {
 		return 0, err

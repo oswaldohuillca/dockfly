@@ -18,7 +18,9 @@ type Site struct {
 	ForceHTTPS bool     `bun:"force_https" json:"force_https"`
 	HSTS       bool     `bun:"hsts" json:"hsts"`
 	// SPA sirve index.html para cualquier ruta que no exista (React Router, Vue Router…).
-	SPA                bool      `bun:"spa" json:"spa"`
+	SPA bool `bun:"spa" json:"spa"`
+	// Previews construye las ramas que no son la de producción en su propia URL.
+	Previews           bool      `json:"previews"`
 	AccessListID       *int64    `json:"access_list_id"`
 	ActiveDeploymentID *int64    `json:"active_deployment_id"`
 	CreatedAt          time.Time `json:"created_at"`
@@ -64,6 +66,8 @@ type Deployment struct {
 	CommitSHA     string `json:"commit_sha"`
 	CommitMessage string `json:"commit_message"`
 	Branch        string `json:"branch"`
+	// Preview identifica la rama ("" = producción).
+	Preview string `json:"preview"`
 }
 
 func (s *Site) AfterScanRow(context.Context) error {
@@ -131,9 +135,27 @@ func (s *Store) SetActiveDeployment(ctx context.Context, siteID int64, deploymen
 		Where("id = ?", siteID).Exec(ctx))
 }
 
+// ListDeployments devuelve los despliegues de producción (sin previews).
 func (s *Store) ListDeployments(ctx context.Context, siteID int64) ([]*Deployment, error) {
 	deps := []*Deployment{}
-	err := s.db.NewSelect().Model(&deps).Where("site_id = ?", siteID).Order("id DESC").Scan(ctx)
+	err := s.db.NewSelect().Model(&deps).Where("site_id = ? AND preview = ''", siteID).Order("id DESC").Scan(ctx)
+	return deps, err
+}
+
+// ListPreviews devuelve el despliegue más reciente de cada preview del sitio.
+func (s *Store) ListPreviews(ctx context.Context, siteID int64) ([]*Deployment, error) {
+	deps := []*Deployment{}
+	err := s.db.NewSelect().Model(&deps).
+		Where("site_id = ? AND preview <> ''", siteID).
+		Where("id IN (SELECT MAX(id) FROM deployments WHERE site_id = ? AND preview <> '' GROUP BY preview)", siteID).
+		Order("id DESC").Scan(ctx)
+	return deps, err
+}
+
+// PreviewDeployments devuelve todos los despliegues de una preview.
+func (s *Store) PreviewDeployments(ctx context.Context, siteID int64, preview string) ([]*Deployment, error) {
+	deps := []*Deployment{}
+	err := s.db.NewSelect().Model(&deps).Where("site_id = ? AND preview = ?", siteID, preview).Order("id DESC").Scan(ctx)
 	return deps, err
 }
 

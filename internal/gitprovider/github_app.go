@@ -71,8 +71,9 @@ func NewManifest(name, panelURL, hookURL string) Manifest {
 		SetupURL:      panelURL + "/api/git/github/setup",
 		SetupOnUpdate: true,
 		Public:        false,
-		// Solo lectura del código: Dockfly nunca escribe en tus repos.
-		DefaultPermissions: map[string]string{"contents": "read", "metadata": "read"},
+		// Solo lectura del código: Dockfly nunca escribe en tus repos. Solo
+		// marca los commits con el resultado del build.
+		DefaultPermissions: map[string]string{"contents": "read", "metadata": "read", "statuses": "write"},
 		DefaultEvents:      []string{"push"},
 	}
 	if hookURL != "" {

@@ -107,6 +107,16 @@ func (g *github) LatestCommit(ctx context.Context, repo, branch string) (Commit,
 	return Commit{SHA: raw.SHA, Message: firstLine(raw.Commit.Message)}, err
 }
 
+func (g *github) SetStatus(ctx context.Context, repo, sha string, st Status) error {
+	body := map[string]string{
+		"state": st.State, "context": st.Name, "description": truncate(st.Description, 140),
+	}
+	if st.URL != "" {
+		body["target_url"] = st.URL
+	}
+	return g.do(ctx, http.MethodPost, "/repos/"+repoPath(repo)+"/statuses/"+url.PathEscape(sha), body, nil)
+}
+
 func (g *github) Tarball(ctx context.Context, repo, sha string) (io.ReadCloser, error) {
 	return g.download(ctx, "/repos/"+repoPath(repo)+"/tarball/"+url.PathEscape(sha))
 }
@@ -191,7 +201,13 @@ func ParseGitHubPush(h http.Header, body []byte) (push Push, ok bool, err error)
 		return Push{}, false, err
 	}
 	branch, isBranch := strings.CutPrefix(p.Ref, "refs/heads/")
-	if !isBranch || p.Deleted || p.HeadCommit == nil {
+	if !isBranch {
+		return Push{}, false, nil
+	}
+	if p.Deleted {
+		return Push{Branch: branch, Deleted: true, Repo: p.Repository.FullName, InstallationID: p.Installation.ID}, true, nil
+	}
+	if p.HeadCommit == nil {
 		return Push{}, false, nil
 	}
 	return Push{

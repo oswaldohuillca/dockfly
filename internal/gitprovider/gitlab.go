@@ -73,6 +73,20 @@ func (g *gitlab) LatestCommit(ctx context.Context, repo, branch string) (Commit,
 	return Commit{SHA: raw.ID, Message: firstLine(raw.Message)}, err
 }
 
+func (g *gitlab) SetStatus(ctx context.Context, repo, sha string, st Status) error {
+	state := st.State
+	if state == StateFailure {
+		state = "failed"
+	} else if state == StatePending {
+		state = "running"
+	}
+	body := map[string]string{"state": state, "name": st.Name, "description": truncate(st.Description, 255)}
+	if st.URL != "" {
+		body["target_url"] = st.URL
+	}
+	return g.do(ctx, http.MethodPost, "/projects/"+project(repo)+"/statuses/"+url.PathEscape(sha), body, nil)
+}
+
 func (g *gitlab) Tarball(ctx context.Context, repo, sha string) (io.ReadCloser, error) {
 	return g.download(ctx, "/projects/"+project(repo)+"/repository/archive.tar.gz?sha="+url.QueryEscape(sha))
 }
@@ -123,9 +137,12 @@ func ParseGitLabWebhook(h http.Header, body []byte, secret string) (push Push, o
 		return Push{}, false, err
 	}
 	branch, isBranch := strings.CutPrefix(p.Ref, "refs/heads/")
-	// checkout_sha es null cuando se borra la rama.
-	if !isBranch || p.CheckoutSHA == nil || *p.CheckoutSHA == "" {
+	if !isBranch {
 		return Push{}, false, nil
+	}
+	// checkout_sha es null cuando se borra la rama.
+	if p.CheckoutSHA == nil || *p.CheckoutSHA == "" {
+		return Push{Branch: branch, Deleted: true}, true, nil
 	}
 	c := Commit{SHA: *p.CheckoutSHA}
 	for _, cm := range p.Commits {

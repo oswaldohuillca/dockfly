@@ -4,6 +4,7 @@ import { Download, Terminal } from 'lucide-react';
 import { AccessLists } from '@/components/access-lists';
 import { CertificatesSettings } from '@/components/certificates-settings';
 import { Notifications } from '@/components/notifications';
+import { PreviewSettings } from '@/components/preview-settings';
 import { RestoreBackup } from '@/components/restore-backup';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +19,7 @@ function Settings() {
       <Notifications />
       <AccessLists />
       <CertificatesSettings />
+      <PreviewSettings />
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Copias de seguridad</CardTitle>

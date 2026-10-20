@@ -604,7 +604,7 @@ func (s *Server) handleAppWebhook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "payload inválido")
 		return
 	}
-	if !isPush || push.Branch != a.Branch {
+	if !isPush || push.Deleted || push.Branch != a.Branch {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ignorado"})
 		return
 	}

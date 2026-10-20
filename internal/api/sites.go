@@ -36,6 +36,7 @@ type siteInput struct {
 	ForceHTTPS bool     `json:"force_https"`
 	HSTS       bool     `json:"hsts"`
 	SPA        bool     `json:"spa"`
+	Previews   bool     `json:"previews"`
 	AccessList *int64   `json:"access_list_id"`
 }
 
@@ -55,6 +56,7 @@ func (in *siteInput) normalize() (*store.Site, error) {
 		ForceHTTPS: in.SSL && in.ForceHTTPS,
 		HSTS:       in.SSL && in.HSTS,
 		SPA:        in.SPA,
+		Previews:   in.Previews,
 
 		AccessListID: in.AccessList,
 	}, nil
@@ -295,6 +297,14 @@ func (s *Server) activate(ctx context.Context, siteID, deploymentID int64) error
 // Publish activa un despliegue nuevo y limpia los antiguos. Lo usan tanto
 // la subida directa como los builds.
 func (s *Server) Publish(ctx context.Context, siteID, deploymentID int64) error {
+	// Una preview no se activa: se sirve siempre su último despliegue.
+	if dep, err := s.Store.GetDeployment(ctx, siteID, deploymentID); err == nil && dep.Preview != "" {
+		if err := s.Apply(ctx); err != nil {
+			return err
+		}
+		s.prunePreview(ctx, siteID, dep.Preview)
+		return nil
+	}
 	if err := s.activate(ctx, siteID, deploymentID); err != nil {
 		return err
 	}

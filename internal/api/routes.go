@@ -80,6 +80,8 @@ func (s *Server) Handler() http.Handler {
 					r.Post("/deployments", s.handleUploadDeployment)
 					r.Post("/deployments/{deploymentID}/activate", s.handleActivateDeployment)
 					r.Delete("/deployments/{deploymentID}", s.handleDeleteDeployment)
+					r.Get("/previews", s.handleListPreviews)
+					r.Delete("/previews/{preview}", s.handleDeletePreview)
 
 					r.Put("/git", s.handlePutSiteGit)
 					r.Delete("/git", s.handleDeleteSiteGit)

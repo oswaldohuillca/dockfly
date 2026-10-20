@@ -180,6 +180,7 @@ export function SiteGit({ site, onChange }: Props) {
                           <span className="font-mono text-sm">#{b.id}</span>
                           <BuildStatusBadge status={b.status} />
                         </div>
+                        {b.preview && <div className="mt-0.5 text-xs text-muted-foreground">Preview · {b.branch}</div>}
                       </TableCell>
                       <TableCell className="max-w-72">
                         {b.commit_sha ? (

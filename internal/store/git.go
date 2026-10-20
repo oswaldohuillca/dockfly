@@ -174,7 +174,14 @@ type setting struct {
 	Value string
 }
 
-const SettingPublicURL = "public_url"
+const (
+	SettingPublicURL = "public_url"
+	// SettingPreviewDomain es el dominio bajo el que se publican las previews
+	// (rama--sitio.<dominio>).
+	SettingPreviewDomain = "preview_domain"
+	// SettingPreviewAccessList protege todas las previews con una lista de acceso.
+	SettingPreviewAccessList = "preview_access_list"
+)
 
 // GetSetting devuelve "" si el ajuste no existe.
 func (s *Store) GetSetting(ctx context.Context, key string) (string, error) {
@@ -213,6 +220,7 @@ type Build struct {
 	Status        string     `json:"status"`
 	Trigger       string     `json:"trigger"`
 	Branch        string     `json:"branch"`
+	Preview       string     `json:"preview"` // "" = producción
 	CommitSHA     string     `json:"commit_sha"`
 	CommitMessage string     `json:"commit_message"`
 	DeploymentID  *int64     `json:"deployment_id"`
@@ -283,12 +291,17 @@ func (s *Store) FinishBuild(ctx context.Context, id int64, status, errMsg string
 		Where("id = ? AND status IN (?, ?)", id, BuildQueued, BuildRunning).Exec(ctx))
 }
 
-// SupersedeQueued cancela los builds en cola de un sitio, excepto keepID:
-// si llegan varios pushes seguidos, solo merece la pena construir el último.
+// SupersedeQueued cancela los builds en cola del mismo sitio y la misma
+// preview (o producción), excepto keepID: si llegan varios pushes seguidos,
+// solo merece la pena construir el último.
 func (s *Store) SupersedeQueued(ctx context.Context, siteID, keepID int64) ([]int64, error) {
+	keep, err := s.GetBuild(ctx, keepID)
+	if err != nil {
+		return nil, err
+	}
 	var ids []int64
-	err := s.db.NewSelect().Model((*Build)(nil)).Column("id").
-		Where("site_id = ? AND status = ? AND id <> ?", siteID, BuildQueued, keepID).Scan(ctx, &ids)
+	err = s.db.NewSelect().Model((*Build)(nil)).Column("id").
+		Where("site_id = ? AND status = ? AND id <> ? AND preview = ?", siteID, BuildQueued, keepID, keep.Preview).Scan(ctx, &ids)
 	if err != nil || len(ids) == 0 {
 		return nil, err
 	}

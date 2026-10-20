@@ -30,6 +30,7 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
     force_https: site?.force_https ?? true,
     hsts: site?.hsts ?? false,
     spa: site?.spa ?? false,
+    previews: site?.previews ?? false,
     access_list_id: site?.access_list_id ?? null,
   }));
   const [error, setError] = useState('');
@@ -92,6 +93,13 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
                 onChange={(v) => set('spa', v)}
                 label="Aplicación de una sola página (SPA)"
                 hint="Sirve index.html en cualquier ruta que no exista. Actívalo para React Router, Vue Router, etc."
+              />
+              <CheckField
+                id="previews"
+                checked={form.previews}
+                onChange={(v) => set('previews', v)}
+                label="Previews por rama"
+                hint="Cada push a otra rama se publica en su propia URL (rama--sitio.dominio-de-previews). Configura el dominio en Ajustes."
               />
             </TabsContent>
 

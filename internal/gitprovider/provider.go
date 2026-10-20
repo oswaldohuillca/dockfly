@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 const (
@@ -35,6 +36,8 @@ type Commit struct {
 type Push struct {
 	Branch string
 	Commit Commit
+	// Deleted indica que se borró la rama (Commit va vacío).
+	Deleted bool
 	// Solo en los webhooks de la GitHub App, que son uno para todos los repos.
 	Repo           string
 	InstallationID int64
@@ -51,6 +54,35 @@ type Provider interface {
 	Tarball(ctx context.Context, repo, sha string) (io.ReadCloser, error)
 	CreateWebhook(ctx context.Context, repo, hookURL, secret string) (id string, err error)
 	DeleteWebhook(ctx context.Context, repo, id string) error
+	// SetStatus marca el commit con el estado del build (✓/✗ en el commit y
+	// en sus pull requests).
+	SetStatus(ctx context.Context, repo, sha string, st Status) error
+}
+
+// Estados de un commit.
+const (
+	StatePending = "pending"
+	StateSuccess = "success"
+	StateFailure = "failure"
+)
+
+// Status es el estado de un build tal y como se muestra en el commit.
+type Status struct {
+	State       string
+	Name        string // identifica el check ("dockfly/mi-web")
+	Description string
+	URL         string // a dónde lleva el enlace del estado
+}
+
+// truncate recorta s a n bytes sin partir caracteres.
+func truncate(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n]
 }
 
 // DefaultBaseURL es la URL de la API pública de cada proveedor.

@@ -40,9 +40,16 @@ func (s *Server) OnBuildFinished(ctx context.Context, buildID int64) {
 			Message: fmt.Sprintf("%s (%s)\n%s", commit, b.Branch, b.Error),
 		})
 	case store.BuildSuccess:
+		title := fmt.Sprintf("%s publicado", site.Name)
+		if b.Preview != "" {
+			title = fmt.Sprintf("Preview de %s (%s) publicada", site.Name, b.Branch)
+			if u := s.previewURL(ctx, site, b.Preview); u != "" {
+				link = u
+			}
+		}
 		s.Notify.Notify(notify.Event{
 			Kind: notify.EventBuildSucceeded, Severity: notify.Success, URL: link,
-			Title:   fmt.Sprintf("%s publicado", site.Name),
+			Title:   title,
 			Message: fmt.Sprintf("Build #%d · %s (%s)", b.ID, commit, b.Branch),
 		})
 	}

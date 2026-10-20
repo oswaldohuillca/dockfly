@@ -46,12 +46,39 @@ func makeTarball(t *testing.T, files map[string]string) []byte {
 }
 
 func fakeGitHub(t *testing.T, tarball []byte) *httptest.Server {
+	return fakeGitHubStatuses(t, tarball, nil)
+}
+
+// statusLog guarda los estados de commit que recibe el GitHub falso.
+type statusLog struct {
+	mu   sync.Mutex
+	list []map[string]string
+}
+
+func (l *statusLog) all() []map[string]string {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return append([]map[string]string(nil), l.list...)
+}
+
+func fakeGitHubStatuses(t *testing.T, tarball []byte, statuses *statusLog) *httptest.Server {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer ghp_test" {
 			w.WriteHeader(401)
 			return
 		}
+		if r.Method == http.MethodPost && r.URL.Path == "/repos/oswa/web/statuses/abc123def" && statuses != nil {
+			var body map[string]string
+			json.NewDecoder(r.Body).Decode(&body)
+			statuses.mu.Lock()
+			statuses.list = append(statuses.list, body)
+			statuses.mu.Unlock()
+			w.WriteHeader(201)
+			return
+		}
 		switch r.URL.Path {
+		case "/repos/oswa/web/commits/feature/login":
+			io.WriteString(w, `{"sha":"abc123def","commit":{"message":"Login"}}`)
 		case "/repos/oswa/web/commits/main":
 			io.WriteString(w, `{"sha":"abc123def","commit":{"message":"Portada nueva"}}`)
 		case "/repos/oswa/web/tarball/abc123def":
@@ -141,7 +168,7 @@ func TestPlainHTMLWithoutDocker(t *testing.T) {
 	}))
 	e := setup(t, gh.URL, store.SiteGit{OutputDir: "public"}, nil, nil)
 
-	b, err := e.mgr.Enqueue(context.Background(), e.site.ID, store.TriggerManual, "main", gitprovider.Commit{})
+	b, err := e.mgr.Enqueue(context.Background(), e.site.ID, store.TriggerManual, "main", "", gitprovider.Commit{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,6 +185,72 @@ func TestPlainHTMLWithoutDocker(t *testing.T) {
 	}
 	if _, err := os.Stat(filepath.Join(dir, "README.md")); err == nil {
 		t.Error("solo debe publicarse el contenido del directorio de salida")
+	}
+}
+
+// Una preview publica su propio despliegue sin tocar el de producción y
+// marca el commit con el resultado.
+func TestPreviewBuildAndStatus(t *testing.T) {
+	var statuses statusLog
+	gh := fakeGitHubStatuses(t, makeTarball(t, map[string]string{"index.html": "rama"}), &statuses)
+	e := setup(t, gh.URL, store.SiteGit{}, nil, nil)
+	e.mgr.cfg.StatusURL = func(_ context.Context, _ *store.Site, b *store.Build, depID int64) string {
+		if depID != 0 {
+			return "https://" + b.Preview + "--web.previews.test"
+		}
+		return "https://panel.test/sites/1"
+	}
+
+	b, err := e.mgr.Enqueue(context.Background(), e.site.ID, store.TriggerPush, "feature/login", "feature-login", gitprovider.Commit{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, log := e.wait(t, b.ID)
+	if got.Status != store.BuildSuccess {
+		t.Fatalf("estado %s (%s)\n%s", got.Status, got.Error, log)
+	}
+	dep, err := e.st.GetDeployment(context.Background(), e.site.ID, *got.DeploymentID)
+	if err != nil || dep.Preview != "feature-login" || dep.Branch != "feature/login" {
+		t.Fatalf("despliegue de la preview: %+v %v", dep, err)
+	}
+	if prod, _ := e.st.ListDeployments(context.Background(), e.site.ID); len(prod) != 0 {
+		t.Errorf("la preview no debe aparecer entre los despliegues de producción: %+v", prod)
+	}
+	if prev, _ := e.st.ListPreviews(context.Background(), e.site.ID); len(prev) != 1 || prev[0].ID != dep.ID {
+		t.Errorf("previews: %+v", prev)
+	}
+
+	st := statuses.all()
+	if len(st) != 2 {
+		t.Fatalf("se esperaban 2 estados (pendiente y resultado): %+v", st)
+	}
+	if st[0]["state"] != "pending" || st[0]["context"] != "dockfly/web (preview)" {
+		t.Errorf("primer estado: %+v", st[0])
+	}
+	if st[1]["state"] != "success" || st[1]["target_url"] != "https://feature-login--web.previews.test" {
+		t.Errorf("estado final: %+v", st[1])
+	}
+}
+
+// Los builds en cola de una preview no cancelan los de producción.
+func TestSupersedeKeepsOtherPreviews(t *testing.T) {
+	e := setup(t, "http://127.0.0.1:1", store.SiteGit{}, nil, nil)
+	ctx := context.Background()
+	mk := func(preview string) *store.Build {
+		b := &store.Build{SiteID: e.site.ID, Status: store.BuildQueued, Trigger: store.TriggerPush, Preview: preview}
+		if err := e.st.CreateBuild(ctx, b); err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}
+	prod, prev1 := mk(""), mk("x")
+	prev2 := mk("x")
+	ids, err := e.st.SupersedeQueued(ctx, e.site.ID, prev2.ID)
+	if err != nil || len(ids) != 1 || ids[0] != prev1.ID {
+		t.Fatalf("solo debe cancelarse el build anterior de la misma preview: %v %v", ids, err)
+	}
+	if b, _ := e.st.GetBuild(ctx, prod.ID); b.Status == store.BuildCanceled {
+		t.Errorf("el build de producción no debe cancelarse: %s", b.Status)
 	}
 }
 
@@ -184,7 +277,7 @@ func TestBuildWithBun(t *testing.T) {
 		RootDir: "app", InstallCommand: DefaultInstall, BuildCommand: DefaultBuild, OutputDir: "dist", BuildImage: DefaultImage,
 	}, map[string]string{"API_URL": "https://api.ejemplo.com"}, dc)
 
-	b, _ := e.mgr.Enqueue(context.Background(), e.site.ID, store.TriggerPush, "main",
+	b, _ := e.mgr.Enqueue(context.Background(), e.site.ID, store.TriggerPush, "main", "",
 		gitprovider.Commit{SHA: "abc123def", Message: "Portada nueva"})
 	got, log := e.wait(t, b.ID)
 	if got.Status != store.BuildSuccess {
@@ -232,7 +325,7 @@ func TestBuildFailures(t *testing.T) {
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
 			e := setup(t, gh.URL, store.SiteGit{BuildCommand: c.build, OutputDir: c.output, BuildImage: DefaultImage}, nil, dc)
-			b, _ := e.mgr.Enqueue(context.Background(), e.site.ID, store.TriggerManual, "main", gitprovider.Commit{SHA: "abc123def"})
+			b, _ := e.mgr.Enqueue(context.Background(), e.site.ID, store.TriggerManual, "main", "", gitprovider.Commit{SHA: "abc123def"})
 			got, log := e.wait(t, b.ID)
 			if got.Status != store.BuildFailed || !strings.Contains(got.Error, c.wantErr) {
 				t.Errorf("esperaba fallo %q, obtuve %s %q\n%s", c.wantErr, got.Status, got.Error, log)
@@ -253,7 +346,7 @@ func TestCancelRunningBuild(t *testing.T) {
 	gh := fakeGitHub(t, makeTarball(t, map[string]string{"package.json": `{}`}))
 	e := setup(t, gh.URL, store.SiteGit{BuildCommand: "echo empezando; sleep 120", OutputDir: "dist", BuildImage: DefaultImage}, nil, dc)
 
-	b, _ := e.mgr.Enqueue(context.Background(), e.site.ID, store.TriggerManual, "main", gitprovider.Commit{SHA: "abc123def"})
+	b, _ := e.mgr.Enqueue(context.Background(), e.site.ID, store.TriggerManual, "main", "", gitprovider.Commit{SHA: "abc123def"})
 	// Esperamos a que el contenedor esté ejecutando el comando.
 	for i := 0; i < 300; i++ {
 		if log, _ := os.ReadFile(e.mgr.LogPath(b.ID)); strings.Contains(string(log), "empezando") {
@@ -300,7 +393,7 @@ func TestBuildCacheIsReused(t *testing.T) {
 	installTime := regexp.MustCompile(`packages installed \[([0-9.]+m?s)\]`)
 	var logs [2]string
 	for i := range 2 {
-		b, _ := e.mgr.Enqueue(context.Background(), e.site.ID, store.TriggerManual, "main", gitprovider.Commit{SHA: "abc123def"})
+		b, _ := e.mgr.Enqueue(context.Background(), e.site.ID, store.TriggerManual, "main", "", gitprovider.Commit{SHA: "abc123def"})
 		got, log := e.wait(t, b.ID)
 		if got.Status != store.BuildSuccess {
 			t.Fatalf("build %d: %s (%s)\n%s", i+1, got.Status, got.Error, log)

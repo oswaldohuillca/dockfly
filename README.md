@@ -62,7 +62,8 @@ Conecta un repositorio y cada push a la rama elegida construye el sitio y lo pub
 
 - **GitHub**: en *Integraciones → Conectar con GitHub*, GitHub crea con un clic la app
   «Dockfly» de esta instalación (ya configurada) y te deja elegir la cuenta u organización
-  y los repositorios. Dockfly solo pide permiso de lectura y usa tokens que caducan cada hora.
+  y los repositorios. Dockfly solo pide permiso de lectura del código (y de escritura de los
+  estados de commit, para marcar cada build con ✓/✗) y usa tokens que caducan cada hora.
   Funciona también con GitHub Enterprise.
 - **GitLab**: la aplicación OAuth se registra una vez en GitLab (el panel indica los pasos y
   la Redirect URI); después, conectar una cuenta es pulsar «Autorizar». Funciona con
@@ -79,6 +80,21 @@ Dockfly y lo copia dentro: **las credenciales nunca entran en el contenedor de b
 Para desplegar en cada push, GitHub/GitLab deben poder llegar a Dockfly: publica el panel con
 un proxy host y escribe su dirección en *Integraciones → URL pública*. Sin ella, los sitios se
 despliegan con el botón «Desplegar ahora».
+
+Cada build marca su commit con el resultado (✓/✗ en el commit y en sus pull requests), con un
+enlace a la web publicada o, si falla, al panel. Las GitHub Apps creadas con versiones
+anteriores de Dockfly no tienen ese permiso: acéptalo en *GitHub → Settings → Applications →
+Dockfly → Permissions* (los builds funcionan igual sin él).
+
+#### Previews por rama
+
+Con un **dominio de previews** (*Ajustes → Previews por rama*, p. ej. `previews.midominio.com`) y
+las previews activadas en el sitio, cada push a una rama que no es la de producción se publica en
+`rama--sitio.previews.midominio.com` sin tocar producción, y se borra al borrar la rama (por ejemplo,
+al fusionar el pull request). Basta un registro DNS `*.previews.midominio.com` apuntando al servidor.
+Para HTTPS hace falta un certificado comodín: configura la zona DNS en *Ajustes → Certificados* o
+sube un certificado propio. Las previews se pueden proteger con una lista de acceso. Las pull
+requests desde forks no se construyen: su código no es de confianza.
 
 ### Copias de seguridad
 
@@ -177,4 +193,4 @@ make test
 2. ✅ Sitios estáticos con subida directa, despliegues inmutables y rollback
 3. ✅ Sitios estáticos desde GitHub/GitLab: build en cada push
 4. ✅ Apps en contenedores desde una imagen o un Dockerfile
-5. Previews por rama y estado del despliegue en los commits
+5. ✅ Previews por rama y estado del despliegue en los commits

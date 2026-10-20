@@ -72,6 +72,24 @@ export interface Deployment {
   commit_sha: string;
   commit_message: string;
   branch: string;
+  /** Rama de la preview ('' = producción). */
+  preview: string;
+}
+
+/** Último despliegue de una rama publicada como preview. */
+export interface Preview {
+  preview: string;
+  branch: string;
+  url: string;
+  deployment: Deployment;
+}
+
+export interface Settings {
+  public_url: string;
+  preview_domain: string;
+  preview_access_list_id: number | null;
+  /** Hay un certificado comodín (zona DNS o propio) para las previews. */
+  preview_ssl: boolean;
 }
 
 /** Configuración de build de un sitio enlazado a un repositorio. */
@@ -150,6 +168,7 @@ export interface Build {
   status: BuildStatus;
   trigger: 'push' | 'manual';
   branch: string;
+  preview: string;
   commit_sha: string;
   commit_message: string;
   deployment_id: number | null;
@@ -169,6 +188,7 @@ export interface Site extends SiteGit {
   force_https: boolean;
   hsts: boolean;
   spa: boolean;
+  previews: boolean;
   access_list_id: number | null;
   active_deployment_id: number | null;
   active_deployment?: Deployment;
@@ -176,7 +196,10 @@ export interface Site extends SiteGit {
   updated_at: string;
 }
 
-export type SiteInput = Pick<Site, 'name' | 'domains' | 'ssl' | 'force_https' | 'hsts' | 'spa' | 'access_list_id'>;
+export type SiteInput = Pick<
+  Site,
+  'name' | 'domains' | 'ssl' | 'force_https' | 'hsts' | 'spa' | 'previews' | 'access_list_id'
+>;
 
 /** Lo que se sube: un .zip, o los archivos de una carpeta con su ruta relativa. */
 export type UploadPayload = { archive: File } | { files: { path: string; file: File }[] };
@@ -438,6 +461,9 @@ export const api = {
   activateDeployment: (siteId: number, id: number) =>
     request<void>('POST', `/sites/${siteId}/deployments/${id}/activate`),
   deleteDeployment: (siteId: number, id: number) => request<void>('DELETE', `/sites/${siteId}/deployments/${id}`),
+  listPreviews: (siteId: number) => request<Preview[]>('GET', `/sites/${siteId}/previews`),
+  deletePreview: (siteId: number, preview: string) =>
+    request<void>('DELETE', `/sites/${siteId}/previews/${encodeURIComponent(preview)}`),
   uploadDeployment,
 
   listConnections: () => request<GitConnection[]>('GET', '/git/connections'),
@@ -494,9 +520,10 @@ export const api = {
   appDeploymentLogsURL: (id: number) => `/api/app-deployments/${id}/logs`,
   appLogsURL: (id: number) => `/api/apps/${id}/logs`,
 
-  getSettings: () => request<{ public_url: string }>('GET', '/settings'),
-  putSettings: (data: { public_url: string }) =>
-    request<{ public_url: string; warnings: string[] | null }>('PUT', '/settings', data),
+  getSettings: () => request<Settings>('GET', '/settings'),
+  /** Guarda solo los ajustes indicados (preview_access_list_id: 0 = ninguna). */
+  putSettings: (data: Partial<Omit<Settings, 'preview_ssl'>>) =>
+    request<{ settings: Settings; warnings: string[] | null }>('PUT', '/settings', data),
 
   listGitApps: () => request<{ github: GitHubApp[]; gitlab: GitLabApp[] }>('GET', '/git/apps'),
   startGitHubManifest: (data: { panel_url: string; organization: string; enterprise_url: string }) =>

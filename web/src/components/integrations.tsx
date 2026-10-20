@@ -484,8 +484,8 @@ function PublicURLCard({ value: initial, onSaved }: { value: string; onSaved: ()
     setBusy(true);
     try {
       const res = await api.putSettings({ public_url: value });
-      setValue(res.public_url);
-      setSaved(res.public_url);
+      setValue(res.settings.public_url);
+      setSaved(res.settings.public_url);
       toast.success('URL pública guardada');
       for (const w of res.warnings ?? []) toast.warning('Webhook de GitHub', { description: w, duration: 15000 });
       onSaved();

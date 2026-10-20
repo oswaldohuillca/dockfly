@@ -165,7 +165,14 @@ func TestParseGitHubWebhook(t *testing.T) {
 	}
 	ignore("ping", "ping", []byte(`{"zen":"x"}`))
 	ignore("tag", "push", []byte(`{"ref":"refs/tags/v1","head_commit":{"id":"a"}}`))
-	ignore("rama borrada", "push", []byte(`{"ref":"refs/heads/vieja","deleted":true,"head_commit":null}`))
+
+	del := []byte(`{"ref":"refs/heads/vieja","deleted":true,"head_commit":null,"repository":{"full_name":"u/r"}}`)
+	h = http.Header{}
+	h.Set("X-GitHub-Event", "push")
+	h.Set("X-Hub-Signature-256", sign("s", del))
+	if p, ok, err := ParseGitHubWebhook(h, del, "s"); !ok || err != nil || !p.Deleted || p.Branch != "vieja" || p.Repo != "u/r" {
+		t.Errorf("una rama borrada debe avisarse: %+v ok=%v err=%v", p, ok, err)
+	}
 }
 
 func TestParseGitLabWebhook(t *testing.T) {
@@ -183,7 +190,7 @@ func TestParseGitLabWebhook(t *testing.T) {
 		t.Error("un token incorrecto debe rechazarse")
 	}
 	deleted := []byte(`{"ref":"refs/heads/vieja","checkout_sha":null,"commits":[]}`)
-	if _, ok, err := ParseGitLabWebhook(h, deleted, "tk"); ok || err != nil {
-		t.Errorf("una rama borrada debe ignorarse: ok=%v err=%v", ok, err)
+	if p, ok, err := ParseGitLabWebhook(h, deleted, "tk"); !ok || err != nil || !p.Deleted || p.Branch != "vieja" {
+		t.Errorf("una rama borrada debe avisarse: %+v ok=%v err=%v", p, ok, err)
 	}
 }

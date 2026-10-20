@@ -8,6 +8,7 @@ import { CertBadge } from '@/components/cert-badge';
 import { Dropzone, selectionSummary } from '@/components/dropzone';
 import { SiteDialog } from '@/components/site-dialog';
 import { SiteGit } from '@/components/site-git';
+import { SitePreviews } from '@/components/site-previews';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -165,6 +166,7 @@ export function SiteDetail({ id }: { id: number }) {
       </Card>
 
       <SiteGit site={site} onChange={load} />
+      {site.repo && <SitePreviews site={site} reload={site} />}
 
       <Card>
         <CardHeader>
