@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 
+import { APITokens } from '@/components/api-tokens';
 import { ChangePassword } from '@/components/change-password';
 import { TwoFactor } from '@/components/two-factor';
 
@@ -12,6 +13,7 @@ function Account() {
     <div className="space-y-4">
       <ChangePassword />
       <TwoFactor />
+      <APITokens />
     </div>
   );
 }

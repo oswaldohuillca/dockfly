@@ -110,6 +110,32 @@ el administrador envía como prefiera. Cada usuario tiene un rol:
 Si alguien olvida su contraseña, el administrador le genera un enlace para restablecerla. Cambiar
 la contraseña cierra las demás sesiones del usuario. Siempre queda al menos un administrador.
 
+### Tokens de API y CLI
+
+En *Mi cuenta → Tokens de API* se crean tokens para desplegar desde la terminal o la integración
+continua. Cada token tiene un rol (nunca más que el de su usuario) y una caducidad, y se puede
+revocar en cualquier momento. El mismo binario `dockfly` es el CLI:
+
+```sh
+export DOCKFLY_URL=https://dockfly.midominio.com DOCKFLY_TOKEN=dfy_…
+dockfly deploy ./dist --site mi-web
+```
+
+Los binarios para Linux, macOS y Windows están en cada release; también se puede usar la imagen:
+
+```yaml
+# .github/workflows/deploy.yml
+- run: npm ci && npm run build
+- run: >
+    docker run --rm -v "$PWD/dist:/dist" -e DOCKFLY_URL -e DOCKFLY_TOKEN
+    ghcr.io/<propietario>/dockfly deploy /dist --site mi-web
+  env:
+    DOCKFLY_URL: https://dockfly.midominio.com
+    DOCKFLY_TOKEN: ${{ secrets.DOCKFLY_TOKEN }}
+```
+
+Con un token no se puede cambiar la contraseña, la verificación en dos pasos ni crear otros tokens.
+
 ### Verificación en dos pasos
 
 En *Mi cuenta* (menú del usuario) se activa la verificación en dos pasos con cualquier app TOTP

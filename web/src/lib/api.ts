@@ -20,6 +20,16 @@ export interface UserEntry extends User {
   pending: boolean;
 }
 
+export interface APIToken {
+  id: number;
+  name: string;
+  prefix: string;
+  role: Role;
+  last_used_at: string | null;
+  expires_at: string | null;
+  created_at: string;
+}
+
 export interface PasswordLink {
   link: string;
   expires_at: string;
@@ -473,6 +483,10 @@ export const api = {
     request<{ name: string; email: string; new: boolean }>('GET', `/invite/${encodeURIComponent(token)}`),
   acceptInvite: (token: string, password: string) =>
     request<LoginResult>('POST', `/invite/${encodeURIComponent(token)}`, { password }),
+  listTokens: () => request<APIToken[]>('GET', '/tokens'),
+  createToken: (data: { name: string; role: Role; expires_days: number }) =>
+    request<{ token: string; api_token: APIToken }>('POST', '/tokens', data),
+  deleteToken: (id: number) => request<void>('DELETE', `/tokens/${id}`),
   listUsers: () => request<UserEntry[]>('GET', '/users'),
   inviteUser: (data: { name: string; email: string; role: Role }) =>
     request<PasswordLink & { user: UserEntry }>('POST', '/users', data),

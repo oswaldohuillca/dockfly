@@ -26,8 +26,8 @@ import (
 //     notificaciones, ajustes, usuarios…).
 func requiredRole(method, path string) string {
 	path = strings.TrimSuffix(path, "/")
-	// La propia cuenta (2FA, contraseña) es de cada usuario.
-	if strings.HasPrefix(path, "/api/auth/") {
+	// La propia cuenta (2FA, contraseña, tokens) es de cada usuario.
+	if strings.HasPrefix(path, "/api/auth/") || path == "/api/tokens" || strings.HasPrefix(path, "/api/tokens/") {
 		return store.RoleViewer
 	}
 	read := method == http.MethodGet || method == http.MethodHead
@@ -52,8 +52,14 @@ func requiredRole(method, path string) string {
 // authorize va después de requireAuth.
 func (s *Server) authorize(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		u := currentUser(r)
-		if store.RoleRank(u.Role) < store.RoleRank(requiredRole(r.Method, r.URL.Path)) {
+		u, t := currentUser(r), currentToken(r)
+		// La cuenta (contraseña, 2FA) y los propios tokens solo se gestionan
+		// desde el panel: un token filtrado no puede crear otros.
+		if t != nil && (strings.HasPrefix(r.URL.Path, "/api/auth/") || strings.HasPrefix(r.URL.Path, "/api/tokens")) {
+			writeError(w, http.StatusForbidden, "esto solo se puede hacer desde el panel, no con un token de API")
+			return
+		}
+		if store.RoleRank(effectiveRole(u, t)) < store.RoleRank(requiredRole(r.Method, r.URL.Path)) {
 			writeError(w, http.StatusForbidden, "tu rol no permite hacer esto; pídeselo a un administrador")
 			return
 		}

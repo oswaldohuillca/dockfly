@@ -24,6 +24,7 @@ import (
 	"github.com/dockfly/dockfly/internal/auth"
 	"github.com/dockfly/dockfly/internal/backup"
 	"github.com/dockfly/dockfly/internal/builder"
+	"github.com/dockfly/dockfly/internal/cli"
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/gitauth"
 	"github.com/dockfly/dockfly/internal/notify"
@@ -46,6 +47,8 @@ func main() {
 			os.Exit(backupCommand(os.Args[1], os.Args[2:]))
 		case "reset-2fa":
 			os.Exit(reset2FACommand(os.Args[2:]))
+		case "deploy":
+			os.Exit(cli.Deploy(os.Args[2:], os.Stdout, os.Stderr))
 		}
 	}
 

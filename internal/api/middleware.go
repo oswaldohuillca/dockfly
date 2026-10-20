@@ -28,8 +28,19 @@ func keyByClientIP(r *http.Request) (string, error) {
 	return httprate.CanonicalizeIP(middleware.GetClientIP(r.Context())), nil
 }
 
+// requireAuth acepta la cookie de sesión del panel o un token de API.
 func (s *Server) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Authorization") != "" {
+			u, t, ok := s.bearerUser(r)
+			if !ok {
+				writeError(w, http.StatusUnauthorized, "token de API inválido, caducado o revocado")
+				return
+			}
+			ctx := context.WithValue(r.Context(), ctxKey{}, u)
+			next.ServeHTTP(w, r.WithContext(context.WithValue(ctx, tokenCtxKey{}, t)))
+			return
+		}
 		u, ok := s.sessionUser(r)
 		if !ok {
 			writeError(w, http.StatusUnauthorized, "no autenticado o sesión expirada")

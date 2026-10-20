@@ -173,6 +173,12 @@ func (s *Server) Handler() http.Handler {
 				r.Post("/{id}/test", s.handleTestChannel)
 			})
 
+			r.Route("/tokens", func(r chi.Router) {
+				r.Get("/", s.handleListTokens)
+				r.Post("/", s.handleCreateToken)
+				r.Delete("/{id}", s.handleDeleteToken)
+			})
+
 			r.Route("/users", func(r chi.Router) {
 				r.Get("/", s.handleListUsers)
 				r.Post("/", s.handleInviteUser)
