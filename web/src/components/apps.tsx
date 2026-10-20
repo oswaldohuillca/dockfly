@@ -9,8 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api, errorMessage, type App } from '@/lib/api';
 import { useStatus } from '@/lib/status';
+import { useCan } from '@/lib/roles';
 
 export function Apps() {
+  const canEdit = useCan('deployer');
   const navigate = useNavigate();
   const status = useStatus();
   const [apps, setApps] = useState<App[] | null>(null);
@@ -34,9 +36,11 @@ export function Apps() {
             Contenedores que Dockfly despliega y gestiona: APIs, bases de datos, servicios… desde una imagen o un Dockerfile.
           </CardDescription>
           <CardAction>
-            <Button onClick={() => setCreating(true)} disabled={status !== null && !status.docker_available}>
-              <Plus /> Nueva app
-            </Button>
+            {canEdit && (
+              <Button onClick={() => setCreating(true)} disabled={status !== null && !status.docker_available}>
+                <Plus /> Nueva app
+              </Button>
+            )}
           </CardAction>
         </CardHeader>
         <CardContent>

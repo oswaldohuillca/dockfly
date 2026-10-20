@@ -201,8 +201,8 @@ func currentUser(r *http.Request) *store.User {
 
 // --- Sesión ---
 
-func (s *Server) setSession(w http.ResponseWriter, r *http.Request, userID int64) {
-	token, exp := s.Signer.Issue(userID)
+func (s *Server) setSession(w http.ResponseWriter, r *http.Request, u *store.User) {
+	token, exp := s.Signer.Issue(u.ID, u.SessionVersion)
 	http.SetCookie(w, &http.Cookie{
 		Name:     sessionCookie,
 		Value:    token,
@@ -267,12 +267,12 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
-	u := &store.User{Email: in.Email, Name: in.Name, PasswordHash: hash}
+	u := &store.User{Email: in.Email, Name: in.Name, PasswordHash: hash, Role: store.RoleAdmin}
 	if err := s.Store.CreateUser(r.Context(), u); err != nil {
 		s.internalError(w, err)
 		return
 	}
-	s.setSession(w, r, u.ID)
+	s.setSession(w, r, u)
 	writeJSON(w, http.StatusCreated, u)
 }
 
@@ -302,7 +302,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	s.setSession(w, r, u.ID)
+	s.setSession(w, r, u)
 	writeJSON(w, http.StatusOK, u)
 }
 

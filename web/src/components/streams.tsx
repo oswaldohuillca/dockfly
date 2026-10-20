@@ -15,6 +15,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { api, errorMessage, type Stream, type StreamInput } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { useCan } from '@/lib/roles';
 
 const portLine = (s: Pick<Stream, 'listen_port' | 'protocol'>) =>
   `"${s.listen_port}:${s.listen_port}${s.protocol === 'udp' ? '/udp' : ''}"`;
@@ -26,6 +27,7 @@ function restartedToast(res: { traefik_restarted: boolean }) {
 }
 
 export function Streams() {
+  const canEdit = useCan('admin');
   const [list, setList] = useState<Stream[]>([]);
   const [editing, setEditing] = useState<Stream | 'new' | null>(null);
   const load = useCallback(() => {
@@ -60,9 +62,11 @@ export function Streams() {
           puerto reinicia Traefik (corte de ~1 s).
         </CardDescription>
         <CardAction>
-          <Button variant="outline" onClick={() => setEditing('new')}>
-            <Plus /> Añadir
-          </Button>
+          {canEdit && (
+            <Button variant="outline" onClick={() => setEditing('new')}>
+              <Plus /> Añadir
+            </Button>
+          )}
         </CardAction>
       </CardHeader>
       {list.length > 0 && (

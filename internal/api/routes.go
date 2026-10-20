@@ -60,12 +60,17 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/git/github/manifest", s.handleGitHubManifestCallback)
 		r.Get("/git/github/setup", s.handleGitHubSetup)
 		r.Get("/git/gitlab/callback", s.handleGitLabCallback)
+		// Invitaciones y cambios de contraseña: los autentica el enlace firmado.
+		r.Get("/invite/{token}", s.handleGetInvite)
+		r.With(authLimit).Post("/invite/{token}", s.handleAcceptInvite)
 
 		// Rutas que requieren sesión.
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireAuth)
+			r.Use(s.authorize)
 
 			r.Get("/auth/me", s.handleMe)
+			r.With(accountLimit).Put("/auth/password", s.handleChangePassword)
 			r.Get("/auth/2fa", s.handleGet2FA)
 			r.With(accountLimit).Post("/auth/2fa/setup", s.handleSetup2FA)
 			r.With(accountLimit).Post("/auth/2fa/enable", s.handleEnable2FA)
@@ -166,6 +171,14 @@ func (s *Server) Handler() http.Handler {
 				r.Put("/{id}", s.handleUpdateChannel)
 				r.Delete("/{id}", s.handleDeleteChannel)
 				r.Post("/{id}/test", s.handleTestChannel)
+			})
+
+			r.Route("/users", func(r chi.Router) {
+				r.Get("/", s.handleListUsers)
+				r.Post("/", s.handleInviteUser)
+				r.Put("/{id}", s.handleUpdateUser)
+				r.Delete("/{id}", s.handleDeleteUser)
+				r.Post("/{id}/link", s.handleUserLink)
 			})
 
 			r.Get("/settings", s.handleGetSettings)

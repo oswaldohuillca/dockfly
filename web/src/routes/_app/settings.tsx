@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { createFileRoute, redirect } from '@tanstack/react-router';
 import { Download, Terminal } from 'lucide-react';
 
 import { AccessLists } from '@/components/access-lists';
@@ -6,16 +6,23 @@ import { CertificatesSettings } from '@/components/certificates-settings';
 import { Notifications } from '@/components/notifications';
 import { PreviewSettings } from '@/components/preview-settings';
 import { RestoreBackup } from '@/components/restore-backup';
+import { Users } from '@/components/users';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { can } from '@/lib/roles';
 
 export const Route = createFileRoute('/_app/settings')({
+  // Solo administradores (la API también lo exige).
+  beforeLoad: ({ context }) => {
+    if (!can(context.user, 'admin')) throw redirect({ to: '/' });
+  },
   component: Settings,
 });
 
 function Settings() {
   return (
     <div className="space-y-4">
+      <Users />
       <Notifications />
       <AccessLists />
       <CertificatesSettings />

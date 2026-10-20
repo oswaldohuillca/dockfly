@@ -37,8 +37,11 @@ type User struct {
 	ID           int64     `bun:",pk,autoincrement" json:"id"`
 	Email        string    `json:"email"`
 	Name         string    `json:"name"`
-	PasswordHash string    `json:"-"`
+	PasswordHash string    `json:"-"` // vacío hasta que acepta la invitación
+	Role         string    `json:"role"`
 	CreatedAt    time.Time `json:"created_at"`
+	// SessionVersion va en cada sesión: al subirla, las anteriores dejan de valer.
+	SessionVersion int64 `json:"-"`
 
 	// Verificación en dos pasos. El secreto va cifrado; mientras se configura
 	// existe pero TOTPEnabled sigue a false.
@@ -228,6 +231,57 @@ func (s *Store) UserByID(ctx context.Context, id int64) (*User, error) {
 		return nil, notFound(err)
 	}
 	return u, nil
+}
+
+// Roles, de más a menos permisos.
+const (
+	RoleAdmin    = "admin"    // todo, incluidos usuarios y ajustes
+	RoleDeployer = "deployer" // sitios, apps, builds y despliegues
+	RoleViewer   = "viewer"   // solo lectura
+)
+
+// RoleRank ordena los roles: un rol incluye los permisos de los de menor rango.
+func RoleRank(role string) int {
+	switch role {
+	case RoleAdmin:
+		return 3
+	case RoleDeployer:
+		return 2
+	case RoleViewer:
+		return 1
+	}
+	return 0
+}
+
+func (s *Store) ListUsers(ctx context.Context) ([]*User, error) {
+	users := []*User{}
+	err := s.db.NewSelect().Model(&users).Order("id").Scan(ctx)
+	return users, err
+}
+
+// UpdateUserProfile cambia el nombre y el rol.
+func (s *Store) UpdateUserProfile(ctx context.Context, u *User) error {
+	return mustAffect(s.db.NewUpdate().Model(u).Column("name", "role").WherePK().Exec(ctx))
+}
+
+// SetPassword cambia la contraseña y sube la versión de sesión (cierra las
+// demás sesiones). Devuelve la versión nueva.
+func (s *Store) SetPassword(ctx context.Context, id int64, hash string) (int64, error) {
+	var version int64
+	err := s.db.NewUpdate().Model((*User)(nil)).
+		Set("password_hash = ?", hash).Set("session_version = session_version + 1").
+		Where("id = ?", id).Returning("session_version").Scan(ctx, &version)
+	return version, notFound(err)
+}
+
+func (s *Store) DeleteUser(ctx context.Context, id int64) error {
+	return mustAffect(s.db.NewDelete().Model((*User)(nil)).Where("id = ?", id).Exec(ctx))
+}
+
+// CountAdmins cuenta los administradores con la cuenta activada.
+func (s *Store) CountAdmins(ctx context.Context) (int, error) {
+	n, err := s.db.NewSelect().Model((*User)(nil)).Where("role = ? AND password_hash <> ''", RoleAdmin).Count(ctx)
+	return int(n), err
 }
 
 // SetUserTOTP guarda la configuración de la verificación en dos pasos.

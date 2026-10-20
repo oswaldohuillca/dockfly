@@ -8,8 +8,21 @@ export interface User {
   id: number;
   email: string;
   name: string;
+  role: Role;
   totp_enabled: boolean;
   created_at: string;
+}
+
+export type Role = 'admin' | 'deployer' | 'viewer';
+
+export interface UserEntry extends User {
+  /** Invitado que todavía no ha elegido contraseña. */
+  pending: boolean;
+}
+
+export interface PasswordLink {
+  link: string;
+  expires_at: string;
 }
 
 /** Respuesta del login: la sesión, o el ticket para el segundo paso. */
@@ -455,6 +468,17 @@ export const api = {
   login: (data: { email: string; password: string }) => request<LoginResult>('POST', '/auth/login', data),
   login2FA: (data: { ticket: string; code: string }) =>
     request<{ user: User; used_recovery_code: boolean; recovery_codes_left: number }>('POST', '/auth/login/2fa', data),
+  changePassword: (current: string, next: string) => request<void>('PUT', '/auth/password', { current, new: next }),
+  getInvite: (token: string) =>
+    request<{ name: string; email: string; new: boolean }>('GET', `/invite/${encodeURIComponent(token)}`),
+  acceptInvite: (token: string, password: string) =>
+    request<LoginResult>('POST', `/invite/${encodeURIComponent(token)}`, { password }),
+  listUsers: () => request<UserEntry[]>('GET', '/users'),
+  inviteUser: (data: { name: string; email: string; role: Role }) =>
+    request<PasswordLink & { user: UserEntry }>('POST', '/users', data),
+  updateUser: (id: number, data: { name: string; role: Role }) => request<UserEntry>('PUT', `/users/${id}`, data),
+  deleteUser: (id: number) => request<void>('DELETE', `/users/${id}`),
+  userLink: (id: number) => request<PasswordLink>('POST', `/users/${id}/link`),
   get2FA: () => request<{ enabled: boolean; recovery_codes_left: number }>('GET', '/auth/2fa'),
   setup2FA: (password: string) => request<TwoFactorSetup>('POST', '/auth/2fa/setup', { password }),
   enable2FA: (code: string) => request<{ recovery_codes: string[] }>('POST', '/auth/2fa/enable', { code }),

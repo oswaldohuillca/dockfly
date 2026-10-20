@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Status, User } from '@/lib/api';
+import { can } from '@/lib/roles';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -39,8 +40,12 @@ export function Header({ user, status, onLogout }: Props) {
             <NavLink to="/proxy-hosts">Proxy Hosts</NavLink>
             <NavLink to="/sites">Sitios</NavLink>
             <NavLink to="/apps">Apps</NavLink>
-            <NavLink to="/integrations">Integraciones</NavLink>
-            <NavLink to="/settings">Ajustes</NavLink>
+            {can(user, 'admin') && (
+              <>
+                <NavLink to="/integrations">Integraciones</NavLink>
+                <NavLink to="/settings">Ajustes</NavLink>
+              </>
+            )}
           </nav>
         </div>
 

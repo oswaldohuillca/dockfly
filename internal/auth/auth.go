@@ -42,7 +42,9 @@ func CheckPassword(hash, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 
-// Signer emite y valida tokens de sesión con la forma "userID.expiración.firma".
+// Signer emite y valida tokens de sesión con la forma
+// "userID.versión.expiración.firma". La versión permite invalidar todas las
+// sesiones de un usuario (al cambiar la contraseña).
 type Signer struct {
 	secret []byte
 }
@@ -70,34 +72,35 @@ func LoadOrCreateSigner(path string) (*Signer, error) {
 	return &Signer{secret: secret}, nil
 }
 
-func (s *Signer) Issue(userID int64) (token string, expires time.Time) {
+func (s *Signer) Issue(userID, version int64) (token string, expires time.Time) {
 	expires = time.Now().Add(SessionTTL)
-	payload := strconv.FormatInt(userID, 10) + "." + strconv.FormatInt(expires.Unix(), 10)
+	payload := strconv.FormatInt(userID, 10) + "." + strconv.FormatInt(version, 10) + "." + strconv.FormatInt(expires.Unix(), 10)
 	return payload + "." + s.sign(payload), expires
 }
 
-func (s *Signer) Verify(token string) (int64, error) {
+func (s *Signer) Verify(token string) (userID, version int64, err error) {
 	i := strings.LastIndexByte(token, '.')
 	if i < 0 {
-		return 0, ErrInvalidSession
+		return 0, 0, ErrInvalidSession
 	}
 	payload, sig := token[:i], token[i+1:]
 	if !hmac.Equal([]byte(sig), []byte(s.sign(payload))) {
-		return 0, ErrInvalidSession
+		return 0, 0, ErrInvalidSession
 	}
-	idStr, expStr, ok := strings.Cut(payload, ".")
-	if !ok {
-		return 0, ErrInvalidSession
+	parts := strings.Split(payload, ".")
+	if len(parts) != 3 {
+		return 0, 0, ErrInvalidSession
 	}
-	exp, err := strconv.ParseInt(expStr, 10, 64)
-	if err != nil || time.Now().Unix() > exp {
-		return 0, ErrInvalidSession
+	nums := make([]int64, 3)
+	for j, p := range parts {
+		if nums[j], err = strconv.ParseInt(p, 10, 64); err != nil {
+			return 0, 0, ErrInvalidSession
+		}
 	}
-	id, err := strconv.ParseInt(idStr, 10, 64)
-	if err != nil {
-		return 0, ErrInvalidSession
+	if time.Now().Unix() > nums[2] {
+		return 0, 0, ErrInvalidSession
 	}
-	return id, nil
+	return nums[0], nums[1], nil
 }
 
 // IssueTicket firma un token de un solo propósito (p. ej. "mfa": la

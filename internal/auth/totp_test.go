@@ -75,10 +75,10 @@ func TestTickets(t *testing.T) {
 	if id, err := s.VerifyTicket("mfa", tk); err != nil || id != 42 {
 		t.Fatalf("ticket válido: %d %v", id, err)
 	}
-	if _, err := s.Verify(tk); err == nil {
+	if _, _, err := s.Verify(tk); err == nil {
 		t.Error("un ticket no debe valer como sesión")
 	}
-	session, _ := s.Issue(42)
+	session, _ := s.Issue(42, 0)
 	if _, err := s.VerifyTicket("mfa", session); err == nil {
 		t.Error("una sesión no debe valer como ticket")
 	}

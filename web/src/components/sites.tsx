@@ -9,8 +9,10 @@ import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api, errorMessage, type Site } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
+import { useCan } from '@/lib/roles';
 
 export function Sites() {
+  const canEdit = useCan('deployer');
   const navigate = useNavigate();
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,9 +39,11 @@ export function Sites() {
           <CardTitle className="text-lg">Sitios</CardTitle>
           <CardDescription>Publica sitios estáticos subiendo la carpeta de tu build.</CardDescription>
           <CardAction>
-            <Button onClick={() => setCreating(true)}>
-              <Plus /> Nuevo sitio
-            </Button>
+            {canEdit && (
+              <Button onClick={() => setCreating(true)}>
+                <Plus /> Nuevo sitio
+              </Button>
+            )}
           </CardAction>
         </CardHeader>
         <CardContent>
@@ -57,9 +61,11 @@ export function Sites() {
                   rollback.
                 </p>
               </div>
-              <Button onClick={() => setCreating(true)}>
-                <Plus /> Nuevo sitio
-              </Button>
+              {canEdit && (
+                <Button onClick={() => setCreating(true)}>
+                  <Plus /> Nuevo sitio
+                </Button>
+              )}
             </div>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

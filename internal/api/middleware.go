@@ -45,12 +45,15 @@ func (s *Server) sessionUser(r *http.Request) (*store.User, bool) {
 	if err != nil {
 		return nil, false
 	}
-	id, err := s.Signer.Verify(c.Value)
+	id, version, err := s.Signer.Verify(c.Value)
 	if err != nil {
 		return nil, false
 	}
 	u, err := s.Store.UserByID(r.Context(), id)
-	return u, err == nil
+	if err != nil || u.SessionVersion != version || u.PasswordHash == "" {
+		return nil, false
+	}
+	return u, true
 }
 
 // jsonOnly exige Content-Type JSON en peticiones que modifican estado. Junto

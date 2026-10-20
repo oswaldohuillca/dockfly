@@ -96,6 +96,20 @@ Para HTTPS hace falta un certificado comodín: configura la zona DNS en *Ajustes
 sube un certificado propio. Las previews se pueden proteger con una lista de acceso. Las pull
 requests desde forks no se construyen: su código no es de confianza.
 
+### Usuarios y roles
+
+En *Ajustes → Usuarios* se invita al equipo con un enlace de un solo uso (válido 7 días), que
+el administrador envía como prefiera. Cada usuario tiene un rol:
+
+| Rol | Puede |
+| --- | --- |
+| Administrador | Todo: proxy hosts, certificados, integraciones, notificaciones, ajustes y usuarios |
+| Despliegues | Sitios, apps, builds y despliegues, incluidas sus variables de entorno |
+| Solo lectura | Ver el panel y los logs, sin cambiar nada ni ver secretos |
+
+Si alguien olvida su contraseña, el administrador le genera un enlace para restablecerla. Cambiar
+la contraseña cierra las demás sesiones del usuario. Siempre queda al menos un administrador.
+
 ### Verificación en dos pasos
 
 En *Mi cuenta* (menú del usuario) se activa la verificación en dos pasos con cualquier app TOTP

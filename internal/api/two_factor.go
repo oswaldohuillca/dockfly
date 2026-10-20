@@ -123,7 +123,7 @@ func (s *Server) handleLogin2FA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mfa.reset(id)
-	s.setSession(w, r, u.ID)
+	s.setSession(w, r, u)
 	left := 0
 	if recovery {
 		if fresh, err := s.Store.UserByID(r.Context(), u.ID); err == nil {

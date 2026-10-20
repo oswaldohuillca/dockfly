@@ -23,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { api, errorMessage, type ProxyHost, type ProxyHostInput, type TargetType } from '@/lib/api';
 import { useCertificates } from '@/lib/use-certificates';
 import { cn } from '@/lib/utils';
+import { useCan } from '@/lib/roles';
 
 const targets: Record<TargetType, { label: string; icon: typeof Box }> = {
   docker: { label: 'Contenedor', icon: Box },
@@ -36,6 +37,7 @@ function toInput({ id: _id, created_at: _c, updated_at: _u, ...rest }: ProxyHost
 }
 
 export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
+  const canEdit = useCan('admin');
   const [hosts, setHosts] = useState<ProxyHost[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('');
@@ -104,9 +106,11 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
                 className="w-56 pl-8"
               />
             </div>
-            <Button onClick={() => setEditing({})}>
-              <Plus /> Añadir
-            </Button>
+            {canEdit && (
+              <Button onClick={() => setEditing({})}>
+                <Plus /> Añadir
+              </Button>
+            )}
           </CardAction>
         </CardHeader>
 
@@ -232,6 +236,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
 }
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
+  const canEdit = useCan('admin');
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
       <div className="grid size-12 place-items-center rounded-full bg-muted">
@@ -243,9 +248,11 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
           Crea uno para publicar un contenedor, una app de este servidor o un servicio externo.
         </p>
       </div>
-      <Button onClick={onCreate}>
-        <Plus /> Añadir proxy host
-      </Button>
+      {canEdit && (
+        <Button onClick={onCreate}>
+          <Plus /> Añadir proxy host
+        </Button>
+      )}
     </div>
   );
 }

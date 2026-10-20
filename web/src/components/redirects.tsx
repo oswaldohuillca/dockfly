@@ -17,8 +17,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { api, errorMessage, type RedirectHost, type RedirectInput } from '@/lib/api';
 import { useCertificates } from '@/lib/use-certificates';
 import { cn } from '@/lib/utils';
+import { useCan } from '@/lib/roles';
 
 export function Redirects() {
+  const canEdit = useCan('admin');
   const [list, setList] = useState<RedirectHost[]>([]);
   const [editing, setEditing] = useState<RedirectHost | 'new' | null>(null);
   const certs = useCertificates();
@@ -55,9 +57,11 @@ export function Redirects() {
         <CardTitle className="text-lg">Redirecciones</CardTitle>
         <CardDescription>Envía un dominio a otra URL: www → raíz, un dominio antiguo al nuevo…</CardDescription>
         <CardAction>
-          <Button variant="outline" onClick={() => setEditing('new')}>
-            <Plus /> Añadir
-          </Button>
+          {canEdit && (
+            <Button variant="outline" onClick={() => setEditing('new')}>
+              <Plus /> Añadir
+            </Button>
+          )}
         </CardAction>
       </CardHeader>
       {list.length > 0 && (

@@ -3,6 +3,7 @@ import { createFileRoute, Outlet, redirect, useNavigate } from '@tanstack/react-
 
 import { Header } from '@/components/header';
 import { api, type Status } from '@/lib/api';
+import { UserContext } from '@/lib/roles';
 import { getUser, setUser } from '@/lib/session';
 import { StatusContext } from '@/lib/status';
 
@@ -38,6 +39,7 @@ function AppLayout() {
   }
 
   return (
+    <UserContext.Provider value={user}>
     <StatusContext.Provider value={status}>
       <div className="flex min-h-svh flex-col bg-muted/40">
         <Header user={user} status={status} onLogout={logout} />
@@ -47,5 +49,6 @@ function AppLayout() {
         <footer className="py-4 text-center text-xs text-muted-foreground">Dockfly {status?.version}</footer>
       </div>
     </StatusContext.Provider>
+    </UserContext.Provider>
   );
 }
