@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { LogOut, Monitor, Moon, Sun } from 'lucide-react';
+import { LogOut, Monitor, Moon, Sun, UserRound } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
 import { Logo } from '@/components/logo';
@@ -91,6 +91,11 @@ export function Header({ user, status, onLogout }: Props) {
                 </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
               <DropdownMenuSeparator />
+              <DropdownMenuItem asChild>
+                <Link to="/account">
+                  <UserRound /> Mi cuenta
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={onLogout}>
                 <LogOut /> Cerrar sesión
               </DropdownMenuItem>

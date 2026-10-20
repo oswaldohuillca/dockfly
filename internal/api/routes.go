@@ -36,13 +36,19 @@ func (s *Server) Handler() http.Handler {
 		})
 
 		// Rutas públicas.
-		authLimit := httprate.LimitBy(authAttempts, authWindow, keyByClientIP,
-			httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
-				writeError(w, http.StatusTooManyRequests, "demasiados intentos, espera un minuto")
-			}))
+		// Cada grupo lleva su propio contador: el segundo paso del login no
+		// gasta los intentos de la contraseña.
+		limiter := func() func(http.Handler) http.Handler {
+			return httprate.LimitBy(authAttempts, authWindow, keyByClientIP,
+				httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
+					writeError(w, http.StatusTooManyRequests, "demasiados intentos, espera un minuto")
+				}))
+		}
+		authLimit, mfaLimit, accountLimit := limiter(), limiter(), limiter()
 		r.Get("/setup", s.handleSetupStatus)
 		r.With(authLimit).Post("/setup", s.handleSetup)
 		r.With(authLimit).Post("/auth/login", s.handleLogin)
+		r.With(mfaLimit).Post("/auth/login/2fa", s.handleLogin2FA)
 		r.Post("/auth/logout", s.handleLogout)
 		// Sin sesión solo en una instalación nueva (lo comprueba el handler).
 		r.Post("/backup/restore", s.handleRestoreBackup)
@@ -60,6 +66,11 @@ func (s *Server) Handler() http.Handler {
 			r.Use(s.requireAuth)
 
 			r.Get("/auth/me", s.handleMe)
+			r.Get("/auth/2fa", s.handleGet2FA)
+			r.With(accountLimit).Post("/auth/2fa/setup", s.handleSetup2FA)
+			r.With(accountLimit).Post("/auth/2fa/enable", s.handleEnable2FA)
+			r.With(accountLimit).Post("/auth/2fa/disable", s.handleDisable2FA)
+			r.With(accountLimit).Post("/auth/2fa/recovery-codes", s.handleRegenerateRecoveryCodes)
 			r.Get("/status", s.handleStatus)
 			r.Get("/certificates", s.handleCertificates)
 

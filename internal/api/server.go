@@ -67,6 +67,7 @@ type Server struct {
 	Restart func()
 
 	applyMu sync.Mutex
+	mfa     mfaFailures
 }
 
 // Apply publica el estado actual: regenera la configuración de Traefik y la
@@ -293,6 +294,12 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	if !auth.CheckPassword(hash, in.Password) || u == nil {
 		writeError(w, http.StatusUnauthorized, "email o contraseña incorrectos")
+		return
+	}
+	if u.TOTPEnabled {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"two_factor": true, "ticket": s.Signer.IssueTicket(mfaTicketPurpose, u.ID, mfaTicketTTL),
+		})
 		return
 	}
 	s.setSession(w, r, u.ID)

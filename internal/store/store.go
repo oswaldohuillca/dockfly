@@ -7,6 +7,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/uptrace/bun"
@@ -38,6 +39,13 @@ type User struct {
 	Name         string    `json:"name"`
 	PasswordHash string    `json:"-"`
 	CreatedAt    time.Time `json:"created_at"`
+
+	// Verificación en dos pasos. El secreto va cifrado; mientras se configura
+	// existe pero TOTPEnabled sigue a false.
+	TOTPSecretEnc []byte   `bun:"totp_secret_enc" json:"-"`
+	TOTPEnabled   bool     `bun:"totp_enabled" json:"totp_enabled"`
+	TOTPLastStep  int64    `bun:"totp_last_step" json:"-"`
+	RecoveryCodes []string `bun:"recovery_codes" json:"-"`
 }
 
 type ProxyHost struct {
@@ -220,6 +228,48 @@ func (s *Store) UserByID(ctx context.Context, id int64) (*User, error) {
 		return nil, notFound(err)
 	}
 	return u, nil
+}
+
+// SetUserTOTP guarda la configuración de la verificación en dos pasos.
+func (s *Store) SetUserTOTP(ctx context.Context, u *User) error {
+	if u.RecoveryCodes == nil {
+		u.RecoveryCodes = []string{}
+	}
+	return mustAffect(s.db.NewUpdate().Model(u).
+		Column("totp_secret_enc", "totp_enabled", "totp_last_step", "recovery_codes").WherePK().Exec(ctx))
+}
+
+// AdvanceTOTPStep registra el paso de un código aceptado. Devuelve false si
+// ya se usó ese paso (o uno posterior): dos peticiones simultáneas con el
+// mismo código no pueden entrar las dos.
+func (s *Store) AdvanceTOTPStep(ctx context.Context, userID, step int64) (bool, error) {
+	res, err := s.db.NewUpdate().Model((*User)(nil)).Set("totp_last_step = ?", step).
+		Where("id = ? AND totp_last_step < ?", userID, step).Exec(ctx)
+	if err != nil {
+		return false, err
+	}
+	n, err := res.RowsAffected()
+	return n == 1, err
+}
+
+// UseRecoveryCode gasta un código de recuperación (por su hash).
+func (s *Store) UseRecoveryCode(ctx context.Context, userID int64, hash string) (bool, error) {
+	used := false
+	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		u := &User{ID: userID}
+		if err := tx.NewSelect().Model(u).WherePK().Scan(ctx); err != nil {
+			return err
+		}
+		i := slices.Index(u.RecoveryCodes, hash)
+		if i < 0 {
+			return nil
+		}
+		u.RecoveryCodes = slices.Delete(u.RecoveryCodes, i, i+1)
+		used = true
+		_, err := tx.NewUpdate().Model(u).Column("recovery_codes").WherePK().Exec(ctx)
+		return err
+	})
+	return used, err
 }
 
 // --- Proxy hosts ---

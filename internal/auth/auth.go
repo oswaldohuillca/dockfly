@@ -100,6 +100,38 @@ func (s *Signer) Verify(token string) (int64, error) {
 	return id, nil
 }
 
+// IssueTicket firma un token de un solo propósito (p. ej. "mfa": la
+// contraseña ya se comprobó y falta el segundo paso). Su forma
+// "propósito.id.expiración.firma" no se confunde nunca con una sesión.
+func (s *Signer) IssueTicket(purpose string, userID int64, ttl time.Duration) string {
+	payload := purpose + "." + strconv.FormatInt(userID, 10) + "." + strconv.FormatInt(time.Now().Add(ttl).Unix(), 10)
+	return payload + "." + s.sign(payload)
+}
+
+func (s *Signer) VerifyTicket(purpose, token string) (int64, error) {
+	i := strings.LastIndexByte(token, '.')
+	if i < 0 || !hmac.Equal([]byte(token[i+1:]), []byte(s.sign(token[:i]))) {
+		return 0, ErrInvalidSession
+	}
+	rest, ok := strings.CutPrefix(token[:i], purpose+".")
+	if !ok {
+		return 0, ErrInvalidSession
+	}
+	idStr, expStr, ok := strings.Cut(rest, ".")
+	if !ok {
+		return 0, ErrInvalidSession
+	}
+	exp, err := strconv.ParseInt(expStr, 10, 64)
+	if err != nil || time.Now().Unix() > exp {
+		return 0, ErrInvalidSession
+	}
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		return 0, ErrInvalidSession
+	}
+	return id, nil
+}
+
 func (s *Signer) sign(payload string) string {
 	mac := hmac.New(sha256.New, s.secret)
 	mac.Write([]byte(payload))

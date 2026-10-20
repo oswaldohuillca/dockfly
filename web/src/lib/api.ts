@@ -8,7 +8,17 @@ export interface User {
   id: number;
   email: string;
   name: string;
+  totp_enabled: boolean;
   created_at: string;
+}
+
+/** Respuesta del login: la sesión, o el ticket para el segundo paso. */
+export type LoginResult = User | { two_factor: true; ticket: string };
+
+export interface TwoFactorSetup {
+  secret: string;
+  uri: string;
+  qr_svg: string;
 }
 
 export interface ProxyHost {
@@ -442,7 +452,15 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 export const api = {
   setupStatus: () => request<{ needs_setup: boolean }>('GET', '/setup'),
   setup: (data: { name: string; email: string; password: string }) => request<User>('POST', '/setup', data),
-  login: (data: { email: string; password: string }) => request<User>('POST', '/auth/login', data),
+  login: (data: { email: string; password: string }) => request<LoginResult>('POST', '/auth/login', data),
+  login2FA: (data: { ticket: string; code: string }) =>
+    request<{ user: User; used_recovery_code: boolean; recovery_codes_left: number }>('POST', '/auth/login/2fa', data),
+  get2FA: () => request<{ enabled: boolean; recovery_codes_left: number }>('GET', '/auth/2fa'),
+  setup2FA: (password: string) => request<TwoFactorSetup>('POST', '/auth/2fa/setup', { password }),
+  enable2FA: (code: string) => request<{ recovery_codes: string[] }>('POST', '/auth/2fa/enable', { code }),
+  disable2FA: (password: string) => request<void>('POST', '/auth/2fa/disable', { password }),
+  regenerateRecoveryCodes: (password: string) =>
+    request<{ recovery_codes: string[] }>('POST', '/auth/2fa/recovery-codes', { password }),
   logout: () => request<void>('POST', '/auth/logout'),
   me: () => request<User>('GET', '/auth/me'),
   status: () => request<Status>('GET', '/status'),

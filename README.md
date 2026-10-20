@@ -96,6 +96,16 @@ Para HTTPS hace falta un certificado comodín: configura la zona DNS en *Ajustes
 sube un certificado propio. Las previews se pueden proteger con una lista de acceso. Las pull
 requests desde forks no se construyen: su código no es de confianza.
 
+### Verificación en dos pasos
+
+En *Mi cuenta* (menú del usuario) se activa la verificación en dos pasos con cualquier app TOTP
+(Google Authenticator, 1Password, Bitwarden…). Al activarla, Dockfly muestra 10 **códigos de
+recuperación** de un solo uso. Si pierdes el móvil y los códigos, desactívala desde el servidor:
+
+```sh
+docker exec dockfly dockfly reset-2fa tu@email.com
+```
+
 ### Copias de seguridad
 
 En *Ajustes → Copias de seguridad* se descarga una copia con la base de datos, las claves, los

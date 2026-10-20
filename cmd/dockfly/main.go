@@ -44,6 +44,8 @@ func main() {
 			os.Exit(healthcheck())
 		case "backup", "restore":
 			os.Exit(backupCommand(os.Args[1], os.Args[2:]))
+		case "reset-2fa":
+			os.Exit(reset2FACommand(os.Args[2:]))
 		}
 	}
 
@@ -374,6 +376,28 @@ func backupCommand(cmd string, args []string) int {
 		fmt.Fprintf(os.Stderr, "Copia del %s preparada: se aplicará la próxima vez que arranque Dockfly.\n",
 			m.CreatedAt.Format("02/01/2006 15:04"))
 	}
+	return 0
+}
+
+// reset2FACommand implementa "dockfly reset-2fa <email>": desactiva la
+// verificación en dos pasos de alguien que perdió el móvil y sus códigos.
+func reset2FACommand(args []string) int {
+	if len(args) != 1 {
+		fmt.Fprintln(os.Stderr, "uso: dockfly reset-2fa <email>")
+		return 2
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, filepath.Join(env("DOCKFLY_DATA_DIR", "/data"), "dockfly.db"))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	defer st.Close()
+	if err := api.Reset2FA(ctx, st, args[0]); err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		return 1
+	}
+	fmt.Fprintf(os.Stderr, "Verificación en dos pasos desactivada para %s.\n", args[0])
 	return 0
 }
 

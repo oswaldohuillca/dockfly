@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 import { Logo } from '@/components/logo';
 import { RestoreBackup } from '@/components/restore-backup';
@@ -22,19 +23,117 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  // Con verificación en dos pasos, la contraseña da un ticket para pedir el código.
+  const [ticket, setTicket] = useState('');
+  const [code, setCode] = useState('');
+  const [useRecovery, setUseRecovery] = useState(false);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError('');
     setBusy(true);
     try {
-      const user = setup ? await api.setup({ name, email, password }) : await api.login({ email, password });
-      onAuthenticated(user);
+      if (setup) {
+        onAuthenticated(await api.setup({ name, email, password }));
+        return;
+      }
+      if (ticket) {
+        const res = await api.login2FA({ ticket, code });
+        if (res.used_recovery_code) {
+          toast.warning(`Has usado un código de recuperación: te quedan ${res.recovery_codes_left}`, {
+            description: 'Genera códigos nuevos en Mi cuenta si te quedan pocos.',
+            duration: 15000,
+          });
+        }
+        onAuthenticated(res.user);
+        return;
+      }
+      const res = await api.login({ email, password });
+      if ('two_factor' in res) setTicket(res.ticket);
+      else onAuthenticated(res);
     } catch (err) {
       setError(errorMessage(err));
+      // El ticket caduca a los 5 minutos: hay que volver a la contraseña.
+      if (ticket && errorMessage(err).includes('caducó')) {
+        setTicket('');
+        setCode('');
+      }
     } finally {
       setBusy(false);
     }
+  }
+
+  if (ticket) {
+    return (
+      <div className="grid min-h-svh place-items-center bg-muted/40 p-4">
+        <div className="w-full max-w-sm space-y-6">
+          <Logo className="justify-center text-2xl" />
+          <Card>
+            <CardHeader>
+              <CardTitle>Verificación en dos pasos</CardTitle>
+              <CardDescription>
+                {useRecovery
+                  ? 'Escribe uno de tus códigos de recuperación. Cada código solo sirve una vez.'
+                  : 'Escribe el código de 6 dígitos de tu app de autenticación.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form onSubmit={submit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="code">{useRecovery ? 'Código de recuperación' : 'Código'}</Label>
+                  <Input
+                    id="code"
+                    value={code}
+                    onChange={(e) => setCode(useRecovery ? e.target.value : e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    required
+                    autoFocus
+                    autoComplete="one-time-code"
+                    inputMode={useRecovery ? 'text' : 'numeric'}
+                    placeholder={useRecovery ? 'abcde-12345' : '123456'}
+                    className="font-mono tracking-widest"
+                  />
+                </div>
+                {error && (
+                  <Alert variant="destructive">
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                <Button type="submit" className="w-full" disabled={busy}>
+                  {busy && <Loader2 className="animate-spin" />}
+                  Verificar
+                </Button>
+              </form>
+              <div className="mt-4 flex justify-between border-t pt-3">
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="px-0"
+                  onClick={() => {
+                    setUseRecovery(!useRecovery);
+                    setCode('');
+                    setError('');
+                  }}
+                >
+                  {useRecovery ? 'Usar la app' : 'Usar un código de recuperación'}
+                </Button>
+                <Button
+                  variant="link"
+                  size="sm"
+                  className="px-0 text-muted-foreground"
+                  onClick={() => {
+                    setTicket('');
+                    setCode('');
+                    setError('');
+                  }}
+                >
+                  Volver
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
   }
 
   return (
