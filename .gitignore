@@ -5,3 +5,5 @@ web/node_modules/
 web/dist/*
 !web/dist/.gitkeep
 # Vite copia web/public/.gitkeep a dist en cada build: go:embed necesita que dist exista.
+# Lo genera TanStack Router a partir de src/routes (npm run routes / dev / build).
+web/src/routeTree.gen.ts

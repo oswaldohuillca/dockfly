@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from '@tanstack/react-router';
 import { ChevronDown, Loader2, Lock, Plus, Search, TriangleAlert, X } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -11,7 +12,6 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api, errorMessage, type GitConnection, type Repo, type Site, type SiteGitInput } from '@/lib/api';
 import { DEFAULT_IMAGE, matchPreset, presets } from '@/lib/presets';
-import { navigate } from '@/lib/router';
 import { cn } from '@/lib/utils';
 
 interface Props {
@@ -128,7 +128,9 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
             <Button variant="outline" onClick={onClose}>
               Cancelar
             </Button>
-            <Button onClick={() => navigate('/integrations')}>Ir a Integraciones</Button>
+            <Button asChild>
+              <Link to="/integrations">Ir a Integraciones</Link>
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

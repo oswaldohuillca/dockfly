@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { FileCode2, Lock, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -8,9 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api, errorMessage, type Site } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
-import { navigate } from '@/lib/router';
 
 export function Sites() {
+  const navigate = useNavigate();
   const [sites, setSites] = useState<Site[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -63,9 +64,10 @@ export function Sites() {
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {sites.map((site) => (
-                <button
+                <Link
                   key={site.id}
-                  onClick={() => navigate(`/sites/${site.id}`)}
+                  to="/sites/$siteId"
+                  params={{ siteId: site.id }}
                   className="rounded-lg border p-4 text-left transition-colors hover:border-primary/50 hover:bg-muted/40"
                 >
                   <div className="flex items-start justify-between gap-2">
@@ -90,7 +92,7 @@ export function Sites() {
                       ? `Despliegue #${site.active_deployment.id} · ${timeAgo(site.active_deployment.created_at)}`
                       : `Creado ${timeAgo(site.created_at)}`}
                   </div>
-                </button>
+                </Link>
               ))}
             </div>
           )}
@@ -102,7 +104,7 @@ export function Sites() {
           onClose={() => setCreating(false)}
           onSaved={(site) => {
             setCreating(false);
-            navigate(`/sites/${site.id}`);
+            navigate({ to: '/sites/$siteId', params: { siteId: site.id } });
           }}
         />
       )}

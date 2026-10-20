@@ -1,10 +1,13 @@
 import path from 'node:path';
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  // El plugin del router va antes que el de React: genera src/routeTree.gen.ts
+  // a partir de src/routes y divide el código por ruta (opciones en tsr.config.json).
+  plugins: [tanstackRouter(), react(), tailwindcss()],
   resolve: {
     alias: { '@': path.resolve(import.meta.dirname, './src') },
   },

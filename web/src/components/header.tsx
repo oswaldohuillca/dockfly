@@ -1,3 +1,4 @@
+import { Link } from '@tanstack/react-router';
 import { LogOut, Monitor, Moon, Sun } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
@@ -21,28 +22,23 @@ import { cn } from '@/lib/utils';
 interface Props {
   user: User;
   status: Status | null;
-  route: string;
   onLogout: () => void;
 }
 
-export function Header({ user, status, route, onLogout }: Props) {
+export function Header({ user, status, onLogout }: Props) {
   const { theme, setTheme } = useTheme();
 
   return (
     <header className="border-b bg-background">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         <div className="flex items-center gap-6">
-          <Logo className="text-lg" />
+          <Link to="/">
+            <Logo className="text-lg" />
+          </Link>
           <nav className="flex gap-1">
-            <NavLink href="/proxy-hosts" active={route === '/' || route.startsWith('/proxy-hosts')}>
-              Proxy Hosts
-            </NavLink>
-            <NavLink href="/sites" active={route.startsWith('/sites')}>
-              Sitios
-            </NavLink>
-            <NavLink href="/integrations" active={route.startsWith('/integrations')}>
-              Integraciones
-            </NavLink>
+            <NavLink to="/proxy-hosts">Proxy Hosts</NavLink>
+            <NavLink to="/sites">Sitios</NavLink>
+            <NavLink to="/integrations">Integraciones</NavLink>
           </nav>
         </div>
 
@@ -113,16 +109,15 @@ function StatusBadge({ ok, children }: { ok: boolean; children: React.ReactNode 
   );
 }
 
-function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+function NavLink({ to, children }: { to: '/proxy-hosts' | '/sites' | '/integrations'; children: React.ReactNode }) {
+  // activeProps se aplica también en las subrutas (/sites/3 marca «Sitios»).
   return (
-    <a
-      href={`#${href}`}
-      className={cn(
-        'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-        active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
-      )}
+    <Link
+      to={to}
+      className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+      activeProps={{ className: 'bg-muted !text-foreground' }}
     >
       {children}
-    </a>
+    </Link>
   );
 }

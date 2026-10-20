@@ -96,6 +96,7 @@ internal/secrets   cifrado AES-GCM de tokens y variables de entorno
 internal/traefik   genera traefik.yml (estático) y dockfly.yml (dinámico); supervisa el proceso
 internal/docker    cliente mínimo del socket de Docker (sin SDK)
 web/               frontend React 19 + TypeScript + Tailwind 4 + shadcn/ui, incrustado con go:embed
+  └─ src/routes/   rutas de TanStack Router basadas en archivos (una carpeta = un segmento de la URL)
 ```
 
 La base de datos es la única fuente de verdad: en cada cambio (y al arrancar) se regenera

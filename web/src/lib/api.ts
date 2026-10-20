@@ -194,6 +194,12 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     opts.body = JSON.stringify(body);
   }
   const res = await fetch('/api' + path, opts);
+  // Si la sesión caduca mientras se usa el panel, volvemos al login (y de
+  // ahí a la misma página).
+  if (res.status === 401 && !path.startsWith('/auth/') && !path.startsWith('/setup')) {
+    const here = window.location.pathname + window.location.search;
+    window.location.href = `/login?redirect=${encodeURIComponent(here)}`;
+  }
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
   if (!res.ok) throw new ApiError(res.status, data.error || res.statusText);

@@ -87,7 +87,7 @@ var callbackPage = template.Must(template.New("cb").Parse(`<!doctype html>
 <style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;color:#333}
 .box{text-align:center;max-width:28rem;padding:1rem}.ok{color:#16a34a}.err{color:#dc2626}</style>
 <div class="box"><h2 class="{{if .OK}}ok{{else}}err{{end}}">{{if .OK}}✔ Conectado{{else}}No se pudo conectar{{end}}</h2>
-<p>{{.Message}}</p><p><a href="/#/integrations">Volver a Dockfly</a></p></div>
+<p>{{.Message}}</p><p><a href="/integrations">Volver a Dockfly</a></p></div>
 <script>
 // Esta página se abre en la ventana emergente: avisa al panel y se cierra.
 if (window.opener) {

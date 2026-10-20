@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, ExternalLink, Lock, Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -24,9 +25,9 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { api, ApiError, errorMessage, type Deployment, type Site } from '@/lib/api';
 import type { Selection } from '@/lib/collect-files';
 import { formatBytes, formatDate, plural, timeAgo } from '@/lib/format';
-import { navigate } from '@/lib/router';
 
 export function SiteDetail({ id }: { id: number }) {
+  const navigate = useNavigate();
   const [site, setSite] = useState<Site | null>(null);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [notFound, setNotFound] = useState(false);
@@ -89,7 +90,7 @@ export function SiteDetail({ id }: { id: number }) {
     try {
       await api.deleteSite(id);
       toast.success(`${site?.name} eliminado`);
-      navigate('/sites');
+      navigate({ to: '/sites' });
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -99,8 +100,8 @@ export function SiteDetail({ id }: { id: number }) {
     return (
       <div className="py-20 text-center">
         <p className="font-medium">Este sitio no existe</p>
-        <Button variant="link" onClick={() => navigate('/sites')}>
-          Volver a los sitios
+        <Button variant="link" asChild>
+          <Link to="/sites">Volver a los sitios</Link>
         </Button>
       </div>
     );
@@ -111,8 +112,10 @@ export function SiteDetail({ id }: { id: number }) {
 
   return (
     <div className="space-y-4">
-      <Button variant="ghost" size="sm" onClick={() => navigate('/sites')} className="-ml-2">
-        <ArrowLeft /> Sitios
+      <Button variant="ghost" size="sm" className="-ml-2" asChild>
+        <Link to="/sites">
+          <ArrowLeft /> Sitios
+        </Link>
       </Button>
 
       <Card>
