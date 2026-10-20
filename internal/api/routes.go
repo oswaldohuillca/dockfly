@@ -1,12 +1,15 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
+
+	"github.com/dockfly/dockfly/internal/store"
 )
 
 // Límite de intentos de login y setup por IP, contra ataques de fuerza bruta.
@@ -45,6 +48,7 @@ func (s *Server) Handler() http.Handler {
 		r.Post("/backup/restore", s.handleRestoreBackup)
 		// Webhooks de GitHub/GitLab: sin sesión, autenticados por su firma.
 		r.Post("/hooks/github-app", s.handleGitHubAppWebhook)
+		r.Post("/hooks/{provider}/apps/{id}", s.handleAppWebhook)
 		r.Post("/hooks/{provider}/{id}", s.handleWebhook)
 		// Retornos de GitHub/GitLab: los autentica el parámetro state.
 		r.Get("/git/github/manifest", s.handleGitHubManifestCallback)
@@ -120,6 +124,25 @@ func (s *Server) Handler() http.Handler {
 
 			r.Get("/settings", s.handleGetSettings)
 			r.Put("/settings", s.handlePutSettings)
+
+			r.Route("/apps", func(r chi.Router) {
+				r.Get("/", s.handleListApps)
+				r.Post("/", s.handleCreateApp)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", s.handleGetApp)
+					r.Put("/", s.handleUpdateApp)
+					r.Delete("/", s.handleDeleteApp)
+					r.Get("/env", s.handleGetAppEnv)
+					r.Get("/logs", s.handleAppLogs)
+					r.Post("/deploy", s.handleDeployApp)
+					r.Post("/stop", s.appAction(func(ctx context.Context, a *store.App) error { return s.Apps.Stop(ctx, a) }))
+					r.Post("/start", s.appAction(func(ctx context.Context, a *store.App) error { return s.Apps.Start(ctx, a) }))
+					r.Post("/restart", s.appAction(func(ctx context.Context, a *store.App) error { return s.Apps.Restart(ctx, a) }))
+					r.Post("/deployments/{deploymentID}/redeploy", s.handleRedeploy)
+				})
+			})
+			r.Get("/app-deployments/{deploymentID}/logs", s.handleAppDeploymentLogs)
+			r.Post("/app-deployments/{deploymentID}/cancel", s.handleCancelAppDeployment)
 
 			r.Get("/docker/containers", s.handleListContainers)
 		})

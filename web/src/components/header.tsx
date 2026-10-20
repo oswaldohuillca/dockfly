@@ -38,6 +38,7 @@ export function Header({ user, status, onLogout }: Props) {
           <nav className="flex gap-1">
             <NavLink to="/proxy-hosts">Proxy Hosts</NavLink>
             <NavLink to="/sites">Sitios</NavLink>
+            <NavLink to="/apps">Apps</NavLink>
             <NavLink to="/integrations">Integraciones</NavLink>
             <NavLink to="/settings">Ajustes</NavLink>
           </nav>
@@ -110,7 +111,13 @@ function StatusBadge({ ok, children }: { ok: boolean; children: React.ReactNode 
   );
 }
 
-function NavLink({ to, children }: { to: '/proxy-hosts' | '/sites' | '/integrations' | '/settings'; children: React.ReactNode }) {
+function NavLink({
+  to,
+  children,
+}: {
+  to: '/proxy-hosts' | '/sites' | '/apps' | '/integrations' | '/settings';
+  children: React.ReactNode;
+}) {
   // activeProps se aplica también en las subrutas (/sites/3 marca «Sitios»).
   return (
     <Link

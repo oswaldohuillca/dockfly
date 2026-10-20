@@ -34,6 +34,7 @@ func normalizeDomains(in []string) ([]string, error) {
 const (
 	ownerProxyHost = "proxy host"
 	ownerSite      = "sitio"
+	ownerApp       = "app"
 )
 
 // owner identifica al recurso que se está editando, para no considerarlo
@@ -77,6 +78,16 @@ func (s *Server) checkDomains(w http.ResponseWriter, r *http.Request, domains []
 	}
 	for _, st := range sites {
 		if conflict(ownerSite, st.ID, st.Domains) {
+			return false
+		}
+	}
+	appList, err := s.Store.ListApps(ctx)
+	if err != nil {
+		s.internalError(w, err)
+		return false
+	}
+	for _, a := range appList {
+		if conflict(ownerApp, a.ID, a.Domains) {
 			return false
 		}
 	}

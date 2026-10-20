@@ -55,6 +55,35 @@ func short(sha string) string {
 	return sha
 }
 
+// OnAppDeployFinished avisa del resultado de un despliegue de app.
+func (s *Server) OnAppDeployFinished(ctx context.Context, deploymentID int64) {
+	if s.Notify == nil {
+		return
+	}
+	d, err := s.Store.GetAppDeployment(ctx, deploymentID)
+	if err != nil {
+		return
+	}
+	a, err := s.Store.GetApp(ctx, d.AppID)
+	if err != nil {
+		return
+	}
+	link := s.panelLink(ctx, fmt.Sprintf("/apps/%d", a.ID))
+	what := strings.TrimSpace(short(d.CommitSHA) + " " + d.CommitMessage)
+	if what == "" {
+		what = d.Image
+	}
+	switch d.Status {
+	case store.DeployFailed:
+		s.Notify.Notify(notify.Event{Kind: notify.EventBuildFailed, Severity: notify.Error, URL: link,
+			Title:   fmt.Sprintf("El despliegue #%d de %s falló", d.ID, a.Name),
+			Message: fmt.Sprintf("%s\n%s\nLa versión anterior sigue en marcha.", what, d.Error)})
+	case store.DeployLive:
+		s.Notify.Notify(notify.Event{Kind: notify.EventBuildSucceeded, Severity: notify.Success, URL: link,
+			Title: a.Name + " desplegada", Message: fmt.Sprintf("Despliegue #%d · %s", d.ID, what)})
+	}
+}
+
 // OnCertError avisa de un fallo de Let's Encrypt. Traefik reintenta cada
 // poco: el mismo dominio solo se avisa una vez al día.
 func (s *Server) OnCertError(domains []string, msg string) {
@@ -163,6 +192,23 @@ func (s *Server) checkContainers(ctx context.Context, down map[string]bool) {
 	for _, h := range hosts {
 		if h.Enabled && h.TargetType == store.TargetDocker {
 			watched[h.ForwardHost] = append(watched[h.ForwardHost], h.Domains...)
+		}
+	}
+	// Y el contenedor actual de cada app en marcha. Las que se están
+	// desplegando se saltan: con volúmenes, su contenedor se detiene a
+	// propósito unos segundos.
+	deploying := map[int64]bool{}
+	if running, err := s.Store.ListAppDeploymentsByStatus(ctx, store.DeployRunning); err == nil {
+		for _, d := range running {
+			deploying[d.AppID] = true
+		}
+	}
+	if appList, err := s.Store.ListApps(ctx); err == nil {
+		for _, a := range appList {
+			if !a.Stopped && !deploying[a.ID] && a.Current != nil && a.Current.Container != "" {
+				label := append([]string{"app " + a.Name}, a.Domains...)
+				watched[a.Current.Container] = append(watched[a.Current.Container], label...)
+			}
 		}
 	}
 	for name, domains := range watched {

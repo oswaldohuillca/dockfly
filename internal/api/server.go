@@ -5,12 +5,15 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 
+	"github.com/dockfly/dockfly/internal/apps"
 	"github.com/dockfly/dockfly/internal/auth"
 	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/docker"
@@ -51,6 +54,7 @@ type Server struct {
 	Builds  *builder.Manager
 	Secrets *secrets.Box
 	Git     *gitauth.Resolver
+	Apps    *apps.Manager
 
 	oauthStates stateStore
 
@@ -88,6 +92,23 @@ func (s *Server) Apply(ctx context.Context) error {
 			routes = append(routes, rt)
 		}
 	}
+	// Apps desplegadas, en marcha y con puerto y dominios: Traefik envía el
+	// tráfico a su contenedor actual (cambia en cada despliegue).
+	appList, err := s.Store.ListApps(ctx)
+	if err != nil {
+		return err
+	}
+	for _, a := range appList {
+		if a.Stopped || a.Port == 0 || len(a.Domains) == 0 || a.Current == nil || a.Current.Container == "" {
+			continue
+		}
+		routes = append(routes, traefik.Route{
+			Name: "app-" + strconv.FormatInt(a.ID, 10), Domains: a.Domains,
+			URL:          fmt.Sprintf("http://%s:%d", a.Current.Container, a.Port),
+			PreserveHost: true, SSL: a.SSL, ForceHTTPS: a.ForceHTTPS, HSTS: a.HSTS,
+		})
+	}
+
 	table := map[string]pages.Route{}
 	for _, site := range sites {
 		if rt, ok := traefik.SiteRoute(site, s.StaticURL); ok {

@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,6 +20,7 @@ import (
 	"time"
 
 	"github.com/dockfly/dockfly/internal/api"
+	"github.com/dockfly/dockfly/internal/apps"
 	"github.com/dockfly/dockfly/internal/auth"
 	"github.com/dockfly/dockfly/internal/backup"
 	"github.com/dockfly/dockfly/internal/builder"
@@ -167,6 +169,14 @@ func run(log *slog.Logger) error {
 	buildCfg.OnFinish = srv.OnBuildFinished
 	certs.OnError = srv.OnCertError
 	srv.Builds = builder.New(buildCfg)
+	srv.Apps = apps.New(apps.Config{
+		Store: st, Docker: dc, Secrets: box, Providers: srv.Git, LogDir: filepath.Join(dataDir, "builds"),
+		Log: log.With("component", "apps"), Network: opts.DockerNet,
+		Apply: srv.Apply, OnFinish: srv.OnAppDeployFinished,
+	})
+	if dc != nil {
+		ensureNetwork(ctx, log, dc, opts.DockerNet)
+	}
 	// La configuración dinámica se regenera desde la base de datos al
 	// arrancar: la base de datos es la única fuente de verdad.
 	if err := srv.Apply(ctx); err != nil {
@@ -176,6 +186,7 @@ func run(log *slog.Logger) error {
 	var wg sync.WaitGroup
 	wg.Go(func() { srv.Builds.Run(ctx) })
 	wg.Go(func() { srv.RunMonitors(ctx) })
+	wg.Go(func() { srv.Apps.Run(ctx) })
 	if env("DOCKFLY_TRAEFIK", "on") != "off" {
 		srv.Super = &traefik.Supervisor{
 			Bin:        env("DOCKFLY_TRAEFIK_BIN", "/usr/local/bin/traefik"),
@@ -241,6 +252,32 @@ func run(log *slog.Logger) error {
 var restart atomic.Bool
 
 var errRestart = errors.New("reinicio solicitado")
+
+// ensureNetwork crea la red de Dockfly si no existe y conecta a ella el
+// propio contenedor: Traefik (que corre dentro) llega a las apps por su
+// nombre en esa red.
+func ensureNetwork(ctx context.Context, log *slog.Logger, dc *docker.Client, network string) {
+	if network == "" {
+		return
+	}
+	if err := dc.CreateNetwork(ctx, network); err != nil {
+		log.Warn("no se pudo crear la red de Dockfly", "red", network, "error", err)
+		return
+	}
+	nets, err := dc.SelfNetworks(ctx)
+	if err != nil || len(nets) == 0 {
+		return // Dockfly no corre en un contenedor (desarrollo)
+	}
+	if slices.Contains(nets, network) {
+		return
+	}
+	self, _ := os.Hostname()
+	if err := dc.ConnectNetwork(ctx, network, self); err != nil {
+		log.Warn("no se pudo conectar Dockfly a su red: las apps no recibirán tráfico", "red", network, "error", err)
+		return
+	}
+	log.Info("Dockfly conectado a la red de las apps", "red", network)
+}
 
 // buildConfig lee los límites de los builds de las variables de entorno.
 func buildConfig() (builder.Config, error) {

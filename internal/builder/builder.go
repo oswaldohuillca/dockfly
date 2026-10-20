@@ -430,7 +430,7 @@ func (m *Manager) buildInContainer(ctx context.Context, prov gitprovider.Provide
 	logsDone := make(chan struct{})
 	go func() {
 		defer close(logsDone)
-		_ = demux(logs, log)
+		_ = docker.Demux(logs, log)
 	}()
 	code, err := dc.Wait(ctx, id)
 	// Si se cancela, cerrar el flujo desbloquea la lectura de logs.

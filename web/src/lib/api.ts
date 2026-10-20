@@ -226,6 +226,85 @@ export interface ChannelInput {
 /** Valor con el que el servidor enmascara los secretos; reenviarlo los conserva. */
 export const SECRET_MASK = '••••••••';
 
+export type AppSource = 'image' | 'git';
+export type AppDeployStatus = 'queued' | 'running' | 'live' | 'replaced' | 'failed' | 'canceled';
+
+export interface AppVolume {
+  name: string;
+  path: string;
+}
+
+export interface AppDeployment {
+  id: number;
+  app_id: number;
+  status: AppDeployStatus;
+  trigger: 'manual' | 'push' | 'rollback';
+  image: string;
+  container: string;
+  commit_sha: string;
+  commit_message: string;
+  error: string;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export interface App {
+  id: number;
+  name: string;
+  source: AppSource;
+  image: string;
+  git_connection_id: number | null;
+  repo: string;
+  branch: string;
+  root_dir: string;
+  dockerfile: string;
+  webhook_id: string;
+  port: number;
+  domains: string[];
+  ssl: boolean;
+  force_https: boolean;
+  hsts: boolean;
+  volumes: AppVolume[];
+  command: string;
+  memory_mb: number;
+  cpus: number;
+  health_path: string;
+  stopped: boolean;
+  current_deployment_id: number | null;
+  current?: AppDeployment;
+  /** Estado real del contenedor (running, exited, restarting…); vacío si nunca se desplegó. */
+  state: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AppInput {
+  name: string;
+  source: AppSource;
+  image: string;
+  connection_id: number;
+  repo: string;
+  branch: string;
+  root_dir: string;
+  dockerfile: string;
+  port: number;
+  domains: string[];
+  ssl: boolean;
+  force_https: boolean;
+  hsts: boolean;
+  /** null = conservar las variables actuales. */
+  env: Record<string, string> | null;
+  volumes: AppVolume[];
+  command: string;
+  memory_mb: number;
+  cpus: number;
+  health_path: string;
+  deploy?: boolean;
+}
+
+export const appDeployFinished = (d: AppDeployment) => d.status !== 'queued' && d.status !== 'running';
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -291,6 +370,21 @@ export const api = {
   updateChannel: (id: number, data: ChannelInput) => request<NotificationChannel>('PUT', `/notifications/${id}`, data),
   deleteChannel: (id: number) => request<void>('DELETE', `/notifications/${id}`),
   testChannel: (id: number) => request<void>('POST', `/notifications/${id}/test`),
+
+  listApps: () => request<App[]>('GET', '/apps'),
+  getApp: (id: number) => request<{ app: App; deployments: AppDeployment[] }>('GET', `/apps/${id}`),
+  createApp: (data: AppInput) =>
+    request<{ app: App; deployment: AppDeployment | null; warning: string }>('POST', '/apps', data),
+  updateApp: (id: number, data: AppInput) => request<{ app: App; warning: string }>('PUT', `/apps/${id}`, data),
+  deleteApp: (id: number, removeData: boolean) => request<void>('DELETE', `/apps/${id}${removeData ? '?data=1' : ''}`),
+  getAppEnv: (id: number) => request<Record<string, string>>('GET', `/apps/${id}/env`),
+  deployApp: (id: number) => request<AppDeployment>('POST', `/apps/${id}/deploy`),
+  redeploy: (id: number, deploymentId: number) =>
+    request<AppDeployment>('POST', `/apps/${id}/deployments/${deploymentId}/redeploy`),
+  appAction: (id: number, action: 'stop' | 'start' | 'restart') => request<void>('POST', `/apps/${id}/${action}`),
+  cancelAppDeployment: (id: number) => request<void>('POST', `/app-deployments/${id}/cancel`),
+  appDeploymentLogsURL: (id: number) => `/api/app-deployments/${id}/logs`,
+  appLogsURL: (id: number) => `/api/apps/${id}/logs`,
 
   getSettings: () => request<{ public_url: string }>('GET', '/settings'),
   putSettings: (data: { public_url: string }) =>

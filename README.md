@@ -79,6 +79,22 @@ docker exec dockfly dockfly restore /data/copia.tar.gz  # preparar; se aplica al
 > Copiar `dockfly.db` a mano no basta: SQLite trabaja en modo WAL y los cambios recientes están
 > en `dockfly.db-wal`. La copia de Dockfly usa `VACUUM INTO`, que sí es consistente.
 
+### Apps
+
+Contenedores que Dockfly despliega y gestiona: APIs, bases de datos, servicios… desde una
+**imagen** (`postgres:17`, `ghcr.io/usuario/app`) o desde un **Dockerfile** de un repo de
+GitHub/GitLab, que se reconstruye en cada push. Hay plantillas para PostgreSQL, MySQL, Redis,
+n8n y Uptime Kuma.
+
+- **Sin corte**: el contenedor nuevo arranca, pasa la comprobación de salud (ruta HTTP,
+  `HEALTHCHECK` de la imagen o puerto abierto) y solo entonces recibe el tráfico. Si falla, la
+  versión anterior sigue sirviendo y el log muestra la salida del contenedor.
+- **Con volúmenes** (bases de datos) la versión actual se detiene antes de arrancar la nueva:
+  dos instancias escribiendo en los mismos datos los corromperían.
+- Las apps se encuentran por su nombre en la red interna (`postgres:5432`), sin exponerlas.
+- Variables de entorno cifradas, límites de memoria y CPU, logs en vivo, reiniciar, detener y
+  volver a una versión anterior.
+
 ## Configuración
 
 | Variable | Por defecto | Descripción |
@@ -106,6 +122,7 @@ internal/api       API REST (chi) + sirve el frontend
 internal/store     modelos y consultas con Bun sobre SQLite (Go puro, sin CGO)
   └─ migrations/   migraciones SQL versionadas, incrustadas en el binario
 internal/pages     sitios estáticos: subida segura (zip/carpeta), despliegues y servidor
+internal/apps      apps: despliegues sin corte, salud, volúmenes y ciclo de vida
 internal/builder   cola de builds y ejecución en contenedores efímeros
 internal/gitprovider  APIs de GitHub/GitLab: repos, código, webhooks, GitHub App y OAuth
 internal/gitauth   credenciales vigentes por conexión (tokens de instalación, refresco OAuth)
@@ -141,5 +158,5 @@ make test
 1. ✅ Proxy hosts con SSL automático (Docker, host, externos)
 2. ✅ Sitios estáticos con subida directa, despliegues inmutables y rollback
 3. ✅ Sitios estáticos desde GitHub/GitLab: build en cada push
-4. Previews por rama y estado del despliegue en los commits
-5. Apps en contenedores desde una imagen Docker o un Dockerfile
+4. ✅ Apps en contenedores desde una imagen o un Dockerfile
+5. Previews por rama y estado del despliegue en los commits

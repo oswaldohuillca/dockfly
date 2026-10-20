@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -408,6 +409,23 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var builds []int64
+	appList, err := s.Store.ListApps(ctx)
+	if err != nil {
+		s.internalError(w, err)
+		return
+	}
+	for _, a := range appList {
+		if a.Source != store.AppSourceGit || a.GitConnectionID == nil || !slices.Contains(ids, *a.GitConnectionID) ||
+			a.Repo != push.Repo || a.Branch != push.Branch {
+			continue
+		}
+		d, err := s.Apps.Enqueue(ctx, a.ID, store.TriggerPush, push.Commit, "")
+		if err != nil {
+			writeError(w, http.StatusServiceUnavailable, err.Error())
+			return
+		}
+		builds = append(builds, d.ID)
+	}
 	for _, site := range sites {
 		if site.Repo != push.Repo || site.Branch != push.Branch {
 			continue

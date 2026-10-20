@@ -1,16 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { ChevronDown, Loader2, Lock, Plus, Search, TriangleAlert, X } from 'lucide-react';
+import { ChevronDown, Loader2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
-import { ProviderIcon } from '@/components/brand-icons';
+import { EnvEditor, envToRows, rowsToEnv, type EnvRow } from '@/components/env-editor';
+import { RepoPicker } from '@/components/repo-picker';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { api, errorMessage, type GitConnection, type Repo, type Site, type SiteGitInput } from '@/lib/api';
+import { api, errorMessage, type GitConnection, type Site, type SiteGitInput } from '@/lib/api';
 import { DEFAULT_IMAGE, matchPreset, presets } from '@/lib/presets';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +21,6 @@ interface Props {
   onSaved: (webhookError: string) => void;
 }
 
-type EnvRow = { key: string; value: string };
 
 export function GitDialog({ site, onClose, onSaved }: Props) {
   const linked = site.repo !== '';
@@ -38,9 +38,6 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
   }));
   const [env, setEnv] = useState<EnvRow[]>([]);
   const [envTouched, setEnvTouched] = useState(false);
-  const [repos, setRepos] = useState<Repo[] | null>(null);
-  const [repoQuery, setRepoQuery] = useState('');
-  const [branches, setBranches] = useState<string[]>([]);
   const [advanced, setAdvanced] = useState(linked && (site.root_dir !== '' || site.build_image !== DEFAULT_IMAGE));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -53,40 +50,11 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
       setForm((f) => (f.connection_id === 0 && list.length > 0 ? { ...f, connection_id: list[0].id } : f));
     });
     if (linked) {
-      api.getSiteEnv(site.id).then((e) => setEnv(Object.entries(e).map(([key, value]) => ({ key, value }))));
+      api.getSiteEnv(site.id).then((e) => setEnv(envToRows(e)));
     }
   }, [linked, site.id]);
 
-  useEffect(() => {
-    if (!form.connection_id) return;
-    setRepos(null);
-    api
-      .listRepos(form.connection_id)
-      .then(setRepos)
-      .catch((e) => {
-        setRepos([]);
-        setError(errorMessage(e));
-      });
-  }, [form.connection_id]);
-
-  useEffect(() => {
-    if (!form.connection_id || !form.repo) return;
-    api
-      .listBranches(form.connection_id, form.repo)
-      .then(setBranches)
-      .catch(() => setBranches([]));
-  }, [form.connection_id, form.repo]);
-
-  const visibleRepos = useMemo(() => {
-    const q = repoQuery.trim().toLowerCase();
-    return (repos ?? []).filter((r) => !q || r.full_name.toLowerCase().includes(q));
-  }, [repos, repoQuery]);
-
   const preset = matchPreset(form.install_command, form.build_command, form.output_dir);
-
-  function pickRepo(r: Repo) {
-    setForm((f) => ({ ...f, repo: r.full_name, branch: r.default_branch }));
-  }
 
   function applyPreset(id: string) {
     const p = presets.find((p) => p.id === id);
@@ -112,7 +80,7 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
     setError('');
     setBusy(true);
     try {
-      const envMap = Object.fromEntries(env.filter((r) => r.key.trim()).map((r) => [r.key.trim(), r.value]));
+      const envMap = rowsToEnv(env);
       const res = await api.putSiteGit(site.id, { ...form, env: envTouched || !linked ? envMap : null });
       toast.success(linked ? 'Configuración guardada' : `${form.repo} conectado`);
       onSaved(res.webhook_error);
@@ -146,8 +114,6 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
     );
   }
 
-  const conn = connections?.find((c) => c.id === form.connection_id);
-
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-2xl">
@@ -159,80 +125,14 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid gap-4 sm:grid-cols-[1fr_1.4fr]">
-            <div className="space-y-2">
-              <Label>Cuenta</Label>
-              <Select value={String(form.connection_id || '')} onValueChange={(v) => set('connection_id', Number(v))}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Cargando…" />
-                </SelectTrigger>
-                <SelectContent>
-                  {connections?.map((c) => (
-                    <SelectItem key={c.id} value={String(c.id)}>
-                      <ProviderIcon provider={c.provider} /> {c.username}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>Rama de producción</Label>
-              <Select value={form.branch} onValueChange={(v) => set('branch', v)} disabled={!form.repo}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Elige un repositorio" />
-                </SelectTrigger>
-                <SelectContent>
-                  {(branches.includes(form.branch) || !form.branch ? branches : [form.branch, ...branches]).map((b) => (
-                    <SelectItem key={b} value={b}>
-                      {b}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label>Repositorio</Label>
-            <div className="rounded-md border">
-              <div className="relative border-b">
-                <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  className="h-9 w-full bg-transparent pr-3 pl-8 text-sm outline-none placeholder:text-muted-foreground"
-                  placeholder="Buscar…"
-                  value={repoQuery}
-                  onChange={(e) => setRepoQuery(e.target.value)}
-                />
-              </div>
-              <ul className="max-h-44 overflow-y-auto p-1">
-                {repos === null ? (
-                  <li className="px-2 py-3 text-center text-sm text-muted-foreground">Cargando repositorios…</li>
-                ) : visibleRepos.length === 0 ? (
-                  <li className="px-2 py-3 text-center text-sm text-muted-foreground">
-                    Ningún repositorio{repoQuery && ` coincide con «${repoQuery}»`}. Revisa a qué repos tiene acceso el
-                    token.
-                  </li>
-                ) : (
-                  visibleRepos.map((r) => (
-                    <li key={r.full_name}>
-                      <button
-                        type="button"
-                        onClick={() => pickRepo(r)}
-                        className={cn(
-                          'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted',
-                          r.full_name === form.repo && 'bg-primary/10 font-medium',
-                        )}
-                      >
-                        {conn && <ProviderIcon provider={conn.provider} className="size-3.5 opacity-70" />}
-                        <span className="truncate">{r.full_name}</span>
-                        {r.private && <Lock className="size-3 shrink-0 text-muted-foreground" />}
-                      </button>
-                    </li>
-                  ))
-                )}
-              </ul>
-            </div>
-          </div>
+          {connections && (
+            <RepoPicker
+              connections={connections}
+              value={{ connection_id: form.connection_id, repo: form.repo, branch: form.branch }}
+              onChange={(v) => setForm((f) => ({ ...f, ...v }))}
+              onError={setError}
+            />
+          )}
 
           <div className="space-y-2">
             <Label>Framework</Label>
@@ -307,30 +207,7 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
             <p className="text-xs text-muted-foreground">
               Disponibles durante el build (p. ej. <code className="font-mono">VITE_API_URL</code>). Se guardan cifradas.
             </p>
-            {env.map((row, i) => (
-              <div key={i} className="flex gap-2">
-                <Input
-                  className="font-mono"
-                  placeholder="NOMBRE"
-                  value={row.key}
-                  onChange={(e) =>
-                    editEnv(env.map((r, j) => (j === i ? { ...r, key: e.target.value.replace(/[^A-Za-z0-9_]/g, '_') } : r)))
-                  }
-                />
-                <Input
-                  className="font-mono"
-                  placeholder="valor"
-                  value={row.value}
-                  onChange={(e) => editEnv(env.map((r, j) => (j === i ? { ...r, value: e.target.value } : r)))}
-                />
-                <Button type="button" variant="ghost" size="icon" onClick={() => editEnv(env.filter((_, j) => j !== i))}>
-                  <X />
-                </Button>
-              </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={() => editEnv([...env, { key: '', value: '' }])}>
-              <Plus /> Añadir variable
-            </Button>
+            <EnvEditor rows={env} onChange={editEnv} />
           </div>
 
           {error && (
