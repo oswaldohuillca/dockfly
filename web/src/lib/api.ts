@@ -44,6 +44,7 @@ export interface Container {
   status: string;
   networks: string[];
   ports: number[];
+  self: boolean;
 }
 
 export interface ContainerList {
@@ -264,10 +265,7 @@ export const api = {
   buildLogsURL: (id: number) => `/api/builds/${id}/logs`,
 };
 
-/**
- * Sube un despliegue. Usa XMLHttpRequest porque fetch todavía no informa del
- * progreso de subida. onProgress recibe un valor entre 0 y 1.
- */
+/** Sube un despliegue: un .zip o los archivos de una carpeta. */
 function uploadDeployment(siteId: number, payload: UploadPayload, onProgress?: (p: number) => void) {
   const form = new FormData();
   if ('archive' in payload) {
@@ -277,15 +275,30 @@ function uploadDeployment(siteId: number, payload: UploadPayload, onProgress?: (
     // se recorta a su base al viajar en multipart.
     for (const { path, file } of payload.files) form.append(`file:${path}`, file, file.name);
   }
+  return upload<Deployment>(`/api/sites/${siteId}/deployments`, form, onProgress);
+}
 
-  return new Promise<Deployment>((resolve, reject) => {
+/** Sube una copia de seguridad para restaurarla. */
+export function restoreBackup(file: File, onProgress?: (p: number) => void) {
+  const form = new FormData();
+  form.append('backup', file);
+  return upload<{ message: string }>('/api/backup/restore', form, onProgress);
+}
+
+/**
+ * Envía un formulario multipart. Usa XMLHttpRequest porque fetch todavía no
+ * informa del progreso de subida. onProgress recibe un valor entre 0 y 1.
+ */
+function upload<T>(url: string, form: FormData, onProgress?: (p: number) => void) {
+  return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', `/api/sites/${siteId}/deployments`);
+    xhr.open('POST', url);
+    // Cabecera propia: un formulario de otro sitio no puede añadirla (CSRF).
     xhr.setRequestHeader('X-Dockfly-Upload', '1');
     xhr.responseType = 'json';
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
     xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as Deployment);
+      if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as T);
       else reject(new ApiError(xhr.status, xhr.response?.error || xhr.statusText));
     };
     xhr.onerror = () => reject(new ApiError(0, 'error de red durante la subida'));

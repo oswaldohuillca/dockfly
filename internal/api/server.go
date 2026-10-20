@@ -51,6 +51,11 @@ type Server struct {
 
 	oauthStates stateStore
 
+	DataDir string
+	// Restart detiene Dockfly para que Docker lo vuelva a arrancar (lo usa la
+	// restauración de copias, que se aplica al arrancar).
+	Restart func()
+
 	applyMu sync.Mutex
 }
 

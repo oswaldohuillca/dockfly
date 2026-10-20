@@ -255,3 +255,11 @@ func (s *Store) UpdateProxyHost(ctx context.Context, h *ProxyHost) error {
 func (s *Store) DeleteProxyHost(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewDelete().Model((*ProxyHost)(nil)).Where("id = ?", id).Exec(ctx))
 }
+
+// Snapshot escribe en path una copia consistente de la base de datos,
+// incluidos los cambios que aún están en el WAL (copiar dockfly.db a mano
+// los perdería).
+func (s *Store) Snapshot(ctx context.Context, path string) error {
+	_, err := s.db.ExecContext(ctx, "VACUUM INTO ?", path)
+	return err
+}

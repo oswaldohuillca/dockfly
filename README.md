@@ -62,6 +62,20 @@ Para desplegar en cada push, GitHub/GitLab deben poder llegar a Dockfly: publica
 un proxy host y escribe su dirección en *Integraciones → URL pública*. Sin ella, los sitios se
 despliegan con el botón «Desplegar ahora».
 
+### Copias de seguridad
+
+En *Ajustes → Copias de seguridad* se descarga una copia con la base de datos, las claves, los
+sitios publicados y los certificados, y se restaura subiéndola (también desde la pantalla de
+primera instalación, para migrar de servidor). Desde la terminal:
+
+```bash
+docker exec dockfly dockfly backup /data/copia.tar.gz   # crear
+docker exec dockfly dockfly restore /data/copia.tar.gz  # preparar; se aplica al reiniciar
+```
+
+> Copiar `dockfly.db` a mano no basta: SQLite trabaja en modo WAL y los cambios recientes están
+> en `dockfly.db-wal`. La copia de Dockfly usa `VACUUM INTO`, que sí es consistente.
+
 ## Configuración
 
 | Variable | Por defecto | Descripción |
@@ -105,6 +119,11 @@ La base de datos es la única fuente de verdad: en cada cambio (y al arrancar) s
 
 > ⚠️ Montar el socket de Docker da control total del host. Protege el puerto 81
 > (firewall o VPN, o publica el panel detrás de un proxy host con SSL).
+
+## Imágenes publicadas
+
+Cada versión se publica en `ghcr.io/<propietario>/dockfly` para **amd64 y arm64** (Raspberry
+Pi, instancias ARM…): `:latest` y `:1.2.3` para las versiones, `:edge` para `main`.
 
 ## Desarrollo
 

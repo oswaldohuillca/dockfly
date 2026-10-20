@@ -58,6 +58,9 @@ type Container struct {
 	Status   string   `json:"status"`
 	Networks []string `json:"networks"`
 	Ports    []int    `json:"ports"` // puertos internos expuestos
+	// Self marca el contenedor del propio Dockfly (útil para publicar el
+	// panel con un dominio, pero conviene distinguirlo).
+	Self bool `json:"self"`
 }
 
 func (c *Client) ListContainers(ctx context.Context) ([]Container, error) {
@@ -79,6 +82,8 @@ func (c *Client) ListContainers(ctx context.Context) ([]Container, error) {
 		return nil, err
 	}
 
+	// Dentro de Docker, el hostname por defecto es el ID corto del contenedor.
+	self, _ := os.Hostname()
 	out := make([]Container, 0, len(raw))
 	for _, r := range raw {
 		ct := Container{
@@ -86,6 +91,7 @@ func (c *Client) ListContainers(ctx context.Context) ([]Container, error) {
 			Image:  r.Image,
 			State:  r.State,
 			Status: r.Status,
+			Self:   self != "" && strings.HasPrefix(r.ID, self),
 		}
 		if len(r.Names) > 0 {
 			ct.Name = strings.TrimPrefix(r.Names[0], "/")

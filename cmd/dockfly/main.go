@@ -14,11 +14,13 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
 	"github.com/dockfly/dockfly/internal/api"
 	"github.com/dockfly/dockfly/internal/auth"
+	"github.com/dockfly/dockfly/internal/backup"
 	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/gitauth"
@@ -33,12 +35,21 @@ import (
 var version = "dev"
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
-		os.Exit(healthcheck())
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "healthcheck":
+			os.Exit(healthcheck())
+		case "backup", "restore":
+			os.Exit(backupCommand(os.Args[1], os.Args[2:]))
+		}
 	}
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel()}))
-	if err := run(log); err != nil {
+	if err := run(log); errors.Is(err, errRestart) {
+		// 75 (EX_TEMPFAIL): Docker reinicia el contenedor tanto con
+		// "unless-stopped" como con "on-failure".
+		os.Exit(75)
+	} else if err != nil {
 		log.Error("dockfly terminó con error", "error", err)
 		os.Exit(1)
 	}
@@ -51,6 +62,13 @@ func run(log *slog.Logger) error {
 	dataDir := env("DOCKFLY_DATA_DIR", "/data")
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
 		return err
+	}
+
+	// Una copia restaurada desde el panel se aplica aquí, antes de abrir nada.
+	if applied, kept, err := backup.ApplyPending(dataDir); err != nil {
+		return fmt.Errorf("aplicando la copia de seguridad: %w", err)
+	} else if applied {
+		log.Warn("copia de seguridad restaurada; los datos anteriores están en "+kept, "dir", kept)
 	}
 
 	st, err := store.Open(ctx, filepath.Join(dataDir, "dockfly.db"))
@@ -131,6 +149,11 @@ func run(log *slog.Logger) error {
 		MaxUploadMB:  maxUpload,
 		Secrets:      box,
 		Git:          gitauth.New(st, box),
+		DataDir:      dataDir,
+		Restart: func() {
+			restart.Store(true)
+			stop()
+		},
 	}
 	buildCfg.Store, buildCfg.Docker, buildCfg.Secrets, buildCfg.Providers = st, dc, box, srv.Git
 	buildCfg.Pages, buildCfg.LogDir = pagesStorage, filepath.Join(dataDir, "builds")
@@ -185,7 +208,11 @@ func run(log *slog.Logger) error {
 	case <-ctx.Done():
 	}
 
-	log.Info("apagando…")
+	if restart.Load() {
+		log.Warn("reiniciando para aplicar la copia de seguridad")
+	} else {
+		log.Info("apagando…")
+	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	for _, hs := range []*http.Server{httpSrv, staticSrv} {
@@ -194,8 +221,16 @@ func run(log *slog.Logger) error {
 		}
 	}
 	wg.Wait()
+	if restart.Load() {
+		return errRestart
+	}
 	return nil
 }
+
+// restart indica que Dockfly debe salir para que Docker lo reinicie.
+var restart atomic.Bool
+
+var errRestart = errors.New("reinicio solicitado")
 
 // buildConfig lee los límites de los builds de las variables de entorno.
 func buildConfig() (builder.Config, error) {
@@ -228,6 +263,54 @@ func buildConfig() (builder.Config, error) {
 		CPUs:        cpus,
 		Concurrency: int(conc),
 	}, nil
+}
+
+// backupCommand implementa "dockfly backup [archivo]" (por defecto a la
+// salida estándar) y "dockfly restore <archivo>", para cuando el panel no
+// está disponible.
+func backupCommand(cmd string, args []string) int {
+	dataDir := env("DOCKFLY_DATA_DIR", "/data")
+	switch cmd {
+	case "backup":
+		ctx := context.Background()
+		st, err := store.Open(ctx, filepath.Join(dataDir, "dockfly.db"))
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		defer st.Close()
+		out := os.Stdout
+		if len(args) > 0 {
+			if out, err = os.Create(args[0]); err != nil {
+				fmt.Fprintln(os.Stderr, err)
+				return 1
+			}
+			defer out.Close()
+		}
+		if err := backup.Create(ctx, st, dataDir, version, out); err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			return 1
+		}
+	case "restore":
+		if len(args) != 1 {
+			fmt.Fprintln(os.Stderr, "uso: dockfly restore <copia.tar.gz>")
+			return 2
+		}
+		f, err := os.Open(args[0])
+		if err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			return 1
+		}
+		defer f.Close()
+		m, err := backup.Stage(f, dataDir)
+		if err != nil {
+			fmt.Fprintln(os.Stderr, "error:", err)
+			return 1
+		}
+		fmt.Fprintf(os.Stderr, "Copia del %s preparada: se aplicará la próxima vez que arranque Dockfly.\n",
+			m.CreatedAt.Format("02/01/2006 15:04"))
+	}
+	return 0
 }
 
 // loopback convierte ":8099" en "127.0.0.1:8099" para construir una URL.

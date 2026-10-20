@@ -41,6 +41,8 @@ func (s *Server) Handler() http.Handler {
 		r.With(authLimit).Post("/setup", s.handleSetup)
 		r.With(authLimit).Post("/auth/login", s.handleLogin)
 		r.Post("/auth/logout", s.handleLogout)
+		// Sin sesión solo en una instalación nueva (lo comprueba el handler).
+		r.Post("/backup/restore", s.handleRestoreBackup)
 		// Webhooks de GitHub/GitLab: sin sesión, autenticados por su firma.
 		r.Post("/hooks/github-app", s.handleGitHubAppWebhook)
 		r.Post("/hooks/{provider}/{id}", s.handleWebhook)
@@ -103,6 +105,8 @@ func (s *Server) Handler() http.Handler {
 			r.Put("/git/gitlab/apps", s.handlePutGitLabApp)
 			r.Delete("/git/gitlab/apps/{id}", s.handleDeleteGitLabApp)
 			r.Post("/git/gitlab/authorize", s.handleGitLabAuthorize)
+
+			r.Get("/backup", s.handleDownloadBackup)
 
 			r.Get("/settings", s.handleGetSettings)
 			r.Put("/settings", s.handlePutSettings)

@@ -60,6 +60,8 @@ func testServerWithPages(t *testing.T) (*httptest.Server, *pages.Server, string)
 		StaticURL:    "http://127.0.0.1:8099",
 		MaxUploadMB:  1,
 	}
+	s.DataDir = dir
+	s.Restart = func() { s.Log.Info("reinicio solicitado") }
 	s.Secrets, _ = secrets.New(make([]byte, 32))
 	s.Git = gitauth.New(st, s.Secrets)
 	s.Builds = builder.New(builder.Config{

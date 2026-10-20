@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 
 import { Logo } from '@/components/logo';
+import { RestoreBackup } from '@/components/restore-backup';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -88,6 +89,12 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
                 {setup ? 'Crear administrador' : 'Entrar'}
               </Button>
             </form>
+            {setup && (
+              <div className="mt-4 flex flex-col items-center gap-1 border-t pt-4 text-center">
+                <p className="text-xs text-muted-foreground">¿Vienes de otro servidor?</p>
+                <RestoreBackup variant="link" />
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>

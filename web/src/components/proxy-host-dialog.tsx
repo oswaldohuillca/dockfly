@@ -6,6 +6,7 @@ import { CheckField } from '@/components/check-field';
 import { DomainsInput } from '@/components/domains-input';
 import { SSLFields } from '@/components/ssl-fields';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,14 @@ import {
 
 // La opción activa debe distinguirse claramente: el estilo por defecto es muy sutil.
 const segmentClass = 'flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground';
+
+/**
+ * Docker muestra "sha256:…" cuando la etiqueta de la imagen se movió a otra
+ * versión (p. ej. tras un pull) o se borró: lo acortamos.
+ */
+function imageLabel(image: string) {
+  return image.startsWith('sha256:') ? `imagen sin etiqueta (${image.slice(7, 14)})` : image;
+}
 
 interface Props {
   /** Host a editar, o un objeto vacío para crear uno nuevo. */
@@ -188,12 +197,18 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder={containersLoaded ? 'Elige un contenedor…' : 'Cargando…'} />
                         </SelectTrigger>
-                        <SelectContent>
+                        {/* popper + ancho máximo: el desplegable no se sale del diálogo. */}
+                        <SelectContent position="popper" className="max-w-[min(30rem,calc(100vw-2rem))]">
                           {containers.map((c) => (
                             <SelectItem key={c.id} value={c.name}>
-                              <span>{c.name}</span>
-                              <span className="truncate text-xs text-muted-foreground">
-                                {c.image}
+                              <span className="shrink-0">{c.name}</span>
+                              {c.self && (
+                                <Badge variant="secondary" className="shrink-0">
+                                  este panel
+                                </Badge>
+                              )}
+                              <span className="min-w-0 truncate text-xs text-muted-foreground">
+                                {imageLabel(c.image)}
                                 {c.state !== 'running' && ` · ${c.state}`}
                               </span>
                             </SelectItem>

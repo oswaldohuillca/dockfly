@@ -8,6 +8,8 @@ import (
 
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/go-chi/httprate"
+
+	"github.com/dockfly/dockfly/internal/store"
 )
 
 // clientIP resuelve la IP real del cliente. Solo se confía en X-Forwarded-For
@@ -28,23 +30,27 @@ func keyByClientIP(r *http.Request) (string, error) {
 
 func (s *Server) requireAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		c, err := r.Cookie(sessionCookie)
-		if err != nil {
-			writeError(w, http.StatusUnauthorized, "no autenticado")
-			return
-		}
-		id, err := s.Signer.Verify(c.Value)
-		if err != nil {
-			writeError(w, http.StatusUnauthorized, "sesión inválida o expirada")
-			return
-		}
-		u, err := s.Store.UserByID(r.Context(), id)
-		if err != nil {
-			writeError(w, http.StatusUnauthorized, "usuario no encontrado")
+		u, ok := s.sessionUser(r)
+		if !ok {
+			writeError(w, http.StatusUnauthorized, "no autenticado o sesión expirada")
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, u)))
 	})
+}
+
+// sessionUser devuelve el usuario de la cookie de sesión, si es válida.
+func (s *Server) sessionUser(r *http.Request) (*store.User, bool) {
+	c, err := r.Cookie(sessionCookie)
+	if err != nil {
+		return nil, false
+	}
+	id, err := s.Signer.Verify(c.Value)
+	if err != nil {
+		return nil, false
+	}
+	u, err := s.Store.UserByID(r.Context(), id)
+	return u, err == nil
 }
 
 // jsonOnly exige Content-Type JSON en peticiones que modifican estado. Junto
