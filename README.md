@@ -54,6 +54,9 @@ Conecta un repositorio y cada push a la rama elegida construye el sitio y lo pub
   gitlab.com y con instancias propias.
 - **Tokens de acceso personal**: opción avanzada, para entornos sin navegador.
 
+Cada sitio tiene una **caché de dependencias** (bun, npm, yarn, pnpm) que se conserva entre builds:
+en la prueba, `bun install` pasa de ~6 s a ~40 ms en el segundo build.
+
 Los builds corren en un contenedor efímero (`oven/bun:1` por defecto, configurable por sitio)
 **sin privilegios** y con límites de memoria, CPU, procesos y tiempo. El código lo descarga
 Dockfly y lo copia dentro: **las credenciales nunca entran en el contenedor de build**.

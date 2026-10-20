@@ -594,3 +594,17 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusAccepted, map[string]any{"status": "en cola", "build_id": b.ID})
 }
+
+// handleClearBuildCache vacía la caché de dependencias del sitio (útil si
+// una caché corrupta provoca errores extraños en el build).
+func (s *Server) handleClearBuildCache(w http.ResponseWriter, r *http.Request) {
+	site, ok := s.loadSite(w, r)
+	if !ok {
+		return
+	}
+	if err := s.Builds.ClearCache(r.Context(), site.ID); err != nil {
+		writeError(w, http.StatusConflict, "no se pudo vaciar la caché (¿hay un build en marcha?): "+err.Error())
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}

@@ -382,6 +382,12 @@ func (m *Manager) buildInContainer(ctx context.Context, prov gitprovider.Provide
 		envList = append(envList, k+"="+v)
 	}
 
+	var volumes map[string]string
+	if m.ensureCache(ctx, site.ID, image, log) {
+		volumes = map[string]string{CacheVolume(site.ID): cacheDir}
+		envList = append(envList, cacheEnv...)
+	}
+
 	workdir := path.Join("/workspace", site.RootDir)
 	id, err := dc.CreateContainer(ctx, docker.ContainerSpec{
 		Name:       fmt.Sprintf("dockfly-build-%d", b.ID),
@@ -394,6 +400,7 @@ func (m *Manager) buildInContainer(ctx context.Context, prov gitprovider.Provide
 		MemoryMB:   m.cfg.MemoryMB,
 		CPUs:       m.cfg.CPUs,
 		PidsLimit:  1024,
+		Volumes:    volumes,
 	})
 	if err != nil {
 		return fmt.Errorf("creando el contenedor de build: %w", err)

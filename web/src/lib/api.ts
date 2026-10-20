@@ -314,6 +314,7 @@ export const api = {
   getSiteEnv: (id: number) => request<Record<string, string>>('GET', `/sites/${id}/git/env`),
   listBuilds: (id: number) => request<Build[]>('GET', `/sites/${id}/builds`),
   triggerBuild: (id: number) => request<Build>('POST', `/sites/${id}/builds`),
+  clearBuildCache: (id: number) => request<void>('DELETE', `/sites/${id}/cache`),
   getBuild: (id: number) => request<Build>('GET', `/builds/${id}`),
   cancelBuild: (id: number) => request<void>('POST', `/builds/${id}/cancel`),
   buildLogsURL: (id: number) => `/api/builds/${id}/logs`,

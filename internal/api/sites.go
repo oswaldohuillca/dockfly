@@ -135,6 +135,9 @@ func (s *Server) handleDeleteSite(w http.ResponseWriter, r *http.Request) {
 	if err := s.PagesStorage.RemoveSite(site.ID); err != nil {
 		s.Log.Error("borrando archivos del sitio", "site", site.ID, "error", err)
 	}
+	if err := s.Builds.ClearCache(r.Context(), site.ID); err != nil {
+		s.Log.Warn("borrando la caché de builds del sitio", "site", site.ID, "error", err)
+	}
 	w.WriteHeader(http.StatusNoContent)
 }
 

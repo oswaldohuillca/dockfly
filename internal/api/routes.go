@@ -82,6 +82,7 @@ func (s *Server) Handler() http.Handler {
 					r.Get("/git/env", s.handleGetSiteEnv)
 					r.Get("/builds", s.handleListBuilds)
 					r.Post("/builds", s.handleTriggerBuild)
+					r.Delete("/cache", s.handleClearBuildCache)
 				})
 			})
 

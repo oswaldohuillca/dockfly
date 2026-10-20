@@ -93,6 +93,15 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
     if (p) setForm((f) => ({ ...f, install_command: p.install, build_command: p.build, output_dir: p.output }));
   }
 
+  async function clearCache() {
+    try {
+      await api.clearBuildCache(site.id);
+      toast.success('Caché vaciada: el próximo build descargará las dependencias de nuevo');
+    } catch (e) {
+      toast.error(errorMessage(e));
+    }
+  }
+
   function editEnv(rows: EnvRow[]) {
     setEnv(rows);
     setEnvTouched(true);
@@ -262,6 +271,16 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
           >
             <ChevronDown className={cn('size-4 transition-transform', advanced && 'rotate-180')} /> Opciones avanzadas
           </button>
+          {advanced && linked && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
+              <span className="text-muted-foreground">
+                Las dependencias se guardan en caché entre builds. Vacíala si ves errores extraños al instalar.
+              </span>
+              <Button type="button" variant="outline" size="sm" onClick={clearCache}>
+                Vaciar la caché
+              </Button>
+            </div>
+          )}
           {advanced && (
             <div className="grid gap-4 sm:grid-cols-2">
               <Field

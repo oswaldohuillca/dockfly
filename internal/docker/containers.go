@@ -24,6 +24,11 @@ type ContainerSpec struct {
 	MemoryMB   int64
 	CPUs       float64
 	PidsLimit  int64
+	// Volumes monta volúmenes con nombre: nombre → ruta en el contenedor.
+	Volumes map[string]string
+	// KeepCaps conserva las capabilities por defecto (solo para contenedores
+	// auxiliares de Dockfly que no ejecutan código del usuario).
+	KeepCaps bool
 }
 
 func (c *Client) raw(ctx context.Context, client *http.Client, method, path string, body io.Reader, contentType string) (*http.Response, error) {
@@ -107,6 +112,24 @@ func (c *Client) PullImage(ctx context.Context, ref string, log io.Writer) error
 }
 
 func (c *Client) CreateContainer(ctx context.Context, spec ContainerSpec) (string, error) {
+	host := map[string]any{
+		"Memory":      spec.MemoryMB << 20,
+		"MemorySwap":  spec.MemoryMB << 20, // sin swap extra
+		"NanoCpus":    int64(spec.CPUs * 1e9),
+		"PidsLimit":   spec.PidsLimit,
+		"SecurityOpt": []string{"no-new-privileges"},
+		"Init":        true, // reaprovecha procesos huérfanos de los scripts
+	}
+	if !spec.KeepCaps {
+		host["CapDrop"] = []string{"ALL"}
+	}
+	var mounts []map[string]any
+	for name, target := range spec.Volumes {
+		mounts = append(mounts, map[string]any{"Type": "volume", "Source": name, "Target": target})
+	}
+	if len(mounts) > 0 {
+		host["Mounts"] = mounts
+	}
 	body := map[string]any{
 		"Image":      spec.Image,
 		"Cmd":        spec.Cmd,
@@ -117,16 +140,8 @@ func (c *Client) CreateContainer(ctx context.Context, spec ContainerSpec) (strin
 		// Sin TTY: las herramientas no dibujan barras de progreso con \r
 		// (ilegibles en un log) y los logs llegan multiplexados (stdout y
 		// stderr con una cabecera de 8 bytes por trama).
-		"Tty": false,
-		"HostConfig": map[string]any{
-			"Memory":      spec.MemoryMB << 20,
-			"MemorySwap":  spec.MemoryMB << 20, // sin swap extra
-			"NanoCpus":    int64(spec.CPUs * 1e9),
-			"PidsLimit":   spec.PidsLimit,
-			"CapDrop":     []string{"ALL"},
-			"SecurityOpt": []string{"no-new-privileges"},
-			"Init":        true, // reaprovecha procesos huérfanos de los scripts
-		},
+		"Tty":        false,
+		"HostConfig": host,
 	}
 	var out struct {
 		ID string `json:"Id"`
@@ -222,4 +237,26 @@ func (c *Client) ContainersWithLabel(ctx context.Context, label string) ([]strin
 		ids[i] = r.ID
 	}
 	return ids, nil
+}
+
+// VolumeExists indica si existe un volumen con ese nombre.
+func (c *Client) VolumeExists(ctx context.Context, name string) (bool, error) {
+	err := c.do(ctx, http.MethodGet, "/volumes/"+url.PathEscape(name), nil, nil)
+	if IsNotFound(err) {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+func (c *Client) CreateVolume(ctx context.Context, name string, labels map[string]string) error {
+	return c.do(ctx, http.MethodPost, "/volumes/create", map[string]any{"Name": name, "Labels": labels}, nil)
+}
+
+// RemoveVolume borra un volumen. No es un error que no exista.
+func (c *Client) RemoveVolume(ctx context.Context, name string) error {
+	err := c.do(ctx, http.MethodDelete, "/volumes/"+url.PathEscape(name)+"?force=1", nil, nil)
+	if IsNotFound(err) {
+		return nil
+	}
+	return err
 }

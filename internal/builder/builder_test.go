@@ -12,6 +12,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -286,4 +287,43 @@ func assertNoBuildContainers(t *testing.T, dc *docker.Client) {
 			dc.RemoveContainer(context.Background(), id)
 		}
 	}
+}
+
+func TestBuildCacheIsReused(t *testing.T) {
+	dc := dockerClient(t)
+	pkg := `{"name":"web","dependencies":{"vite":"7.1.0"},"scripts":{"build":"mkdir -p dist && echo ok > dist/index.html"}}`
+	gh := fakeGitHub(t, makeTarball(t, map[string]string{"package.json": pkg}))
+	e := setup(t, gh.URL, store.SiteGit{InstallCommand: DefaultInstall, BuildCommand: DefaultBuild, OutputDir: "dist", BuildImage: DefaultImage}, nil, dc)
+	t.Cleanup(func() { e.mgr.ClearCache(context.Background(), e.site.ID) })
+	e.mgr.ClearCache(context.Background(), e.site.ID) // por si quedó de otra ejecución
+
+	installTime := regexp.MustCompile(`packages installed \[([0-9.]+m?s)\]`)
+	var logs [2]string
+	for i := range 2 {
+		b, _ := e.mgr.Enqueue(context.Background(), e.site.ID, store.TriggerManual, "main", gitprovider.Commit{SHA: "abc123def"})
+		got, log := e.wait(t, b.ID)
+		if got.Status != store.BuildSuccess {
+			t.Fatalf("build %d: %s (%s)\n%s", i+1, got.Status, got.Error, log)
+		}
+		logs[i] = log
+		if m := installTime.FindStringSubmatch(log); m != nil {
+			t.Logf("build %d: bun install tardó %s", i+1, m[1])
+		}
+	}
+	if !strings.Contains(logs[0], "Caché de dependencias creada") {
+		t.Errorf("el primer build debe crear la caché:\n%s", logs[0])
+	}
+	if strings.Contains(logs[1], "Caché de dependencias") {
+		t.Errorf("el segundo build debe reutilizar la caché sin recrearla:\n%s", logs[1])
+	}
+	if ok, _ := dc.VolumeExists(context.Background(), CacheVolume(e.site.ID)); !ok {
+		t.Error("el volumen de caché debe existir tras el build")
+	}
+	if err := e.mgr.ClearCache(context.Background(), e.site.ID); err != nil {
+		t.Fatal(err)
+	}
+	if ok, _ := dc.VolumeExists(context.Background(), CacheVolume(e.site.ID)); ok {
+		t.Error("ClearCache debe borrar el volumen")
+	}
+	assertNoBuildContainers(t, dc)
 }
