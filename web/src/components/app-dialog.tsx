@@ -14,9 +14,10 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { api, errorMessage, type App, type AppInput, type AppSource, type GitConnection } from '@/lib/api';
+import { api, errorMessage, type App, type AppInput, type AppSource, type GitConnection, type RemoteServer } from '@/lib/api';
 import { appTemplates } from '@/lib/app-templates';
 import { cn } from '@/lib/utils';
 
@@ -47,6 +48,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
   const [env, setEnv] = useState<EnvRow[]>([]);
   const [envTouched, setEnvTouched] = useState(false);
   const [connections, setConnections] = useState<GitConnection[]>([]);
+  const [servers, setServers] = useState<RemoteServer[]>([]);
   const [advanced, setAdvanced] = useState(!!app && (app.command !== '' || app.memory_mb > 0 || app.cpus > 0));
   const [deploy, setDeploy] = useState(true);
   const [error, setError] = useState('');
@@ -61,6 +63,11 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
       setForm((f) => (f.connection_id === 0 && list.length > 0 ? { ...f, connection_id: list[0].id } : f));
     });
     if (app) api.getAppEnv(app.id).then((e) => setEnv(envToRows(e)));
+    else
+      api
+        .listServers()
+        .then(setServers)
+        .catch(() => {}); // solo los administradores ven los servidores
   }, [app]);
 
   function applyTemplate(id: string) {
@@ -142,6 +149,33 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
             </TabsList>
 
             <TabsContent value="general" className="space-y-5 pt-3">
+              {isNew && servers.length > 0 && (
+                <div className="space-y-2">
+                  <Label>Servidor</Label>
+                  <Select
+                    value={String(form.server_id ?? 0)}
+                    onValueChange={(v) => set('server_id', v === '0' ? null : Number(v))}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="0">Este servidor (el del panel)</SelectItem>
+                      {servers.map((s) => (
+                        <SelectItem key={s.id} value={String(s.id)} disabled={!s.online}>
+                          {s.name}
+                          {!s.online && ' (desconectado)'}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-xs text-muted-foreground">
+                    {form.server_id
+                      ? 'Sus dominios deben apuntar a la IP de ese servidor: su propio Traefik sirve el tráfico y pide los certificados. No se puede cambiar después.'
+                      : 'No se puede cambiar después.'}
+                  </p>
+                </div>
+              )}
               <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
                 <div className="space-y-2">
                   <Label htmlFor="app-name">Nombre</Label>
@@ -193,7 +227,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                   <ToggleGroupItem value="git" className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
                     <GitBranch /> Dockerfile
                   </ToggleGroupItem>
-                  <ToggleGroupItem value="compose" className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                  <ToggleGroupItem value="compose" disabled={!!form.server_id} className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
                     <Layers /> docker-compose.yml
                   </ToggleGroupItem>
                 </ToggleGroup>

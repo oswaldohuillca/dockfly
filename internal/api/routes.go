@@ -60,6 +60,9 @@ func (s *Server) Handler() http.Handler {
 		r.Get("/git/github/manifest", s.handleGitHubManifestCallback)
 		r.Get("/git/github/setup", s.handleGitHubSetup)
 		r.Get("/git/gitlab/callback", s.handleGitLabCallback)
+		// Agentes de los servidores remotos: los autentica el token del servidor.
+		r.Get("/agent/control", s.handleAgentControl)
+		r.Post("/agent/data/{connID}", s.handleAgentData)
 		// Invitaciones y cambios de contraseña: los autentica el enlace firmado.
 		r.Get("/invite/{token}", s.handleGetInvite)
 		r.With(authLimit).Post("/invite/{token}", s.handleAcceptInvite)
@@ -173,6 +176,13 @@ func (s *Server) Handler() http.Handler {
 				r.Put("/{id}", s.handleUpdateChannel)
 				r.Delete("/{id}", s.handleDeleteChannel)
 				r.Post("/{id}/test", s.handleTestChannel)
+			})
+
+			r.Route("/servers", func(r chi.Router) {
+				r.Get("/", s.handleListServers)
+				r.Post("/", s.handleCreateServer)
+				r.Post("/{id}/token", s.handleServerToken)
+				r.Delete("/{id}", s.handleDeleteServer)
 			})
 
 			r.Route("/tokens", func(r chi.Router) {

@@ -50,6 +50,8 @@ type appInput struct {
 	HealthPath   string            `json:"health_path"`
 	AccessListID *int64            `json:"access_list_id"`
 	Deploy       bool              `json:"deploy"` // desplegar nada más crearla
+	// ServerID: servidor remoto donde crearla (solo al crearla; nil = este).
+	ServerID *int64 `json:"server_id"`
 }
 
 func (in *appInput) toApp() (*store.App, error) {
@@ -146,10 +148,16 @@ type appView struct {
 }
 
 func (s *Server) appState(ctx context.Context, a *store.App) string {
-	if a.Current == nil || a.Current.Container == "" || s.Docker == nil {
+	dc := s.Apps.Docker(a)
+	if a.Current == nil || a.Current.Container == "" || dc == nil {
 		return ""
 	}
-	info, err := s.Docker.InspectContainer(ctx, a.Current.Container)
+	if a.ServerID != nil {
+		if _, online := s.Hub.Online(*a.ServerID); !online {
+			return "offline" // su servidor no está conectado: no se sabe
+		}
+	}
+	info, err := dc.InspectContainer(ctx, a.Current.Container)
 	if err != nil {
 		return "missing"
 	}
@@ -210,6 +218,17 @@ func (s *Server) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
+	}
+	if in.ServerID != nil && *in.ServerID != 0 {
+		if _, err := s.Store.GetServer(r.Context(), *in.ServerID); err != nil {
+			writeError(w, http.StatusBadRequest, "el servidor no existe")
+			return
+		}
+		if a.Source == store.AppSourceCompose {
+			writeError(w, http.StatusBadRequest, "las apps de Compose solo se pueden desplegar en el servidor principal, por ahora")
+			return
+		}
+		a.ServerID = in.ServerID
 	}
 	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp}) || !s.checkAccessList(w, r, a.AccessListID) ||
 		!s.checkSSL(w, r, a.Domains, a.SSL) {
@@ -346,7 +365,7 @@ func (s *Server) handleRedeploy(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "ese despliegue no tiene una imagen reutilizable")
 		return
 	}
-	if exists, _ := s.Docker.ImageExists(r.Context(), prev.Image); !exists {
+	if exists, _ := s.Apps.Docker(a).ImageExists(r.Context(), prev.Image); !exists {
 		writeError(w, http.StatusConflict, "la imagen de ese despliegue ya no existe; despliega de nuevo")
 		return
 	}
@@ -488,7 +507,7 @@ func (s *Server) handleAppLogs(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "la app todavía no se ha desplegado")
 		return
 	}
-	rc, err := s.Docker.FollowLogs(r.Context(), a.Current.Container, 300)
+	rc, err := s.Apps.Docker(a).FollowLogs(r.Context(), a.Current.Container, 300)
 	if err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return

@@ -37,6 +37,8 @@ export function appState(app: App): { label: string; color: string } {
   if (!app.current) return { label: 'Sin desplegar', color: 'bg-muted-foreground/40' };
   if (app.stopped) return { label: 'Detenida', color: 'bg-muted-foreground' };
   switch (app.state) {
+    case 'offline':
+      return { label: 'Servidor desconectado', color: 'bg-amber-500' };
     case 'running':
       return { label: 'En marcha', color: 'bg-emerald-500' };
     case 'restarting':

@@ -12,7 +12,6 @@ import (
 	"io"
 	"log/slog"
 	"net"
-	"net/http"
 	"os"
 	"path"
 	"path/filepath"
@@ -24,6 +23,7 @@ import (
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/dockerproxy"
 	"github.com/dockfly/dockfly/internal/gitprovider"
+	"github.com/dockfly/dockfly/internal/probe"
 	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
 )
@@ -57,6 +57,12 @@ type Config struct {
 	// ComposeProxy, si no es nil, es el proxy del socket con permisos
 	// mínimos con el que habla el auxiliar de Compose. SelfContainer es el
 	// contenedor de Dockfly, que se conecta a la red interna de cada ejecución.
+	// Remote da el Docker de un servidor remoto (por el túnel de su agente)
+	// y RemoteNetwork, la red de Dockfly en ese servidor.
+	Remote        func(serverID int64) *docker.Client
+	RemoteNetwork func(serverID int64) string
+	// RemoteProbe comprueba desde un servidor remoto si una app está lista.
+	RemoteProbe   func(ctx context.Context, serverID int64, hostport, path string) bool
 	ComposeProxy  *dockerproxy.Proxy
 	SelfContainer string
 	// HostDockerSocket es la ruta del socket de Docker en el host (no en el
@@ -76,6 +82,23 @@ type Manager struct {
 	mu      sync.Mutex
 	running map[int64]context.CancelCauseFunc
 	appLock map[int64]*sync.Mutex // una operación a la vez por app
+}
+
+// Docker es el Docker donde corre la app: el local o el de su servidor.
+// nil si no hay Docker disponible.
+func (m *Manager) Docker(app *store.App) *docker.Client {
+	if app.ServerID != nil && m.cfg.Remote != nil {
+		return m.cfg.Remote(*app.ServerID)
+	}
+	return m.cfg.Docker
+}
+
+// network es la red de Dockfly donde va la app (la de su servidor).
+func (m *Manager) network(app *store.App) string {
+	if app.ServerID != nil && m.cfg.RemoteNetwork != nil {
+		return m.cfg.RemoteNetwork(*app.ServerID)
+	}
+	return m.cfg.Network
 }
 
 // SetComposeProxy activa el proxy del socket para el auxiliar de Compose.
@@ -138,8 +161,8 @@ func (m *Manager) recover(ctx context.Context) {
 	running, _ := st.ListAppDeploymentsByStatus(ctx, store.DeployRunning)
 	for _, d := range running {
 		_ = st.FinishAppDeployment(ctx, d.ID, store.DeployFailed, "interrumpido por un reinicio de Dockfly")
-		if d.Container != "" && m.cfg.Docker != nil {
-			_ = m.cfg.Docker.RemoveContainer(ctx, d.Container)
+		if app, err := st.GetApp(ctx, d.AppID); err == nil && d.Container != "" && m.Docker(app) != nil {
+			_ = m.Docker(app).RemoveContainer(ctx, d.Container)
 		}
 	}
 	queued, _ := st.ListAppDeploymentsByStatus(ctx, store.DeployQueued)
@@ -151,7 +174,11 @@ func (m *Manager) recover(ctx context.Context) {
 // Enqueue pone en cola un despliegue. Con image != "" se reutiliza esa
 // imagen sin construir (volver a una versión anterior).
 func (m *Manager) Enqueue(ctx context.Context, appID int64, trigger string, commit gitprovider.Commit, image string) (*store.AppDeployment, error) {
-	if m.cfg.Docker == nil {
+	app, err := m.cfg.Store.GetApp(ctx, appID)
+	if err != nil {
+		return nil, err
+	}
+	if m.Docker(app) == nil {
 		return nil, errors.New("Docker no está disponible: monta /var/run/docker.sock")
 	}
 	d := &store.AppDeployment{AppID: appID, Status: store.DeployQueued, Trigger: trigger,
@@ -236,11 +263,12 @@ func (m *Manager) run(parent context.Context, id int64) {
 }
 
 func (m *Manager) deploy(ctx context.Context, d *store.AppDeployment, log io.Writer) error {
-	st, dc := m.cfg.Store, m.cfg.Docker
+	st := m.cfg.Store
 	app, err := st.GetApp(ctx, d.AppID)
 	if err != nil {
 		return err
 	}
+	dc := m.Docker(app)
 	if app.Source == store.AppSourceCompose {
 		return m.deployCompose(ctx, app, d, log)
 	}
@@ -302,7 +330,7 @@ func (m *Manager) deploy(ctx context.Context, d *store.AppDeployment, log io.Wri
 	}
 	fmt.Fprintf(log, "▶ Arrancando %s\n", name)
 	cid, err := dc.CreateAppContainer(ctx, docker.AppSpec{
-		Name: name, Image: d.Image, Cmd: cmd, Env: envList, Network: m.cfg.Network, Aliases: []string{app.Name},
+		Name: name, Image: d.Image, Cmd: cmd, Env: envList, Network: m.network(app), Aliases: []string{app.Name},
 		Volumes: volumes, MemoryMB: int64(app.MemoryMB), CPUs: app.CPUs,
 		Labels: map[string]string{LabelApp: strconv.FormatInt(app.ID, 10), LabelDeployment: strconv.FormatInt(d.ID, 10)},
 	})
@@ -313,7 +341,7 @@ func (m *Manager) deploy(ctx context.Context, d *store.AppDeployment, log io.Wri
 	d.Container = name
 	_ = st.UpdateAppDeployment(ctx, d)
 	fail := func(err error) error {
-		m.dumpLogs(name, log)
+		m.dumpLogs(app, name, log)
 		bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		_ = dc.RemoveContainer(bg, cid)
@@ -355,7 +383,7 @@ func (m *Manager) deploy(ctx context.Context, d *store.AppDeployment, log io.Wri
 }
 
 func (m *Manager) prepareImage(ctx context.Context, app *store.App, d *store.AppDeployment, log io.Writer) (string, error) {
-	dc := m.cfg.Docker
+	dc := m.Docker(app)
 	if app.Source == store.AppSourceImage {
 		image := docker.WithDefaultTag(app.Image)
 		fmt.Fprintf(log, "▶ Descargando %s…\n", image)
@@ -423,7 +451,7 @@ func (m *Manager) fetchSource(ctx context.Context, app *store.App, d *store.AppD
 
 // waitHealthy espera a que el contenedor esté listo para recibir tráfico.
 func (m *Manager) waitHealthy(ctx context.Context, app *store.App, id string, log io.Writer) error {
-	dc := m.cfg.Docker
+	dc := m.Docker(app)
 	ctx, cancel := context.WithTimeout(ctx, healthTimeout)
 	defer cancel()
 	how := "que el contenedor siga en marcha"
@@ -466,7 +494,7 @@ func (m *Manager) waitHealthy(ctx context.Context, app *store.App, id string, lo
 			}
 			ok = info.Health == "healthy"
 		case app.Port > 0:
-			ok = m.probe(ctx, ip(info, m.cfg.Network), app)
+			ok = m.probe(ctx, ip(info, m.network(app)), app)
 		default:
 			if info.Running && runningSince.IsZero() {
 				runningSince = time.Now()
@@ -500,43 +528,25 @@ func ip(info *docker.ContainerInfo, network string) string {
 	return ""
 }
 
-var probeClient = &http.Client{
-	Timeout: 3 * time.Second,
-	// Una redirección (p. ej. a /login) ya demuestra que la app responde.
-	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-}
-
+// probe comprueba si la app está lista. Las de un servidor remoto se
+// comprueban desde ese servidor: su IP solo es alcanzable allí.
 func (m *Manager) probe(ctx context.Context, addr string, app *store.App) bool {
 	if addr == "" {
 		return false
 	}
 	hostport := net.JoinHostPort(addr, strconv.Itoa(app.Port))
-	if app.HealthPath == "" {
-		conn, err := (&net.Dialer{Timeout: 2 * time.Second}).DialContext(ctx, "tcp", hostport)
-		if err != nil {
-			return false
-		}
-		conn.Close()
-		return true
+	if app.ServerID != nil && m.cfg.RemoteProbe != nil {
+		return m.cfg.RemoteProbe(ctx, *app.ServerID, hostport, app.HealthPath)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+hostport+app.HealthPath, nil)
-	if err != nil {
-		return false
-	}
-	resp, err := probeClient.Do(req)
-	if err != nil {
-		return false
-	}
-	resp.Body.Close()
-	return resp.StatusCode < 400
+	return probe.Ready(ctx, hostport, app.HealthPath)
 }
 
 // dumpLogs copia al log del despliegue las últimas líneas del contenedor:
 // suelen explicar por qué no arrancó.
-func (m *Manager) dumpLogs(container string, log io.Writer) {
+func (m *Manager) dumpLogs(app *store.App, container string, log io.Writer) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
-	rc, err := m.cfg.Docker.Logs(ctx, container)
+	rc, err := m.Docker(app).Logs(ctx, container)
 	if err != nil {
 		return
 	}
@@ -567,7 +577,7 @@ func (m *Manager) pruneImages(app *store.App) {
 			kept++
 			continue
 		}
-		_ = m.cfg.Docker.RemoveImage(ctx, d.Image)
+		_ = m.Docker(app).RemoveImage(ctx, d.Image)
 	}
 }
 

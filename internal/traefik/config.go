@@ -244,6 +244,16 @@ func SiteRoute(site *store.Site, staticURL string) (Route, bool) {
 // el cambio en caliente, sin reinicios. extra son middlewares adicionales
 // (listas de acceso) a los que pueden referirse las rutas.
 func WriteDynamic(o Options, d Dynamic) error {
+	data, err := RenderDynamic(d)
+	if err != nil {
+		return err
+	}
+	return WriteDynamicBytes(o, data)
+}
+
+// RenderDynamic genera la configuración dinámica (YAML), p. ej. para
+// enviársela al agente de un servidor remoto.
+func RenderDynamic(d Dynamic) ([]byte, error) {
 	cfg := BuildDynamic(d.Routes, d.Middlewares)
 	streamConfig(d.Streams, cfg)
 	if len(d.Certificates) > 0 {
@@ -253,8 +263,19 @@ func WriteDynamic(o Options, d Dynamic) error {
 		}
 		cfg["tls"] = map[string]any{"certificates": list}
 	}
-	return writeYAML(filepath.Join(o.DynamicDir(), dynamicFile), cfg)
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return append([]byte(generatedHeader), data...), nil
 }
+
+// WriteDynamicBytes escribe una configuración dinámica ya generada.
+func WriteDynamicBytes(o Options, data []byte) error {
+	return writeFile(filepath.Join(o.DynamicDir(), dynamicFile), data)
+}
+
+const generatedHeader = "# Generado por Dockfly. No editar: se sobrescribe en cada cambio.\n"
 
 // BuildDynamic traduce las rutas a la configuración dinámica de Traefik.
 func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
@@ -422,7 +443,11 @@ func writeYAML(path string, v any) error {
 	if err != nil {
 		return err
 	}
-	data = append([]byte("# Generado por Dockfly. No editar: se sobrescribe en cada cambio.\n"), data...)
+	return writeFile(path, append([]byte(generatedHeader), data...))
+}
+
+// writeFile escribe de forma atómica: Traefik nunca lee un archivo a medias.
+func writeFile(path string, data []byte) error {
 
 	tmp, err := os.CreateTemp(filepath.Dir(path), ".tmp-*")
 	if err != nil {

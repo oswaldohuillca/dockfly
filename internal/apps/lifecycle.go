@@ -32,7 +32,7 @@ func (m *Manager) Stop(ctx context.Context, app *store.App) error {
 		return err
 	}
 	for _, name := range names {
-		if err := m.cfg.Docker.StopContainer(ctx, name, stopTimeout); err != nil {
+		if err := m.Docker(app).StopContainer(ctx, name, stopTimeout); err != nil {
 			return err
 		}
 	}
@@ -49,7 +49,7 @@ func (m *Manager) Start(ctx context.Context, app *store.App) error {
 		return err
 	}
 	for _, name := range names {
-		if err := m.cfg.Docker.StartContainer(ctx, name); err != nil {
+		if err := m.Docker(app).StartContainer(ctx, name); err != nil {
 			return err
 		}
 	}
@@ -66,7 +66,7 @@ func (m *Manager) Restart(ctx context.Context, app *store.App) error {
 		return err
 	}
 	for _, name := range names {
-		if err := m.cfg.Docker.RestartContainer(ctx, name, stopTimeout); err != nil {
+		if err := m.Docker(app).RestartContainer(ctx, name, stopTimeout); err != nil {
 			return err
 		}
 	}
@@ -110,17 +110,17 @@ func (m *Manager) Remove(ctx context.Context, app *store.App, removeData bool) e
 	}
 	for _, d := range deps {
 		if d.Container != "" {
-			if err := m.cfg.Docker.RemoveContainer(ctx, d.Container); err != nil {
+			if err := m.Docker(app).RemoveContainer(ctx, d.Container); err != nil {
 				return fmt.Errorf("borrando %s: %w", d.Container, err)
 			}
 		}
 		if strings.HasPrefix(d.Image, "dockfly/") {
-			_ = m.cfg.Docker.RemoveImage(ctx, d.Image)
+			_ = m.Docker(app).RemoveImage(ctx, d.Image)
 		}
 	}
 	if removeData {
 		for _, v := range app.Volumes {
-			if err := m.cfg.Docker.RemoveVolume(ctx, VolumeName(app, v)); err != nil {
+			if err := m.Docker(app).RemoveVolume(ctx, VolumeName(app, v)); err != nil {
 				return fmt.Errorf("borrando el volumen %s: %w", v.Name, err)
 			}
 		}

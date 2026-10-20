@@ -26,6 +26,7 @@ import (
 	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
+	"github.com/dockfly/dockfly/internal/tunnel"
 )
 
 const sessionCookie = "dockfly_session"
@@ -60,6 +61,11 @@ type Server struct {
 	Apps    *apps.Manager
 	// DBBackups hace las copias de las apps de bases de datos.
 	DBBackups *dbbackup.Manager
+	// Hub conecta con los agentes de los servidores remotos.
+	Hub *tunnel.Hub
+	// Image es la imagen de Dockfly (para el comando de los agentes).
+	Image   string
+	remotes remotes
 
 	oauthStates stateStore
 
@@ -121,15 +127,26 @@ func (s *Server) Apply(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// Las apps de los servidores remotos van al Traefik de su servidor, que
+	// pide sus propios certificados por HTTP.
+	remote := map[int64][]traefik.Route{}
 	for _, a := range appList {
 		if a.Stopped || a.Port == 0 || len(a.Domains) == 0 || a.Current == nil || a.Current.Container == "" {
 			continue
 		}
-		routes = append(routes, withACL(traefik.Route{
+		rt := withACL(traefik.Route{
 			Name: "app-" + strconv.FormatInt(a.ID, 10), Domains: a.Domains,
 			URL:          fmt.Sprintf("http://%s:%d", a.Current.Container, a.Port),
 			PreserveHost: true, SSL: a.SSL, ForceHTTPS: a.ForceHTTPS, HSTS: a.HSTS,
-		}, a.AccessListID))
+		}, a.AccessListID)
+		if a.ServerID != nil {
+			remote[*a.ServerID] = append(remote[*a.ServerID], rt)
+			continue
+		}
+		routes = append(routes, rt)
+	}
+	if s.Hub != nil {
+		defer s.pushServers(remote, extra)
 	}
 
 	redirects, err := s.Store.ListRedirects(ctx)

@@ -325,7 +325,9 @@ export type NotificationEvent =
   | 'cert_expiring'
   | 'container_down'
   | 'container_recovered'
-  | 'backup_failed';
+  | 'backup_failed'
+  | 'server_down'
+  | 'server_up';
 
 export interface NotificationChannel {
   id: number;
@@ -401,7 +403,9 @@ export interface App {
   stopped: boolean;
   current_deployment_id: number | null;
   current?: AppDeployment;
-  /** Estado real del contenedor (running, exited, restarting…); vacío si nunca se desplegó. */
+  /** Servidor remoto donde corre (null = el del panel). */
+  server_id: number | null;
+  /** Estado real del contenedor (running, exited, restarting…, offline si su servidor no está conectado). */
   state: string;
   created_at: string;
   updated_at: string;
@@ -432,6 +436,19 @@ export interface AppInput {
   health_path: string;
   access_list_id: number | null;
   deploy?: boolean;
+  /** Solo al crearla. */
+  server_id?: number | null;
+}
+
+export interface RemoteServer {
+  id: number;
+  name: string;
+  online: boolean;
+  apps: number;
+  last_seen_at: string | null;
+  last_addr: string;
+  version: string;
+  created_at: string;
 }
 
 export const appDeployFinished = (d: AppDeployment) => d.status !== 'queued' && d.status !== 'running';
@@ -566,6 +583,11 @@ export const api = {
       `/traffic/${owner}?range=${range}`,
     ),
   trafficSummary: () => request<Record<string, TrafficSummary>>('GET', '/traffic'),
+  listServers: () => request<RemoteServer[]>('GET', '/servers'),
+  createServer: (name: string) =>
+    request<{ server: RemoteServer; token: string; command: string }>('POST', '/servers', { name }),
+  rotateServerToken: (id: number) => request<{ token: string; command: string }>('POST', `/servers/${id}/token`),
+  deleteServer: (id: number) => request<void>('DELETE', `/servers/${id}`),
   listTokens: () => request<APIToken[]>('GET', '/tokens'),
   createToken: (data: { name: string; role: Role; expires_days: number }) =>
     request<{ token: string; api_token: APIToken }>('POST', '/tokens', data),

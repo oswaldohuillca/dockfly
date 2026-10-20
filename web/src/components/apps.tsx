@@ -10,8 +10,10 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { api, errorMessage, type App } from '@/lib/api';
 import { useStatus } from '@/lib/status';
 import { useCan } from '@/lib/roles';
+import { useServerNames } from '@/lib/use-servers';
 
 export function Apps() {
+  const servers = useServerNames();
   const canEdit = useCan('deployer');
   const navigate = useNavigate();
   const status = useStatus();
@@ -72,7 +74,14 @@ export function Apps() {
                   className="rounded-lg border p-4 transition-colors hover:border-primary/50 hover:bg-muted/40"
                 >
                   <div className="flex items-start justify-between gap-2">
-                    <span className="font-medium">{a.name}</span>
+                    <span className="font-medium">
+                      {a.name}
+                      {a.server_id && (
+                        <span className="ml-1.5 text-xs font-normal text-muted-foreground">
+                          en {servers[a.server_id] ?? 'otro servidor'}
+                        </span>
+                      )}
+                    </span>
                     <AppStateDot app={a} />
                   </div>
                   <div className="mt-1 flex items-center gap-1 truncate font-mono text-xs text-muted-foreground">

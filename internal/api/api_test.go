@@ -25,6 +25,7 @@ import (
 	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
+	"github.com/dockfly/dockfly/internal/tunnel"
 )
 
 // testServer levanta la API completa sobre un directorio temporal.
@@ -64,11 +65,12 @@ func testServerWithPages(t *testing.T) (*httptest.Server, *pages.Server, string)
 		MaxUploadMB:  1,
 	}
 	s.DataDir = dir
+	s.Hub = &tunnel.Hub{OnConnect: s.OnAgentConnect}
 	s.Restart = func() { s.Log.Info("reinicio solicitado") }
 	s.Secrets, _ = secrets.New(make([]byte, 32))
 	s.Git = gitauth.New(st, s.Secrets)
 	s.Notify = &notify.Dispatcher{Store: st, Secrets: s.Secrets, Log: s.Log}
-	s.Apps = apps.New(apps.Config{Store: st, Secrets: s.Secrets, Providers: s.Git, LogDir: filepath.Join(dir, "builds"),
+	s.Apps = apps.New(apps.Config{Store: st, Secrets: s.Secrets, Providers: s.Git, LogDir: filepath.Join(dir, "builds"), Remote: s.RemoteDocker,
 		Log: s.Log, Apply: s.Apply})
 	s.Builds = builder.New(builder.Config{
 		Store: st, Secrets: s.Secrets, Providers: s.Git, Pages: s.PagesStorage, LogDir: filepath.Join(dir, "builds"),

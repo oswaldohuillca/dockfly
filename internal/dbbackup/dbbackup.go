@@ -97,6 +97,9 @@ func extension(engine string) string {
 type Manager struct {
 	Store  *store.Store
 	Docker *docker.Client
+	// DockerFor, si no es nil, da el Docker de cada app (las de servidores
+	// remotos van por el túnel de su agente).
+	DockerFor func(app *store.App) *docker.Client
 	// Storage da el almacenamiento configurado ahora mismo (puede cambiar).
 	Storage func(ctx context.Context) (objstore.Store, error)
 	TmpDir  string
@@ -128,6 +131,13 @@ func (m *Manager) unlock(appID int64) {
 	m.mu.Lock()
 	delete(m.running, appID)
 	m.mu.Unlock()
+}
+
+func (m *Manager) docker(app *store.App) *docker.Client {
+	if m.DockerFor != nil {
+		return m.DockerFor(app)
+	}
+	return m.Docker
 }
 
 // container devuelve el contenedor en marcha de una app.
@@ -224,7 +234,7 @@ func (m *Manager) backup(ctx context.Context, app *store.App, b *store.DBBackup)
 
 	gz := gzip.NewWriter(tmp)
 	var stderr limitedBuffer
-	code, err := m.Docker.ExecStream(ctx, ctr, dumpCommand(b.Engine), nil, gz, &stderr)
+	code, err := m.docker(app).ExecStream(ctx, ctr, dumpCommand(b.Engine), nil, gz, &stderr)
 	if err != nil {
 		return fmt.Errorf("ejecutando el volcado: %w", err)
 	}
@@ -340,7 +350,7 @@ func (m *Manager) Restore(ctx context.Context, app *store.App, b *store.DBBackup
 		return fmt.Errorf("la copia está dañada: %w", err)
 	}
 	var stderr limitedBuffer
-	code, err := m.Docker.ExecStream(ctx, ctr, cmd, gz, io.Discard, &stderr)
+	code, err := m.docker(app).ExecStream(ctx, ctr, cmd, gz, io.Discard, &stderr)
 	if err != nil {
 		return err
 	}

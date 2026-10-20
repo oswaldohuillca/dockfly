@@ -10,6 +10,7 @@ import {
   Play,
   RotateCcw,
   RotateCw,
+  Server,
   Square,
   Trash2,
 } from 'lucide-react';
@@ -40,10 +41,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api, ApiError, appDeployFinished, errorMessage, type App, type AppDeployment, type DBBackups } from '@/lib/api';
 import { formatDate, timeAgo } from '@/lib/format';
 import { useCertificates } from '@/lib/use-certificates';
+import { useServerNames } from '@/lib/use-servers';
 
 const triggerLabel = { manual: 'Manual', push: 'Push', rollback: 'Vuelta atrás' };
 
 export function AppDetail({ id }: { id: number }) {
+  const servers = useServerNames();
   const navigate = useNavigate();
   const certs = useCertificates();
   const [app, setApp] = useState<App | null>(null);
@@ -148,6 +151,11 @@ export function AppDetail({ id }: { id: number }) {
               {app.ssl && app.domains.length > 0 && <CertBadge domains={app.domains} certs={certs} />}
             </CardTitle>
             <CardDescription className="space-y-1">
+              {app.server_id && (
+                <div className="flex items-center gap-1 text-xs">
+                  <Server className="size-3.5" /> En el servidor {servers[app.server_id] ?? `#${app.server_id}`}
+                </div>
+              )}
               <div className="flex items-center gap-1 font-mono text-xs">
                 {app.source !== 'image' ? (
                   <>

@@ -4,6 +4,7 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -38,6 +39,9 @@ const (
 func ComposeProject(app *store.App) string { return "dockfly-" + app.Name }
 
 func (m *Manager) deployCompose(ctx context.Context, app *store.App, d *store.AppDeployment, log io.Writer) error {
+	if app.ServerID != nil {
+		return errors.New("las apps de Compose solo se pueden desplegar en el servidor principal")
+	}
 	dc := m.cfg.Docker
 	rc, err := m.fetchSource(ctx, app, d, log)
 	if err != nil {

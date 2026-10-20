@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net"
@@ -11,7 +12,6 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
-	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dockfly/dockfly/internal/agent"
 	"github.com/dockfly/dockfly/internal/api"
 	"github.com/dockfly/dockfly/internal/apps"
 	"github.com/dockfly/dockfly/internal/auth"
@@ -35,6 +36,7 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
 	"github.com/dockfly/dockfly/internal/traffic"
+	"github.com/dockfly/dockfly/internal/tunnel"
 	"github.com/dockfly/dockfly/web"
 )
 
@@ -52,6 +54,8 @@ func main() {
 			os.Exit(reset2FACommand(os.Args[2:]))
 		case "deploy":
 			os.Exit(cli.Deploy(os.Args[2:], os.Stdout, os.Stderr))
+		case "agent":
+			os.Exit(agentCommand(os.Args[2:]))
 		}
 	}
 
@@ -193,7 +197,9 @@ func run(log *slog.Logger) error {
 	buildCfg.StatusURL = srv.StatusURL
 	certs.OnError = srv.OnCertError
 	srv.Builds = builder.New(buildCfg)
+	srv.Hub = &tunnel.Hub{OnConnect: srv.OnAgentConnect}
 	srv.Apps = apps.New(apps.Config{
+		Remote: srv.RemoteDocker, RemoteNetwork: srv.RemoteNetwork, RemoteProbe: srv.RemoteProbe,
 		Store: st, Docker: dc, Secrets: box, Providers: srv.Git, LogDir: filepath.Join(dataDir, "builds"),
 		Log: log.With("component", "apps"), Network: opts.DockerNet,
 		HostDockerSocket: env("DOCKFLY_HOST_DOCKER_SOCKET", "/var/run/docker.sock"),
@@ -202,8 +208,11 @@ func run(log *slog.Logger) error {
 	if dc != nil {
 		ensureNetwork(ctx, log, dc, opts.DockerNet)
 		startComposeProxy(ctx, log, dc, srv.Apps)
+		if self, ok := dc.Self(ctx); ok {
+			srv.Image = self.Image
+		}
 		srv.DBBackups = &dbbackup.Manager{
-			Store: st, Docker: dc, Storage: srv.BackupStorage, TmpDir: filepath.Join(dataDir, "tmp"),
+			Store: st, Docker: dc, DockerFor: srv.Apps.Docker, Storage: srv.BackupStorage, TmpDir: filepath.Join(dataDir, "tmp"),
 			Log: log.With("component", "db-backups"), OnFinish: srv.OnDBBackupFinished,
 		}
 	}
@@ -304,23 +313,13 @@ func ensureNetwork(ctx context.Context, log *slog.Logger, dc *docker.Client, net
 	if network == "" {
 		return
 	}
-	if err := dc.CreateNetwork(ctx, network); err != nil {
-		log.Warn("no se pudo crear la red de Dockfly", "red", network, "error", err)
-		return
-	}
-	nets, err := dc.SelfNetworks(ctx)
-	if err != nil || len(nets) == 0 {
-		return // Dockfly no corre en un contenedor (desarrollo)
-	}
-	if slices.Contains(nets, network) {
-		return
-	}
-	self, _ := os.Hostname()
-	if err := dc.ConnectNetwork(ctx, network, self); err != nil {
+	connected, err := dc.EnsureSelfNetwork(ctx, network)
+	switch {
+	case err != nil:
 		log.Warn("no se pudo conectar Dockfly a su red: las apps no recibirán tráfico", "red", network, "error", err)
-		return
+	case connected:
+		log.Info("Dockfly conectado a la red de las apps", "red", network)
 	}
-	log.Info("Dockfly conectado a la red de las apps", "red", network)
 }
 
 // startComposeProxy activa el proxy del socket de Docker con permisos
@@ -419,6 +418,54 @@ func backupCommand(cmd string, args []string) int {
 		}
 		fmt.Fprintf(os.Stderr, "Copia del %s preparada: se aplicará la próxima vez que arranque Dockfly.\n",
 			m.CreatedAt.Format("02/01/2006 15:04"))
+	}
+	return 0
+}
+
+// agentCommand implementa "dockfly agent --join <panel> --token <token>":
+// Dockfly en un servidor remoto, controlado desde el panel.
+func agentCommand(args []string) int {
+	fl := flag.NewFlagSet("agent", flag.ContinueOnError)
+	panel := fl.String("join", os.Getenv("DOCKFLY_PANEL_URL"), "dirección del panel")
+	token := fl.String("token", os.Getenv("DOCKFLY_AGENT_TOKEN"), "token del servidor")
+	if err := fl.Parse(args); err != nil {
+		return 2
+	}
+	if *panel == "" || *token == "" {
+		fmt.Fprintln(os.Stderr, "uso: dockfly agent --join https://dockfly.midominio.com --token dfa_…\n(el comando completo está en el panel: Servidores → Añadir servidor)")
+		return 2
+	}
+	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel()}))
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	dataDir := env("DOCKFLY_DATA_DIR", "/data")
+	if err := os.MkdirAll(dataDir, 0o755); err != nil {
+		log.Error("creando el directorio de datos", "error", err)
+		return 1
+	}
+	socket := env("DOCKFLY_DOCKER_SOCKET", "/var/run/docker.sock")
+	cfg := agent.Config{
+		PanelURL: *panel, Token: *token, Version: version, Docker: docker.New(socket), Log: log,
+		TraefikBin: env("DOCKFLY_TRAEFIK_BIN", "/usr/local/bin/traefik"),
+		Traefik: traefik.Options{
+			DataDir:      dataDir,
+			HTTPAddr:     env("DOCKFLY_HTTP_ADDR", ":80"),
+			HTTPSAddr:    env("DOCKFLY_HTTPS_ADDR", ":443"),
+			ACMEEmail:    os.Getenv("DOCKFLY_ACME_EMAIL"),
+			ACMEStaging:  os.Getenv("DOCKFLY_ACME_STAGING") == "true",
+			DockerSocket: socket,
+			DockerNet:    env("DOCKFLY_NETWORK", "dockfly"),
+			LogLevel:     strings.ToUpper(env("DOCKFLY_TRAEFIK_LOG_LEVEL", "warn")),
+		},
+	}
+	if env("DOCKFLY_TRAEFIK", "on") == "off" {
+		cfg.TraefikBin = ""
+	}
+	log.Info("Dockfly agente", "versión", version, "panel", *panel)
+	if err := agent.Run(ctx, cfg); err != nil {
+		log.Error("agente", "error", err)
+		return 1
 	}
 	return 0
 }

@@ -8,6 +8,8 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -209,6 +211,27 @@ func (c *Client) CreateNetwork(ctx context.Context, name string) error {
 		return nil
 	}
 	return err
+}
+
+// EnsureSelfNetwork crea la red si no existe y conecta a ella el contenedor
+// de Dockfly. connected indica si hubo que conectarlo ahora (false si ya lo
+// estaba o si Dockfly no corre en un contenedor).
+func (c *Client) EnsureSelfNetwork(ctx context.Context, network string) (connected bool, err error) {
+	if err := c.CreateNetwork(ctx, network); err != nil {
+		return false, err
+	}
+	nets, err := c.SelfNetworks(ctx)
+	if err != nil || len(nets) == 0 {
+		return false, nil // Dockfly no corre en un contenedor (desarrollo)
+	}
+	if slices.Contains(nets, network) {
+		return false, nil
+	}
+	self, _ := os.Hostname()
+	if err := c.ConnectNetwork(ctx, network, self); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // CreateInternalNetwork crea una red sin salida a internet ni al host, con

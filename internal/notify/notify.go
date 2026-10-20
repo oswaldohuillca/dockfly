@@ -25,12 +25,14 @@ const (
 	EventContainerDown     = "container_down"
 	EventContainerRecovers = "container_recovered"
 	EventBackupFailed      = "backup_failed"
+	EventServerDown        = "server_down"
+	EventServerUp          = "server_up"
 	EventTest              = "test" // el botón «Probar»: llega a cualquier canal
 )
 
 var AllEvents = []string{
 	EventBuildFailed, EventBuildSucceeded, EventCertError, EventCertExpiring,
-	EventContainerDown, EventContainerRecovers, EventBackupFailed,
+	EventContainerDown, EventContainerRecovers, EventBackupFailed, EventServerDown, EventServerUp,
 }
 
 type Severity string

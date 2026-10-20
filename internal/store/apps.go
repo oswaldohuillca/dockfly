@@ -28,35 +28,38 @@ type AppVolume struct {
 }
 
 type App struct {
-	ID                  int64       `bun:",pk,autoincrement" json:"id"`
-	Name                string      `json:"name"`
-	Source              string      `json:"source"`
-	Image               string      `json:"image"`
-	GitConnectionID     *int64      `json:"git_connection_id"`
-	Repo                string      `json:"repo"`
-	Branch              string      `json:"branch"`
-	RootDir             string      `json:"root_dir"`
-	Dockerfile          string      `json:"dockerfile"`
-	ComposeFile         string      `json:"compose_file"`
-	ComposeService      string      `json:"compose_service"` // el servicio que recibe el tráfico web
-	WebhookID           string      `json:"webhook_id"`
-	WebhookSecret       string      `json:"-"`
-	Port                int         `json:"port"`
-	Domains             []string    `json:"domains"`
-	SSL                 bool        `bun:"ssl" json:"ssl"`
-	ForceHTTPS          bool        `bun:"force_https" json:"force_https"`
-	HSTS                bool        `bun:"hsts" json:"hsts"`
-	EnvEnc              []byte      `json:"-"`
-	Volumes             []AppVolume `json:"volumes"`
-	Command             string      `json:"command"`
-	MemoryMB            int         `json:"memory_mb"`
-	CPUs                float64     `bun:"cpus" json:"cpus"`
-	HealthPath          string      `json:"health_path"`
-	AccessListID        *int64      `json:"access_list_id"`
-	Stopped             bool        `json:"stopped"`
-	CurrentDeploymentID *int64      `json:"current_deployment_id"`
-	CreatedAt           time.Time   `json:"created_at"`
-	UpdatedAt           time.Time   `json:"updated_at"`
+	ID              int64       `bun:",pk,autoincrement" json:"id"`
+	Name            string      `json:"name"`
+	Source          string      `json:"source"`
+	Image           string      `json:"image"`
+	GitConnectionID *int64      `json:"git_connection_id"`
+	Repo            string      `json:"repo"`
+	Branch          string      `json:"branch"`
+	RootDir         string      `json:"root_dir"`
+	Dockerfile      string      `json:"dockerfile"`
+	ComposeFile     string      `json:"compose_file"`
+	ComposeService  string      `json:"compose_service"` // el servicio que recibe el tráfico web
+	WebhookID       string      `json:"webhook_id"`
+	WebhookSecret   string      `json:"-"`
+	Port            int         `json:"port"`
+	Domains         []string    `json:"domains"`
+	SSL             bool        `bun:"ssl" json:"ssl"`
+	ForceHTTPS      bool        `bun:"force_https" json:"force_https"`
+	HSTS            bool        `bun:"hsts" json:"hsts"`
+	EnvEnc          []byte      `json:"-"`
+	Volumes         []AppVolume `json:"volumes"`
+	Command         string      `json:"command"`
+	MemoryMB        int         `json:"memory_mb"`
+	CPUs            float64     `bun:"cpus" json:"cpus"`
+	HealthPath      string      `json:"health_path"`
+	AccessListID    *int64      `json:"access_list_id"`
+	Stopped         bool        `json:"stopped"`
+	// ServerID es el servidor remoto donde corre (nil = el del panel). No
+	// cambia después de crearla.
+	ServerID            *int64    `json:"server_id"`
+	CurrentDeploymentID *int64    `json:"current_deployment_id"`
+	CreatedAt           time.Time `json:"created_at"`
+	UpdatedAt           time.Time `json:"updated_at"`
 
 	Current *AppDeployment `bun:"rel:belongs-to,join:current_deployment_id=id" json:"current,omitempty"`
 }
@@ -98,7 +101,7 @@ func (d *AppDeployment) Finished() bool {
 }
 
 // appStateColumns son las que cambia el ciclo de despliegue, no el formulario.
-var appStateColumns = []string{"created_at", "current_deployment_id", "stopped", "webhook_id", "webhook_secret"}
+var appStateColumns = []string{"created_at", "current_deployment_id", "stopped", "webhook_id", "webhook_secret", "server_id"}
 
 func (s *Store) ListApps(ctx context.Context) ([]*App, error) {
 	out := []*App{}

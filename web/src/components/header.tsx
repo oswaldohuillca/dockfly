@@ -42,6 +42,7 @@ export function Header({ user, status, onLogout }: Props) {
             <NavLink to="/apps">Apps</NavLink>
             {can(user, 'admin') && (
               <>
+                <NavLink to="/servers">Servidores</NavLink>
                 <NavLink to="/integrations">Integraciones</NavLink>
                 <NavLink to="/settings">Ajustes</NavLink>
               </>
@@ -125,7 +126,7 @@ function NavLink({
   to,
   children,
 }: {
-  to: '/proxy-hosts' | '/sites' | '/apps' | '/integrations' | '/settings';
+  to: '/proxy-hosts' | '/sites' | '/apps' | '/servers' | '/integrations' | '/settings';
   children: React.ReactNode;
 }) {
   // activeProps se aplica también en las subrutas (/sites/3 marca «Sitios»).

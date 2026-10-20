@@ -31,6 +31,8 @@ const eventLabels: Record<NotificationEvent, string> = {
   container_down: 'Contenedor caído',
   container_recovered: 'Contenedor recuperado',
   backup_failed: 'Copia de una base de datos fallida',
+  server_down: 'Servidor desconectado',
+  server_up: 'Servidor conectado de nuevo',
 };
 
 const typeLabels: Record<ChannelType, string> = {
@@ -221,7 +223,7 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationCh
   const [type, setType] = useState<ChannelType>(channel?.type ?? 'discord');
   const [name, setName] = useState(channel?.name ?? '');
   const [events, setEvents] = useState<NotificationEvent[]>(
-    channel?.events ?? ['build_failed', 'cert_error', 'cert_expiring', 'container_down', 'container_recovered', 'backup_failed'],
+    channel?.events ?? ['build_failed', 'cert_error', 'cert_expiring', 'container_down', 'container_recovered', 'backup_failed', 'server_down', 'server_up'],
   );
   // Los campos se editan como texto; "to" (lista) y "port" (número) se convierten al guardar.
   const [config, setConfig] = useState<Record<string, string>>(() => {

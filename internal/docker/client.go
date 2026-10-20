@@ -23,7 +23,10 @@ const apiVersion = "v1.44"
 
 type Client struct {
 	Socket string
-	http   *http.Client
+	// dial, si no es nil, sustituye a la conexión con Socket (el Docker de un
+	// servidor remoto, por el túnel de su agente).
+	dial func(ctx context.Context) (net.Conn, error)
+	http *http.Client
 	// stream no tiene timeout global: lo usan las operaciones largas (pull,
 	// logs, wait, copiar archivos), cuyo límite lo marca el contexto.
 	stream *http.Client
@@ -40,8 +43,19 @@ func New(socket string) *Client {
 	return c
 }
 
+// NewRemote crea un cliente que llega a Docker con dial. name solo sirve
+// para identificarlo.
+func NewRemote(name string, dial func(ctx context.Context) (net.Conn, error)) *Client {
+	c := New(name)
+	c.dial = dial
+	return c
+}
+
 // Dial abre una conexión con la API de Docker.
 func (c *Client) Dial(ctx context.Context) (net.Conn, error) {
+	if c.dial != nil {
+		return c.dial(ctx)
+	}
 	var d net.Dialer
 	if addr, ok := strings.CutPrefix(c.Socket, "tcp://"); ok {
 		return d.DialContext(ctx, "tcp", addr)
@@ -51,7 +65,7 @@ func (c *Client) Dial(ctx context.Context) (net.Conn, error) {
 
 // Available indica si Docker responde.
 func (c *Client) Available(ctx context.Context) bool {
-	if !strings.HasPrefix(c.Socket, "tcp://") {
+	if c.dial == nil && !strings.HasPrefix(c.Socket, "tcp://") {
 		if _, err := os.Stat(strings.TrimPrefix(c.Socket, "unix://")); err != nil {
 			return false
 		}
@@ -61,6 +75,8 @@ func (c *Client) Available(ctx context.Context) bool {
 
 // SelfInfo es lo que Dockfly necesita saber de su propio contenedor.
 type SelfInfo struct {
+	// Image es la imagen con la que se creó el contenedor.
+	Image string
 	// IPs por red.
 	IPs map[string]string
 	// Mounts son los orígenes en el host de sus montajes (rutas o volúmenes).
@@ -74,6 +90,9 @@ func (c *Client) Self(ctx context.Context) (SelfInfo, bool) {
 		return SelfInfo{}, false
 	}
 	var raw struct {
+		Config struct {
+			Image string `json:"Image"`
+		} `json:"Config"`
 		Mounts []struct {
 			Type   string `json:"Type"`
 			Name   string `json:"Name"`
@@ -88,7 +107,7 @@ func (c *Client) Self(ctx context.Context) (SelfInfo, bool) {
 	if err := c.do(ctx, http.MethodGet, "/containers/"+url.PathEscape(host)+"/json", nil, &raw); err != nil {
 		return SelfInfo{}, false
 	}
-	info := SelfInfo{IPs: map[string]string{}}
+	info := SelfInfo{IPs: map[string]string{}, Image: raw.Config.Image}
 	for n, s := range raw.NetworkSettings.Networks {
 		info.IPs[n] = s.IPAddress
 	}

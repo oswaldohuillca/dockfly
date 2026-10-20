@@ -197,6 +197,26 @@ Cada proxy host, sitio y app muestra sus **peticiones** (por estado: 2xx/3xx, 4x
 hosts incluye una minigráfica de las últimas 24 horas. Los datos salen de las métricas de Traefik
 (que solo escuchan en `127.0.0.1` dentro del contenedor), se recogen cada minuto y se guardan 7 días.
 
+### Varios servidores
+
+En *Servidores → Añadir servidor*, Dockfly da un comando para ejecutar en otra máquina con Docker:
+
+```sh
+docker run -d --name dockfly-agent --restart unless-stopped \
+  -p 80:80 -p 443:443 \
+  -v /var/run/docker.sock:/var/run/docker.sock -v dockfly-agent:/data \
+  ghcr.io/<propietario>/dockfly agent --join https://dockfly.midominio.com --token dfa_…
+```
+
+El **agente** se conecta al panel (no hay que abrir puertos en el servidor, funciona tras NAT) y
+ejecuta su propio Traefik. Al crear una app se elige en qué servidor corre: el panel la despliega
+en él por el túnel del agente (builds de Dockerfile, despliegues sin corte, logs, copias de las
+bases de datos…) y le envía sus rutas. Sus dominios deben apuntar a la IP de ese servidor, que
+pide sus propios certificados. **Si el panel se cae, las apps de los servidores siguen sirviendo**;
+al volver, el agente se reconecta solo. Un servidor desconectado se notifica.
+
+Por ahora, los proxy hosts, los sitios estáticos y las apps de Compose van en el servidor del panel.
+
 ### Copias de seguridad
 
 En *Ajustes → Copias de seguridad* se descarga una copia con la base de datos, las claves, los

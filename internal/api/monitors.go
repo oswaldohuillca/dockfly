@@ -210,8 +210,16 @@ func (s *Server) checkContainers(ctx context.Context, down map[string]bool) {
 			deploying[d.AppID] = true
 		}
 	}
-	if appList, err := s.Store.ListApps(ctx); err == nil {
+	appList, _ := s.Store.ListApps(ctx)
+	var remoteApps []*store.App
+	if appList != nil {
 		for _, a := range appList {
+			if a.ServerID != nil {
+				if !a.Stopped && !deploying[a.ID] && a.Current != nil && a.Current.Container != "" {
+					remoteApps = append(remoteApps, a)
+				}
+				continue
+			}
 			if !a.Stopped && !deploying[a.ID] && a.Current != nil && a.Current.Container != "" {
 				label := append([]string{"app " + a.Name}, a.Domains...)
 				watched[a.Current.Container] = append(watched[a.Current.Container], label...)
@@ -246,6 +254,64 @@ func (s *Server) checkContainers(ctx context.Context, down map[string]bool) {
 	for name := range down {
 		if _, ok := watched[name]; !ok {
 			delete(down, name)
+		}
+	}
+	s.checkRemote(ctx, remoteApps, down)
+}
+
+// checkRemote vigila los servidores remotos (¿está conectado su agente?) y
+// los contenedores de sus apps.
+func (s *Server) checkRemote(ctx context.Context, apps []*store.App, down map[string]bool) {
+	if s.Hub == nil {
+		return
+	}
+	servers, err := s.Store.ListServers(ctx)
+	if err != nil {
+		return
+	}
+	online := map[int64]bool{}
+	for _, sv := range servers {
+		_, ok := s.Hub.Online(sv.ID)
+		online[sv.ID] = ok
+		key := fmt.Sprintf("server:%d", sv.ID)
+		switch {
+		// Un servidor que nunca se conectó no está «caído»: aún no se instaló.
+		case !ok && !down[key] && sv.LastSeenAt != nil:
+			down[key] = true
+			s.Notify.Notify(notify.Event{
+				Kind: notify.EventServerDown, Severity: notify.Error, URL: s.panelLink(ctx, "/servers"),
+				Title:   "El servidor " + sv.Name + " está desconectado",
+				Message: "Su agente no está conectado al panel. Sus apps siguen sirviendo con su última configuración, pero no se pueden desplegar ni vigilar.",
+			})
+		case ok && down[key]:
+			delete(down, key)
+			s.Notify.Notify(notify.Event{
+				Kind: notify.EventServerUp, Severity: notify.Success, URL: s.panelLink(ctx, "/servers"),
+				Title: "El servidor " + sv.Name + " vuelve a estar conectado",
+			})
+		}
+	}
+	for _, a := range apps {
+		if !online[*a.ServerID] {
+			continue // sin conexión no se sabe nada de sus contenedores
+		}
+		info, err := s.Apps.Docker(a).InspectContainer(ctx, a.Current.Container)
+		key := fmt.Sprintf("server:%d/%s", *a.ServerID, a.Current.Container)
+		isDown := err != nil || !info.Running
+		switch {
+		case isDown && !down[key]:
+			down[key] = true
+			s.Notify.Notify(notify.Event{
+				Kind: notify.EventContainerDown, Severity: notify.Error, URL: s.panelLink(ctx, fmt.Sprintf("/apps/%d", a.ID)),
+				Title:   "La app " + a.Name + " está caída",
+				Message: fmt.Sprintf("Su contenedor %s no está en marcha. Afecta a: %s.", a.Current.Container, strings.Join(a.Domains, ", ")),
+			})
+		case !isDown && down[key]:
+			delete(down, key)
+			s.Notify.Notify(notify.Event{
+				Kind: notify.EventContainerRecovers, Severity: notify.Success, URL: s.panelLink(ctx, fmt.Sprintf("/apps/%d", a.ID)),
+				Title: "La app " + a.Name + " vuelve a funcionar",
+			})
 		}
 	}
 }
