@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Download, Terminal } from 'lucide-react';
 
+import { Notifications } from '@/components/notifications';
 import { RestoreBackup } from '@/components/restore-backup';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,6 +13,7 @@ export const Route = createFileRoute('/_app/settings')({
 function Settings() {
   return (
     <div className="space-y-4">
+      <Notifications />
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Copias de seguridad</CardTitle>

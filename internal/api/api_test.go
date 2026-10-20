@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"testing/fstest"
 	"time"
@@ -18,6 +19,7 @@ import (
 	"github.com/dockfly/dockfly/internal/auth"
 	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/gitauth"
+	"github.com/dockfly/dockfly/internal/notify"
 	"github.com/dockfly/dockfly/internal/pages"
 	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
@@ -64,6 +66,7 @@ func testServerWithPages(t *testing.T) (*httptest.Server, *pages.Server, string)
 	s.Restart = func() { s.Log.Info("reinicio solicitado") }
 	s.Secrets, _ = secrets.New(make([]byte, 32))
 	s.Git = gitauth.New(st, s.Secrets)
+	s.Notify = &notify.Dispatcher{Store: st, Secrets: s.Secrets, Log: s.Log}
 	s.Builds = builder.New(builder.Config{
 		Store: st, Secrets: s.Secrets, Providers: s.Git, Pages: s.PagesStorage, LogDir: filepath.Join(dir, "builds"),
 		Log: s.Log, Publish: s.Publish, Timeout: time.Minute,
@@ -73,7 +76,21 @@ func testServerWithPages(t *testing.T) (*httptest.Server, *pages.Server, string)
 	go s.Builds.Run(runCtx)
 	ts := httptest.NewServer(s.Handler())
 	t.Cleanup(ts.Close)
+	testServers.Store(ts, s)
 	return ts, s.Pages, opts.DynamicDir()
+}
+
+// testServers relaciona cada servidor de pruebas con su *Server, para los
+// tests que llaman directamente a sus métodos.
+var testServers sync.Map
+
+func serverOf(t *testing.T, ts *httptest.Server) *Server {
+	t.Helper()
+	s, ok := testServers.Load(ts)
+	if !ok {
+		t.Fatal("servidor de pruebas desconocido")
+	}
+	return s.(*Server)
 }
 
 type client struct {

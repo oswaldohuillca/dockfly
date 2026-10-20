@@ -15,6 +15,7 @@ import (
 	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/gitauth"
+	"github.com/dockfly/dockfly/internal/notify"
 	"github.com/dockfly/dockfly/internal/pages"
 	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
@@ -32,6 +33,7 @@ type Server struct {
 	Traefik  traefik.Options
 	Super    *traefik.Supervisor // nil si Traefik está desactivado (desarrollo)
 	Certs    *traefik.CertTracker
+	Notify   *notify.Dispatcher // nil en algunos tests
 	Frontend fs.FS
 	Version  string
 	Log      *slog.Logger

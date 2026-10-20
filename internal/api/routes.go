@@ -109,6 +109,14 @@ func (s *Server) Handler() http.Handler {
 
 			r.Get("/backup", s.handleDownloadBackup)
 
+			r.Route("/notifications", func(r chi.Router) {
+				r.Get("/", s.handleListChannels)
+				r.Post("/", s.handleCreateChannel)
+				r.Put("/{id}", s.handleUpdateChannel)
+				r.Delete("/{id}", s.handleDeleteChannel)
+				r.Post("/{id}/test", s.handleTestChannel)
+			})
+
 			r.Get("/settings", s.handleGetSettings)
 			r.Put("/settings", s.handlePutSettings)
 

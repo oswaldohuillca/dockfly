@@ -192,6 +192,40 @@ export interface CertStatus {
   hint?: string;
 }
 
+export type ChannelType = 'email' | 'discord' | 'slack' | 'telegram' | 'webhook';
+
+export type NotificationEvent =
+  | 'build_failed'
+  | 'build_succeeded'
+  | 'cert_error'
+  | 'cert_expiring'
+  | 'container_down'
+  | 'container_recovered';
+
+export interface NotificationChannel {
+  id: number;
+  type: ChannelType;
+  name: string;
+  events: NotificationEvent[];
+  enabled: boolean;
+  last_error: string;
+  last_sent_at: string | null;
+  created_at: string;
+  /** Los campos secretos llegan enmascarados (SECRET_MASK). */
+  config: Record<string, unknown>;
+}
+
+export interface ChannelInput {
+  type: ChannelType;
+  name: string;
+  events: NotificationEvent[];
+  enabled: boolean;
+  config: Record<string, unknown>;
+}
+
+/** Valor con el que el servidor enmascara los secretos; reenviarlo los conserva. */
+export const SECRET_MASK = '••••••••';
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -251,6 +285,12 @@ export const api = {
   listRepos: (id: number, q = '') => request<Repo[]>('GET', `/git/connections/${id}/repos?q=${encodeURIComponent(q)}`),
   listBranches: (id: number, repo: string) =>
     request<string[]>('GET', `/git/connections/${id}/branches?repo=${encodeURIComponent(repo)}`),
+
+  listChannels: () => request<NotificationChannel[]>('GET', '/notifications'),
+  createChannel: (data: ChannelInput) => request<NotificationChannel>('POST', '/notifications', data),
+  updateChannel: (id: number, data: ChannelInput) => request<NotificationChannel>('PUT', `/notifications/${id}`, data),
+  deleteChannel: (id: number) => request<void>('DELETE', `/notifications/${id}`),
+  testChannel: (id: number) => request<void>('POST', `/notifications/${id}/test`),
 
   getSettings: () => request<{ public_url: string }>('GET', '/settings'),
   putSettings: (data: { public_url: string }) =>

@@ -24,6 +24,7 @@ import (
 	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/gitauth"
+	"github.com/dockfly/dockfly/internal/notify"
 	"github.com/dockfly/dockfly/internal/pages"
 	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
@@ -133,6 +134,7 @@ func run(log *slog.Logger) error {
 	}
 
 	certs := &traefik.CertTracker{}
+	notifier := &notify.Dispatcher{Store: st, Secrets: box, Log: log.With("component", "notify")}
 
 	srv := &api.Server{
 		Store:    st,
@@ -152,6 +154,7 @@ func run(log *slog.Logger) error {
 		Secrets:      box,
 		Git:          gitauth.New(st, box),
 		Certs:        certs,
+		Notify:       notifier,
 		DataDir:      dataDir,
 		Restart: func() {
 			restart.Store(true)
@@ -161,6 +164,8 @@ func run(log *slog.Logger) error {
 	buildCfg.Store, buildCfg.Docker, buildCfg.Secrets, buildCfg.Providers = st, dc, box, srv.Git
 	buildCfg.Pages, buildCfg.LogDir = pagesStorage, filepath.Join(dataDir, "builds")
 	buildCfg.Log, buildCfg.Publish = log.With("component", "builder"), srv.Publish
+	buildCfg.OnFinish = srv.OnBuildFinished
+	certs.OnError = srv.OnCertError
 	srv.Builds = builder.New(buildCfg)
 	// La configuración dinámica se regenera desde la base de datos al
 	// arrancar: la base de datos es la única fuente de verdad.
@@ -170,6 +175,7 @@ func run(log *slog.Logger) error {
 
 	var wg sync.WaitGroup
 	wg.Go(func() { srv.Builds.Run(ctx) })
+	wg.Go(func() { srv.RunMonitors(ctx) })
 	if env("DOCKFLY_TRAEFIK", "on") != "off" {
 		srv.Super = &traefik.Supervisor{
 			Bin:        env("DOCKFLY_TRAEFIK_BIN", "/usr/local/bin/traefik"),

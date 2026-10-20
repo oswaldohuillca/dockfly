@@ -62,6 +62,8 @@ type Config struct {
 	// Publish activa un despliegue recién creado (lo implementa la API, que
 	// sabe regenerar Traefik y el servidor estático).
 	Publish func(ctx context.Context, siteID, deploymentID int64) error
+	// OnFinish, si no es nil, se llama al terminar cada build (notificaciones).
+	OnFinish func(ctx context.Context, buildID int64)
 
 	Concurrency int
 	Timeout     time.Duration
@@ -237,6 +239,9 @@ func (m *Manager) run(parent context.Context, id int64) {
 	if err := st.FinishBuild(context.WithoutCancel(parent), id, status, msg, dep); err != nil &&
 		!errors.Is(err, store.ErrNotFound) {
 		m.cfg.Log.Error("guardando resultado del build", "build", id, "error", err)
+	}
+	if m.cfg.OnFinish != nil && status != store.BuildCanceled {
+		m.cfg.OnFinish(context.WithoutCancel(parent), id)
 	}
 }
 

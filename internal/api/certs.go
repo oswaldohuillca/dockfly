@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"slices"
 	"time"
@@ -11,7 +12,7 @@ import (
 // handleCertificates devuelve el estado del certificado de cada dominio con
 // SSL activado (proxy hosts y sitios).
 func (s *Server) handleCertificates(w http.ResponseWriter, r *http.Request) {
-	domains, err := s.sslDomains(r)
+	domains, err := s.sslDomainsCtx(r.Context())
 	if err != nil {
 		s.internalError(w, err)
 		return
@@ -28,9 +29,9 @@ func (s *Server) handleCertificates(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, status)
 }
 
-func (s *Server) sslDomains(r *http.Request) ([]string, error) {
+func (s *Server) sslDomainsCtx(ctx context.Context) ([]string, error) {
 	var domains []string
-	hosts, err := s.Store.ListProxyHosts(r.Context())
+	hosts, err := s.Store.ListProxyHosts(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -39,7 +40,7 @@ func (s *Server) sslDomains(r *http.Request) ([]string, error) {
 			domains = append(domains, h.Domains...)
 		}
 	}
-	sites, err := s.Store.ListSites(r.Context())
+	sites, err := s.Store.ListSites(ctx)
 	if err != nil {
 		return nil, err
 	}
