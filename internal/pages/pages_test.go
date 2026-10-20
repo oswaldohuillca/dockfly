@@ -1,6 +1,7 @@
 package pages
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
 	"errors"
@@ -274,5 +275,58 @@ func TestServerSwapIsAtomic(t *testing.T) {
 	}
 	if rec.Header().Get("ETag") == etag1 {
 		t.Error("el ETag debe cambiar entre despliegues para invalidar la caché del navegador")
+	}
+}
+
+func makeTar(t *testing.T, entries map[string]string, symlinks map[string]string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	tw := tar.NewWriter(&buf)
+	for name, content := range entries {
+		tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(content)), Typeflag: tar.TypeReg})
+		io.WriteString(tw, content)
+	}
+	for name, target := range symlinks {
+		tw.WriteHeader(&tar.Header{Name: name, Linkname: target, Typeflag: tar.TypeSymlink})
+	}
+	tw.Close()
+	return buf.Bytes()
+}
+
+func TestAddTar(t *testing.T) {
+	src := makeTar(t, map[string]string{
+		"web-abc/dist/index.html":   "home",
+		"web-abc/dist/assets/a.js":  "js",
+		"web-abc/distractor/x.html": "no",
+		"web-abc/src/main.ts":       "no",
+		"web-abc/../../fuera.txt":   "malo",
+	}, map[string]string{"web-abc/dist/link": "/etc/passwd"})
+
+	st := newStorage(t, DefaultLimits)
+	s, _ := st.NewStaging(1)
+	defer st.Discard(s)
+	if err := s.AddTar(bytes.NewReader(src), "dist"); err != nil {
+		t.Fatal(err)
+	}
+	if n, _, err := s.Finish(); err != nil || n != 2 {
+		t.Fatalf("con prefix=dist deben quedar 2 archivos, quedan %d (%v)", n, err)
+	}
+	if readFile(t, filepath.Join(s.Dir, "index.html")) != "home" {
+		t.Error("dist/index.html debe quedar en la raíz")
+	}
+	for _, p := range []string{"link", "main.ts", "x.html"} {
+		if _, err := os.Lstat(filepath.Join(s.Dir, p)); err == nil {
+			t.Errorf("%s no debería estar en el despliegue", p)
+		}
+	}
+
+	// Sin prefix entra todo lo que cuelga de la carpeta raíz.
+	s2, _ := st.NewStaging(1)
+	defer st.Discard(s2)
+	if err := s2.AddTar(bytes.NewReader(src), ""); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(s2.Dir, "src/main.ts")); err != nil {
+		t.Error("sin prefix debe incluirse todo el árbol")
 	}
 }

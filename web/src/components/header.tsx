@@ -34,11 +34,14 @@ export function Header({ user, status, route, onLogout }: Props) {
         <div className="flex items-center gap-6">
           <Logo className="text-lg" />
           <nav className="flex gap-1">
-            <NavLink href="/proxy-hosts" active={!route.startsWith('/sites')}>
+            <NavLink href="/proxy-hosts" active={route === '/' || route.startsWith('/proxy-hosts')}>
               Proxy Hosts
             </NavLink>
             <NavLink href="/sites" active={route.startsWith('/sites')}>
               Sitios
+            </NavLink>
+            <NavLink href="/integrations" active={route.startsWith('/integrations')}>
+              Integraciones
             </NavLink>
           </nav>
         </div>

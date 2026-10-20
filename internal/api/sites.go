@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -121,6 +122,7 @@ func (s *Server) handleDeleteSite(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	s.deleteWebhook(r.Context(), site)
 	// Primero se deja de servir y luego se borran los archivos.
 	if err := s.Store.DeleteSite(r.Context(), site.ID); err != nil {
 		s.internalError(w, err)
@@ -209,11 +211,10 @@ func (s *Server) handleUploadDeployment(w http.ResponseWriter, r *http.Request) 
 	committed = true
 
 	// Como en Pages, cada subida se publica en cuanto termina.
-	if err := s.activate(r, site.ID, dep.ID); err != nil {
+	if err := s.Publish(r.Context(), site.ID, dep.ID); err != nil {
 		s.internalError(w, err)
 		return
 	}
-	s.pruneDeployments(r, site.ID)
 	writeJSON(w, http.StatusCreated, dep)
 }
 
@@ -250,7 +251,7 @@ func (s *Server) handleActivateDeployment(w http.ResponseWriter, r *http.Request
 	if !ok {
 		return
 	}
-	if err := s.activate(r, site.ID, dep.ID); err != nil {
+	if err := s.activate(r.Context(), site.ID, dep.ID); err != nil {
 		s.internalError(w, err)
 		return
 	}
@@ -278,17 +279,26 @@ func (s *Server) handleDeleteDeployment(w http.ResponseWriter, r *http.Request) 
 
 // activate publica un despliegue: cambia el puntero y regenera la tabla del
 // servidor estático. El cambio es atómico para los visitantes.
-func (s *Server) activate(r *http.Request, siteID, deploymentID int64) error {
-	if err := s.Store.SetActiveDeployment(r.Context(), siteID, &deploymentID); err != nil {
+func (s *Server) activate(ctx context.Context, siteID, deploymentID int64) error {
+	if err := s.Store.SetActiveDeployment(ctx, siteID, &deploymentID); err != nil {
 		return err
 	}
-	return s.Apply(r.Context())
+	return s.Apply(ctx)
+}
+
+// Publish activa un despliegue nuevo y limpia los antiguos. Lo usan tanto
+// la subida directa como los builds.
+func (s *Server) Publish(ctx context.Context, siteID, deploymentID int64) error {
+	if err := s.activate(ctx, siteID, deploymentID); err != nil {
+		return err
+	}
+	s.pruneDeployments(ctx, siteID)
+	return nil
 }
 
 // pruneDeployments borra los despliegues más antiguos, conservando los
 // keepDeployments más recientes y siempre el publicado.
-func (s *Server) pruneDeployments(r *http.Request, siteID int64) {
-	ctx := r.Context()
+func (s *Server) pruneDeployments(ctx context.Context, siteID int64) {
 	site, err := s.Store.GetSite(ctx, siteID)
 	if err != nil {
 		return

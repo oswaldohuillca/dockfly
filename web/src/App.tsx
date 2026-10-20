@@ -3,6 +3,7 @@ import { ThemeProvider } from 'next-themes';
 
 import { AuthForm } from '@/components/auth-form';
 import { Header } from '@/components/header';
+import { Integrations } from '@/components/integrations';
 import { ProxyHosts } from '@/components/proxy-hosts';
 import { SiteDetail } from '@/components/site-detail';
 import { Sites } from '@/components/sites';
@@ -94,5 +95,6 @@ function Page({ route, dockerAvailable }: { route: string; dockerAvailable: bool
   const site = route.match(/^\/sites\/(\d+)$/);
   if (site) return <SiteDetail key={site[1]} id={Number(site[1])} />;
   if (route.startsWith('/sites')) return <Sites />;
+  if (route.startsWith('/integrations')) return <Integrations />;
   return <ProxyHosts dockerAvailable={dockerAvailable} />;
 }

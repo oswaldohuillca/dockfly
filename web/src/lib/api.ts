@@ -58,16 +58,81 @@ export interface Status {
   traefik: { running: boolean; started_at?: string; last_error?: string };
 }
 
+export type GitProvider = 'github' | 'gitlab';
+
 export interface Deployment {
   id: number;
   site_id: number;
-  source: 'upload';
+  source: 'upload' | GitProvider;
   file_count: number;
   total_bytes: number;
   created_at: string;
+  commit_sha: string;
+  commit_message: string;
+  branch: string;
 }
 
-export interface Site {
+/** Configuración de build de un sitio enlazado a un repositorio. */
+export interface SiteGit {
+  git_connection_id: number | null;
+  repo: string;
+  branch: string;
+  root_dir: string;
+  install_command: string;
+  build_command: string;
+  output_dir: string;
+  build_image: string;
+  webhook_id: string;
+}
+
+export interface SiteGitInput {
+  connection_id: number;
+  repo: string;
+  branch: string;
+  root_dir: string;
+  install_command: string;
+  build_command: string;
+  output_dir: string;
+  build_image: string;
+  /** null = conservar las variables actuales. */
+  env: Record<string, string> | null;
+}
+
+export interface GitConnection {
+  id: number;
+  provider: GitProvider;
+  base_url: string;
+  username: string;
+  created_at: string;
+}
+
+export interface Repo {
+  full_name: string;
+  default_branch: string;
+  private: boolean;
+  web_url: string;
+}
+
+export type BuildStatus = 'queued' | 'running' | 'success' | 'failed' | 'canceled';
+
+export interface Build {
+  id: number;
+  site_id: number;
+  status: BuildStatus;
+  trigger: 'push' | 'manual';
+  branch: string;
+  commit_sha: string;
+  commit_message: string;
+  deployment_id: number | null;
+  error: string;
+  created_at: string;
+  started_at: string | null;
+  finished_at: string | null;
+}
+
+export const buildFinished = (b: Build) => b.status === 'success' || b.status === 'failed' || b.status === 'canceled';
+
+export interface Site extends SiteGit {
   id: number;
   name: string;
   domains: string[];
@@ -130,6 +195,27 @@ export const api = {
     request<void>('POST', `/sites/${siteId}/deployments/${id}/activate`),
   deleteDeployment: (siteId: number, id: number) => request<void>('DELETE', `/sites/${siteId}/deployments/${id}`),
   uploadDeployment,
+
+  listConnections: () => request<GitConnection[]>('GET', '/git/connections'),
+  createConnection: (data: { provider: GitProvider; base_url: string; token: string }) =>
+    request<GitConnection>('POST', '/git/connections', data),
+  deleteConnection: (id: number) => request<void>('DELETE', `/git/connections/${id}`),
+  listRepos: (id: number, q = '') => request<Repo[]>('GET', `/git/connections/${id}/repos?q=${encodeURIComponent(q)}`),
+  listBranches: (id: number, repo: string) =>
+    request<string[]>('GET', `/git/connections/${id}/branches?repo=${encodeURIComponent(repo)}`),
+
+  getSettings: () => request<{ public_url: string }>('GET', '/settings'),
+  putSettings: (data: { public_url: string }) => request<{ public_url: string }>('PUT', '/settings', data),
+
+  putSiteGit: (id: number, data: SiteGitInput) =>
+    request<{ site: Site; webhook_error: string }>('PUT', `/sites/${id}/git`, data),
+  deleteSiteGit: (id: number) => request<void>('DELETE', `/sites/${id}/git`),
+  getSiteEnv: (id: number) => request<Record<string, string>>('GET', `/sites/${id}/git/env`),
+  listBuilds: (id: number) => request<Build[]>('GET', `/sites/${id}/builds`),
+  triggerBuild: (id: number) => request<Build>('POST', `/sites/${id}/builds`),
+  getBuild: (id: number) => request<Build>('GET', `/builds/${id}`),
+  cancelBuild: (id: number) => request<void>('POST', `/builds/${id}/cancel`),
+  buildLogsURL: (id: number) => `/api/builds/${id}/logs`,
 };
 
 /**

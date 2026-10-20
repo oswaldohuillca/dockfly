@@ -2,6 +2,7 @@
 package pages
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"errors"
 	"fmt"
@@ -104,6 +105,42 @@ func (s *Staging) AddZip(ra io.ReaderAt, size int64) error {
 		}
 	}
 	return nil
+}
+
+// AddTar extrae un tar en el despliegue. Descarta el primer componente de
+// cada ruta (la carpeta raíz del tar) y, si prefix no está vacío, solo
+// incluye lo que hay dentro de prefix. Por ejemplo, con prefix "dist":
+//
+//	web-abc123/dist/index.html  →  index.html
+//	web-abc123/src/main.ts      →  (ignorado)
+func (s *Staging) AddTar(r io.Reader, prefix string) error {
+	prefix = strings.Trim(path.Clean("/"+prefix), "/")
+	tr := tar.NewReader(r)
+	for {
+		hdr, err := tr.Next()
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return invalid("tar inválido: %v", err)
+		}
+		// Solo archivos regulares: ni symlinks ni dispositivos.
+		if hdr.Typeflag != tar.TypeReg {
+			continue
+		}
+		_, rest, ok := strings.Cut(strings.TrimPrefix(hdr.Name, "./"), "/")
+		if !ok {
+			continue
+		}
+		if prefix != "" {
+			if rest, ok = strings.CutPrefix(rest, prefix+"/"); !ok {
+				continue
+			}
+		}
+		if err := s.Add(rest, tr); err != nil {
+			return err
+		}
+	}
 }
 
 // Finish valida el resultado. Si todo el contenido quedó dentro de una única

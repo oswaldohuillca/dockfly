@@ -41,6 +41,8 @@ func (s *Server) Handler() http.Handler {
 		r.With(authLimit).Post("/setup", s.handleSetup)
 		r.With(authLimit).Post("/auth/login", s.handleLogin)
 		r.Post("/auth/logout", s.handleLogout)
+		// Webhooks de GitHub/GitLab: sin sesión, autenticados por su firma.
+		r.Post("/hooks/{provider}/{id}", s.handleWebhook)
 
 		// Rutas que requieren sesión.
 		r.Group(func(r chi.Router) {
@@ -66,8 +68,31 @@ func (s *Server) Handler() http.Handler {
 					r.Post("/deployments", s.handleUploadDeployment)
 					r.Post("/deployments/{deploymentID}/activate", s.handleActivateDeployment)
 					r.Delete("/deployments/{deploymentID}", s.handleDeleteDeployment)
+
+					r.Put("/git", s.handlePutSiteGit)
+					r.Delete("/git", s.handleDeleteSiteGit)
+					r.Get("/git/env", s.handleGetSiteEnv)
+					r.Get("/builds", s.handleListBuilds)
+					r.Post("/builds", s.handleTriggerBuild)
 				})
 			})
+
+			r.Route("/builds/{buildID}", func(r chi.Router) {
+				r.Get("/", s.handleGetBuild)
+				r.Get("/logs", s.handleBuildLogs)
+				r.Post("/cancel", s.handleCancelBuild)
+			})
+
+			r.Route("/git/connections", func(r chi.Router) {
+				r.Get("/", s.handleListConnections)
+				r.Post("/", s.handleCreateConnection)
+				r.Delete("/{id}", s.handleDeleteConnection)
+				r.Get("/{id}/repos", s.handleListRepos)
+				r.Get("/{id}/branches", s.handleListBranches)
+			})
+
+			r.Get("/settings", s.handleGetSettings)
+			r.Put("/settings", s.handlePutSettings)
 
 			r.Get("/docker/containers", s.handleListContainers)
 		})

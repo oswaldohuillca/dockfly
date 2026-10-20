@@ -12,8 +12,10 @@ import (
 	"sync"
 
 	"github.com/dockfly/dockfly/internal/auth"
+	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/pages"
+	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
 )
@@ -40,6 +42,10 @@ type Server struct {
 	PagesStorage *pages.Storage // despliegues en disco
 	StaticURL    string         // URL interna del servidor estático, para Traefik
 	MaxUploadMB  int64
+
+	// Builds desde GitHub/GitLab.
+	Builds  *builder.Manager
+	Secrets *secrets.Box
 
 	applyMu sync.Mutex
 }

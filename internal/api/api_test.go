@@ -13,9 +13,12 @@ import (
 	"strings"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/dockfly/dockfly/internal/auth"
+	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/pages"
+	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
 )
@@ -56,6 +59,14 @@ func testServerWithPages(t *testing.T) (*httptest.Server, *pages.Server, string)
 		StaticURL:    "http://127.0.0.1:8099",
 		MaxUploadMB:  1,
 	}
+	s.Secrets, _ = secrets.New(make([]byte, 32))
+	s.Builds = builder.New(builder.Config{
+		Store: st, Secrets: s.Secrets, Pages: s.PagesStorage, LogDir: filepath.Join(dir, "builds"),
+		Log: s.Log, Publish: s.Publish, Timeout: time.Minute,
+	})
+	runCtx, cancel := context.WithCancel(context.Background())
+	t.Cleanup(cancel)
+	go s.Builds.Run(runCtx)
 	ts := httptest.NewServer(s.Handler())
 	t.Cleanup(ts.Close)
 	return ts, s.Pages, opts.DynamicDir()

@@ -23,20 +23,22 @@ const apiVersion = "v1.44"
 type Client struct {
 	Socket string
 	http   *http.Client
+	// stream no tiene timeout global: lo usan las operaciones largas (pull,
+	// logs, wait, copiar archivos), cuyo límite lo marca el contexto.
+	stream *http.Client
 }
 
 func New(socket string) *Client {
+	transport := &http.Transport{
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var d net.Dialer
+			return d.DialContext(ctx, "unix", socket)
+		},
+	}
 	return &Client{
 		Socket: socket,
-		http: &http.Client{
-			Timeout: 15 * time.Second,
-			Transport: &http.Transport{
-				DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-					var d net.Dialer
-					return d.DialContext(ctx, "unix", socket)
-				},
-			},
-		},
+		http:   &http.Client{Timeout: 15 * time.Second, Transport: transport},
+		stream: &http.Client{Transport: transport},
 	}
 }
 

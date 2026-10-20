@@ -19,8 +19,10 @@ import (
 
 	"github.com/dockfly/dockfly/internal/api"
 	"github.com/dockfly/dockfly/internal/auth"
+	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/pages"
+	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
 	"github.com/dockfly/dockfly/web"
@@ -102,6 +104,15 @@ func run(log *slog.Logger) error {
 		return fmt.Errorf("DOCKFLY_MAX_UPLOAD_MB debe ser un número positivo")
 	}
 
+	box, err := secrets.LoadOrCreate(filepath.Join(dataDir, "encryption.key"))
+	if err != nil {
+		return err
+	}
+	buildCfg, err := buildConfig()
+	if err != nil {
+		return err
+	}
+
 	srv := &api.Server{
 		Store:    st,
 		Signer:   signer,
@@ -117,7 +128,12 @@ func run(log *slog.Logger) error {
 		PagesStorage: pagesStorage,
 		StaticURL:    "http://" + loopback(staticAddr),
 		MaxUploadMB:  maxUpload,
+		Secrets:      box,
 	}
+	buildCfg.Store, buildCfg.Docker, buildCfg.Secrets = st, dc, box
+	buildCfg.Pages, buildCfg.LogDir = pagesStorage, filepath.Join(dataDir, "builds")
+	buildCfg.Log, buildCfg.Publish = log.With("component", "builder"), srv.Publish
+	srv.Builds = builder.New(buildCfg)
 	// La configuración dinámica se regenera desde la base de datos al
 	// arrancar: la base de datos es la única fuente de verdad.
 	if err := srv.Apply(ctx); err != nil {
@@ -125,6 +141,7 @@ func run(log *slog.Logger) error {
 	}
 
 	var wg sync.WaitGroup
+	wg.Go(func() { srv.Builds.Run(ctx) })
 	if env("DOCKFLY_TRAEFIK", "on") != "off" {
 		srv.Super = &traefik.Supervisor{
 			Bin:        env("DOCKFLY_TRAEFIK_BIN", "/usr/local/bin/traefik"),
@@ -176,6 +193,39 @@ func run(log *slog.Logger) error {
 	}
 	wg.Wait()
 	return nil
+}
+
+// buildConfig lee los límites de los builds de las variables de entorno.
+func buildConfig() (builder.Config, error) {
+	num := func(key string, def float64) (float64, error) {
+		v, err := strconv.ParseFloat(env(key, strconv.FormatFloat(def, 'f', -1, 64)), 64)
+		if err != nil || v <= 0 {
+			return 0, fmt.Errorf("%s debe ser un número positivo", key)
+		}
+		return v, nil
+	}
+	timeout, err := num("DOCKFLY_BUILD_TIMEOUT_MIN", 15)
+	if err != nil {
+		return builder.Config{}, err
+	}
+	mem, err := num("DOCKFLY_BUILD_MEMORY_MB", 2048)
+	if err != nil {
+		return builder.Config{}, err
+	}
+	cpus, err := num("DOCKFLY_BUILD_CPUS", 2)
+	if err != nil {
+		return builder.Config{}, err
+	}
+	conc, err := num("DOCKFLY_BUILD_CONCURRENCY", 1)
+	if err != nil {
+		return builder.Config{}, err
+	}
+	return builder.Config{
+		Timeout:     time.Duration(timeout * float64(time.Minute)),
+		MemoryMB:    int64(mem),
+		CPUs:        cpus,
+		Concurrency: int(conc),
+	}, nil
 }
 
 // loopback convierte ":8099" en "127.0.0.1:8099" para construir una URL.

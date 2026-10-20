@@ -23,7 +23,32 @@ type Site struct {
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`
 
+	SiteGit
+
 	ActiveDeployment *Deployment `bun:"rel:belongs-to,join:active_deployment_id=id" json:"active_deployment,omitempty"`
+}
+
+// SiteGit es la configuración de build de un sitio enlazado a un
+// repositorio. Repo vacío = el sitio se despliega solo por subida directa.
+type SiteGit struct {
+	GitConnectionID *int64 `json:"git_connection_id"`
+	Repo            string `json:"repo"` // "usuario/repo" o "grupo/subgrupo/proyecto"
+	Branch          string `json:"branch"`
+	RootDir         string `json:"root_dir"`
+	InstallCommand  string `json:"install_command"`
+	BuildCommand    string `json:"build_command"`
+	OutputDir       string `json:"output_dir"`
+	BuildImage      string `json:"build_image"`
+	BuildEnvEnc     []byte `json:"-"` // map[string]string en JSON, cifrado
+	WebhookID       string `json:"webhook_id"`
+	WebhookSecret   string `json:"-"`
+}
+
+// gitColumns son las columnas de SiteGit: solo las escribe UpdateSiteGit,
+// para que editar el nombre o los dominios no borre la configuración de build.
+var gitColumns = []string{
+	"git_connection_id", "repo", "branch", "root_dir", "install_command", "build_command",
+	"output_dir", "build_image", "build_env_enc", "webhook_id", "webhook_secret",
 }
 
 // Deployment es una versión inmutable de los archivos de un sitio.
@@ -34,6 +59,10 @@ type Deployment struct {
 	FileCount  int       `json:"file_count"`
 	TotalBytes int64     `json:"total_bytes"`
 	CreatedAt  time.Time `json:"created_at"`
+	// Solo para despliegues que vienen de un build.
+	CommitSHA     string `json:"commit_sha"`
+	CommitMessage string `json:"commit_message"`
+	Branch        string `json:"branch"`
 }
 
 func (s *Site) AfterScanRow(context.Context) error {
@@ -45,6 +74,12 @@ func (d *Deployment) AfterScanRow(context.Context) error {
 	d.CreatedAt = d.CreatedAt.UTC()
 	return nil
 }
+
+// SourceGitHub y SourceGitLab marcan los despliegues que vienen de un build.
+const (
+	SourceGitHub = "github"
+	SourceGitLab = "gitlab"
+)
 
 func (s *Store) ListSites(ctx context.Context) ([]*Site, error) {
 	sites := []*Site{}
@@ -64,7 +99,7 @@ func (s *Store) GetSite(ctx context.Context, id int64) (*Site, error) {
 func (s *Store) CreateSite(ctx context.Context, site *Site) error {
 	site.CreatedAt = now()
 	site.UpdatedAt = site.CreatedAt
-	_, err := s.db.NewInsert().Model(site).ExcludeColumn("active_deployment_id").Exec(ctx)
+	_, err := s.db.NewInsert().Model(site).ExcludeColumn("active_deployment_id").ExcludeColumn(gitColumns...).Exec(ctx)
 	return err
 }
 
@@ -74,7 +109,14 @@ func (s *Store) CreateSite(ctx context.Context, site *Site) error {
 func (s *Store) UpdateSite(ctx context.Context, site *Site) error {
 	site.UpdatedAt = now()
 	return mustAffect(s.db.NewUpdate().Model(site).WherePK().
-		ExcludeColumn("created_at", "active_deployment_id").Exec(ctx))
+		ExcludeColumn("created_at", "active_deployment_id").ExcludeColumn(gitColumns...).Exec(ctx))
+}
+
+// UpdateSiteGit guarda (o, con un SiteGit vacío, borra) la configuración de
+// build de un sitio.
+func (s *Store) UpdateSiteGit(ctx context.Context, siteID int64, g *SiteGit) error {
+	site := &Site{ID: siteID, SiteGit: *g, UpdatedAt: now()}
+	return mustAffect(s.db.NewUpdate().Model(site).WherePK().Column(append(gitColumns, "updated_at")...).Exec(ctx))
 }
 
 func (s *Store) DeleteSite(ctx context.Context, id int64) error {

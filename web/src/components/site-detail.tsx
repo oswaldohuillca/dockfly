@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { ArrowLeft, ExternalLink, Lock, Pencil, RotateCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { ProviderIcon } from '@/components/brand-icons';
 import { Dropzone, selectionSummary } from '@/components/dropzone';
 import { SiteDialog } from '@/components/site-dialog';
+import { SiteGit } from '@/components/site-git';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -155,6 +157,8 @@ export function SiteDetail({ id }: { id: number }) {
         </CardContent>
       </Card>
 
+      <SiteGit site={site} onChange={load} />
+
       <Card>
         <CardHeader>
           <CardTitle>Despliegues</CardTitle>
@@ -190,6 +194,15 @@ export function SiteDetail({ id }: { id: number }) {
                             </Badge>
                           )}
                         </div>
+                        {dep.source === 'upload' ? (
+                          <div className="mt-0.5 text-xs text-muted-foreground">Subida manual</div>
+                        ) : (
+                          <div className="mt-0.5 flex max-w-80 items-center gap-1.5 text-xs text-muted-foreground">
+                            <ProviderIcon provider={dep.source} className="size-3" />
+                            <code className="font-mono">{dep.commit_sha.slice(0, 7)}</code>
+                            <span className="truncate">{dep.commit_message}</span>
+                          </div>
+                        )}
                       </TableCell>
                       <TableCell>
                         <Tooltip>
