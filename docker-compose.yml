@@ -1,0 +1,29 @@
+services:
+  dockfly:
+    image: dockfly:latest
+    build: .
+    container_name: dockfly
+    restart: unless-stopped
+    ports:
+      - "80:80"     # HTTP de las apps
+      - "443:443"   # HTTPS de las apps
+      - "81:81"     # Panel de Dockfly
+    environment:
+      # DOCKFLY_ACME_EMAIL: tu@email.com
+      # DOCKFLY_ACME_STAGING: "true"   # usa el entorno de pruebas de Let's Encrypt
+      DOCKFLY_NETWORK: dockfly
+    volumes:
+      - dockfly-data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      # Permite apuntar a apps que corren directamente en el servidor.
+      - "host.docker.internal:host-gateway"
+    networks:
+      - dockfly
+
+networks:
+  dockfly:
+    name: dockfly
+
+volumes:
+  dockfly-data:

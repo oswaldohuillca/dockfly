@@ -1,0 +1,7 @@
+/data/
+/bin/
+web/*.tsbuildinfo
+web/node_modules/
+web/dist/*
+!web/dist/.gitkeep
+# Vite copia web/public/.gitkeep a dist en cada build: go:embed necesita que dist exista.
