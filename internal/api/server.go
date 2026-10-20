@@ -121,6 +121,20 @@ func (s *Server) Apply(ctx context.Context) error {
 		}, a.AccessListID))
 	}
 
+	redirects, err := s.Store.ListRedirects(ctx)
+	if err != nil {
+		return err
+	}
+	for _, rd := range redirects {
+		if !rd.Enabled {
+			continue
+		}
+		routes = append(routes, traefik.Route{
+			Name: redirectRouteName(rd.ID), Domains: rd.Domains, SSL: rd.SSL,
+			Redirect: &traefik.Redirect{Target: rd.Target, Permanent: rd.Permanent, PreservePath: rd.PreservePath},
+		})
+	}
+
 	table := map[string]pages.Route{}
 	for _, site := range sites {
 		if rt, ok := traefik.SiteRoute(site, s.StaticURL); ok {

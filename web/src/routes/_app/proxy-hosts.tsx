@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
 import { ProxyHosts } from '@/components/proxy-hosts';
+import { Redirects } from '@/components/redirects';
 import { useStatus } from '@/lib/status';
 
 export const Route = createFileRoute('/_app/proxy-hosts')({
@@ -9,5 +10,10 @@ export const Route = createFileRoute('/_app/proxy-hosts')({
 
 function ProxyHostsPage() {
   const status = useStatus();
-  return <ProxyHosts dockerAvailable={status?.docker_available ?? false} />;
+  return (
+    <div className="space-y-4">
+      <ProxyHosts dockerAvailable={status?.docker_available ?? false} />
+      <Redirects />
+    </div>
+  );
 }

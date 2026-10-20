@@ -114,6 +114,13 @@ func (s *Server) Handler() http.Handler {
 
 			r.Get("/backup", s.handleDownloadBackup)
 
+			r.Route("/redirects", func(r chi.Router) {
+				r.Get("/", s.handleListRedirects)
+				r.Post("/", s.handleCreateRedirect)
+				r.Put("/{id}", s.handleUpdateRedirect)
+				r.Delete("/{id}", s.handleDeleteRedirect)
+			})
+
 			r.Route("/access-lists", func(r chi.Router) {
 				r.Get("/", s.handleListAccessLists)
 				r.Post("/", s.handleCreateAccessList)

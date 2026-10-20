@@ -49,6 +49,24 @@ func (s *Server) sslDomainsCtx(ctx context.Context) ([]string, error) {
 			domains = append(domains, st.Domains...)
 		}
 	}
+	redirects, err := s.Store.ListRedirects(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, rd := range redirects {
+		if rd.SSL && rd.Enabled {
+			domains = append(domains, rd.Domains...)
+		}
+	}
+	appList, err := s.Store.ListApps(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range appList {
+		if a.SSL {
+			domains = append(domains, a.Domains...)
+		}
+	}
 	slices.Sort(domains)
 	return slices.Compact(domains), nil
 }

@@ -1,6 +1,7 @@
 package traefik
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -111,5 +112,26 @@ func TestAccessListMiddlewares(t *testing.T) {
 	auth := httpCfg["middlewares"].(map[string]any)["acl-4-auth"].(map[string]any)["basicAuth"].(map[string]any)
 	if auth["users"].([]string)[0] != "oswa:$2a$10$x" || auth["removeHeader"] != true {
 		t.Errorf("basicAuth: %v", auth)
+	}
+}
+
+func TestRedirectRoute(t *testing.T) {
+	rt := Route{Name: "rd-1", Domains: []string{"viejo.com"}, SSL: true, ForceHTTPS: true,
+		Redirect: &Redirect{Target: "https://nuevo.com", Permanent: true, PreservePath: true}}
+	httpCfg := BuildDynamic([]Route{rt}, nil)["http"].(map[string]any)
+	routers := httpCfg["routers"].(map[string]any)
+	for _, name := range []string{"rd-1", "rd-1-secure"} {
+		r := routers[name].(map[string]any)
+		if r["service"] != "noop@internal" || !slices.Contains(r["middlewares"].([]string), "rd-1-redirect") {
+			t.Errorf("%s debe redirigir sin backend: %v", name, r)
+		}
+	}
+	mw := httpCfg["middlewares"].(map[string]any)["rd-1-redirect"].(map[string]any)["redirectRegex"].(map[string]any)
+	if mw["replacement"] != "https://nuevo.com${1}" || mw["permanent"] != true {
+		t.Errorf("redirectRegex: %v", mw)
+	}
+	// Solo hay redirecciones: sin la sección services (Traefik rechaza las vacías).
+	if _, ok := httpCfg["services"]; ok {
+		t.Error("sin servicios reales no debe haber sección services")
 	}
 }

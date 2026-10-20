@@ -35,6 +35,7 @@ const (
 	ownerProxyHost = "proxy host"
 	ownerSite      = "sitio"
 	ownerApp       = "app"
+	ownerRedirect  = "redirección"
 )
 
 // owner identifica al recurso que se está editando, para no considerarlo
@@ -88,6 +89,16 @@ func (s *Server) checkDomains(w http.ResponseWriter, r *http.Request, domains []
 	}
 	for _, a := range appList {
 		if conflict(ownerApp, a.ID, a.Domains) {
+			return false
+		}
+	}
+	redirects, err := s.Store.ListRedirects(ctx)
+	if err != nil {
+		s.internalError(w, err)
+		return false
+	}
+	for _, rd := range redirects {
+		if conflict(ownerRedirect, rd.ID, rd.Domains) {
 			return false
 		}
 	}

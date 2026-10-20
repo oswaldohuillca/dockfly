@@ -328,6 +328,20 @@ export interface AccessListInput {
   allow_ips: string[];
 }
 
+export interface RedirectHost {
+  id: number;
+  domains: string[];
+  target: string;
+  permanent: boolean;
+  preserve_path: boolean;
+  ssl: boolean;
+  enabled: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export type RedirectInput = Omit<RedirectHost, 'id' | 'created_at' | 'updated_at'>;
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -387,6 +401,11 @@ export const api = {
   listRepos: (id: number, q = '') => request<Repo[]>('GET', `/git/connections/${id}/repos?q=${encodeURIComponent(q)}`),
   listBranches: (id: number, repo: string) =>
     request<string[]>('GET', `/git/connections/${id}/branches?repo=${encodeURIComponent(repo)}`),
+
+  listRedirects: () => request<RedirectHost[]>('GET', '/redirects'),
+  createRedirect: (data: RedirectInput) => request<RedirectHost>('POST', '/redirects', data),
+  updateRedirect: (id: number, data: RedirectInput) => request<RedirectHost>('PUT', `/redirects/${id}`, data),
+  deleteRedirect: (id: number) => request<void>('DELETE', `/redirects/${id}`),
 
   listAccessLists: () => request<AccessList[]>('GET', '/access-lists'),
   createAccessList: (data: AccessListInput) => request<{ id: number }>('POST', '/access-lists', data),

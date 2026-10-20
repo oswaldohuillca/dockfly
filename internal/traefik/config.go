@@ -115,6 +115,14 @@ type Route struct {
 	Compress      bool
 	// Middlewares extra (p. ej. los de una lista de acceso), en orden.
 	Middlewares []string
+	// Redirect convierte la ruta en una redirección (sin backend).
+	Redirect *Redirect
+}
+
+type Redirect struct {
+	Target       string // URL de destino, sin barra final
+	Permanent    bool
+	PreservePath bool
 }
 
 // ProxyHostRoute traduce un proxy host. Devuelve ok=false si está desactivado.
@@ -185,6 +193,23 @@ func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 	for _, rt := range routes {
 		rule := hostRule(rt.Domains)
 
+		service := rt.Name
+		if rt.Redirect != nil {
+			// Una redirección no necesita backend: el servicio interno noop
+			// nunca llega a usarse porque el middleware responde antes.
+			service = "noop@internal"
+			mw := rt.Name + "-redirect"
+			replacement := rt.Redirect.Target
+			if rt.Redirect.PreservePath {
+				replacement += "${1}"
+			}
+			middlewares[mw] = map[string]any{"redirectRegex": map[string]any{
+				"regex": `^https?://[^/]+(/.*)?$`, "replacement": replacement, "permanent": rt.Redirect.Permanent,
+			}}
+			rt.Middlewares = append(slices.Clone(rt.Middlewares), mw)
+			rt.ForceHTTPS = false // la redirección ya decide el destino
+		}
+
 		svc := map[string]any{
 			"servers":        []map[string]any{{"url": rt.URL}},
 			"passHostHeader": rt.PreserveHost,
@@ -193,7 +218,9 @@ func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 			svc["serversTransport"] = transportNoCheck
 			needsInsecure = true
 		}
-		services[rt.Name] = map[string]any{"loadBalancer": svc}
+		if rt.Redirect == nil {
+			services[rt.Name] = map[string]any{"loadBalancer": svc}
+		}
 
 		// El control de acceso va primero: no tiene sentido comprimir una
 		// respuesta que se va a denegar.
@@ -205,7 +232,7 @@ func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 		httpRouter := map[string]any{
 			"rule":        rule,
 			"entryPoints": []string{"web"},
-			"service":     rt.Name,
+			"service":     service,
 		}
 		httpMW := common
 		if rt.SSL {
@@ -216,7 +243,7 @@ func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 			secure := map[string]any{
 				"rule":        rule,
 				"entryPoints": []string{"websecure"},
-				"service":     rt.Name,
+				"service":     service,
 				"tls":         map[string]any{"certResolver": CertResolver},
 			}
 			if len(secureMW) > 0 {
@@ -239,6 +266,8 @@ func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 	httpCfg := map[string]any{"middlewares": middlewares}
 	if len(routers) > 0 {
 		httpCfg["routers"] = routers
+	}
+	if len(services) > 0 {
 		httpCfg["services"] = services
 	}
 	if needsInsecure {
