@@ -208,8 +208,8 @@ docker exec dockfly dockfly restore /data/copia.tar.gz  # preparar; se aplica al
 
 Contenedores que Dockfly despliega y gestiona: APIs, bases de datos, servicios… desde una
 **imagen** (`postgres:17`, `ghcr.io/usuario/app`) o desde un **Dockerfile** de un repo de
-GitHub/GitLab, que se reconstruye en cada push. Hay plantillas para PostgreSQL, MySQL, Redis,
-n8n y Uptime Kuma.
+GitHub/GitLab, que se reconstruye en cada push. Hay plantillas (un clic) para PostgreSQL, MySQL,
+Redis, n8n y Uptime Kuma.
 
 - **Sin corte**: el contenedor nuevo arranca, pasa la comprobación de salud (ruta HTTP,
   `HEALTHCHECK` de la imagen o puerto abierto) y solo entonces recibe el tráfico. Si falla, la
@@ -222,6 +222,18 @@ n8n y Uptime Kuma.
   del host (`./datos:/datos`) no funcionan.
 - Variables de entorno cifradas, límites de memoria y CPU, logs en vivo, reiniciar, detener y
   volver a una versión anterior.
+
+#### Copias de las bases de datos
+
+Las apps de **PostgreSQL**, **MySQL/MariaDB** y **Redis** tienen la pestaña *Copias*: copias
+completas (`pg_dumpall`, `mysqldump`, `redis-cli --rdb`) comprimidas, programadas cada hora, día
+o semana, conservando las N últimas, y con botón «Copia ahora». Se descargan y, las de
+PostgreSQL y MySQL, se restauran desde el panel. Las copias fallidas se notifican.
+
+Se guardan en el servidor (`/data/db-backups`) o, mejor, en un bucket compatible con **S3**
+(AWS, Cloudflare R2, Backblaze B2, MinIO…), configurado en *Ajustes → Copias de las bases de
+datos*: así sobreviven aunque se pierda el servidor. Al guardar el bucket, Dockfly comprueba que
+puede escribir en él.
 
 ## Configuración
 

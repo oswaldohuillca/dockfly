@@ -18,6 +18,7 @@ import (
 	"github.com/dockfly/dockfly/internal/apps"
 	"github.com/dockfly/dockfly/internal/auth"
 	"github.com/dockfly/dockfly/internal/builder"
+	"github.com/dockfly/dockfly/internal/dbbackup"
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/gitauth"
 	"github.com/dockfly/dockfly/internal/notify"
@@ -57,6 +58,8 @@ type Server struct {
 	Secrets *secrets.Box
 	Git     *gitauth.Resolver
 	Apps    *apps.Manager
+	// DBBackups hace las copias de las apps de bases de datos.
+	DBBackups *dbbackup.Manager
 
 	oauthStates stateStore
 

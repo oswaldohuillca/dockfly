@@ -25,6 +25,7 @@ import (
 	"github.com/dockfly/dockfly/internal/backup"
 	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/cli"
+	"github.com/dockfly/dockfly/internal/dbbackup"
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/dockerproxy"
 	"github.com/dockfly/dockfly/internal/gitauth"
@@ -200,6 +201,10 @@ func run(log *slog.Logger) error {
 	if dc != nil {
 		ensureNetwork(ctx, log, dc, opts.DockerNet)
 		startComposeProxy(ctx, log, dc, srv.Apps)
+		srv.DBBackups = &dbbackup.Manager{
+			Store: st, Docker: dc, Storage: srv.BackupStorage, TmpDir: filepath.Join(dataDir, "tmp"),
+			Log: log.With("component", "db-backups"), OnFinish: srv.OnDBBackupFinished,
+		}
 	}
 	if err := srv.PrepareCertificates(ctx); err != nil {
 		return fmt.Errorf("escribiendo los certificados propios: %w", err)
@@ -214,6 +219,9 @@ func run(log *slog.Logger) error {
 	wg.Go(func() { srv.Builds.Run(ctx) })
 	wg.Go(func() { srv.RunMonitors(ctx) })
 	wg.Go(func() { srv.Apps.Run(ctx) })
+	if srv.DBBackups != nil {
+		wg.Go(func() { srv.DBBackups.Run(ctx) })
+	}
 	if env("DOCKFLY_TRAEFIK", "on") != "off" {
 		srv.Super = &traefik.Supervisor{
 			Bin:        env("DOCKFLY_TRAEFIK_BIN", "/usr/local/bin/traefik"),

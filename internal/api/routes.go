@@ -187,6 +187,9 @@ func (s *Server) Handler() http.Handler {
 				r.Post("/{id}/link", s.handleUserLink)
 			})
 
+			r.Get("/backup-storage", s.handleGetBackupStorage)
+			r.Put("/backup-storage", s.handlePutBackupStorage)
+
 			r.Get("/settings", s.handleGetSettings)
 			r.Put("/settings", s.handlePutSettings)
 
@@ -204,6 +207,12 @@ func (s *Server) Handler() http.Handler {
 					r.Post("/start", s.appAction(func(ctx context.Context, a *store.App) error { return s.Apps.Start(ctx, a) }))
 					r.Post("/restart", s.appAction(func(ctx context.Context, a *store.App) error { return s.Apps.Restart(ctx, a) }))
 					r.Post("/deployments/{deploymentID}/redeploy", s.handleRedeploy)
+					r.Get("/backups", s.handleListDBBackups)
+					r.Post("/backups", s.handleStartDBBackup)
+					r.Put("/backups/policy", s.handlePutDBBackupPolicy)
+					r.Get("/backups/{backupID}/download", s.handleDownloadDBBackup)
+					r.Post("/backups/{backupID}/restore", s.handleRestoreDBBackup)
+					r.Delete("/backups/{backupID}", s.handleDeleteDBBackup)
 				})
 			})
 			r.Get("/app-deployments/{deploymentID}/logs", s.handleAppDeploymentLogs)

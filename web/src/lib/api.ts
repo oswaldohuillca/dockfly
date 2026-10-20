@@ -30,6 +30,47 @@ export interface APIToken {
   created_at: string;
 }
 
+export type DBEngine = 'postgres' | 'mysql' | 'redis';
+
+export interface DBBackupPolicy {
+  enabled: boolean;
+  interval_hours: number;
+  keep: number;
+}
+
+export interface DBBackup {
+  id: number;
+  app_id: number;
+  status: 'running' | 'success' | 'failed';
+  trigger: 'schedule' | 'manual';
+  engine: DBEngine;
+  location: string;
+  object_key: string;
+  size: number;
+  error: string;
+  created_at: string;
+  finished_at: string | null;
+}
+
+export interface DBBackups {
+  /** '' si la app no es una base de datos conocida. */
+  engine: DBEngine | '';
+  can_restore: boolean;
+  policy: DBBackupPolicy;
+  backups: DBBackup[];
+  location: string;
+}
+
+export interface BackupStorage {
+  type: 'local' | 's3';
+  endpoint: string;
+  region: string;
+  bucket: string;
+  prefix: string;
+  access_key: string;
+  secret_key: string;
+}
+
 export interface PasswordLink {
   link: string;
   expires_at: string;
@@ -258,7 +299,8 @@ export type NotificationEvent =
   | 'cert_error'
   | 'cert_expiring'
   | 'container_down'
-  | 'container_recovered';
+  | 'container_recovered'
+  | 'backup_failed';
 
 export interface NotificationChannel {
   id: number;
@@ -483,6 +525,16 @@ export const api = {
     request<{ name: string; email: string; new: boolean }>('GET', `/invite/${encodeURIComponent(token)}`),
   acceptInvite: (token: string, password: string) =>
     request<LoginResult>('POST', `/invite/${encodeURIComponent(token)}`, { password }),
+  getBackupStorage: () => request<{ config: BackupStorage; location: string }>('GET', '/backup-storage'),
+  putBackupStorage: (data: BackupStorage) =>
+    request<{ config: BackupStorage; location: string }>('PUT', '/backup-storage', data),
+  listDBBackups: (appId: number) => request<DBBackups>('GET', `/apps/${appId}/backups`),
+  startDBBackup: (appId: number) => request<DBBackup>('POST', `/apps/${appId}/backups`),
+  putDBBackupPolicy: (appId: number, policy: DBBackupPolicy) =>
+    request<DBBackupPolicy>('PUT', `/apps/${appId}/backups/policy`, policy),
+  restoreDBBackup: (appId: number, id: number) => request<void>('POST', `/apps/${appId}/backups/${id}/restore`),
+  deleteDBBackup: (appId: number, id: number) => request<void>('DELETE', `/apps/${appId}/backups/${id}`),
+  dbBackupURL: (appId: number, id: number) => `/api/apps/${appId}/backups/${id}/download`,
   listTokens: () => request<APIToken[]>('GET', '/tokens'),
   createToken: (data: { name: string; role: Role; expires_days: number }) =>
     request<{ token: string; api_token: APIToken }>('POST', '/tokens', data),

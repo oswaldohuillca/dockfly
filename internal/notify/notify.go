@@ -24,12 +24,13 @@ const (
 	EventCertExpiring      = "cert_expiring"
 	EventContainerDown     = "container_down"
 	EventContainerRecovers = "container_recovered"
+	EventBackupFailed      = "backup_failed"
 	EventTest              = "test" // el botón «Probar»: llega a cualquier canal
 )
 
 var AllEvents = []string{
 	EventBuildFailed, EventBuildSucceeded, EventCertError, EventCertExpiring,
-	EventContainerDown, EventContainerRecovers,
+	EventContainerDown, EventContainerRecovers, EventBackupFailed,
 }
 
 type Severity string

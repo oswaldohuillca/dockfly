@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 
 import { AppDialog } from '@/components/app-dialog';
+import { DBBackupsPanel } from '@/components/db-backups';
 import { AppStateDot, DeployStatusBadge } from '@/components/app-status';
 import { CertBadge } from '@/components/cert-badge';
 import { CheckField } from '@/components/check-field';
@@ -35,7 +36,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { api, ApiError, appDeployFinished, errorMessage, type App, type AppDeployment } from '@/lib/api';
+import { api, ApiError, appDeployFinished, errorMessage, type App, type AppDeployment, type DBBackups } from '@/lib/api';
 import { formatDate, timeAgo } from '@/lib/format';
 import { useCertificates } from '@/lib/use-certificates';
 
@@ -52,6 +53,15 @@ export function AppDetail({ id }: { id: number }) {
   const [deleting, setDeleting] = useState(false);
   const [removeData, setRemoveData] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Solo las apps de bases de datos tienen la pestaña de copias.
+  const [backups, setBackups] = useState<DBBackups | null>(null);
+
+  useEffect(() => {
+    api
+      .listDBBackups(id)
+      .then((b) => setBackups(b.engine ? b : null))
+      .catch(() => {});
+  }, [id, app?.image]);
 
   const load = useCallback(async () => {
     try {
@@ -196,6 +206,7 @@ export function AppDetail({ id }: { id: number }) {
           <TabsTrigger value="logs" disabled={!deployed}>
             Logs
           </TabsTrigger>
+          {backups && <TabsTrigger value="backups">Copias</TabsTrigger>}
         </TabsList>
 
         <TabsContent value="deployments">
@@ -266,6 +277,12 @@ export function AppDetail({ id }: { id: number }) {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {backups && (
+          <TabsContent value="backups">
+            <DBBackupsPanel appId={id} data={backups} />
+          </TabsContent>
+        )}
 
         <TabsContent value="logs">
           {deployed && (

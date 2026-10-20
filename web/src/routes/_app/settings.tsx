@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 import { Download, Terminal } from 'lucide-react';
 
 import { AccessLists } from '@/components/access-lists';
+import { BackupStorageSettings } from '@/components/backup-storage';
 import { CertificatesSettings } from '@/components/certificates-settings';
 import { Notifications } from '@/components/notifications';
 import { PreviewSettings } from '@/components/preview-settings';
@@ -27,6 +28,7 @@ function Settings() {
       <AccessLists />
       <CertificatesSettings />
       <PreviewSettings />
+      <BackupStorageSettings />
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Copias de seguridad</CardTitle>

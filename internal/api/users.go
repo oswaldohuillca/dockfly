@@ -31,7 +31,9 @@ func requiredRole(method, path string) string {
 		return store.RoleViewer
 	}
 	read := method == http.MethodGet || method == http.MethodHead
-	secret := strings.HasSuffix(path, "/env") || path == "/api/backup" || strings.HasPrefix(path, "/api/users")
+	// Las variables de entorno y las copias de las bases de datos llevan secretos.
+	secret := strings.HasSuffix(path, "/env") || strings.HasSuffix(path, "/download") ||
+		path == "/api/backup" || strings.HasPrefix(path, "/api/users")
 	deployScope := false
 	for _, p := range []string{"/api/sites", "/api/builds", "/api/apps", "/api/app-deployments"} {
 		if path == p || strings.HasPrefix(path, p+"/") {
