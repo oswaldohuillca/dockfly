@@ -189,3 +189,27 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 	}
 	return json.NewDecoder(resp.Body).Decode(out)
 }
+
+// SelfPublishedPorts devuelve los puertos que el contenedor de Dockfly
+// publica en el host ("5432/tcp"…). ok=false si Dockfly no corre en Docker.
+func (c *Client) SelfPublishedPorts(ctx context.Context) (ports map[string]bool, ok bool) {
+	host, err := os.Hostname()
+	if err != nil {
+		return nil, false
+	}
+	var raw struct {
+		HostConfig struct {
+			PortBindings map[string][]json.RawMessage `json:"PortBindings"`
+		} `json:"HostConfig"`
+	}
+	if err := c.do(ctx, http.MethodGet, "/containers/"+url.PathEscape(host)+"/json", nil, &raw); err != nil {
+		return nil, false
+	}
+	ports = map[string]bool{}
+	for p, b := range raw.HostConfig.PortBindings {
+		if len(b) > 0 {
+			ports[p] = true
+		}
+	}
+	return ports, true
+}

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -29,6 +30,7 @@ type Supervisor struct {
 	running   bool
 	startedAt time.Time
 	lastErr   string
+	restart   chan struct{}
 }
 
 type Status struct {
@@ -46,12 +48,21 @@ func (s *Supervisor) Status() Status {
 // Run bloquea hasta que ctx se cancela. Al cancelar, envía SIGTERM a Traefik
 // y espera a que termine.
 func (s *Supervisor) Run(ctx context.Context) {
+	s.mu.Lock()
+	if s.restart == nil {
+		s.restart = make(chan struct{}, 1)
+	}
+	s.mu.Unlock()
 	backoff := time.Second
 	for ctx.Err() == nil {
 		started := time.Now()
 		err := s.runOnce(ctx)
 		if ctx.Err() != nil {
 			return
+		}
+		if errors.Is(err, errRestart) {
+			backoff = time.Second
+			continue // reinicio pedido: sin espera
 		}
 		s.Log.Error("traefik terminó, reiniciando", "error", err, "en", backoff)
 
@@ -95,11 +106,26 @@ func (s *Supervisor) runOnce(ctx context.Context) error {
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
 
+	stop := func() {
+		_ = cmd.Process.Signal(syscall.SIGTERM)
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			_ = cmd.Process.Kill()
+			<-done
+		}
+	}
 	select {
 	case err := <-done:
 		logs.Wait()
 		s.setState(false, err)
 		return err
+	case <-s.restart:
+		s.Log.Info("reiniciando traefik para aplicar la configuración estática")
+		stop()
+		logs.Wait()
+		s.setState(false, nil)
+		return errRestart
 	case <-ctx.Done():
 		_ = cmd.Process.Signal(syscall.SIGTERM)
 		select {
@@ -110,6 +136,24 @@ func (s *Supervisor) runOnce(ctx context.Context) error {
 		}
 		s.setState(false, nil)
 		return ctx.Err()
+	}
+}
+
+var errRestart = errors.New("reinicio solicitado")
+
+// Restart pide reiniciar Traefik (p. ej. tras añadir un puerto de stream,
+// que es configuración estática). No bloquea; varias peticiones seguidas
+// producen un único reinicio.
+func (s *Supervisor) Restart() {
+	s.mu.RLock()
+	ch := s.restart
+	s.mu.RUnlock()
+	if ch == nil {
+		return
+	}
+	select {
+	case ch <- struct{}{}:
+	default:
 	}
 }
 

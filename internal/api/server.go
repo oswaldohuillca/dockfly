@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -58,7 +59,8 @@ type Server struct {
 
 	oauthStates stateStore
 
-	DataDir string
+	DataDir    string
+	ListenAddr string // dirección del panel (para no reutilizar su puerto en un stream)
 	// Restart detiene Dockfly para que Docker lo vuelva a arrancar (lo usa la
 	// restauración de copias, que se aplica al arrancar).
 	Restart func()
@@ -152,7 +154,21 @@ func (s *Server) Apply(ctx context.Context) error {
 	// Primero el servidor estático y luego Traefik: así, cuando Traefik
 	// empiece a enrutar un dominio nuevo, el servidor ya sabe qué servir.
 	s.Pages.SetRoutes(table)
-	return traefik.WriteDynamic(s.Traefik, routes, extra)
+	streamList, err := s.Store.ListStreams(ctx)
+	if err != nil {
+		return err
+	}
+	var streams []traefik.Stream
+	for _, st := range streamList {
+		if st.Enabled {
+			streams = append(streams, traefik.Stream{
+				Name:    "st-" + strconv.FormatInt(st.ID, 10),
+				Port:    traefik.StreamPort{Protocol: st.Protocol, Port: st.ListenPort},
+				Address: net.JoinHostPort(st.ForwardHost, strconv.Itoa(st.ForwardPort)),
+			})
+		}
+	}
+	return traefik.WriteDynamic(s.Traefik, routes, extra, streams)
 }
 
 func currentUser(r *http.Request) *store.User {

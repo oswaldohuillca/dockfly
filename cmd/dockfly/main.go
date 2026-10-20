@@ -104,6 +104,10 @@ func run(log *slog.Logger) error {
 		DockerNet:    env("DOCKFLY_NETWORK", "dockfly"),
 		LogLevel:     strings.ToUpper(env("DOCKFLY_TRAEFIK_LOG_LEVEL", "warn")),
 	}
+	// Los puertos de los streams son configuración estática de Traefik.
+	if ports, err := (&api.Server{Store: st}).StreamPorts(ctx); err == nil {
+		opts.Streams = ports
+	}
 	if err := traefik.WriteStatic(opts); err != nil {
 		return fmt.Errorf("escribiendo configuración estática de Traefik: %w", err)
 	}
@@ -155,6 +159,7 @@ func run(log *slog.Logger) error {
 		MaxUploadMB:  maxUpload,
 		Secrets:      box,
 		Git:          gitauth.New(st, box),
+		ListenAddr:   env("DOCKFLY_LISTEN", ":81"),
 		Certs:        certs,
 		Notify:       notifier,
 		DataDir:      dataDir,

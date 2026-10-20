@@ -342,6 +342,20 @@ export interface RedirectHost {
 
 export type RedirectInput = Omit<RedirectHost, 'id' | 'created_at' | 'updated_at'>;
 
+export interface Stream {
+  id: number;
+  protocol: 'tcp' | 'udp';
+  listen_port: number;
+  forward_host: string;
+  forward_port: number;
+  enabled: boolean;
+  created_at: string;
+  /** null si no se puede saber (Dockfly no corre en Docker). */
+  published: boolean | null;
+}
+
+export type StreamInput = Pick<Stream, 'protocol' | 'listen_port' | 'forward_host' | 'forward_port' | 'enabled'>;
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -401,6 +415,11 @@ export const api = {
   listRepos: (id: number, q = '') => request<Repo[]>('GET', `/git/connections/${id}/repos?q=${encodeURIComponent(q)}`),
   listBranches: (id: number, repo: string) =>
     request<string[]>('GET', `/git/connections/${id}/branches?repo=${encodeURIComponent(repo)}`),
+
+  listStreams: () => request<Stream[]>('GET', '/streams'),
+  createStream: (data: StreamInput) => request<{ traefik_restarted: boolean }>('POST', '/streams', data),
+  updateStream: (id: number, data: StreamInput) => request<{ traefik_restarted: boolean }>('PUT', `/streams/${id}`, data),
+  deleteStream: (id: number) => request<{ traefik_restarted: boolean }>('DELETE', `/streams/${id}`),
 
   listRedirects: () => request<RedirectHost[]>('GET', '/redirects'),
   createRedirect: (data: RedirectInput) => request<RedirectHost>('POST', '/redirects', data),

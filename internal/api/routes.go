@@ -114,6 +114,13 @@ func (s *Server) Handler() http.Handler {
 
 			r.Get("/backup", s.handleDownloadBackup)
 
+			r.Route("/streams", func(r chi.Router) {
+				r.Get("/", s.handleListStreams)
+				r.Post("/", s.handleCreateStream)
+				r.Put("/{id}", s.handleUpdateStream)
+				r.Delete("/{id}", s.handleDeleteStream)
+			})
+
 			r.Route("/redirects", func(r chi.Router) {
 				r.Get("/", s.handleListRedirects)
 				r.Post("/", s.handleCreateRedirect)

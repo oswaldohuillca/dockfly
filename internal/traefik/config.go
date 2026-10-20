@@ -38,7 +38,18 @@ type Options struct {
 	DockerSocket string // vacío si Docker no está disponible
 	DockerNet    string // red en la que Traefik busca contenedores con labels
 	LogLevel     string
+	// Streams son los puertos TCP/UDP que escucha Traefik. Son configuración
+	// estática: cambiarlos exige reiniciar Traefik.
+	Streams []StreamPort
 }
+
+type StreamPort struct {
+	Protocol string // tcp | udp
+	Port     int
+}
+
+// EntryPoint es el nombre del punto de entrada de un stream.
+func (p StreamPort) EntryPoint() string { return p.Protocol + "-" + strconv.Itoa(p.Port) }
 
 func (o Options) DynamicDir() string { return filepath.Join(o.DataDir, "traefik", "dynamic") }
 func (o Options) StaticFile() string { return filepath.Join(o.DataDir, "traefik", "traefik.yml") }
@@ -80,15 +91,27 @@ func WriteStatic(o Options) error {
 	cfg := map[string]any{
 		"global": map[string]any{"checkNewVersion": false, "sendAnonymousUsage": false},
 		// JSON: Dockfly lo analiza (errores de Let's Encrypt) y lo reescribe legible.
-		"log": map[string]any{"level": o.LogLevel, "noColor": true, "format": "json"},
-		"entryPoints": map[string]any{
-			"web":       entryPoint(o.HTTPAddr),
-			"websecure": entryPoint(o.HTTPSAddr),
-		},
+		"log":                   map[string]any{"level": o.LogLevel, "noColor": true, "format": "json"},
+		"entryPoints":           entryPoints(o),
 		"providers":             providers,
 		"certificatesResolvers": map[string]any{CertResolver: map[string]any{"acme": acme}},
 	}
 	return writeYAML(o.StaticFile(), cfg)
+}
+
+func entryPoints(o Options) map[string]any {
+	eps := map[string]any{
+		"web":       entryPoint(o.HTTPAddr),
+		"websecure": entryPoint(o.HTTPSAddr),
+	}
+	for _, p := range o.Streams {
+		addr := ":" + strconv.Itoa(p.Port)
+		if p.Protocol == "udp" {
+			addr += "/udp"
+		}
+		eps[p.EntryPoint()] = map[string]any{"address": addr}
+	}
+	return eps
 }
 
 // entryPoint descarta las cabeceras que se hacen pasar por otras
@@ -163,8 +186,10 @@ func SiteRoute(site *store.Site, staticURL string) (Route, bool) {
 // WriteDynamic regenera la configuración dinámica completa. Traefik detecta
 // el cambio en caliente, sin reinicios. extra son middlewares adicionales
 // (listas de acceso) a los que pueden referirse las rutas.
-func WriteDynamic(o Options, routes []Route, extra map[string]any) error {
-	return writeYAML(filepath.Join(o.DynamicDir(), dynamicFile), BuildDynamic(routes, extra))
+func WriteDynamic(o Options, routes []Route, extra map[string]any, streams []Stream) error {
+	cfg := BuildDynamic(routes, extra)
+	streamConfig(streams, cfg)
+	return writeYAML(filepath.Join(o.DynamicDir(), dynamicFile), cfg)
 }
 
 // BuildDynamic traduce las rutas a la configuración dinámica de Traefik.
@@ -345,4 +370,34 @@ func AccessListMiddlewares(id int64, allowIPs []string, users map[string]string,
 		names = append(names, prefix+"-auth")
 	}
 	return names
+}
+
+// Stream es la parte dinámica de un stream: a dónde se reenvía.
+type Stream struct {
+	Name    string
+	Port    StreamPort
+	Address string // host:puerto de destino
+}
+
+// streamConfig añade los routers y servicios TCP/UDP de los streams.
+func streamConfig(streams []Stream, into map[string]any) {
+	sections := map[string]map[string]map[string]any{}
+	for _, st := range streams {
+		proto := st.Port.Protocol
+		if sections[proto] == nil {
+			sections[proto] = map[string]map[string]any{"routers": {}, "services": {}}
+		}
+		router := map[string]any{"entryPoints": []string{st.Port.EntryPoint()}, "service": st.Name}
+		if proto == "tcp" {
+			// Sin TLS, HostSNI(`*`) es la única regla posible: todo el tráfico del puerto.
+			router["rule"] = "HostSNI(`*`)"
+		}
+		sections[proto]["routers"][st.Name] = router
+		sections[proto]["services"][st.Name] = map[string]any{
+			"loadBalancer": map[string]any{"servers": []map[string]any{{"address": st.Address}}},
+		}
+	}
+	for proto, sec := range sections {
+		into[proto] = map[string]any{"routers": sec["routers"], "services": sec["services"]}
+	}
 }
