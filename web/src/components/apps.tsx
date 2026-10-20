@@ -72,7 +72,7 @@ export function Apps() {
                     <AppStateDot app={a} />
                   </div>
                   <div className="mt-1 flex items-center gap-1 truncate font-mono text-xs text-muted-foreground">
-                    {a.source === 'git' ? (
+                    {a.source !== 'image' ? (
                       <>
                         <GitBranch className="size-3 shrink-0" /> {a.repo}
                       </>

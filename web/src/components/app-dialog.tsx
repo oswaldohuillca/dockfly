@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from '@tanstack/react-router';
-import { Box, ChevronDown, GitBranch, Loader2, Plus, TriangleAlert, X } from 'lucide-react';
+import { Box, ChevronDown, GitBranch, Layers, Loader2, Plus, TriangleAlert, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { CheckField } from '@/components/check-field';
@@ -28,6 +28,7 @@ interface Props {
 
 const empty: AppInput = {
   name: '', source: 'image', image: '', connection_id: 0, repo: '', branch: '', root_dir: '', dockerfile: '',
+  compose_file: '', compose_service: '',
   port: 0, domains: [], ssl: true, force_https: true, hsts: false, env: null, volumes: [], command: '',
   memory_mb: 0, cpus: 0, health_path: '',
 };
@@ -133,7 +134,9 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
             <TabsList className="w-full">
               <TabsTrigger value="general">General</TabsTrigger>
               <TabsTrigger value="env">Variables{env.length > 0 && ` (${env.length})`}</TabsTrigger>
-              <TabsTrigger value="volumes">Volúmenes{form.volumes.length > 0 && ` (${form.volumes.length})`}</TabsTrigger>
+              {form.source !== 'compose' && (
+                <TabsTrigger value="volumes">Volúmenes{form.volumes.length > 0 && ` (${form.volumes.length})`}</TabsTrigger>
+              )}
               <TabsTrigger value="ssl">Dominio y SSL</TabsTrigger>
             </TabsList>
 
@@ -187,7 +190,10 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                     <Box /> Imagen de Docker
                   </ToggleGroupItem>
                   <ToggleGroupItem value="git" className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                    <GitBranch /> Repositorio con Dockerfile
+                    <GitBranch /> Dockerfile
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="compose" className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                    <Layers /> docker-compose.yml
                   </ToggleGroupItem>
                 </ToggleGroup>
               </div>
@@ -234,17 +240,47 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                         placeholder="(raíz del repo)"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="app-dockerfile">Dockerfile</Label>
-                      <Input
-                        id="app-dockerfile"
-                        className="font-mono"
-                        value={form.dockerfile}
-                        onChange={(e) => set('dockerfile', e.target.value)}
-                        placeholder="Dockerfile"
-                      />
-                    </div>
+                    {form.source === 'git' ? (
+                      <div className="space-y-2">
+                        <Label htmlFor="app-dockerfile">Dockerfile</Label>
+                        <Input
+                          id="app-dockerfile"
+                          className="font-mono"
+                          value={form.dockerfile}
+                          onChange={(e) => set('dockerfile', e.target.value)}
+                          placeholder="Dockerfile"
+                        />
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <Label htmlFor="app-compose">Archivo de Compose</Label>
+                        <Input
+                          id="app-compose"
+                          className="font-mono"
+                          value={form.compose_file}
+                          onChange={(e) => set('compose_file', e.target.value)}
+                          placeholder="docker-compose.yml"
+                        />
+                      </div>
+                    )}
                   </div>
+                  {form.source === 'compose' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="app-service">Servicio web</Label>
+                      <Input
+                        id="app-service"
+                        className="font-mono"
+                        value={form.compose_service}
+                        onChange={(e) => set('compose_service', e.target.value)}
+                        placeholder="web"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        El servicio del docker-compose.yml que recibe el tráfico de los dominios (en el puerto indicado
+                        arriba). Los volúmenes se definen en el propio archivo; las rutas relativas del host
+                        (<code className="font-mono">./datos:/datos</code>) no funcionan: usa volúmenes con nombre.
+                      </p>
+                    </div>
+                  )}
                 </>
               )}
 

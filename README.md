@@ -92,6 +92,9 @@ n8n y Uptime Kuma.
 - **Con volúmenes** (bases de datos) la versión actual se detiene antes de arrancar la nueva:
   dos instancias escribiendo en los mismos datos los corromperían.
 - Las apps se encuentran por su nombre en la red interna (`postgres:5432`), sin exponerlas.
+- También desde un **`docker-compose.yml`** del repo: Dockfly lo ejecuta con un contenedor auxiliar
+  con Compose y conecta el servicio web a su red. Usa volúmenes con nombre: las rutas relativas
+  del host (`./datos:/datos`) no funcionan.
 - Variables de entorno cifradas, límites de memoria y CPU, logs en vivo, reiniciar, detener y
   volver a una versión anterior.
 

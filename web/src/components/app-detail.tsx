@@ -138,7 +138,7 @@ export function AppDetail({ id }: { id: number }) {
             </CardTitle>
             <CardDescription className="space-y-1">
               <div className="flex items-center gap-1 font-mono text-xs">
-                {app.source === 'git' ? (
+                {app.source !== 'image' ? (
                   <>
                     <GitBranch className="size-3.5" /> {app.repo} · {app.branch}
                   </>

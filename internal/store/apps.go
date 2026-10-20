@@ -7,8 +7,9 @@ import (
 )
 
 const (
-	AppSourceImage = "image"
-	AppSourceGit   = "git"
+	AppSourceImage   = "image"
+	AppSourceGit     = "git"     // Dockerfile del repositorio
+	AppSourceCompose = "compose" // docker-compose.yml del repositorio
 )
 
 // Estados de un despliegue de app.
@@ -36,6 +37,8 @@ type App struct {
 	Branch              string      `json:"branch"`
 	RootDir             string      `json:"root_dir"`
 	Dockerfile          string      `json:"dockerfile"`
+	ComposeFile         string      `json:"compose_file"`
+	ComposeService      string      `json:"compose_service"` // el servicio que recibe el tráfico web
 	WebhookID           string      `json:"webhook_id"`
 	WebhookSecret       string      `json:"-"`
 	Port                int         `json:"port"`

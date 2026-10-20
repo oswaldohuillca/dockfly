@@ -53,6 +53,9 @@ type Config struct {
 	LogDir    string
 	Log       *slog.Logger
 	Network   string // red de Dockfly: Traefik y las apps se ven en ella
+	// HostDockerSocket es la ruta del socket de Docker en el host (no en el
+	// contenedor de Dockfly): la monta el auxiliar de Compose.
+	HostDockerSocket string
 	// Apply regenera la configuración de Traefik (la API sabe hacerlo).
 	Apply func(ctx context.Context) error
 	// OnFinish se llama al terminar cada despliegue (notificaciones).
@@ -225,6 +228,9 @@ func (m *Manager) deploy(ctx context.Context, d *store.AppDeployment, log io.Wri
 	if err != nil {
 		return err
 	}
+	if app.Source == store.AppSourceCompose {
+		return m.deployCompose(ctx, app, d, log)
+	}
 
 	// 1. La imagen: descargarla, construirla o reutilizar la de un despliegue anterior.
 	if d.Image == "" {
@@ -350,29 +356,9 @@ func (m *Manager) prepareImage(ctx context.Context, app *store.App, d *store.App
 		return image, nil
 	}
 
-	if app.GitConnectionID == nil || app.Repo == "" {
-		return "", errors.New("la app no tiene un repositorio configurado")
-	}
-	conn, err := m.cfg.Store.GetGitConnection(ctx, *app.GitConnectionID)
-	if err != nil {
-		return "", errors.New("la cuenta de Git de la app ya no existe")
-	}
-	prov, err := m.cfg.Providers.Provider(ctx, conn)
+	rc, err := m.fetchSource(ctx, app, d, log)
 	if err != nil {
 		return "", err
-	}
-	if d.CommitSHA == "" {
-		c, err := prov.LatestCommit(ctx, app.Repo, app.Branch)
-		if err != nil {
-			return "", fmt.Errorf("obteniendo el último commit: %w", err)
-		}
-		d.CommitSHA, d.CommitMessage = c.SHA, c.Message
-		_ = m.cfg.Store.UpdateAppDeployment(ctx, d)
-	}
-	fmt.Fprintf(log, "▶ %s@%s (%s): %s\n", app.Repo, short(d.CommitSHA), app.Branch, d.CommitMessage)
-	rc, err := prov.Tarball(ctx, app.Repo, d.CommitSHA)
-	if err != nil {
-		return "", fmt.Errorf("descargando el código: %w", err)
 	}
 	defer rc.Close()
 
@@ -390,6 +376,36 @@ func (m *Manager) prepareImage(ctx context.Context, app *store.App, d *store.App
 		return "", fmt.Errorf("el build de la imagen falló: %w", err)
 	}
 	return tag, nil
+}
+
+// fetchSource descarga el código del commit a desplegar (el último de la
+// rama si el despliegue no trae uno).
+func (m *Manager) fetchSource(ctx context.Context, app *store.App, d *store.AppDeployment, log io.Writer) (io.ReadCloser, error) {
+	if app.GitConnectionID == nil || app.Repo == "" {
+		return nil, errors.New("la app no tiene un repositorio configurado")
+	}
+	conn, err := m.cfg.Store.GetGitConnection(ctx, *app.GitConnectionID)
+	if err != nil {
+		return nil, errors.New("la cuenta de Git de la app ya no existe")
+	}
+	prov, err := m.cfg.Providers.Provider(ctx, conn)
+	if err != nil {
+		return nil, err
+	}
+	if d.CommitSHA == "" {
+		c, err := prov.LatestCommit(ctx, app.Repo, app.Branch)
+		if err != nil {
+			return nil, fmt.Errorf("obteniendo el último commit: %w", err)
+		}
+		d.CommitSHA, d.CommitMessage = c.SHA, c.Message
+		_ = m.cfg.Store.UpdateAppDeployment(ctx, d)
+	}
+	fmt.Fprintf(log, "▶ %s@%s (%s): %s\n", app.Repo, short(d.CommitSHA), app.Branch, d.CommitMessage)
+	rc, err := prov.Tarball(ctx, app.Repo, d.CommitSHA)
+	if err != nil {
+		return nil, fmt.Errorf("descargando el código: %w", err)
+	}
+	return rc, nil
 }
 
 // waitHealthy espera a que el contenedor esté listo para recibir tráfico.

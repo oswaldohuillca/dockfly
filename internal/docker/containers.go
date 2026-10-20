@@ -29,6 +29,8 @@ type ContainerSpec struct {
 	// KeepCaps conserva las capabilities por defecto (solo para contenedores
 	// auxiliares de Dockfly que no ejecutan código del usuario).
 	KeepCaps bool
+	// Binds monta rutas del host ("origen:destino"). Solo para auxiliares.
+	Binds []string
 }
 
 func (c *Client) raw(ctx context.Context, client *http.Client, method, path string, body io.Reader, contentType string) (*http.Response, error) {
@@ -129,6 +131,9 @@ func (c *Client) CreateContainer(ctx context.Context, spec ContainerSpec) (strin
 	}
 	if len(mounts) > 0 {
 		host["Mounts"] = mounts
+	}
+	if len(spec.Binds) > 0 {
+		host["Binds"] = spec.Binds
 	}
 	body := map[string]any{
 		"Image":      spec.Image,

@@ -35,6 +35,8 @@ type appInput struct {
 	Branch       string            `json:"branch"`
 	RootDir      string            `json:"root_dir"`
 	Dockerfile   string            `json:"dockerfile"`
+	ComposeFile  string            `json:"compose_file"`
+	Service      string            `json:"compose_service"`
 	Port         int               `json:"port"`
 	Domains      []string          `json:"domains"`
 	SSL          bool              `json:"ssl"`
@@ -65,7 +67,7 @@ func (in *appInput) toApp() (*store.App, error) {
 		if !imageRe.MatchString(a.Image) {
 			return nil, fmt.Errorf("imagen inválida: %q", in.Image)
 		}
-	case store.AppSourceGit:
+	case store.AppSourceGit, store.AppSourceCompose:
 		if in.ConnectionID == 0 || !strings.Contains(in.Repo, "/") || strings.TrimSpace(in.Branch) == "" {
 			return nil, errors.New("elige la cuenta, el repositorio y la rama")
 		}
@@ -77,6 +79,18 @@ func (in *appInput) toApp() (*store.App, error) {
 		}
 		if a.Dockerfile, err = relDir("el Dockerfile", in.Dockerfile); err != nil {
 			return nil, err
+		}
+		if a.Source == store.AppSourceCompose {
+			if a.ComposeFile, err = relDir("el archivo de Compose", in.ComposeFile); err != nil {
+				return nil, err
+			}
+			a.ComposeService = strings.TrimSpace(in.Service)
+			if len(in.Volumes) > 0 {
+				return nil, errors.New("con Compose, los volúmenes se definen en el docker-compose.yml")
+			}
+			if len(in.Domains) > 0 && a.ComposeService == "" {
+				return nil, errors.New("indica qué servicio del docker-compose.yml recibe el tráfico web")
+			}
 		}
 	default:
 		return nil, errors.New("el origen debe ser una imagen o un repositorio")
@@ -516,7 +530,7 @@ func (w sseWriter) Write(p []byte) (int, error) {
 // --- Webhooks de apps desde Git ---
 
 func (s *Server) setupAppWebhook(ctx context.Context, a *store.App) string {
-	if a.Source != store.AppSourceGit || a.GitConnectionID == nil || a.WebhookID != "" {
+	if a.Source == store.AppSourceImage || a.GitConnectionID == nil || a.WebhookID != "" {
 		return ""
 	}
 	conn, prov, err := s.connectionProvider(ctx, *a.GitConnectionID)

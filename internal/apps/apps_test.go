@@ -367,3 +367,85 @@ func (e *env) logsOf(t *testing.T, container string) string {
 	docker.Demux(rc, &b)
 	return b.String()
 }
+
+func TestRelativeBinds(t *testing.T) {
+	yml := []byte(`
+services:
+  web:
+    image: x
+    volumes:
+      - ./subidas:/app/subidas
+      - datos:/data
+      - /srv/absoluto:/abs
+      - type: bind
+        source: ../config
+        target: /config
+`)
+	got := relativeBinds(yml)
+	if len(got) != 2 || !strings.Contains(strings.Join(got, "\n"), "./subidas") || !strings.Contains(strings.Join(got, "\n"), "../config") {
+		t.Errorf("deben detectarse solo las rutas relativas: %v", got)
+	}
+}
+
+func TestComposeApp(t *testing.T) {
+	e := setup(t)
+	compose := `services:
+  web:
+    image: traefik/whoami
+  cache:
+    image: redis:7-alpine
+    volumes:
+      - datos:/data
+volumes:
+  datos: {}
+`
+	var tgz bytes.Buffer
+	gz := gzip.NewWriter(&tgz)
+	tw := tar.NewWriter(gz)
+	tw.WriteHeader(&tar.Header{Name: "oswa-stack-c1/docker-compose.yml", Typeflag: tar.TypeReg, Mode: 0o644, Size: int64(len(compose))})
+	io.WriteString(tw, compose)
+	tw.Close()
+	gz.Close()
+	gh := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/repos/oswa/stack/commits/main":
+			io.WriteString(w, `{"sha":"c1","commit":{"message":"Stack"}}`)
+		case "/repos/oswa/stack/tarball/c1":
+			w.Write(tgz.Bytes())
+		default:
+			w.WriteHeader(404)
+		}
+	}))
+	defer gh.Close()
+	conn := &store.GitConnection{Provider: "github", BaseURL: gh.URL, Username: "oswa", TokenEnc: e.box.Seal([]byte("t"))}
+	e.st.CreateGitConnection(context.Background(), conn)
+	e.m.cfg.HostDockerSocket = "/var/run/docker.sock"
+
+	app := e.app(t, &store.App{Name: "stack", Source: store.AppSourceCompose, GitConnectionID: &conn.ID,
+		Repo: "oswa/stack", Branch: "main", ComposeService: "web", Port: 80})
+	d, log := e.deploy(t, app.ID)
+	if d.Status != store.DeployLive {
+		t.Fatalf("despliegue con Compose: %s (%s)\n%s", d.Status, d.Error, log)
+	}
+	if d.Container != "dockfly-stack-web-1" {
+		t.Errorf("el contenedor web debe ser el que recibe tráfico: %q", d.Container)
+	}
+	info, err := e.dc.InspectContainer(context.Background(), d.Container)
+	if err != nil || info.IPs[testNetwork] == "" {
+		t.Errorf("el servicio web debe estar en la red de Dockfly: %v %v", info.IPs, err)
+	}
+	ctx := context.Background()
+	got, _ := e.st.GetApp(ctx, app.ID)
+	if names, _ := e.m.projectContainers(ctx, got); len(names) != 2 {
+		t.Errorf("el proyecto debe tener 2 contenedores: %v", names)
+	}
+	if err := e.m.Remove(ctx, got, true); err != nil {
+		t.Fatal(err)
+	}
+	if names, _ := e.m.projectContainers(ctx, got); len(names) != 0 {
+		t.Errorf("compose down debe borrar los contenedores: %v", names)
+	}
+	if ok, _ := e.dc.VolumeExists(ctx, "dockfly-stack_datos"); ok {
+		t.Error("con datos, compose down debe borrar los volúmenes")
+	}
+}

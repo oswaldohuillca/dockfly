@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 	"unicode"
 
@@ -26,12 +27,14 @@ func (m *Manager) current(ctx context.Context, app *store.App) (string, error) {
 // reinicien) y deja de enrutar su tráfico.
 func (m *Manager) Stop(ctx context.Context, app *store.App) error {
 	defer m.lockApp(app.ID)()
-	name, err := m.current(ctx, app)
+	names, err := m.containers(ctx, app)
 	if err != nil {
 		return err
 	}
-	if err := m.cfg.Docker.StopContainer(ctx, name, stopTimeout); err != nil {
-		return err
+	for _, name := range names {
+		if err := m.cfg.Docker.StopContainer(ctx, name, stopTimeout); err != nil {
+			return err
+		}
 	}
 	if err := m.cfg.Store.SetAppStopped(ctx, app.ID, true); err != nil {
 		return err
@@ -41,12 +44,14 @@ func (m *Manager) Stop(ctx context.Context, app *store.App) error {
 
 func (m *Manager) Start(ctx context.Context, app *store.App) error {
 	defer m.lockApp(app.ID)()
-	name, err := m.current(ctx, app)
+	names, err := m.containers(ctx, app)
 	if err != nil {
 		return err
 	}
-	if err := m.cfg.Docker.StartContainer(ctx, name); err != nil {
-		return err
+	for _, name := range names {
+		if err := m.cfg.Docker.StartContainer(ctx, name); err != nil {
+			return err
+		}
 	}
 	if err := m.cfg.Store.SetAppStopped(ctx, app.ID, false); err != nil {
 		return err
@@ -56,17 +61,46 @@ func (m *Manager) Start(ctx context.Context, app *store.App) error {
 
 func (m *Manager) Restart(ctx context.Context, app *store.App) error {
 	defer m.lockApp(app.ID)()
-	name, err := m.current(ctx, app)
+	names, err := m.containers(ctx, app)
 	if err != nil {
 		return err
 	}
-	return m.cfg.Docker.RestartContainer(ctx, name, stopTimeout)
+	for _, name := range names {
+		if err := m.cfg.Docker.RestartContainer(ctx, name, stopTimeout); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// containers son los contenedores de la app: el actual o, con Compose,
+// todos los del proyecto.
+func (m *Manager) containers(ctx context.Context, app *store.App) ([]string, error) {
+	if _, err := m.current(ctx, app); err != nil {
+		return nil, err
+	}
+	if app.Source == store.AppSourceCompose {
+		return m.projectContainers(ctx, app)
+	}
+	name, err := m.current(ctx, app)
+	return []string{name}, err
 }
 
 // Remove borra los contenedores de la app y, con removeData, sus volúmenes
 // (¡sus datos!). El registro en la base de datos lo borra la API.
 func (m *Manager) Remove(ctx context.Context, app *store.App, removeData bool) error {
 	defer m.lockApp(app.ID)()
+	if app.Source == store.AppSourceCompose {
+		// compose down funciona con las etiquetas, sin los archivos del proyecto.
+		cmd := []string{"docker", "compose", "-p", ComposeProject(app), "down", "--remove-orphans"}
+		if removeData {
+			cmd = append(cmd, "--volumes")
+		}
+		if app.CurrentDeploymentID == nil {
+			return nil
+		}
+		return m.runHelper(ctx, app, cmd, nil, nil, io.Discard)
+	}
 	deps, err := m.cfg.Store.ListAppDeployments(ctx, app.ID, 1000)
 	if err != nil {
 		return err

@@ -226,7 +226,7 @@ export interface ChannelInput {
 /** Valor con el que el servidor enmascara los secretos; reenviarlo los conserva. */
 export const SECRET_MASK = '••••••••';
 
-export type AppSource = 'image' | 'git';
+export type AppSource = 'image' | 'git' | 'compose';
 export type AppDeployStatus = 'queued' | 'running' | 'live' | 'replaced' | 'failed' | 'canceled';
 
 export interface AppVolume {
@@ -259,6 +259,8 @@ export interface App {
   branch: string;
   root_dir: string;
   dockerfile: string;
+  compose_file: string;
+  compose_service: string;
   webhook_id: string;
   port: number;
   domains: string[];
@@ -288,6 +290,8 @@ export interface AppInput {
   branch: string;
   root_dir: string;
   dockerfile: string;
+  compose_file: string;
+  compose_service: string;
   port: number;
   domains: string[];
   ssl: boolean;

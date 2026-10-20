@@ -415,7 +415,7 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	for _, a := range appList {
-		if a.Source != store.AppSourceGit || a.GitConnectionID == nil || !slices.Contains(ids, *a.GitConnectionID) ||
+		if a.Source == store.AppSourceImage || a.GitConnectionID == nil || !slices.Contains(ids, *a.GitConnectionID) ||
 			a.Repo != push.Repo || a.Branch != push.Branch {
 			continue
 		}

@@ -172,7 +172,8 @@ func run(log *slog.Logger) error {
 	srv.Apps = apps.New(apps.Config{
 		Store: st, Docker: dc, Secrets: box, Providers: srv.Git, LogDir: filepath.Join(dataDir, "builds"),
 		Log: log.With("component", "apps"), Network: opts.DockerNet,
-		Apply: srv.Apply, OnFinish: srv.OnAppDeployFinished,
+		HostDockerSocket: env("DOCKFLY_HOST_DOCKER_SOCKET", "/var/run/docker.sock"),
+		Apply:            srv.Apply, OnFinish: srv.OnAppDeployFinished,
 	})
 	if dc != nil {
 		ensureNetwork(ctx, log, dc, opts.DockerNet)
