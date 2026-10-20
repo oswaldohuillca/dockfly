@@ -190,6 +190,13 @@ recuperación** de un solo uso. Si pierdes el móvil y los códigos, desactíval
 docker exec dockfly dockfly reset-2fa tu@email.com
 ```
 
+### Tráfico
+
+Cada proxy host, sitio y app muestra sus **peticiones** (por estado: 2xx/3xx, 4xx, 5xx) y su
+**latencia** (p50 y p95) de la última hora, el último día o la última semana; la lista de proxy
+hosts incluye una minigráfica de las últimas 24 horas. Los datos salen de las métricas de Traefik
+(que solo escuchan en `127.0.0.1` dentro del contenedor), se recogen cada minuto y se guardan 7 días.
+
 ### Copias de seguridad
 
 En *Ajustes → Copias de seguridad* se descarga una copia con la base de datos, las claves, los

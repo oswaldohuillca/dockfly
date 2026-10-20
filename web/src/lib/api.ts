@@ -71,6 +71,31 @@ export interface BackupStorage {
   secret_key: string;
 }
 
+export interface TrafficPoint {
+  t: string;
+  requests: number;
+  s4xx: number;
+  s5xx: number;
+  p50_ms: number;
+  p95_ms: number;
+}
+
+export interface TrafficTotals {
+  requests: number;
+  s4xx: number;
+  s5xx: number;
+  p50_ms: number;
+  p95_ms: number;
+  avg_ms: number;
+}
+
+export type TrafficRange = '1h' | '24h' | '7d';
+
+/** Últimas 24 h de un proxy host, sitio o app; spark = peticiones por hora. */
+export interface TrafficSummary extends TrafficTotals {
+  spark: number[];
+}
+
 export interface PasswordLink {
   link: string;
   expires_at: string;
@@ -535,6 +560,12 @@ export const api = {
   restoreDBBackup: (appId: number, id: number) => request<void>('POST', `/apps/${appId}/backups/${id}/restore`),
   deleteDBBackup: (appId: number, id: number) => request<void>('DELETE', `/apps/${appId}/backups/${id}`),
   dbBackupURL: (appId: number, id: number) => `/api/apps/${appId}/backups/${id}/download`,
+  traffic: (owner: string, range: TrafficRange) =>
+    request<{ points: TrafficPoint[]; totals: TrafficTotals; step_seconds: number }>(
+      'GET',
+      `/traffic/${owner}?range=${range}`,
+    ),
+  trafficSummary: () => request<Record<string, TrafficSummary>>('GET', '/traffic'),
   listTokens: () => request<APIToken[]>('GET', '/tokens'),
   createToken: (data: { name: string; role: Role; expires_days: number }) =>
     request<{ token: string; api_token: APIToken }>('POST', '/tokens', data),

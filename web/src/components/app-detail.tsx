@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 
 import { AppDialog } from '@/components/app-dialog';
 import { DBBackupsPanel } from '@/components/db-backups';
+import { TrafficCard } from '@/components/traffic';
 import { AppStateDot, DeployStatusBadge } from '@/components/app-status';
 import { CertBadge } from '@/components/cert-badge';
 import { CheckField } from '@/components/check-field';
@@ -206,6 +207,7 @@ export function AppDetail({ id }: { id: number }) {
           <TabsTrigger value="logs" disabled={!deployed}>
             Logs
           </TabsTrigger>
+          {app.domains.length > 0 && app.port > 0 && <TabsTrigger value="traffic">Tráfico</TabsTrigger>}
           {backups && <TabsTrigger value="backups">Copias</TabsTrigger>}
         </TabsList>
 
@@ -277,6 +279,12 @@ export function AppDetail({ id }: { id: number }) {
             </CardContent>
           </Card>
         </TabsContent>
+
+        {app.domains.length > 0 && app.port > 0 && (
+          <TabsContent value="traffic">
+            <TrafficCard owner={`app-${app.id}`} />
+          </TabsContent>
+        )}
 
         {backups && (
           <TabsContent value="backups">

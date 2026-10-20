@@ -34,6 +34,7 @@ import (
 	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
+	"github.com/dockfly/dockfly/internal/traffic"
 	"github.com/dockfly/dockfly/web"
 )
 
@@ -219,6 +220,13 @@ func run(log *slog.Logger) error {
 	wg.Go(func() { srv.Builds.Run(ctx) })
 	wg.Go(func() { srv.RunMonitors(ctx) })
 	wg.Go(func() { srv.Apps.Run(ctx) })
+	if env("DOCKFLY_TRAEFIK", "on") != "off" {
+		collector := &traffic.Collector{
+			URL: "http://" + traefik.MetricsAddr + "/metrics", Bounds: traefik.LatencyBuckets,
+			Store: st, Log: log.With("component", "traffic"),
+		}
+		wg.Go(func() { collector.Run(ctx) })
+	}
 	if srv.DBBackups != nil {
 		wg.Go(func() { srv.DBBackups.Run(ctx) })
 	}

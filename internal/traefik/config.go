@@ -110,6 +110,15 @@ func WriteStatic(o Options) error {
 
 	cfg := map[string]any{
 		"global": map[string]any{"checkNewVersion": false, "sendAnonymousUsage": false},
+		// Métricas por router para las gráficas de tráfico. Solo se sirven en
+		// localhost: las lee Dockfly.
+		"metrics": map[string]any{"prometheus": map[string]any{
+			"entryPoint":           metricsEntryPoint,
+			"addRoutersLabels":     true,
+			"addEntryPointsLabels": false,
+			"addServicesLabels":    false,
+			"buckets":              LatencyBuckets,
+		}},
 		// JSON: Dockfly lo analiza (errores de Let's Encrypt) y lo reescribe legible.
 		"log":                   map[string]any{"level": o.LogLevel, "noColor": true, "format": "json"},
 		"entryPoints":           entryPoints(o),
@@ -119,10 +128,19 @@ func WriteStatic(o Options) error {
 	return writeYAML(o.StaticFile(), cfg)
 }
 
+// MetricsAddr es donde Traefik sirve sus métricas (solo para Dockfly).
+const MetricsAddr = "127.0.0.1:8082"
+
+const metricsEntryPoint = "metrics"
+
+// LatencyBuckets son los límites (en segundos) del histograma de latencia.
+var LatencyBuckets = []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10}
+
 func entryPoints(o Options) map[string]any {
 	eps := map[string]any{
-		"web":       entryPoint(o.HTTPAddr),
-		"websecure": entryPoint(o.HTTPSAddr),
+		"web":             entryPoint(o.HTTPAddr),
+		"websecure":       entryPoint(o.HTTPSAddr),
+		metricsEntryPoint: entryPoint(MetricsAddr),
 	}
 	for _, p := range o.Streams {
 		addr := ":" + strconv.Itoa(p.Port)

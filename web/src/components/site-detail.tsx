@@ -9,6 +9,7 @@ import { Dropzone, selectionSummary } from '@/components/dropzone';
 import { SiteDialog } from '@/components/site-dialog';
 import { SiteGit } from '@/components/site-git';
 import { SitePreviews } from '@/components/site-previews';
+import { TrafficCard } from '@/components/traffic';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -164,6 +165,8 @@ export function SiteDetail({ id }: { id: number }) {
           <Dropzone onSelect={upload} progress={progress} uploading={uploading} />
         </CardContent>
       </Card>
+
+      {site.domains.length > 0 && <TrafficCard owner={`site-${site.id}`} />}
 
       <SiteGit site={site} onChange={load} />
       {site.repo && <SitePreviews site={site} reload={site} />}

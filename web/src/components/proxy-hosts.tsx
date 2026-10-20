@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 
 import { CertBadge } from '@/components/cert-badge';
 import { ProxyHostDialog } from '@/components/proxy-host-dialog';
+import { compactNumber, formatMs, Sparkline, TrafficCard, useTrafficSummary } from '@/components/traffic';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -17,13 +18,14 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { api, errorMessage, type ProxyHost, type ProxyHostInput, type TargetType } from '@/lib/api';
+import { api, errorMessage, type ProxyHost, type ProxyHostInput, type TargetType, type TrafficSummary } from '@/lib/api';
+import { useCan } from '@/lib/roles';
 import { useCertificates } from '@/lib/use-certificates';
 import { cn } from '@/lib/utils';
-import { useCan } from '@/lib/roles';
 
 const targets: Record<TargetType, { label: string; icon: typeof Box }> = {
   docker: { label: 'Contenedor', icon: Box },
@@ -37,6 +39,8 @@ function toInput({ id: _id, created_at: _c, updated_at: _u, ...rest }: ProxyHost
 }
 
 export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
+  const traffic = useTrafficSummary();
+  const [trafficOf, setTrafficOf] = useState<ProxyHost | null>(null);
   const canEdit = useCan('admin');
   const [hosts, setHosts] = useState<ProxyHost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -126,6 +130,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
                   <TableHead className="pl-6">Dominios</TableHead>
                   <TableHead>Destino</TableHead>
                   <TableHead>SSL</TableHead>
+                  <TableHead>Tráfico (24 h)</TableHead>
                   <TableHead>Activo</TableHead>
                   <TableHead className="pr-6" />
                 </TableRow>
@@ -167,6 +172,9 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
                         )}
                       </TableCell>
                       <TableCell>
+                        <TrafficCell summary={traffic[`ph-${h.id}`]} onClick={() => setTrafficOf(h)} />
+                      </TableCell>
+                      <TableCell>
                         <Switch
                           checked={h.enabled}
                           onCheckedChange={() => toggle(h)}
@@ -192,7 +200,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
                 })}
                 {visible.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={5} className="py-8 text-center text-muted-foreground">
+                    <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
                       Ningún proxy host coincide con «{filter}».
                     </TableCell>
                   </TableRow>
@@ -214,6 +222,18 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
           }}
         />
       )}
+
+      <Dialog open={trafficOf !== null} onOpenChange={(open) => !open && setTrafficOf(null)}>
+        <DialogContent className="sm:max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{trafficOf?.domains[0]}</DialogTitle>
+            <DialogDescription>
+              {trafficOf && `${trafficOf.forward_scheme}://${trafficOf.forward_host}:${trafficOf.forward_port}`}
+            </DialogDescription>
+          </DialogHeader>
+          {trafficOf && <TrafficCard owner={`ph-${trafficOf.id}`} bare />}
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
@@ -254,5 +274,24 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         </Button>
       )}
     </div>
+  );
+}
+
+/** Minigráfica y totales de las últimas 24 h de una ruta. */
+export function TrafficCell({ summary, onClick }: { summary?: TrafficSummary; onClick: () => void }) {
+  if (!summary || summary.requests === 0) {
+    return <span className="text-xs text-muted-foreground">—</span>;
+  }
+  const errors = summary.requests > 0 ? (summary.s5xx / summary.requests) * 100 : 0;
+  return (
+    <button type="button" onClick={onClick} className="flex items-center gap-2 rounded px-1 py-0.5 text-left hover:bg-muted">
+      <Sparkline values={summary.spark} />
+      <span className="text-xs leading-tight tabular-nums">
+        {compactNumber.format(summary.requests)}
+        <span className={cn('block', errors >= 5 ? 'text-destructive' : errors >= 1 ? 'text-amber-600' : 'text-muted-foreground')}>
+          {errors > 0 ? `${errors.toFixed(1)} % 5xx` : formatMs(summary.p95_ms) + ' p95'}
+        </span>
+      </span>
+    </button>
   );
 }
