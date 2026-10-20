@@ -4,9 +4,12 @@ import { ThemeProvider } from 'next-themes';
 import { AuthForm } from '@/components/auth-form';
 import { Header } from '@/components/header';
 import { ProxyHosts } from '@/components/proxy-hosts';
+import { SiteDetail } from '@/components/site-detail';
+import { Sites } from '@/components/sites';
 import { Toaster } from '@/components/ui/sonner';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import { api, ApiError, type Status, type User } from '@/lib/api';
+import { useRoute } from '@/lib/router';
 
 export default function App() {
   return (
@@ -20,6 +23,7 @@ export default function App() {
 }
 
 function Shell() {
+  const route = useRoute();
   const [user, setUser] = useState<User | null>(null);
   const [needsSetup, setNeedsSetup] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -77,11 +81,18 @@ function Shell() {
 
   return (
     <div className="flex min-h-svh flex-col bg-muted/40">
-      <Header user={user} status={status} onLogout={logout} />
+      <Header user={user} status={status} route={route} onLogout={logout} />
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
-        <ProxyHosts dockerAvailable={status?.docker_available ?? false} />
+        <Page route={route} dockerAvailable={status?.docker_available ?? false} />
       </main>
       <footer className="py-4 text-center text-xs text-muted-foreground">Dockfly {status?.version}</footer>
     </div>
   );
+}
+
+function Page({ route, dockerAvailable }: { route: string; dockerAvailable: boolean }) {
+  const site = route.match(/^\/sites\/(\d+)$/);
+  if (site) return <SiteDetail key={site[1]} id={Number(site[1])} />;
+  if (route.startsWith('/sites')) return <Sites />;
+  return <ProxyHosts dockerAvailable={dockerAvailable} />;
 }

@@ -15,12 +15,20 @@ import (
 	"testing/fstest"
 
 	"github.com/dockfly/dockfly/internal/auth"
+	"github.com/dockfly/dockfly/internal/pages"
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
 )
 
 // testServer levanta la API completa sobre un directorio temporal.
 func testServer(t *testing.T) (*httptest.Server, string) {
+	ts, _, dyn := testServerWithPages(t)
+	return ts, dyn
+}
+
+// testServerWithPages devuelve además el servidor estático, para comprobar
+// qué se publica.
+func testServerWithPages(t *testing.T) (*httptest.Server, *pages.Server, string) {
 	t.Helper()
 	dir := t.TempDir()
 	st, err := store.Open(context.Background(), filepath.Join(dir, "t.db"))
@@ -42,10 +50,15 @@ func testServer(t *testing.T) (*httptest.Server, string) {
 		Traefik:  opts,
 		Frontend: fstest.MapFS{"index.html": {Data: []byte("<html>spa</html>")}},
 		Log:      slog.New(slog.NewTextHandler(io.Discard, nil)),
+
+		Pages:        &pages.Server{},
+		PagesStorage: &pages.Storage{Root: filepath.Join(dir, "sites"), Limits: pages.DefaultLimits},
+		StaticURL:    "http://127.0.0.1:8099",
+		MaxUploadMB:  1,
 	}
 	ts := httptest.NewServer(s.Handler())
 	t.Cleanup(ts.Close)
-	return ts, opts.DynamicDir()
+	return ts, s.Pages, opts.DynamicDir()
 }
 
 type client struct {

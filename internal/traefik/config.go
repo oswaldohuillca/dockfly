@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -21,6 +22,7 @@ const (
 
 	mwRedirectHTTPS  = "dockfly-redirect-https"
 	mwHSTS           = "dockfly-hsts"
+	mwCompress       = "dockfly-compress"
 	transportNoCheck = "dockfly-insecure"
 
 	dynamicFile = "dockfly.yml"
@@ -97,14 +99,63 @@ func entryPoint(addr string) map[string]any {
 	}
 }
 
-// WriteDynamic regenera la configuración dinámica completa a partir de los
-// proxy hosts. Traefik detecta el cambio en caliente, sin reinicios.
-func WriteDynamic(o Options, hosts []*store.ProxyHost) error {
-	return writeYAML(filepath.Join(o.DynamicDir(), dynamicFile), BuildDynamic(hosts))
+// Route es una entrada de enrutado: un conjunto de dominios que Traefik
+// reenvía a una URL. Proxy hosts y sitios estáticos se traducen a rutas.
+type Route struct {
+	Name          string // único: da nombre a los routers y al servicio
+	Domains       []string
+	URL           string
+	PreserveHost  bool
+	SkipTLSVerify bool
+	SSL           bool
+	ForceHTTPS    bool
+	HSTS          bool
+	Compress      bool
 }
 
-// BuildDynamic traduce los proxy hosts a la configuración dinámica de Traefik.
-func BuildDynamic(hosts []*store.ProxyHost) map[string]any {
+// ProxyHostRoute traduce un proxy host. Devuelve ok=false si está desactivado.
+func ProxyHostRoute(h *store.ProxyHost) (Route, bool) {
+	if !h.Enabled || len(h.Domains) == 0 {
+		return Route{}, false
+	}
+	return Route{
+		Name:          "ph-" + strconv.FormatInt(h.ID, 10),
+		Domains:       h.Domains,
+		URL:           BackendURL(h),
+		PreserveHost:  h.PreserveHost,
+		SkipTLSVerify: h.ForwardScheme == "https" && h.SkipTLSVerify,
+		SSL:           h.SSL,
+		ForceHTTPS:    h.ForceHTTPS,
+		HSTS:          h.HSTS,
+	}, true
+}
+
+// SiteRoute traduce un sitio estático: todos apuntan al servidor estático de
+// Dockfly, que elige el sitio por la cabecera Host (por eso se conserva).
+func SiteRoute(site *store.Site, staticURL string) (Route, bool) {
+	if len(site.Domains) == 0 {
+		return Route{}, false
+	}
+	return Route{
+		Name:         "site-" + strconv.FormatInt(site.ID, 10),
+		Domains:      site.Domains,
+		URL:          staticURL,
+		PreserveHost: true,
+		SSL:          site.SSL,
+		ForceHTTPS:   site.ForceHTTPS,
+		HSTS:         site.HSTS,
+		Compress:     true,
+	}, true
+}
+
+// WriteDynamic regenera la configuración dinámica completa. Traefik detecta
+// el cambio en caliente, sin reinicios.
+func WriteDynamic(o Options, routes []Route) error {
+	return writeYAML(filepath.Join(o.DynamicDir(), dynamicFile), BuildDynamic(routes))
+}
+
+// BuildDynamic traduce las rutas a la configuración dinámica de Traefik.
+func BuildDynamic(routes []Route) map[string]any {
 	routers := map[string]any{}
 	services := map[string]any{}
 	middlewares := map[string]any{
@@ -118,52 +169,60 @@ func BuildDynamic(hosts []*store.ProxyHost) map[string]any {
 				"stsPreload":           false,
 			},
 		},
+		// gzip/brotli/zstd según lo que acepte el navegador.
+		mwCompress: map[string]any{"compress": map[string]any{}},
 	}
 	needsInsecure := false
 
-	for _, h := range hosts {
-		if !h.Enabled || len(h.Domains) == 0 {
-			continue
-		}
-		name := "ph-" + strconv.FormatInt(h.ID, 10)
-		rule := hostRule(h.Domains)
+	for _, rt := range routes {
+		rule := hostRule(rt.Domains)
 
 		svc := map[string]any{
-			"servers":        []map[string]any{{"url": BackendURL(h)}},
-			"passHostHeader": h.PreserveHost,
+			"servers":        []map[string]any{{"url": rt.URL}},
+			"passHostHeader": rt.PreserveHost,
 		}
-		if h.ForwardScheme == "https" && h.SkipTLSVerify {
+		if rt.SkipTLSVerify {
 			svc["serversTransport"] = transportNoCheck
 			needsInsecure = true
 		}
-		services[name] = map[string]any{"loadBalancer": svc}
+		services[rt.Name] = map[string]any{"loadBalancer": svc}
+
+		var common []string
+		if rt.Compress {
+			common = append(common, mwCompress)
+		}
 
 		httpRouter := map[string]any{
 			"rule":        rule,
 			"entryPoints": []string{"web"},
-			"service":     name,
+			"service":     rt.Name,
 		}
-		if h.SSL {
-			var secureMW []string
-			if h.HSTS {
+		httpMW := common
+		if rt.SSL {
+			secureMW := slices.Clone(common)
+			if rt.HSTS {
 				secureMW = append(secureMW, mwHSTS)
 			}
 			secure := map[string]any{
 				"rule":        rule,
 				"entryPoints": []string{"websecure"},
-				"service":     name,
+				"service":     rt.Name,
 				"tls":         map[string]any{"certResolver": CertResolver},
 			}
 			if len(secureMW) > 0 {
 				secure["middlewares"] = secureMW
 			}
-			routers[name+"-secure"] = secure
+			routers[rt.Name+"-secure"] = secure
 
-			if h.ForceHTTPS {
-				httpRouter["middlewares"] = []string{mwRedirectHTTPS}
+			if rt.ForceHTTPS {
+				// Si se redirige, comprimir no tiene sentido.
+				httpMW = []string{mwRedirectHTTPS}
 			}
 		}
-		routers[name] = httpRouter
+		if len(httpMW) > 0 {
+			httpRouter["middlewares"] = httpMW
+		}
+		routers[rt.Name] = httpRouter
 	}
 
 	// Traefik rechaza secciones vacías, así que solo incluimos las que tienen contenido.

@@ -22,7 +22,13 @@ func TestBuildDynamic(t *testing.T) {
 		{ID: 3, Domains: []string{"off.com"}, ForwardScheme: "http", ForwardHost: "x", ForwardPort: 80, Enabled: false},
 		{ID: 4, Domains: []string{"v6.com"}, ForwardScheme: "http", ForwardHost: "fd00::1", ForwardPort: 80, Enabled: true},
 	}
-	httpCfg := BuildDynamic(hosts)["http"].(map[string]any)
+	var routes []Route
+	for _, h := range hosts {
+		if rt, ok := ProxyHostRoute(h); ok {
+			routes = append(routes, rt)
+		}
+	}
+	httpCfg := BuildDynamic(routes)["http"].(map[string]any)
 	routers := httpCfg["routers"].(map[string]any)
 	services := httpCfg["services"].(map[string]any)
 
@@ -59,5 +65,32 @@ func TestBuildDynamic(t *testing.T) {
 	lb4 := services["ph-4"].(map[string]any)["loadBalancer"].(map[string]any)
 	if url := lb4["servers"].([]map[string]any)[0]["url"]; url != "http://[fd00::1]:80" {
 		t.Errorf("URL IPv6 mal formada: %v", url)
+	}
+}
+
+func TestSiteRoute(t *testing.T) {
+	site := &store.Site{ID: 3, Domains: []string{"web.com"}, SSL: true, ForceHTTPS: true}
+	rt, ok := SiteRoute(site, "http://127.0.0.1:8099")
+	if !ok {
+		t.Fatal("un sitio con dominios debe generar ruta")
+	}
+	httpCfg := BuildDynamic([]Route{rt})["http"].(map[string]any)
+	routers := httpCfg["routers"].(map[string]any)
+
+	secure := routers["site-3-secure"].(map[string]any)
+	if mw := secure["middlewares"].([]string); mw[0] != mwCompress {
+		t.Errorf("los sitios deben comprimirse: %v", mw)
+	}
+	// Con redirección a HTTPS, el router HTTP solo redirige.
+	if mw := routers["site-3"].(map[string]any)["middlewares"].([]string); len(mw) != 1 || mw[0] != mwRedirectHTTPS {
+		t.Errorf("el router HTTP debe solo redirigir: %v", mw)
+	}
+	lb := httpCfg["services"].(map[string]any)["site-3"].(map[string]any)["loadBalancer"].(map[string]any)
+	if lb["passHostHeader"] != true {
+		t.Error("el servidor estático necesita el Host original para elegir el sitio")
+	}
+
+	if _, ok := SiteRoute(&store.Site{ID: 4}, "x"); ok {
+		t.Error("un sitio sin dominios no debe generar ruta")
 	}
 }

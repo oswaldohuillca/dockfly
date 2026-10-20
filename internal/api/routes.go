@@ -56,6 +56,19 @@ func (s *Server) Handler() http.Handler {
 				r.Delete("/{id}", s.handleDeleteProxyHost)
 			})
 
+			r.Route("/sites", func(r chi.Router) {
+				r.Get("/", s.handleListSites)
+				r.Post("/", s.handleCreateSite)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", s.handleGetSite)
+					r.Put("/", s.handleUpdateSite)
+					r.Delete("/", s.handleDeleteSite)
+					r.Post("/deployments", s.handleUploadDeployment)
+					r.Post("/deployments/{deploymentID}/activate", s.handleActivateDeployment)
+					r.Delete("/deployments/{deploymentID}", s.handleDeleteDeployment)
+				})
+			})
+
 			r.Get("/docker/containers", s.handleListContainers)
 		})
 	})

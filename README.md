@@ -26,6 +26,21 @@ Abre `http://TU_SERVIDOR:81` y crea la cuenta de administrador.
 - **IP / URL externa**: cualquier IP o dominio. Desactiva *Conservar el Host original* si el
   destino exige su propio dominio (CDN, SaaS).
 
+### Sitios estáticos
+
+Al estilo de Cloudflare Pages: creas un sitio con sus dominios y subes la carpeta de tu build
+(`dist/`, `build/`…) o un `.zip`, arrastrándolos al panel. Cada subida es un **despliegue
+inmutable** que se publica al instante; para hacer **rollback** basta con publicar uno anterior.
+Se conservan los 10 más recientes por sitio.
+
+- URLs limpias: `/about` sirve `about.html` o `about/index.html`.
+- `404.html` personalizado, o modo **SPA** (cualquier ruta sirve `index.html`).
+- Compresión gzip/brotli, SSL de Let's Encrypt y ETag por despliegue.
+- Los archivos que empiezan por punto (`.env`, `.git`…) nunca se sirven, salvo `.well-known`.
+
+Los archivos los sirve un servidor interno de Dockfly (`127.0.0.1:8099`) al que Traefik reenvía
+los dominios de cada sitio; no hace falta ningún contenedor extra.
+
 ## Configuración
 
 | Variable | Por defecto | Descripción |
@@ -38,6 +53,8 @@ Abre `http://TU_SERVIDOR:81` y crea la cuenta de administrador.
 | `DOCKFLY_DOCKER_SOCKET` | `/var/run/docker.sock` | Socket de Docker |
 | `DOCKFLY_TRAEFIK` | `on` | `off` para no lanzar Traefik (desarrollo) |
 | `DOCKFLY_TRUSTED_PROXIES` | — | Rangos CIDR (separados por comas) de los proxies que tienen delante el panel. Solo de ellos se acepta `X-Forwarded-For`. Vacío = panel expuesto directamente |
+| `DOCKFLY_MAX_UPLOAD_MB` | `512` | Tamaño máximo de una subida de sitio estático |
+| `DOCKFLY_STATIC_ADDR` | `127.0.0.1:8099` | Dirección interna del servidor de sitios estáticos |
 | `DOCKFLY_LOG_LEVEL` / `DOCKFLY_TRAEFIK_LOG_LEVEL` | `info` / `warn` | Nivel de logs |
 
 ## Arquitectura
@@ -47,6 +64,7 @@ cmd/dockfly        punto de entrada: API, supervisor de Traefik, healthcheck
 internal/api       API REST (chi) + sirve el frontend
 internal/store     modelos y consultas con Bun sobre SQLite (Go puro, sin CGO)
   └─ migrations/   migraciones SQL versionadas, incrustadas en el binario
+internal/pages     sitios estáticos: subida segura (zip/carpeta), despliegues y servidor
 internal/traefik   genera traefik.yml (estático) y dockfly.yml (dinámico); supervisa el proceso
 internal/docker    cliente mínimo del socket de Docker (sin SDK)
 web/               frontend React 19 + TypeScript + Tailwind 4 + shadcn/ui, incrustado con go:embed
@@ -70,6 +88,6 @@ make test
 ## Roadmap
 
 1. ✅ Proxy hosts con SSL automático (Docker, host, externos)
-2. Desplegar apps desde una imagen Docker (labels de Traefik, variables de entorno, logs)
-3. GitHub App / GitLab OAuth, webhooks y builds (Dockerfile / Nixpacks) con deploy sin downtime
-4. Previews por PR, rollback, bases de datos gestionadas, multi-servidor
+2. ✅ Sitios estáticos con subida directa, despliegues inmutables y rollback
+3. Sitios estáticos desde GitHub/GitLab: build en cada push y previews por rama
+4. Apps en contenedores desde una imagen Docker o un Dockerfile

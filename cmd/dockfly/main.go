@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"syscall"
@@ -19,6 +20,7 @@ import (
 	"github.com/dockfly/dockfly/internal/api"
 	"github.com/dockfly/dockfly/internal/auth"
 	"github.com/dockfly/dockfly/internal/docker"
+	"github.com/dockfly/dockfly/internal/pages"
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
 	"github.com/dockfly/dockfly/web"
@@ -87,6 +89,19 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
+	// Sitios estáticos: los archivos viven en /data/sites y los sirve un
+	// servidor interno al que Traefik reenvía los dominios de cada sitio.
+	pagesStorage := &pages.Storage{Root: filepath.Join(dataDir, "sites"), Limits: pages.DefaultLimits}
+	if err := pagesStorage.CleanStaging(); err != nil {
+		return fmt.Errorf("limpiando subidas incompletas: %w", err)
+	}
+	pagesSrv := &pages.Server{}
+	staticAddr := env("DOCKFLY_STATIC_ADDR", "127.0.0.1:8099")
+	maxUpload, err := strconv.ParseInt(env("DOCKFLY_MAX_UPLOAD_MB", "512"), 10, 64)
+	if err != nil || maxUpload < 1 {
+		return fmt.Errorf("DOCKFLY_MAX_UPLOAD_MB debe ser un número positivo")
+	}
+
 	srv := &api.Server{
 		Store:    st,
 		Signer:   signer,
@@ -97,6 +112,11 @@ func run(log *slog.Logger) error {
 		Log:      log,
 
 		TrustedProxies: trusted,
+
+		Pages:        pagesSrv,
+		PagesStorage: pagesStorage,
+		StaticURL:    "http://" + loopback(staticAddr),
+		MaxUploadMB:  maxUpload,
 	}
 	// La configuración dinámica se regenera desde la base de datos al
 	// arrancar: la base de datos es la única fuente de verdad.
@@ -122,10 +142,20 @@ func run(log *slog.Logger) error {
 		ReadHeaderTimeout: 10 * time.Second,
 		BaseContext:       func(net.Listener) context.Context { return ctx },
 	}
-	errc := make(chan error, 1)
+	staticSrv := &http.Server{
+		Addr:              staticAddr,
+		Handler:           pagesSrv,
+		ReadHeaderTimeout: 10 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+	}
+	errc := make(chan error, 2)
 	go func() {
 		log.Info("panel de Dockfly escuchando", "addr", httpSrv.Addr, "version", version)
 		errc <- httpSrv.ListenAndServe()
+	}()
+	go func() {
+		log.Info("servidor de sitios estáticos escuchando", "addr", staticAddr)
+		errc <- staticSrv.ListenAndServe()
 	}()
 
 	select {
@@ -139,19 +169,26 @@ func run(log *slog.Logger) error {
 	log.Info("apagando…")
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	if err := httpSrv.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Error("cerrando servidor HTTP", "error", err)
+	for _, hs := range []*http.Server{httpSrv, staticSrv} {
+		if err := hs.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Error("cerrando servidor HTTP", "addr", hs.Addr, "error", err)
+		}
 	}
 	wg.Wait()
 	return nil
 }
 
+// loopback convierte ":8099" en "127.0.0.1:8099" para construir una URL.
+func loopback(addr string) string {
+	if strings.HasPrefix(addr, ":") {
+		return "127.0.0.1" + addr
+	}
+	return addr
+}
+
 // healthcheck permite usar HEALTHCHECK en una imagen scratch sin curl.
 func healthcheck() int {
-	addr := env("DOCKFLY_LISTEN", ":81")
-	if strings.HasPrefix(addr, ":") {
-		addr = "127.0.0.1" + addr
-	}
+	addr := loopback(env("DOCKFLY_LISTEN", ":81"))
 	c := http.Client{Timeout: 3 * time.Second}
 	resp, err := c.Get("http://" + addr + "/api/setup")
 	if err != nil {

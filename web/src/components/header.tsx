@@ -21,16 +21,27 @@ import { cn } from '@/lib/utils';
 interface Props {
   user: User;
   status: Status | null;
+  route: string;
   onLogout: () => void;
 }
 
-export function Header({ user, status, onLogout }: Props) {
+export function Header({ user, status, route, onLogout }: Props) {
   const { theme, setTheme } = useTheme();
 
   return (
     <header className="border-b bg-background">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <Logo className="text-lg" />
+        <div className="flex items-center gap-6">
+          <Logo className="text-lg" />
+          <nav className="flex gap-1">
+            <NavLink href="/proxy-hosts" active={!route.startsWith('/sites')}>
+              Proxy Hosts
+            </NavLink>
+            <NavLink href="/sites" active={route.startsWith('/sites')}>
+              Sitios
+            </NavLink>
+          </nav>
+        </div>
 
         <div className="flex items-center gap-2">
           {status && (
@@ -96,5 +107,19 @@ function StatusBadge({ ok, children }: { ok: boolean; children: React.ReactNode 
       <span className={cn('size-1.5 rounded-full', ok ? 'bg-emerald-500' : 'bg-red-500')} />
       {children}
     </Badge>
+  );
+}
+
+function NavLink({ href, active, children }: { href: string; active: boolean; children: React.ReactNode }) {
+  return (
+    <a
+      href={`#${href}`}
+      className={cn(
+        'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+        active ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground',
+      )}
+    >
+      {children}
+    </a>
   );
 }

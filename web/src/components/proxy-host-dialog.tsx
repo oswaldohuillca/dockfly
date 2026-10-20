@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Box, Globe, Info, Loader2, Server, TriangleAlert, X } from 'lucide-react';
+import { Box, Globe, Info, Loader2, Server, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { CheckField } from '@/components/check-field';
+import { DomainsInput } from '@/components/domains-input';
+import { SSLFields } from '@/components/ssl-fields';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,7 +54,6 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
   const isNew = host.id === undefined;
   // El componente se monta en cada apertura, así que el estado inicial basta.
   const [form, setForm] = useState(() => initialForm(host, dockerAvailable));
-  const [domainDraft, setDomainDraft] = useState('');
   const [error, setError] = useState('');
   const [warnings, setWarnings] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -102,31 +103,9 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
     setForm((f) => ({ ...f, forward_host: name, forward_port: c?.ports[0] ?? f.forward_port }));
   }
 
-  /** Mueve el texto pendiente del input a la lista de dominios. */
-  function commitDomains(f: ProxyHostInput): ProxyHostInput {
-    const domains = [...f.domains];
-    for (const raw of domainDraft.split(/[\s,]+/)) {
-      const d = raw.trim().toLowerCase();
-      if (d && !domains.includes(d)) domains.push(d);
-    }
-    return { ...f, domains };
-  }
-
-  function onDomainKey(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (e.key === 'Enter' || e.key === ',' || e.key === ' ') {
-      e.preventDefault();
-      setForm(commitDomains);
-      setDomainDraft('');
-    } else if (e.key === 'Backspace' && !domainDraft && form.domains.length) {
-      set('domains', form.domains.slice(0, -1));
-    }
-  }
-
   async function save(e: React.FormEvent) {
     e.preventDefault();
-    const payload = commitDomains(form);
-    setForm(payload);
-    setDomainDraft('');
+    const payload = form;
     setError('');
     setBusy(true);
     try {
@@ -162,37 +141,7 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
             <TabsContent value="details" className="space-y-5 pt-3">
               <div className="space-y-2">
                 <Label htmlFor="domain-input">Dominios</Label>
-                <div className="flex min-h-9 flex-wrap items-center gap-1.5 rounded-md border border-input px-2 py-1.5 focus-within:ring-[3px] focus-within:ring-ring/50">
-                  {form.domains.map((d) => (
-                    <span
-                      key={d}
-                      className="inline-flex items-center gap-1 rounded bg-secondary py-0.5 pr-1 pl-2 text-sm font-medium"
-                    >
-                      {d}
-                      <button
-                        type="button"
-                        className="rounded p-0.5 text-muted-foreground hover:text-foreground"
-                        onClick={() => set('domains', form.domains.filter((x) => x !== d))}
-                        aria-label={`Quitar ${d}`}
-                      >
-                        <X className="size-3" />
-                      </button>
-                    </span>
-                  ))}
-                  <input
-                    id="domain-input"
-                    className="min-w-40 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-                    placeholder={form.domains.length ? '' : 'app.midominio.com'}
-                    value={domainDraft}
-                    onChange={(e) => setDomainDraft(e.target.value)}
-                    onKeyDown={onDomainKey}
-                    onBlur={() => {
-                      setForm(commitDomains);
-                      setDomainDraft('');
-                    }}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">Pulsa Enter o coma para añadir varios.</p>
+                <DomainsInput id="domain-input" value={form.domains} onChange={(d) => set('domains', d)} />
               </div>
 
               <div className="space-y-2">
@@ -331,30 +280,8 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
               </div>
             </TabsContent>
 
-            <TabsContent value="ssl" className="space-y-4 pt-3">
-              <CheckField
-                id="ssl"
-                checked={form.ssl}
-                onChange={(v) => set('ssl', v)}
-                label="Obtener certificado SSL de Let's Encrypt"
-                hint="Los dominios deben apuntar a este servidor (registro DNS A/AAAA) y los puertos 80 y 443 deben estar abiertos. Traefik obtiene y renueva el certificado automáticamente."
-              />
-              <CheckField
-                id="force-https"
-                checked={form.force_https}
-                onChange={(v) => set('force_https', v)}
-                disabled={!form.ssl}
-                label="Forzar HTTPS"
-                hint="Redirige HTTP → HTTPS."
-              />
-              <CheckField
-                id="hsts"
-                checked={form.hsts}
-                onChange={(v) => set('hsts', v)}
-                disabled={!form.ssl}
-                label="Activar HSTS"
-                hint="El navegador recordará usar siempre HTTPS durante un año."
-              />
+            <TabsContent value="ssl" className="pt-3">
+              <SSLFields value={form} onChange={set} />
             </TabsContent>
           </Tabs>
 
@@ -398,34 +325,5 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
         </form>
       </DialogContent>
     </Dialog>
-  );
-}
-
-interface CheckFieldProps {
-  id: string;
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  label: string;
-  hint?: string;
-  disabled?: boolean;
-}
-
-function CheckField({ id, checked, onChange, label, hint, disabled }: CheckFieldProps) {
-  return (
-    <div className="flex items-start gap-3 has-disabled:opacity-50">
-      <Checkbox
-        id={id}
-        checked={checked}
-        onCheckedChange={(v) => onChange(v === true)}
-        disabled={disabled}
-        className="mt-0.5"
-      />
-      <div className="grid gap-1">
-        <Label htmlFor={id} className="font-normal">
-          {label}
-        </Label>
-        {hint && <p className="text-xs leading-relaxed text-muted-foreground">{hint}</p>}
-      </div>
-    </div>
   );
 }

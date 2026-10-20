@@ -49,12 +49,15 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 
 // jsonOnly exige Content-Type JSON en peticiones que modifican estado. Junto
 // con la cookie SameSite=Strict, esto bloquea CSRF desde formularios HTML.
+// La única excepción son las subidas de despliegues, que llevan una cabecera
+// propia que un formulario no puede añadir.
 func jsonOnly(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.Method {
 		case http.MethodGet, http.MethodHead, http.MethodOptions:
 		default:
-			if r.ContentLength != 0 && !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") {
+			if r.ContentLength != 0 && !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") &&
+				!isMultipartUpload(r) {
 				writeError(w, http.StatusUnsupportedMediaType, "se requiere application/json")
 				return
 			}

@@ -6,7 +6,6 @@ import (
 	"net"
 	"net/http"
 	"regexp"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -17,8 +16,6 @@ import (
 
 // hostnameRe valida nombres DNS (RFC 1123) y nombres de contenedor Docker.
 var hostnameRe = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9_.-]{0,251}[a-zA-Z0-9])?$`)
-
-var domainRe = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$|^localhost$`)
 
 type proxyHostInput struct {
 	Domains       []string `json:"domains"`
@@ -47,19 +44,11 @@ func (in *proxyHostInput) normalize() (*store.ProxyHost, error) {
 		PreserveHost:  in.PreserveHost == nil || *in.PreserveHost,
 	}
 
-	for _, d := range in.Domains {
-		d = strings.TrimSuffix(strings.ToLower(strings.TrimSpace(d)), ".")
-		if d == "" || slices.Contains(h.Domains, d) {
-			continue
-		}
-		if !domainRe.MatchString(d) {
-			return nil, fmt.Errorf("dominio inválido: %q", d)
-		}
-		h.Domains = append(h.Domains, d)
+	domains, err := normalizeDomains(in.Domains)
+	if err != nil {
+		return nil, err
 	}
-	if len(h.Domains) == 0 {
-		return nil, errors.New("indica al menos un dominio")
-	}
+	h.Domains = domains
 
 	switch h.TargetType {
 	case store.TargetDocker, store.TargetHost, store.TargetExternal:
@@ -153,7 +142,7 @@ func (s *Server) handleDeleteProxyHost(w http.ResponseWriter, r *http.Request) {
 }
 
 // readProxyHost decodifica, valida y comprueba que ningún dominio esté ya en
-// uso por otro proxy host (selfID se excluye al editar).
+// uso (selfID se excluye al editar).
 func (s *Server) readProxyHost(w http.ResponseWriter, r *http.Request, selfID int64) (*store.ProxyHost, bool) {
 	var in proxyHostInput
 	if !decode(w, r, &in) {
@@ -164,21 +153,8 @@ func (s *Server) readProxyHost(w http.ResponseWriter, r *http.Request, selfID in
 		writeError(w, http.StatusBadRequest, err.Error())
 		return nil, false
 	}
-	all, err := s.Store.ListProxyHosts(r.Context())
-	if err != nil {
-		s.internalError(w, err)
+	if !s.checkDomains(w, r, h.Domains, owner{kind: ownerProxyHost, id: selfID}) {
 		return nil, false
-	}
-	for _, other := range all {
-		if other.ID == selfID {
-			continue
-		}
-		for _, d := range h.Domains {
-			if slices.Contains(other.Domains, d) {
-				writeError(w, http.StatusConflict, fmt.Sprintf("el dominio %s ya está en uso por otro proxy host", d))
-				return nil, false
-			}
-		}
 	}
 	return h, true
 }

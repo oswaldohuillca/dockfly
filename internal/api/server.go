@@ -13,6 +13,7 @@ import (
 
 	"github.com/dockfly/dockfly/internal/auth"
 	"github.com/dockfly/dockfly/internal/docker"
+	"github.com/dockfly/dockfly/internal/pages"
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
 )
@@ -34,10 +35,17 @@ type Server struct {
 	// para obtener la IP del cliente. Vacío = el panel se expone directamente.
 	TrustedProxies []string
 
+	// Sitios estáticos.
+	Pages        *pages.Server  // sirve los archivos publicados
+	PagesStorage *pages.Storage // despliegues en disco
+	StaticURL    string         // URL interna del servidor estático, para Traefik
+	MaxUploadMB  int64
+
 	applyMu sync.Mutex
 }
 
-// Apply regenera la configuración dinámica de Traefik con el estado actual.
+// Apply publica el estado actual: regenera la configuración de Traefik y la
+// tabla de dominios del servidor estático.
 //
 // Ignora la cancelación de ctx: si el cliente se desconecta justo después de
 // guardar un cambio, la base de datos ya está actualizada y Traefik debe
@@ -46,11 +54,40 @@ func (s *Server) Apply(ctx context.Context) error {
 	ctx = context.WithoutCancel(ctx)
 	s.applyMu.Lock()
 	defer s.applyMu.Unlock()
+
 	hosts, err := s.Store.ListProxyHosts(ctx)
 	if err != nil {
 		return err
 	}
-	return traefik.WriteDynamic(s.Traefik, hosts)
+	sites, err := s.Store.ListSites(ctx)
+	if err != nil {
+		return err
+	}
+
+	var routes []traefik.Route
+	for _, h := range hosts {
+		if rt, ok := traefik.ProxyHostRoute(h); ok {
+			routes = append(routes, rt)
+		}
+	}
+	table := map[string]pages.Route{}
+	for _, site := range sites {
+		if rt, ok := traefik.SiteRoute(site, s.StaticURL); ok {
+			routes = append(routes, rt)
+		}
+		var pr pages.Route
+		if id := site.ActiveDeploymentID; id != nil {
+			pr = pages.Route{Dir: s.PagesStorage.DeploymentDir(site.ID, *id), DeploymentID: *id, SPA: site.SPA}
+		}
+		for _, d := range site.Domains {
+			table[d] = pr
+		}
+	}
+
+	// Primero el servidor estático y luego Traefik: así, cuando Traefik
+	// empiece a enrutar un dominio nuevo, el servidor ya sabe qué servir.
+	s.Pages.SetRoutes(table)
+	return traefik.WriteDynamic(s.Traefik, routes)
 }
 
 func currentUser(r *http.Request) *store.User {
