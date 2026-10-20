@@ -3,6 +3,7 @@ import { Link } from '@tanstack/react-router';
 import { Box, ChevronDown, GitBranch, Layers, Loader2, Plus, TriangleAlert, X } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { AccessSelect } from '@/components/access-select';
 import { CheckField } from '@/components/check-field';
 import { DomainsInput } from '@/components/domains-input';
 import { EnvEditor, envToRows, rowsToEnv, type EnvRow } from '@/components/env-editor';
@@ -30,7 +31,7 @@ const empty: AppInput = {
   name: '', source: 'image', image: '', connection_id: 0, repo: '', branch: '', root_dir: '', dockerfile: '',
   compose_file: '', compose_service: '',
   port: 0, domains: [], ssl: true, force_https: true, hsts: false, env: null, volumes: [], command: '',
-  memory_mb: 0, cpus: 0, health_path: '',
+  memory_mb: 0, cpus: 0, health_path: '', access_list_id: null,
 };
 
 export function AppDialog({ app, onClose, onSaved }: Props) {
@@ -383,6 +384,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                 )}
               </div>
               <SSLFields value={form} onChange={set} />
+              <AccessSelect value={form.access_list_id} onChange={(id) => set('access_list_id', id)} />
             </TabsContent>
           </Tabs>
 

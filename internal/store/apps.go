@@ -52,6 +52,7 @@ type App struct {
 	MemoryMB            int         `json:"memory_mb"`
 	CPUs                float64     `bun:"cpus" json:"cpus"`
 	HealthPath          string      `json:"health_path"`
+	AccessListID        *int64      `json:"access_list_id"`
 	Stopped             bool        `json:"stopped"`
 	CurrentDeploymentID *int64      `json:"current_deployment_id"`
 	CreatedAt           time.Time   `json:"created_at"`

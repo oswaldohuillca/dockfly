@@ -19,6 +19,7 @@ type Site struct {
 	HSTS       bool     `bun:"hsts" json:"hsts"`
 	// SPA sirve index.html para cualquier ruta que no exista (React Router, Vue Router…).
 	SPA                bool      `bun:"spa" json:"spa"`
+	AccessListID       *int64    `json:"access_list_id"`
 	ActiveDeploymentID *int64    `json:"active_deployment_id"`
 	CreatedAt          time.Time `json:"created_at"`
 	UpdatedAt          time.Time `json:"updated_at"`

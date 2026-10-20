@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Box, Globe, Info, Loader2, Server, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { AccessSelect } from '@/components/access-select';
 import { CheckField } from '@/components/check-field';
 import { DomainsInput } from '@/components/domains-input';
 import { SSLFields } from '@/components/ssl-fields';
@@ -56,6 +57,7 @@ function initialForm(h: Partial<ProxyHost>, dockerAvailable: boolean): ProxyHost
     skip_tls_verify: h.skip_tls_verify ?? false,
     preserve_host: h.preserve_host ?? true,
     enabled: h.enabled ?? true,
+    access_list_id: h.access_list_id ?? null,
   };
 }
 
@@ -144,7 +146,7 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
           <Tabs defaultValue="details">
             <TabsList className="w-full">
               <TabsTrigger value="details">Detalles</TabsTrigger>
-              <TabsTrigger value="ssl">SSL</TabsTrigger>
+              <TabsTrigger value="ssl">SSL y acceso</TabsTrigger>
             </TabsList>
 
             <TabsContent value="details" className="space-y-5 pt-3">
@@ -295,8 +297,9 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
               </div>
             </TabsContent>
 
-            <TabsContent value="ssl" className="pt-3">
+            <TabsContent value="ssl" className="space-y-6 pt-3">
               <SSLFields value={form} onChange={set} />
+              <AccessSelect value={form.access_list_id} onChange={(id) => set('access_list_id', id)} />
             </TabsContent>
           </Tabs>
 

@@ -48,6 +48,7 @@ type appInput struct {
 	MemoryMB     int               `json:"memory_mb"`
 	CPUs         float64           `json:"cpus"`
 	HealthPath   string            `json:"health_path"`
+	AccessListID *int64            `json:"access_list_id"`
 	Deploy       bool              `json:"deploy"` // desplegar nada más crearla
 }
 
@@ -57,6 +58,7 @@ func (in *appInput) toApp() (*store.App, error) {
 		Port: in.Port, SSL: in.SSL, ForceHTTPS: in.SSL && in.ForceHTTPS, HSTS: in.SSL && in.HSTS,
 		Command: strings.TrimSpace(in.Command), MemoryMB: in.MemoryMB, CPUs: in.CPUs,
 		HealthPath: strings.TrimSpace(in.HealthPath), Domains: []string{}, Volumes: []store.AppVolume{},
+		AccessListID: in.AccessListID,
 	}
 	if !appNameRe.MatchString(a.Name) {
 		return nil, errors.New("el nombre solo puede tener minúsculas, números y guiones (máx. 42)")
@@ -209,7 +211,7 @@ func (s *Server) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp}) {
+	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp}) || !s.checkAccessList(w, r, a.AccessListID) {
 		return
 	}
 	if in.Env != nil {
@@ -249,7 +251,7 @@ func (s *Server) handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp, id: existing.ID}) {
+	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp, id: existing.ID}) || !s.checkAccessList(w, r, a.AccessListID) {
 		return
 	}
 	a.ID, a.EnvEnc = existing.ID, existing.EnvEnc

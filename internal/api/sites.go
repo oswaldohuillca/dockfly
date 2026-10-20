@@ -36,6 +36,7 @@ type siteInput struct {
 	ForceHTTPS bool     `json:"force_https"`
 	HSTS       bool     `json:"hsts"`
 	SPA        bool     `json:"spa"`
+	AccessList *int64   `json:"access_list_id"`
 }
 
 func (in *siteInput) normalize() (*store.Site, error) {
@@ -54,6 +55,8 @@ func (in *siteInput) normalize() (*store.Site, error) {
 		ForceHTTPS: in.SSL && in.ForceHTTPS,
 		HSTS:       in.SSL && in.HSTS,
 		SPA:        in.SPA,
+
+		AccessListID: in.AccessList,
 	}, nil
 }
 
@@ -334,7 +337,7 @@ func (s *Server) readSite(w http.ResponseWriter, r *http.Request, selfID int64) 
 		writeError(w, http.StatusBadRequest, err.Error())
 		return nil, false
 	}
-	if !s.checkDomains(w, r, site.Domains, owner{kind: ownerSite, id: selfID}) {
+	if !s.checkDomains(w, r, site.Domains, owner{kind: ownerSite, id: selfID}) || !s.checkAccessList(w, r, site.AccessListID) {
 		return nil, false
 	}
 	return site, true

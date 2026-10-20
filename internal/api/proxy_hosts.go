@@ -28,6 +28,7 @@ type proxyHostInput struct {
 	HSTS          bool     `json:"hsts"`
 	SkipTLSVerify bool     `json:"skip_tls_verify"`
 	PreserveHost  *bool    `json:"preserve_host"`
+	AccessListID  *int64   `json:"access_list_id"`
 	Enabled       *bool    `json:"enabled"`
 }
 
@@ -42,6 +43,7 @@ func (in *proxyHostInput) normalize() (*store.ProxyHost, error) {
 		HSTS:          in.SSL && in.HSTS,
 		Enabled:       in.Enabled == nil || *in.Enabled,
 		PreserveHost:  in.PreserveHost == nil || *in.PreserveHost,
+		AccessListID:  in.AccessListID,
 	}
 
 	domains, err := normalizeDomains(in.Domains)
@@ -153,7 +155,7 @@ func (s *Server) readProxyHost(w http.ResponseWriter, r *http.Request, selfID in
 		writeError(w, http.StatusBadRequest, err.Error())
 		return nil, false
 	}
-	if !s.checkDomains(w, r, h.Domains, owner{kind: ownerProxyHost, id: selfID}) {
+	if !s.checkDomains(w, r, h.Domains, owner{kind: ownerProxyHost, id: selfID}) || !s.checkAccessList(w, r, h.AccessListID) {
 		return nil, false
 	}
 	return h, true

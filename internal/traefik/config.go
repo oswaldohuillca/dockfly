@@ -113,6 +113,8 @@ type Route struct {
 	ForceHTTPS    bool
 	HSTS          bool
 	Compress      bool
+	// Middlewares extra (p. ej. los de una lista de acceso), en orden.
+	Middlewares []string
 }
 
 // ProxyHostRoute traduce un proxy host. Devuelve ok=false si está desactivado.
@@ -151,13 +153,14 @@ func SiteRoute(site *store.Site, staticURL string) (Route, bool) {
 }
 
 // WriteDynamic regenera la configuración dinámica completa. Traefik detecta
-// el cambio en caliente, sin reinicios.
-func WriteDynamic(o Options, routes []Route) error {
-	return writeYAML(filepath.Join(o.DynamicDir(), dynamicFile), BuildDynamic(routes))
+// el cambio en caliente, sin reinicios. extra son middlewares adicionales
+// (listas de acceso) a los que pueden referirse las rutas.
+func WriteDynamic(o Options, routes []Route, extra map[string]any) error {
+	return writeYAML(filepath.Join(o.DynamicDir(), dynamicFile), BuildDynamic(routes, extra))
 }
 
 // BuildDynamic traduce las rutas a la configuración dinámica de Traefik.
-func BuildDynamic(routes []Route) map[string]any {
+func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 	routers := map[string]any{}
 	services := map[string]any{}
 	middlewares := map[string]any{
@@ -174,6 +177,9 @@ func BuildDynamic(routes []Route) map[string]any {
 		// gzip/brotli/zstd según lo que acepte el navegador.
 		mwCompress: map[string]any{"compress": map[string]any{}},
 	}
+	for name, mw := range extra {
+		middlewares[name] = mw
+	}
 	needsInsecure := false
 
 	for _, rt := range routes {
@@ -189,7 +195,9 @@ func BuildDynamic(routes []Route) map[string]any {
 		}
 		services[rt.Name] = map[string]any{"loadBalancer": svc}
 
-		var common []string
+		// El control de acceso va primero: no tiene sentido comprimir una
+		// respuesta que se va a denegar.
+		common := slices.Clone(rt.Middlewares)
 		if rt.Compress {
 			common = append(common, mwCompress)
 		}
@@ -283,4 +291,29 @@ func writeYAML(path string, v any) error {
 		return err
 	}
 	return os.Rename(tmp.Name(), path)
+}
+
+// AccessListMiddlewares genera los middlewares de una lista de acceso: IPs
+// permitidas y/o usuario y contraseña. Devuelve sus nombres, en orden.
+func AccessListMiddlewares(id int64, allowIPs []string, users map[string]string, into map[string]any) []string {
+	var names []string
+	prefix := "acl-" + strconv.FormatInt(id, 10)
+	if len(allowIPs) > 0 {
+		into[prefix+"-ip"] = map[string]any{"ipAllowList": map[string]any{"sourceRange": allowIPs}}
+		names = append(names, prefix+"-ip")
+	}
+	if len(users) > 0 {
+		list := make([]string, 0, len(users))
+		for u, hash := range users {
+			list = append(list, u+":"+hash)
+		}
+		slices.Sort(list)
+		into[prefix+"-auth"] = map[string]any{"basicAuth": map[string]any{
+			"users": list, "realm": "Dockfly",
+			// La aplicación de detrás no necesita (ni debe ver) la contraseña.
+			"removeHeader": true,
+		}}
+		names = append(names, prefix+"-auth")
+	}
+	return names
 }

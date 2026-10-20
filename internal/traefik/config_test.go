@@ -1,13 +1,14 @@
 package traefik
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/dockfly/dockfly/internal/store"
 )
 
 func TestBuildDynamicEmpty(t *testing.T) {
-	httpCfg := BuildDynamic(nil)["http"].(map[string]any)
+	httpCfg := BuildDynamic(nil, nil)["http"].(map[string]any)
 	if _, ok := httpCfg["routers"]; ok {
 		t.Error("sin hosts no debe haber sección routers (Traefik la rechaza vacía)")
 	}
@@ -28,7 +29,7 @@ func TestBuildDynamic(t *testing.T) {
 			routes = append(routes, rt)
 		}
 	}
-	httpCfg := BuildDynamic(routes)["http"].(map[string]any)
+	httpCfg := BuildDynamic(routes, nil)["http"].(map[string]any)
 	routers := httpCfg["routers"].(map[string]any)
 	services := httpCfg["services"].(map[string]any)
 
@@ -74,7 +75,7 @@ func TestSiteRoute(t *testing.T) {
 	if !ok {
 		t.Fatal("un sitio con dominios debe generar ruta")
 	}
-	httpCfg := BuildDynamic([]Route{rt})["http"].(map[string]any)
+	httpCfg := BuildDynamic([]Route{rt}, nil)["http"].(map[string]any)
 	routers := httpCfg["routers"].(map[string]any)
 
 	secure := routers["site-3-secure"].(map[string]any)
@@ -92,5 +93,23 @@ func TestSiteRoute(t *testing.T) {
 
 	if _, ok := SiteRoute(&store.Site{ID: 4}, "x"); ok {
 		t.Error("un sitio sin dominios no debe generar ruta")
+	}
+}
+
+func TestAccessListMiddlewares(t *testing.T) {
+	extra := map[string]any{}
+	names := AccessListMiddlewares(4, []string{"10.0.0.0/8"}, map[string]string{"oswa": "$2a$10$x"}, extra)
+	if len(names) != 2 || names[0] != "acl-4-ip" || names[1] != "acl-4-auth" {
+		t.Fatalf("nombres: %v", names)
+	}
+	rt := Route{Name: "ph-1", Domains: []string{"a.com"}, URL: "http://x", SSL: true, ForceHTTPS: true, Compress: true, Middlewares: names}
+	httpCfg := BuildDynamic([]Route{rt}, extra)["http"].(map[string]any)
+	secure := httpCfg["routers"].(map[string]any)["ph-1-secure"].(map[string]any)["middlewares"].([]string)
+	if strings.Join(secure, ",") != "acl-4-ip,acl-4-auth,dockfly-compress" {
+		t.Errorf("el acceso debe comprobarse antes de comprimir: %v", secure)
+	}
+	auth := httpCfg["middlewares"].(map[string]any)["acl-4-auth"].(map[string]any)["basicAuth"].(map[string]any)
+	if auth["users"].([]string)[0] != "oswa:$2a$10$x" || auth["removeHeader"] != true {
+		t.Errorf("basicAuth: %v", auth)
 	}
 }

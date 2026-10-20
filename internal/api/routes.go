@@ -114,6 +114,13 @@ func (s *Server) Handler() http.Handler {
 
 			r.Get("/backup", s.handleDownloadBackup)
 
+			r.Route("/access-lists", func(r chi.Router) {
+				r.Get("/", s.handleListAccessLists)
+				r.Post("/", s.handleCreateAccessList)
+				r.Put("/{id}", s.handleUpdateAccessList)
+				r.Delete("/{id}", s.handleDeleteAccessList)
+			})
+
 			r.Route("/notifications", func(r chi.Router) {
 				r.Get("/", s.handleListChannels)
 				r.Post("/", s.handleCreateChannel)

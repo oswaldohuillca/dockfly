@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Loader2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { AccessSelect } from '@/components/access-select';
 import { CheckField } from '@/components/check-field';
 import { DomainsInput } from '@/components/domains-input';
 import { SSLFields } from '@/components/ssl-fields';
@@ -29,6 +30,7 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
     force_https: site?.force_https ?? true,
     hsts: site?.hsts ?? false,
     spa: site?.spa ?? false,
+    access_list_id: site?.access_list_id ?? null,
   }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -64,7 +66,7 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
           <Tabs defaultValue="details">
             <TabsList className="w-full">
               <TabsTrigger value="details">Detalles</TabsTrigger>
-              <TabsTrigger value="ssl">SSL</TabsTrigger>
+              <TabsTrigger value="ssl">SSL y acceso</TabsTrigger>
             </TabsList>
 
             <TabsContent value="details" className="space-y-5 pt-3">
@@ -93,8 +95,9 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
               />
             </TabsContent>
 
-            <TabsContent value="ssl" className="pt-3">
+            <TabsContent value="ssl" className="space-y-6 pt-3">
               <SSLFields value={form} onChange={set} />
+              <AccessSelect value={form.access_list_id} onChange={(id) => set('access_list_id', id)} />
             </TabsContent>
           </Tabs>
 

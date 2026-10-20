@@ -24,6 +24,7 @@ export interface ProxyHost {
   skip_tls_verify: boolean;
   preserve_host: boolean;
   enabled: boolean;
+  access_list_id: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -168,13 +169,14 @@ export interface Site extends SiteGit {
   force_https: boolean;
   hsts: boolean;
   spa: boolean;
+  access_list_id: number | null;
   active_deployment_id: number | null;
   active_deployment?: Deployment;
   created_at: string;
   updated_at: string;
 }
 
-export type SiteInput = Pick<Site, 'name' | 'domains' | 'ssl' | 'force_https' | 'hsts' | 'spa'>;
+export type SiteInput = Pick<Site, 'name' | 'domains' | 'ssl' | 'force_https' | 'hsts' | 'spa' | 'access_list_id'>;
 
 /** Lo que se sube: un .zip, o los archivos de una carpeta con su ruta relativa. */
 export type UploadPayload = { archive: File } | { files: { path: string; file: File }[] };
@@ -272,6 +274,7 @@ export interface App {
   memory_mb: number;
   cpus: number;
   health_path: string;
+  access_list_id: number | null;
   stopped: boolean;
   current_deployment_id: number | null;
   current?: AppDeployment;
@@ -304,10 +307,26 @@ export interface AppInput {
   memory_mb: number;
   cpus: number;
   health_path: string;
+  access_list_id: number | null;
   deploy?: boolean;
 }
 
 export const appDeployFinished = (d: AppDeployment) => d.status !== 'queued' && d.status !== 'running';
+
+export interface AccessList {
+  id: number;
+  name: string;
+  users: string[];
+  allow_ips: string[];
+  used_by: number;
+}
+
+export interface AccessListInput {
+  name: string;
+  /** password vacío al editar = conservar la actual. */
+  users: { username: string; password: string }[];
+  allow_ips: string[];
+}
 
 export class ApiError extends Error {
   constructor(
@@ -368,6 +387,11 @@ export const api = {
   listRepos: (id: number, q = '') => request<Repo[]>('GET', `/git/connections/${id}/repos?q=${encodeURIComponent(q)}`),
   listBranches: (id: number, repo: string) =>
     request<string[]>('GET', `/git/connections/${id}/branches?repo=${encodeURIComponent(repo)}`),
+
+  listAccessLists: () => request<AccessList[]>('GET', '/access-lists'),
+  createAccessList: (data: AccessListInput) => request<{ id: number }>('POST', '/access-lists', data),
+  updateAccessList: (id: number, data: AccessListInput) => request<{ id: number }>('PUT', `/access-lists/${id}`, data),
+  deleteAccessList: (id: number) => request<void>('DELETE', `/access-lists/${id}`),
 
   listChannels: () => request<NotificationChannel[]>('GET', '/notifications'),
   createChannel: (data: ChannelInput) => request<NotificationChannel>('POST', '/notifications', data),

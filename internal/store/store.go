@@ -55,6 +55,7 @@ type ProxyHost struct {
 	SkipTLSVerify bool      `bun:"skip_tls_verify" json:"skip_tls_verify"`
 	PreserveHost  bool      `json:"preserve_host"`
 	Enabled       bool      `json:"enabled"`
+	AccessListID  *int64    `json:"access_list_id"`
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 }

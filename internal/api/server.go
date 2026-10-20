@@ -86,10 +86,22 @@ func (s *Server) Apply(ctx context.Context) error {
 		return err
 	}
 
+	extra := map[string]any{}
+	acl, err := s.accessMiddlewares(ctx, extra)
+	if err != nil {
+		return err
+	}
+	withACL := func(rt traefik.Route, id *int64) traefik.Route {
+		if id != nil {
+			rt.Middlewares = acl[*id]
+		}
+		return rt
+	}
+
 	var routes []traefik.Route
 	for _, h := range hosts {
 		if rt, ok := traefik.ProxyHostRoute(h); ok {
-			routes = append(routes, rt)
+			routes = append(routes, withACL(rt, h.AccessListID))
 		}
 	}
 	// Apps desplegadas, en marcha y con puerto y dominios: Traefik envía el
@@ -102,17 +114,17 @@ func (s *Server) Apply(ctx context.Context) error {
 		if a.Stopped || a.Port == 0 || len(a.Domains) == 0 || a.Current == nil || a.Current.Container == "" {
 			continue
 		}
-		routes = append(routes, traefik.Route{
+		routes = append(routes, withACL(traefik.Route{
 			Name: "app-" + strconv.FormatInt(a.ID, 10), Domains: a.Domains,
 			URL:          fmt.Sprintf("http://%s:%d", a.Current.Container, a.Port),
 			PreserveHost: true, SSL: a.SSL, ForceHTTPS: a.ForceHTTPS, HSTS: a.HSTS,
-		})
+		}, a.AccessListID))
 	}
 
 	table := map[string]pages.Route{}
 	for _, site := range sites {
 		if rt, ok := traefik.SiteRoute(site, s.StaticURL); ok {
-			routes = append(routes, rt)
+			routes = append(routes, withACL(rt, site.AccessListID))
 		}
 		var pr pages.Route
 		if id := site.ActiveDeploymentID; id != nil {
@@ -126,7 +138,7 @@ func (s *Server) Apply(ctx context.Context) error {
 	// Primero el servidor estático y luego Traefik: así, cuando Traefik
 	// empiece a enrutar un dominio nuevo, el servidor ya sabe qué servir.
 	s.Pages.SetRoutes(table)
-	return traefik.WriteDynamic(s.Traefik, routes)
+	return traefik.WriteDynamic(s.Traefik, routes, extra)
 }
 
 func currentUser(r *http.Request) *store.User {

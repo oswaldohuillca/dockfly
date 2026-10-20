@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { Download, Terminal } from 'lucide-react';
 
+import { AccessLists } from '@/components/access-lists';
 import { Notifications } from '@/components/notifications';
 import { RestoreBackup } from '@/components/restore-backup';
 import { Button } from '@/components/ui/button';
@@ -14,6 +15,7 @@ function Settings() {
   return (
     <div className="space-y-4">
       <Notifications />
+      <AccessLists />
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Copias de seguridad</CardTitle>
