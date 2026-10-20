@@ -135,3 +135,27 @@ func TestRedirectRoute(t *testing.T) {
 		t.Error("sin servicios reales no debe haber sección services")
 	}
 }
+
+func TestWildcardAndResolvers(t *testing.T) {
+	routes := []Route{
+		{Name: "comodin", Domains: []string{"*.ejemplo.com", "ejemplo.com"}, URL: "http://x", SSL: true, Resolver: DNSResolver("cloudflare")},
+		{Name: "concreto", Domains: []string{"app.ejemplo.com"}, URL: "http://y", SSL: true, Resolver: NoResolver},
+	}
+	httpCfg := BuildDynamic(routes, nil)["http"].(map[string]any)
+	routers := httpCfg["routers"].(map[string]any)
+	w := routers["comodin-secure"].(map[string]any)
+	if w["rule"] != "HostRegexp(`^[a-z0-9-]+\\.ejemplo\\.com$`) || Host(`ejemplo.com`)" {
+		t.Errorf("regla comodín: %v", w["rule"])
+	}
+	if w["priority"] != 1 {
+		t.Error("el comodín debe tener la prioridad mínima para no tragarse los hosts concretos")
+	}
+	tls := w["tls"].(map[string]any)
+	if tls["certResolver"] != "dns-cloudflare" || tls["domains"].([]map[string]any)[0]["main"] != "*.ejemplo.com" {
+		t.Errorf("tls del comodín: %v", tls)
+	}
+	c := routers["concreto-secure"].(map[string]any)
+	if _, has := c["tls"].(map[string]any)["certResolver"]; has || c["priority"] != nil {
+		t.Errorf("con certificado propio no debe pedirse a Let's Encrypt: %v", c)
+	}
+}

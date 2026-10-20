@@ -25,6 +25,9 @@ type Supervisor struct {
 	// Certs recibe cada línea del log de Traefik para detectar los errores
 	// de Let's Encrypt.
 	Certs *CertTracker
+	// Env devuelve variables de entorno extra para Traefik (credenciales de
+	// los proveedores DNS). Se consulta en cada arranque.
+	Env func() []string
 
 	mu        sync.RWMutex
 	running   bool
@@ -81,6 +84,10 @@ func (s *Supervisor) Run(ctx context.Context) {
 
 func (s *Supervisor) runOnce(ctx context.Context) error {
 	cmd := exec.Command(s.Bin, "--configFile="+s.ConfigFile)
+	cmd.Env = os.Environ()
+	if s.Env != nil {
+		cmd.Env = append(cmd.Env, s.Env()...)
+	}
 	// Pipe propio (no StdoutPipe): Wait no lo cierra antes de tiempo, así que
 	// se leen hasta las últimas líneas, que suelen explicar una caída.
 	pr, pw, err := os.Pipe()

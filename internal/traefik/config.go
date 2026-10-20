@@ -4,6 +4,7 @@ package traefik
 
 import (
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"os"
@@ -41,7 +42,13 @@ type Options struct {
 	// Streams son los puertos TCP/UDP que escucha Traefik. Son configuración
 	// estática: cambiarlos exige reiniciar Traefik.
 	Streams []StreamPort
+	// DNSProviders son los proveedores (códigos de lego) con desafío DNS-01;
+	// cada uno es un resolver "dns-<proveedor>".
+	DNSProviders []string
 }
+
+// DNSResolver es el nombre del resolver ACME de un proveedor DNS.
+func DNSResolver(provider string) string { return "dns-" + provider }
 
 type StreamPort struct {
 	Protocol string // tcp | udp
@@ -88,13 +95,26 @@ func WriteStatic(o Options) error {
 		providers["docker"] = docker
 	}
 
+	resolvers := map[string]any{CertResolver: map[string]any{"acme": acme}}
+	for _, p := range o.DNSProviders {
+		dns := maps.Clone(acme)
+		delete(dns, "httpChallenge")
+		dns["dnsChallenge"] = map[string]any{
+			"provider": p,
+			// DNS públicos: los del servidor pueden tener en caché el registro
+			// TXT antiguo y retrasar la validación.
+			"resolvers": []string{"1.1.1.1:53", "8.8.8.8:53"},
+		}
+		resolvers[DNSResolver(p)] = map[string]any{"acme": dns}
+	}
+
 	cfg := map[string]any{
 		"global": map[string]any{"checkNewVersion": false, "sendAnonymousUsage": false},
 		// JSON: Dockfly lo analiza (errores de Let's Encrypt) y lo reescribe legible.
 		"log":                   map[string]any{"level": o.LogLevel, "noColor": true, "format": "json"},
 		"entryPoints":           entryPoints(o),
 		"providers":             providers,
-		"certificatesResolvers": map[string]any{CertResolver: map[string]any{"acme": acme}},
+		"certificatesResolvers": resolvers,
 	}
 	return writeYAML(o.StaticFile(), cfg)
 }
@@ -140,6 +160,25 @@ type Route struct {
 	Middlewares []string
 	// Redirect convierte la ruta en una redirección (sin backend).
 	Redirect *Redirect
+	// Resolver ACME del certificado: "" = Let's Encrypt por HTTP, NoResolver
+	// = usar un certificado propio ya cargado en Traefik.
+	Resolver string
+}
+
+// NoResolver indica que el certificado lo aporta el usuario.
+const NoResolver = "-"
+
+// CertFile es un certificado propio escrito en disco.
+type CertFile struct {
+	Cert, Key string
+}
+
+// Dynamic es todo lo que entra en la configuración dinámica.
+type Dynamic struct {
+	Routes       []Route
+	Middlewares  map[string]any // listas de acceso
+	Streams      []Stream
+	Certificates []CertFile
 }
 
 type Redirect struct {
@@ -186,9 +225,16 @@ func SiteRoute(site *store.Site, staticURL string) (Route, bool) {
 // WriteDynamic regenera la configuración dinámica completa. Traefik detecta
 // el cambio en caliente, sin reinicios. extra son middlewares adicionales
 // (listas de acceso) a los que pueden referirse las rutas.
-func WriteDynamic(o Options, routes []Route, extra map[string]any, streams []Stream) error {
-	cfg := BuildDynamic(routes, extra)
-	streamConfig(streams, cfg)
+func WriteDynamic(o Options, d Dynamic) error {
+	cfg := BuildDynamic(d.Routes, d.Middlewares)
+	streamConfig(d.Streams, cfg)
+	if len(d.Certificates) > 0 {
+		var list []map[string]string
+		for _, c := range d.Certificates {
+			list = append(list, map[string]string{"certFile": c.Cert, "keyFile": c.Key})
+		}
+		cfg["tls"] = map[string]any{"certificates": list}
+	}
 	return writeYAML(filepath.Join(o.DynamicDir(), dynamicFile), cfg)
 }
 
@@ -265,11 +311,28 @@ func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 			if rt.HSTS {
 				secureMW = append(secureMW, mwHSTS)
 			}
+			tls := map[string]any{}
+			switch rt.Resolver {
+			case NoResolver:
+				// Traefik elige el certificado propio que cubra el dominio.
+			case "":
+				tls["certResolver"] = CertResolver
+			default:
+				tls["certResolver"] = rt.Resolver
+			}
+			// Con comodines, la regla (HostRegexp) no dice qué certificado
+			// pedir: se indica explícitamente.
+			if hasWildcard(rt.Domains) && tls["certResolver"] != nil {
+				tls["domains"] = []map[string]any{{"main": rt.Domains[0], "sans": rt.Domains[1:]}}
+			}
 			secure := map[string]any{
 				"rule":        rule,
 				"entryPoints": []string{"websecure"},
 				"service":     service,
-				"tls":         map[string]any{"certResolver": CertResolver},
+				"tls":         tls,
+			}
+			if hasWildcard(rt.Domains) {
+				secure["priority"] = 1
 			}
 			if len(secureMW) > 0 {
 				secure["middlewares"] = secureMW
@@ -283,6 +346,11 @@ func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 		}
 		if len(httpMW) > 0 {
 			httpRouter["middlewares"] = httpMW
+		}
+		if hasWildcard(rt.Domains) {
+			// HostRegexp es una regla larga: sin esto tendría más prioridad
+			// que los hosts concretos del mismo dominio y se los tragaría.
+			httpRouter["priority"] = 1
 		}
 		routers[rt.Name] = httpRouter
 	}
@@ -315,9 +383,18 @@ func BackendURL(h *store.ProxyHost) string {
 func hostRule(domains []string) string {
 	parts := make([]string, len(domains))
 	for i, d := range domains {
+		if rest, ok := strings.CutPrefix(d, "*."); ok {
+			// Un comodín cubre un solo nivel, como en los certificados.
+			parts[i] = fmt.Sprintf("HostRegexp(`^[a-z0-9-]+\\.%s$`)", strings.ReplaceAll(rest, ".", `\.`))
+			continue
+		}
 		parts[i] = fmt.Sprintf("Host(`%s`)", d)
 	}
 	return strings.Join(parts, " || ")
+}
+
+func hasWildcard(domains []string) bool {
+	return slices.ContainsFunc(domains, func(d string) bool { return strings.HasPrefix(d, "*.") })
 }
 
 // writeYAML escribe de forma atómica (archivo temporal + rename) para que

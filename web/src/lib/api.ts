@@ -356,6 +356,38 @@ export interface Stream {
 
 export type StreamInput = Pick<Stream, 'protocol' | 'listen_port' | 'forward_host' | 'forward_port' | 'enabled'>;
 
+export interface DNSField {
+  env: string;
+  label: string;
+  secret: boolean;
+  optional: boolean;
+}
+
+export interface DNSProviderInfo {
+  code: string;
+  name: string;
+  fields: DNSField[];
+  help?: string;
+}
+
+export interface DNSProvider {
+  id: number;
+  provider: string;
+  zones: string[];
+  /** Valores enmascarados (SECRET_MASK); reenviarlos los conserva. */
+  env: Record<string, string>;
+  created_at: string;
+}
+
+export interface CustomCertificate {
+  id: number;
+  name: string;
+  domains: string[];
+  issuer: string;
+  not_after: string;
+  created_at: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -415,6 +447,16 @@ export const api = {
   listRepos: (id: number, q = '') => request<Repo[]>('GET', `/git/connections/${id}/repos?q=${encodeURIComponent(q)}`),
   listBranches: (id: number, repo: string) =>
     request<string[]>('GET', `/git/connections/${id}/branches?repo=${encodeURIComponent(repo)}`),
+
+  dnsCatalog: () => request<DNSProviderInfo[]>('GET', '/dns-providers/catalog'),
+  listDNSProviders: () => request<DNSProvider[]>('GET', '/dns-providers'),
+  saveDNSProvider: (data: { provider: string; zones: string[]; env: Record<string, string> }) =>
+    request<{ id: number }>('PUT', '/dns-providers', data),
+  deleteDNSProvider: (id: number) => request<void>('DELETE', `/dns-providers/${id}`),
+  listCustomCerts: () => request<CustomCertificate[]>('GET', '/custom-certificates'),
+  uploadCustomCert: (data: { name: string; cert: string; key: string }) =>
+    request<CustomCertificate>('POST', '/custom-certificates', data),
+  deleteCustomCert: (id: number) => request<void>('DELETE', `/custom-certificates/${id}`),
 
   listStreams: () => request<Stream[]>('GET', '/streams'),
   createStream: (data: StreamInput) => request<{ traefik_restarted: boolean }>('POST', '/streams', data),

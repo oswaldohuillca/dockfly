@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -93,6 +94,10 @@ func (s *Server) Apply(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	plan, err := s.loadCertPlan(ctx)
+	if err != nil {
+		return err
+	}
 	withACL := func(rt traefik.Route, id *int64) traefik.Route {
 		if id != nil {
 			rt.Middlewares = acl[*id]
@@ -168,7 +173,19 @@ func (s *Server) Apply(ctx context.Context) error {
 			})
 		}
 	}
-	return traefik.WriteDynamic(s.Traefik, routes, extra, streams)
+	// Cada ruta con SSL usa el certificado que le corresponde: propio, por
+	// DNS (zonas configuradas) o por HTTP.
+	for i := range routes {
+		if routes[i].SSL {
+			routes[i].Resolver = plan.resolver(routes[i].Domains)
+		}
+	}
+	var certFiles []traefik.CertFile
+	for _, c := range plan.custom {
+		base := filepath.Join(s.certDir(), strconv.FormatInt(c.ID, 10))
+		certFiles = append(certFiles, traefik.CertFile{Cert: base + ".crt", Key: base + ".key"})
+	}
+	return traefik.WriteDynamic(s.Traefik, traefik.Dynamic{Routes: routes, Middlewares: extra, Streams: streams, Certificates: certFiles})
 }
 
 func currentUser(r *http.Request) *store.User {

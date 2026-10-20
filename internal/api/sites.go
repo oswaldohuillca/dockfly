@@ -337,7 +337,8 @@ func (s *Server) readSite(w http.ResponseWriter, r *http.Request, selfID int64) 
 		writeError(w, http.StatusBadRequest, err.Error())
 		return nil, false
 	}
-	if !s.checkDomains(w, r, site.Domains, owner{kind: ownerSite, id: selfID}) || !s.checkAccessList(w, r, site.AccessListID) {
+	if !s.checkDomains(w, r, site.Domains, owner{kind: ownerSite, id: selfID}) || !s.checkAccessList(w, r, site.AccessListID) ||
+		!s.checkSSL(w, r, site.Domains, site.SSL) {
 		return nil, false
 	}
 	return site, true

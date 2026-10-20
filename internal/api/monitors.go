@@ -144,7 +144,7 @@ func (s *Server) checkCertificates(ctx context.Context) {
 	if err != nil {
 		return
 	}
-	status, err := s.Certs.Status(s.Traefik.ACMEFile(), domains, time.Now())
+	status, err := s.Certs.Status(s.Traefik.ACMEFile(), domains, time.Now(), s.customCertMap(ctx))
 	if err != nil {
 		return
 	}

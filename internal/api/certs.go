@@ -21,7 +21,7 @@ func (s *Server) handleCertificates(w http.ResponseWriter, r *http.Request) {
 	if tracker == nil {
 		tracker = &traefik.CertTracker{}
 	}
-	status, err := tracker.Status(s.Traefik.ACMEFile(), domains, time.Now())
+	status, err := tracker.Status(s.Traefik.ACMEFile(), domains, time.Now(), s.customCertMap(r.Context()))
 	if err != nil {
 		s.internalError(w, err)
 		return

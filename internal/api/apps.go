@@ -211,7 +211,8 @@ func (s *Server) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp}) || !s.checkAccessList(w, r, a.AccessListID) {
+	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp}) || !s.checkAccessList(w, r, a.AccessListID) ||
+		!s.checkSSL(w, r, a.Domains, a.SSL) {
 		return
 	}
 	if in.Env != nil {
@@ -251,7 +252,8 @@ func (s *Server) handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp, id: existing.ID}) || !s.checkAccessList(w, r, a.AccessListID) {
+	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp, id: existing.ID}) || !s.checkAccessList(w, r, a.AccessListID) ||
+		!s.checkSSL(w, r, a.Domains, a.SSL) {
 		return
 	}
 	a.ID, a.EnvEnc = existing.ID, existing.EnvEnc

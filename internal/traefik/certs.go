@@ -96,17 +96,33 @@ func (t *CertTracker) Observe(line []byte) {
 
 // Status combina los certificados guardados en acme.json con los errores
 // observados, para cada dominio con SSL.
-func (t *CertTracker) Status(acmePath string, domains []string, now time.Time) ([]CertStatus, error) {
+func (t *CertTracker) Status(acmePath string, domains []string, now time.Time, custom map[string]*x509.Certificate) ([]CertStatus, error) {
 	certs, err := ReadACME(acmePath)
 	if err != nil {
 		return nil, err
+	}
+	// Los certificados propios tienen prioridad, como en Traefik.
+	for d, c := range custom {
+		certs[d] = c
+	}
+	// Un comodín cubre un nivel: app.ejemplo.com usa el de *.ejemplo.com.
+	lookup := func(d string) (*x509.Certificate, bool) {
+		if c, ok := certs[d]; ok {
+			return c, true
+		}
+		if _, parent, ok := strings.Cut(d, "."); ok {
+			c, ok := certs["*."+parent]
+			return c, ok
+		}
+		return nil, false
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	out := make([]CertStatus, 0, len(domains))
 	for _, d := range domains {
 		st := CertStatus{Domain: d, Status: CertPending}
-		if c, ok := certs[d]; ok {
+		cert, found := lookup(d)
+		if c := cert; found {
 			na := c.NotAfter.UTC()
 			st.NotAfter, st.Issuer = &na, issuerName(c)
 			st.Staging = strings.Contains(strings.ToUpper(st.Issuer), "STAGING") || strings.Contains(st.Issuer, "(STAGING)")
@@ -120,7 +136,7 @@ func (t *CertTracker) Status(acmePath string, domains []string, now time.Time) (
 			}
 		}
 		// Un error anterior a la emisión del certificado actual ya no importa.
-		if e, ok := t.errors[d]; ok && (st.NotAfter == nil || e.at.After(certs[d].NotBefore)) {
+		if e, ok := t.errors[d]; ok && (st.NotAfter == nil || e.at.After(cert.NotBefore)) {
 			at := e.at
 			st.Error, st.ErrorAt, st.Hint = e.msg, &at, Hint(e.msg)
 			if st.NotAfter == nil {

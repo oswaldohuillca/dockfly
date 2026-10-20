@@ -81,7 +81,7 @@ func TestCertStatus(t *testing.T) {
 	tr.Observe([]byte(`{"level":"info","message":"Testing certificate renew..."}`))
 	tr.Observe([]byte("no es json"))
 
-	got, err := tr.Status(acme, []string{"ok.com", "pronto.com", "caducado.com", "renueva.com", "viejo.com", "web.ejemplo.com", "nuevo.com"}, now)
+	got, err := tr.Status(acme, []string{"ok.com", "pronto.com", "caducado.com", "renueva.com", "viejo.com", "web.ejemplo.com", "nuevo.com"}, now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -115,7 +115,7 @@ func TestCertStatus(t *testing.T) {
 	}
 
 	// Sin acme.json (instalación nueva) todo está pendiente.
-	if got, err := tr.Status(filepath.Join(t.TempDir(), "no-existe.json"), []string{"x.com"}, now); err != nil || got[0].Status != CertPending {
+	if got, err := tr.Status(filepath.Join(t.TempDir(), "no-existe.json"), []string{"x.com"}, now, nil); err != nil || got[0].Status != CertPending {
 		t.Errorf("sin acme.json: %+v %v", got, err)
 	}
 }

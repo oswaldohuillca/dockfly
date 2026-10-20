@@ -104,9 +104,15 @@ func run(log *slog.Logger) error {
 		DockerNet:    env("DOCKFLY_NETWORK", "dockfly"),
 		LogLevel:     strings.ToUpper(env("DOCKFLY_TRAEFIK_LOG_LEVEL", "warn")),
 	}
-	// Los puertos de los streams son configuración estática de Traefik.
+	// Los puertos de los streams y los proveedores DNS son configuración
+	// estática de Traefik.
 	if ports, err := (&api.Server{Store: st}).StreamPorts(ctx); err == nil {
 		opts.Streams = ports
+	}
+	if providers, err := st.ListDNSProviders(ctx); err == nil {
+		for _, p := range providers {
+			opts.DNSProviders = append(opts.DNSProviders, p.Provider)
+		}
 	}
 	if err := traefik.WriteStatic(opts); err != nil {
 		return fmt.Errorf("escribiendo configuración estática de Traefik: %w", err)
@@ -183,6 +189,9 @@ func run(log *slog.Logger) error {
 	if dc != nil {
 		ensureNetwork(ctx, log, dc, opts.DockerNet)
 	}
+	if err := srv.PrepareCertificates(ctx); err != nil {
+		return fmt.Errorf("escribiendo los certificados propios: %w", err)
+	}
 	// La configuración dinámica se regenera desde la base de datos al
 	// arrancar: la base de datos es la única fuente de verdad.
 	if err := srv.Apply(ctx); err != nil {
@@ -199,6 +208,7 @@ func run(log *slog.Logger) error {
 			ConfigFile: opts.StaticFile(),
 			Log:        log.With("component", "traefik"),
 			Certs:      certs,
+			Env:        srv.DNSEnv,
 		}
 		wg.Go(func() { srv.Super.Run(ctx) })
 	} else {

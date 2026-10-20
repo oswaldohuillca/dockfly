@@ -114,6 +114,18 @@ func (s *Server) Handler() http.Handler {
 
 			r.Get("/backup", s.handleDownloadBackup)
 
+			r.Get("/dns-providers/catalog", s.handleDNSCatalog)
+			r.Route("/dns-providers", func(r chi.Router) {
+				r.Get("/", s.handleListDNSProviders)
+				r.Put("/", s.handleSaveDNSProvider)
+				r.Delete("/{id}", s.handleDeleteDNSProvider)
+			})
+			r.Route("/custom-certificates", func(r chi.Router) {
+				r.Get("/", s.handleListCustomCerts)
+				r.Post("/", s.handleUploadCustomCert)
+				r.Delete("/{id}", s.handleDeleteCustomCert)
+			})
+
 			r.Route("/streams", func(r chi.Router) {
 				r.Get("/", s.handleListStreams)
 				r.Post("/", s.handleCreateStream)

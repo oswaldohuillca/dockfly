@@ -20,7 +20,8 @@ func normalizeDomains(in []string) ([]string, error) {
 		if d == "" || slices.Contains(out, d) {
 			continue
 		}
-		if !domainRe.MatchString(d) {
+		// Se admite un comodín de un nivel: *.ejemplo.com.
+		if !domainRe.MatchString(strings.TrimPrefix(d, "*.")) || strings.Contains(strings.TrimPrefix(d, "*."), "*") {
 			return nil, fmt.Errorf("dominio inválido: %q", d)
 		}
 		out = append(out, d)

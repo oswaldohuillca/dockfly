@@ -65,7 +65,7 @@ func (s *Server) readRedirect(w http.ResponseWriter, r *http.Request, selfID int
 		writeError(w, http.StatusBadRequest, err.Error())
 		return nil, false
 	}
-	if !s.checkDomains(w, r, rd.Domains, owner{kind: ownerRedirect, id: selfID}) {
+	if !s.checkDomains(w, r, rd.Domains, owner{kind: ownerRedirect, id: selfID}) || !s.checkSSL(w, r, rd.Domains, rd.SSL) {
 		return nil, false
 	}
 	return rd, true

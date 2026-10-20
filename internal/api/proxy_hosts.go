@@ -155,7 +155,8 @@ func (s *Server) readProxyHost(w http.ResponseWriter, r *http.Request, selfID in
 		writeError(w, http.StatusBadRequest, err.Error())
 		return nil, false
 	}
-	if !s.checkDomains(w, r, h.Domains, owner{kind: ownerProxyHost, id: selfID}) || !s.checkAccessList(w, r, h.AccessListID) {
+	if !s.checkDomains(w, r, h.Domains, owner{kind: ownerProxyHost, id: selfID}) || !s.checkAccessList(w, r, h.AccessListID) ||
+		!s.checkSSL(w, r, h.Domains, h.SSL) {
 		return nil, false
 	}
 	return h, true
