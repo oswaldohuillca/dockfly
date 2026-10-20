@@ -42,7 +42,12 @@ func (s *Server) Handler() http.Handler {
 		r.With(authLimit).Post("/auth/login", s.handleLogin)
 		r.Post("/auth/logout", s.handleLogout)
 		// Webhooks de GitHub/GitLab: sin sesión, autenticados por su firma.
+		r.Post("/hooks/github-app", s.handleGitHubAppWebhook)
 		r.Post("/hooks/{provider}/{id}", s.handleWebhook)
+		// Retornos de GitHub/GitLab: los autentica el parámetro state.
+		r.Get("/git/github/manifest", s.handleGitHubManifestCallback)
+		r.Get("/git/github/setup", s.handleGitHubSetup)
+		r.Get("/git/gitlab/callback", s.handleGitLabCallback)
 
 		// Rutas que requieren sesión.
 		r.Group(func(r chi.Router) {
@@ -90,6 +95,14 @@ func (s *Server) Handler() http.Handler {
 				r.Get("/{id}/repos", s.handleListRepos)
 				r.Get("/{id}/branches", s.handleListBranches)
 			})
+
+			r.Get("/git/apps", s.handleListGitApps)
+			r.Post("/git/github/manifest", s.handleGitHubManifestStart)
+			r.Post("/git/github/apps/{id}/install-url", s.handleGitHubInstallURL)
+			r.Delete("/git/github/apps/{id}", s.handleDeleteGitHubApp)
+			r.Put("/git/gitlab/apps", s.handlePutGitLabApp)
+			r.Delete("/git/gitlab/apps/{id}", s.handleDeleteGitLabApp)
+			r.Post("/git/gitlab/authorize", s.handleGitLabAuthorize)
 
 			r.Get("/settings", s.handleGetSettings)
 			r.Put("/settings", s.handlePutSettings)

@@ -17,6 +17,7 @@ import (
 
 	"github.com/dockfly/dockfly/internal/auth"
 	"github.com/dockfly/dockfly/internal/builder"
+	"github.com/dockfly/dockfly/internal/gitauth"
 	"github.com/dockfly/dockfly/internal/pages"
 	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
@@ -60,8 +61,9 @@ func testServerWithPages(t *testing.T) (*httptest.Server, *pages.Server, string)
 		MaxUploadMB:  1,
 	}
 	s.Secrets, _ = secrets.New(make([]byte, 32))
+	s.Git = gitauth.New(st, s.Secrets)
 	s.Builds = builder.New(builder.Config{
-		Store: st, Secrets: s.Secrets, Pages: s.PagesStorage, LogDir: filepath.Join(dir, "builds"),
+		Store: st, Secrets: s.Secrets, Providers: s.Git, Pages: s.PagesStorage, LogDir: filepath.Join(dir, "builds"),
 		Log: s.Log, Publish: s.Publish, Timeout: time.Minute,
 	})
 	runCtx, cancel := context.WithCancel(context.Background())

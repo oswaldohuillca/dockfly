@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/dockfly/dockfly/internal/docker"
+	"github.com/dockfly/dockfly/internal/gitauth"
 	"github.com/dockfly/dockfly/internal/gitprovider"
 	"github.com/dockfly/dockfly/internal/pages"
 	"github.com/dockfly/dockfly/internal/secrets"
@@ -97,7 +98,7 @@ func setup(t *testing.T, ghURL string, git store.SiteGit, buildEnv map[string]st
 
 	e := &env{st: st, site: site, pages: &pages.Storage{Root: filepath.Join(dir, "sites"), Limits: pages.DefaultLimits}}
 	e.mgr = New(Config{
-		Store: st, Docker: dc, Secrets: box, Pages: e.pages, LogDir: filepath.Join(dir, "logs"),
+		Store: st, Docker: dc, Secrets: box, Providers: gitauth.New(st, box), Pages: e.pages, LogDir: filepath.Join(dir, "logs"),
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Publish: func(ctx context.Context, siteID, depID int64) error {
 			e.mu.Lock()

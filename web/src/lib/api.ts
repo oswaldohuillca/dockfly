@@ -98,11 +98,38 @@ export interface SiteGitInput {
   env: Record<string, string> | null;
 }
 
+export type AuthType = 'token' | 'github_app' | 'gitlab_oauth';
+
 export interface GitConnection {
   id: number;
   provider: GitProvider;
+  auth_type: AuthType;
   base_url: string;
   username: string;
+  account_type: string;
+  settings_url: string;
+  github_app_id: number | null;
+  installation_id: number | null;
+  gitlab_app_id: number | null;
+  created_at: string;
+}
+
+export interface GitHubApp {
+  id: number;
+  web_url: string;
+  app_id: number;
+  slug: string;
+  name: string;
+  owner: string;
+  html_url: string;
+  webhook_active: boolean;
+  created_at: string;
+}
+
+export interface GitLabApp {
+  id: number;
+  web_url: string;
+  client_id: string;
   created_at: string;
 }
 
@@ -205,7 +232,20 @@ export const api = {
     request<string[]>('GET', `/git/connections/${id}/branches?repo=${encodeURIComponent(repo)}`),
 
   getSettings: () => request<{ public_url: string }>('GET', '/settings'),
-  putSettings: (data: { public_url: string }) => request<{ public_url: string }>('PUT', '/settings', data),
+  putSettings: (data: { public_url: string }) =>
+    request<{ public_url: string; warnings: string[] | null }>('PUT', '/settings', data),
+
+  listGitApps: () => request<{ github: GitHubApp[]; gitlab: GitLabApp[] }>('GET', '/git/apps'),
+  startGitHubManifest: (data: { panel_url: string; organization: string; enterprise_url: string }) =>
+    request<{ action: string; manifest: string; webhook: boolean }>('POST', '/git/github/manifest', data),
+  githubInstallURL: (appId: number, panelURL: string) =>
+    request<{ url: string }>('POST', `/git/github/apps/${appId}/install-url`, { panel_url: panelURL }),
+  deleteGitHubApp: (id: number) => request<void>('DELETE', `/git/github/apps/${id}`),
+  putGitLabApp: (data: { web_url: string; client_id: string; client_secret: string }) =>
+    request<GitLabApp>('PUT', '/git/gitlab/apps', data),
+  deleteGitLabApp: (id: number) => request<void>('DELETE', `/git/gitlab/apps/${id}`),
+  gitlabAuthorize: (appId: number, panelURL: string) =>
+    request<{ url: string }>('POST', '/git/gitlab/authorize', { app_id: appId, panel_url: panelURL }),
 
   putSiteGit: (id: number, data: SiteGitInput) =>
     request<{ site: Site; webhook_error: string }>('PUT', `/sites/${id}/git`, data),

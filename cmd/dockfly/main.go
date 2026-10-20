@@ -21,6 +21,7 @@ import (
 	"github.com/dockfly/dockfly/internal/auth"
 	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/docker"
+	"github.com/dockfly/dockfly/internal/gitauth"
 	"github.com/dockfly/dockfly/internal/pages"
 	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
@@ -129,8 +130,9 @@ func run(log *slog.Logger) error {
 		StaticURL:    "http://" + loopback(staticAddr),
 		MaxUploadMB:  maxUpload,
 		Secrets:      box,
+		Git:          gitauth.New(st, box),
 	}
-	buildCfg.Store, buildCfg.Docker, buildCfg.Secrets = st, dc, box
+	buildCfg.Store, buildCfg.Docker, buildCfg.Secrets, buildCfg.Providers = st, dc, box, srv.Git
 	buildCfg.Pages, buildCfg.LogDir = pagesStorage, filepath.Join(dataDir, "builds")
 	buildCfg.Log, buildCfg.Publish = log.With("component", "builder"), srv.Publish
 	srv.Builds = builder.New(buildCfg)

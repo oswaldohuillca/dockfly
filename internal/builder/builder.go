@@ -45,13 +45,20 @@ const (
 	maxLogBytes    = 5 << 20 // 5 MiB de log por build
 )
 
+// Providers da un cliente con credenciales vigentes para una conexión
+// (lo implementa gitauth.Resolver).
+type Providers interface {
+	Provider(ctx context.Context, conn *store.GitConnection) (gitprovider.Provider, error)
+}
+
 type Config struct {
-	Store   *store.Store
-	Docker  *docker.Client // nil si Docker no está disponible
-	Secrets *secrets.Box
-	Pages   *pages.Storage
-	LogDir  string
-	Log     *slog.Logger
+	Store     *store.Store
+	Docker    *docker.Client // nil si Docker no está disponible
+	Secrets   *secrets.Box
+	Providers Providers
+	Pages     *pages.Storage
+	LogDir    string
+	Log       *slog.Logger
 	// Publish activa un despliegue recién creado (lo implementa la API, que
 	// sabe regenerar Traefik y el servidor estático).
 	Publish func(ctx context.Context, siteID, deploymentID int64) error
@@ -254,11 +261,7 @@ func (m *Manager) provider(ctx context.Context, site *store.Site) (gitprovider.P
 	if err != nil {
 		return nil, "", fmt.Errorf("la cuenta de %s vinculada ya no existe", site.Repo)
 	}
-	token, err := m.cfg.Secrets.Open(conn.TokenEnc)
-	if err != nil {
-		return nil, "", fmt.Errorf("no se pudo descifrar el token de %s: %w", conn.Username, err)
-	}
-	p, err := gitprovider.New(conn.Provider, conn.BaseURL, string(token))
+	p, err := m.cfg.Providers.Provider(ctx, conn)
 	return p, conn.Provider, err
 }
 

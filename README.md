@@ -41,6 +41,27 @@ Se conservan los 10 más recientes por sitio.
 Los archivos los sirve un servidor interno de Dockfly (`127.0.0.1:8099`) al que Traefik reenvía
 los dominios de cada sitio; no hace falta ningún contenedor extra.
 
+### Despliegue desde GitHub y GitLab
+
+Conecta un repositorio y cada push a la rama elegida construye el sitio y lo publica.
+
+- **GitHub**: en *Integraciones → Conectar con GitHub*, GitHub crea con un clic la app
+  «Dockfly» de esta instalación (ya configurada) y te deja elegir la cuenta u organización
+  y los repositorios. Dockfly solo pide permiso de lectura y usa tokens que caducan cada hora.
+  Funciona también con GitHub Enterprise.
+- **GitLab**: la aplicación OAuth se registra una vez en GitLab (el panel indica los pasos y
+  la Redirect URI); después, conectar una cuenta es pulsar «Autorizar». Funciona con
+  gitlab.com y con instancias propias.
+- **Tokens de acceso personal**: opción avanzada, para entornos sin navegador.
+
+Los builds corren en un contenedor efímero (`oven/bun:1` por defecto, configurable por sitio)
+**sin privilegios** y con límites de memoria, CPU, procesos y tiempo. El código lo descarga
+Dockfly y lo copia dentro: **las credenciales nunca entran en el contenedor de build**.
+
+Para desplegar en cada push, GitHub/GitLab deben poder llegar a Dockfly: publica el panel con
+un proxy host y escribe su dirección en *Integraciones → URL pública*. Sin ella, los sitios se
+despliegan con el botón «Desplegar ahora».
+
 ## Configuración
 
 | Variable | Por defecto | Descripción |
@@ -53,6 +74,9 @@ los dominios de cada sitio; no hace falta ningún contenedor extra.
 | `DOCKFLY_DOCKER_SOCKET` | `/var/run/docker.sock` | Socket de Docker |
 | `DOCKFLY_TRAEFIK` | `on` | `off` para no lanzar Traefik (desarrollo) |
 | `DOCKFLY_TRUSTED_PROXIES` | — | Rangos CIDR (separados por comas) de los proxies que tienen delante el panel. Solo de ellos se acepta `X-Forwarded-For`. Vacío = panel expuesto directamente |
+| `DOCKFLY_BUILD_TIMEOUT_MIN` | `15` | Tiempo máximo de un build |
+| `DOCKFLY_BUILD_MEMORY_MB` / `DOCKFLY_BUILD_CPUS` | `2048` / `2` | Recursos de cada build |
+| `DOCKFLY_BUILD_CONCURRENCY` | `1` | Builds simultáneos |
 | `DOCKFLY_MAX_UPLOAD_MB` | `512` | Tamaño máximo de una subida de sitio estático |
 | `DOCKFLY_STATIC_ADDR` | `127.0.0.1:8099` | Dirección interna del servidor de sitios estáticos |
 | `DOCKFLY_LOG_LEVEL` / `DOCKFLY_TRAEFIK_LOG_LEVEL` | `info` / `warn` | Nivel de logs |
@@ -65,6 +89,10 @@ internal/api       API REST (chi) + sirve el frontend
 internal/store     modelos y consultas con Bun sobre SQLite (Go puro, sin CGO)
   └─ migrations/   migraciones SQL versionadas, incrustadas en el binario
 internal/pages     sitios estáticos: subida segura (zip/carpeta), despliegues y servidor
+internal/builder   cola de builds y ejecución en contenedores efímeros
+internal/gitprovider  APIs de GitHub/GitLab: repos, código, webhooks, GitHub App y OAuth
+internal/gitauth   credenciales vigentes por conexión (tokens de instalación, refresco OAuth)
+internal/secrets   cifrado AES-GCM de tokens y variables de entorno
 internal/traefik   genera traefik.yml (estático) y dockfly.yml (dinámico); supervisa el proceso
 internal/docker    cliente mínimo del socket de Docker (sin SDK)
 web/               frontend React 19 + TypeScript + Tailwind 4 + shadcn/ui, incrustado con go:embed
@@ -89,5 +117,6 @@ make test
 
 1. ✅ Proxy hosts con SSL automático (Docker, host, externos)
 2. ✅ Sitios estáticos con subida directa, despliegues inmutables y rollback
-3. Sitios estáticos desde GitHub/GitLab: build en cada push y previews por rama
-4. Apps en contenedores desde una imagen Docker o un Dockerfile
+3. ✅ Sitios estáticos desde GitHub/GitLab: build en cada push
+4. Previews por rama y estado del despliegue en los commits
+5. Apps en contenedores desde una imagen Docker o un Dockerfile

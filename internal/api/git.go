@@ -95,6 +95,7 @@ func (s *Server) handleDeleteConnection(w http.ResponseWriter, r *http.Request) 
 		writeError(w, http.StatusConflict, "la usan estos sitios; desconéctalos primero: "+strings.Join(using, ", "))
 		return
 	}
+	s.Git.Forget(id)
 	err = s.Store.DeleteGitConnection(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, "cuenta no encontrada")
@@ -112,11 +113,7 @@ func (s *Server) connectionProvider(ctx context.Context, id int64) (*store.GitCo
 	if err != nil {
 		return nil, nil, err
 	}
-	token, err := s.Secrets.Open(conn.TokenEnc)
-	if err != nil {
-		return nil, nil, err
-	}
-	p, err := gitprovider.New(conn.Provider, conn.BaseURL, string(token))
+	p, err := s.Git.Provider(ctx, conn)
 	return conn, p, err
 }
 
@@ -130,7 +127,7 @@ func (s *Server) loadConnection(w http.ResponseWriter, r *http.Request) (gitprov
 		writeError(w, http.StatusNotFound, "cuenta no encontrada")
 		return nil, false
 	} else if err != nil {
-		s.internalError(w, err)
+		writeError(w, http.StatusBadGateway, err.Error())
 		return nil, false
 	}
 	return p, true
@@ -195,10 +192,14 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]string{"public_url": publicURL})
+	writeJSON(w, http.StatusOK, map[string]any{"public_url": publicURL, "warnings": s.syncGitHubWebhooks(r, publicURL)})
 }
 
 // --- Repositorio de un sitio ---
+
+// appWebhook marca los sitios que reciben los pushes por el webhook de la
+// GitHub App (en vez de uno propio en el repositorio).
+const appWebhook = "github-app"
 
 var (
 	imageRe   = regexp.MustCompile(`^[a-z0-9]+([._/:@-][a-zA-Z0-9]+)*$`)
@@ -304,7 +305,16 @@ func (s *Server) handlePutSiteGit(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var webhookErr string
-	if git.WebhookID == "" {
+	if conn.AuthType == store.AuthGitHubApp {
+		// La GitHub App tiene un único webhook para todos sus repositorios.
+		git.WebhookID, git.WebhookSecret = "", ""
+		app, err := s.Store.GetGitHubApp(ctx, *conn.GitHubAppID)
+		if err == nil && app.WebhookActive {
+			git.WebhookID = appWebhook
+		} else {
+			webhookErr = "configura la URL pública de Dockfly en Integraciones para desplegar en cada push"
+		}
+	} else if git.WebhookID == "" || git.WebhookID == appWebhook {
 		publicURL, _ := s.Store.GetSetting(ctx, store.SettingPublicURL)
 		if publicURL == "" {
 			webhookErr = "configura la URL pública de Dockfly en Integraciones para desplegar en cada push"
@@ -357,7 +367,7 @@ func (s *Server) handleGetSiteEnv(w http.ResponseWriter, r *http.Request) {
 // deleteWebhook intenta borrar el webhook del repositorio. Si falla (token
 // revocado, repo borrado…) solo se registra: no debe impedir desenlazar.
 func (s *Server) deleteWebhook(ctx context.Context, site *store.Site) {
-	if site.WebhookID == "" || site.GitConnectionID == nil {
+	if site.WebhookID == "" || site.WebhookID == appWebhook || site.GitConnectionID == nil {
 		return
 	}
 	_, p, err := s.connectionProvider(ctx, *site.GitConnectionID)

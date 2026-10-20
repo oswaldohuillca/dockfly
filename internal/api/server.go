@@ -14,6 +14,7 @@ import (
 	"github.com/dockfly/dockfly/internal/auth"
 	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/docker"
+	"github.com/dockfly/dockfly/internal/gitauth"
 	"github.com/dockfly/dockfly/internal/pages"
 	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
@@ -46,6 +47,9 @@ type Server struct {
 	// Builds desde GitHub/GitLab.
 	Builds  *builder.Manager
 	Secrets *secrets.Box
+	Git     *gitauth.Resolver
+
+	oauthStates stateStore
 
 	applyMu sync.Mutex
 }

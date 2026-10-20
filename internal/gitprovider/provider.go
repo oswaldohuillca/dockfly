@@ -35,6 +35,9 @@ type Commit struct {
 type Push struct {
 	Branch string
 	Commit Commit
+	// Solo en los webhooks de la GitHub App, que son uno para todos los repos.
+	Repo           string
+	InstallationID int64
 }
 
 type Provider interface {
@@ -79,8 +82,23 @@ func NormalizeBaseURL(provider, raw string) (string, error) {
 	return u.String(), nil
 }
 
+// Options indica de dónde viene el token.
+type Options struct {
+	// Installation: token de instalación de una GitHub App. Solo ve los
+	// repositorios que el usuario eligió al instalarla.
+	Installation bool
+	// OAuth: token OAuth de GitLab (va en Authorization: Bearer en lugar
+	// de PRIVATE-TOKEN).
+	OAuth bool
+}
+
+// New crea un cliente con un token de acceso personal.
 func New(provider, baseURL, token string) (Provider, error) {
-	c := &client{base: strings.TrimRight(baseURL, "/"), token: token, http: apiHTTP, provider: provider}
+	return NewWithOptions(provider, baseURL, token, Options{})
+}
+
+func NewWithOptions(provider, baseURL, token string, opts Options) (Provider, error) {
+	c := &client{base: strings.TrimRight(baseURL, "/"), token: token, http: apiHTTP, provider: provider, opts: opts}
 	switch provider {
 	case GitHub:
 		return &github{c}, nil
@@ -123,6 +141,7 @@ type client struct {
 	base     string
 	token    string
 	provider string
+	opts     Options
 	http     *http.Client
 }
 
@@ -145,8 +164,10 @@ func (c *client) newRequest(ctx context.Context, method, path string, body any) 
 		req.Header.Set("Content-Type", "application/json")
 	}
 	req.Header.Set("User-Agent", "Dockfly")
-	if c.provider == GitLab {
+	if c.provider == GitLab && !c.opts.OAuth {
 		req.Header.Set("PRIVATE-TOKEN", c.token)
+	} else if c.provider == GitLab {
+		req.Header.Set("Authorization", "Bearer "+c.token)
 	} else {
 		req.Header.Set("Authorization", "Bearer "+c.token)
 		req.Header.Set("Accept", "application/vnd.github+json")

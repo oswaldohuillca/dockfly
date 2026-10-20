@@ -24,18 +24,23 @@ func (g *github) CurrentUser(ctx context.Context) (string, error) {
 	return u.Login, err
 }
 
+type ghRepo struct {
+	FullName      string `json:"full_name"`
+	DefaultBranch string `json:"default_branch"`
+	Private       bool   `json:"private"`
+	HTMLURL       string `json:"html_url"`
+}
+
 func (g *github) ListRepos(ctx context.Context, query string) ([]Repo, error) {
+	if g.opts.Installation {
+		return g.installationRepos(ctx, query)
+	}
 	query = strings.ToLower(query)
 	var out []Repo
 	// Hasta 300 repos, ordenados por actividad reciente: suficiente para
 	// elegir en el panel, y la búsqueda filtra sobre ellos.
 	for page := 1; page <= 3; page++ {
-		var raw []struct {
-			FullName      string `json:"full_name"`
-			DefaultBranch string `json:"default_branch"`
-			Private       bool   `json:"private"`
-			HTMLURL       string `json:"html_url"`
-		}
+		var raw []ghRepo
 		path := "/user/repos?per_page=100&sort=updated&page=" + strconv.Itoa(page)
 		if err := g.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
 			return nil, err
@@ -46,6 +51,31 @@ func (g *github) ListRepos(ctx context.Context, query string) ([]Repo, error) {
 			}
 		}
 		if len(raw) < 100 {
+			break
+		}
+	}
+	return out, nil
+}
+
+// installationRepos lista los repos a los que el usuario dio acceso al
+// instalar la GitHub App.
+func (g *github) installationRepos(ctx context.Context, query string) ([]Repo, error) {
+	query = strings.ToLower(query)
+	var out []Repo
+	for page := 1; page <= 3; page++ {
+		var raw struct {
+			Repositories []ghRepo `json:"repositories"`
+		}
+		path := "/installation/repositories?per_page=100&page=" + strconv.Itoa(page)
+		if err := g.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
+			return nil, err
+		}
+		for _, r := range raw.Repositories {
+			if query == "" || strings.Contains(strings.ToLower(r.FullName), query) {
+				out = append(out, Repo{FullName: r.FullName, DefaultBranch: r.DefaultBranch, Private: r.Private, WebURL: r.HTMLURL})
+			}
+		}
+		if len(raw.Repositories) < 100 {
 			break
 		}
 	}
@@ -113,32 +143,49 @@ func repoPath(repo string) string {
 
 var ErrBadSignature = errors.New("firma del webhook inválida")
 
-// ParseGitHubWebhook verifica la firma HMAC-SHA256 y extrae el push.
-// Devuelve ok=false para eventos que no son un push a una rama (ping, tags,
-// ramas borradas…), que deben responderse con 2xx pero ignorarse.
-func ParseGitHubWebhook(h http.Header, body []byte, secret string) (push Push, ok bool, err error) {
+// VerifyGitHubSignature comprueba la firma HMAC-SHA256 de un webhook.
+func VerifyGitHubSignature(h http.Header, body []byte, secret string) error {
 	sig, found := strings.CutPrefix(h.Get("X-Hub-Signature-256"), "sha256=")
 	if !found || secret == "" {
-		return Push{}, false, ErrBadSignature
+		return ErrBadSignature
 	}
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write(body)
 	want := hex.EncodeToString(mac.Sum(nil))
 	if !hmac.Equal([]byte(sig), []byte(want)) {
-		return Push{}, false, ErrBadSignature
+		return ErrBadSignature
 	}
+	return nil
+}
 
+// ParseGitHubWebhook verifica la firma HMAC-SHA256 y extrae el push.
+// Devuelve ok=false para eventos que no son un push a una rama (ping, tags,
+// ramas borradas…), que deben responderse con 2xx pero ignorarse.
+func ParseGitHubWebhook(h http.Header, body []byte, secret string) (push Push, ok bool, err error) {
+	if err := VerifyGitHubSignature(h, body, secret); err != nil {
+		return Push{}, false, err
+	}
+	return ParseGitHubPush(h, body)
+}
+
+// ParseGitHubPush extrae el push de un webhook ya verificado.
+func ParseGitHubPush(h http.Header, body []byte) (push Push, ok bool, err error) {
 	if h.Get("X-GitHub-Event") != "push" {
 		return Push{}, false, nil
 	}
 	var p struct {
 		Ref        string `json:"ref"`
-		After      string `json:"after"`
 		Deleted    bool   `json:"deleted"`
 		HeadCommit *struct {
 			ID      string `json:"id"`
 			Message string `json:"message"`
 		} `json:"head_commit"`
+		Repository struct {
+			FullName string `json:"full_name"`
+		} `json:"repository"`
+		Installation struct {
+			ID int64 `json:"id"`
+		} `json:"installation"`
 	}
 	if err := json.Unmarshal(body, &p); err != nil {
 		return Push{}, false, err
@@ -147,5 +194,28 @@ func ParseGitHubWebhook(h http.Header, body []byte, secret string) (push Push, o
 	if !isBranch || p.Deleted || p.HeadCommit == nil {
 		return Push{}, false, nil
 	}
-	return Push{Branch: branch, Commit: Commit{SHA: p.HeadCommit.ID, Message: firstLine(p.HeadCommit.Message)}}, true, nil
+	return Push{
+		Branch:         branch,
+		Commit:         Commit{SHA: p.HeadCommit.ID, Message: firstLine(p.HeadCommit.Message)},
+		Repo:           p.Repository.FullName,
+		InstallationID: p.Installation.ID,
+	}, true, nil
+}
+
+// ParseGitHubInstallationDeleted indica si el webhook (ya verificado) avisa
+// de que alguien desinstaló la GitHub App de su cuenta.
+func ParseGitHubInstallationDeleted(h http.Header, body []byte) (installationID int64, ok bool) {
+	if h.Get("X-GitHub-Event") != "installation" {
+		return 0, false
+	}
+	var p struct {
+		Action       string `json:"action"`
+		Installation struct {
+			ID int64 `json:"id"`
+		} `json:"installation"`
+	}
+	if json.Unmarshal(body, &p) != nil || p.Action != "deleted" {
+		return 0, false
+	}
+	return p.Installation.ID, true
 }
