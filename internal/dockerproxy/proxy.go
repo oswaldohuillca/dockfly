@@ -328,10 +328,72 @@ func sensitivePath(src string) bool {
 	return false
 }
 
+// hostConfigAllowed son los campos de HostConfig que Compose usa de forma
+// legítima. Todo lo demás se rechaza: es una lista blanca para que un campo
+// nuevo o peligroso (Sysctls, CgroupParent, Runtime, OomKillDisable,
+// MaskedPaths, Tmpfs…) no pase sin revisar al añadirlo Docker.
+// safeNonEmpty son los campos de HostConfig que Compose usa de forma
+// legítima y que pueden llevar un valor. Cualquier otro campo debe ir vacío:
+// así, un campo de escape que Docker añada en el futuro (necesita un valor
+// para hacer daño) queda bloqueado sin tener que conocerlo.
+var safeNonEmpty = map[string]bool{
+	// Montajes, red, puertos y reinicio.
+	"Binds": true, "Mounts": true, "NetworkMode": true, "RestartPolicy": true,
+	"PortBindings": true, "PublishAllPorts": true, "Links": true, "VolumeDriver": true,
+	"Dns": true, "DnsOptions": true, "DnsSearch": true, "ExtraHosts": true,
+	"GroupAdd": true, "Isolation": true, "Init": true, "AutoRemove": true,
+	"ConsoleSize": true, "Annotations": true, "LogConfig": true, "ContainerIDFile": true,
+	// Límites de recursos (DoS controlado, no escape del aislamiento).
+	"Memory": true, "MemorySwap": true, "MemoryReservation": true, "MemorySwappiness": true,
+	"KernelMemory": true, "KernelMemoryTCP": true, "NanoCpus": true, "CpuShares": true,
+	"CpuQuota": true, "CpuPeriod": true, "CpuRealtimePeriod": true, "CpuRealtimeRuntime": true,
+	"CpusetCpus": true, "CpusetMems": true, "CpuCount": true, "CpuPercent": true,
+	"BlkioWeight": true, "BlkioWeightDevice": true, "BlkioDeviceReadBps": true,
+	"BlkioDeviceWriteBps": true, "BlkioDeviceReadIOps": true, "BlkioDeviceWriteIOps": true,
+	"IOMaximumIOps": true, "IOMaximumBandwidth": true, "PidsLimit": true, "ShmSize": true,
+	"Ulimits": true, "OomScoreAdj": true, "StorageOpt": true, "DiskQuota": true,
+	"CapDrop": true, "ReadonlyRootfs": true,
+	// Espacios de nombres: pueden llevar valor, que se valida en okNamespace.
+	"PidMode": true, "IpcMode": true, "UTSMode": true, "CgroupnsMode": true, "UsernsMode": true,
+	// MaskedPaths/ReadonlyPaths pueden llevar valor, que se valida aparte.
+	"MaskedPaths": true, "ReadonlyPaths": true,
+}
+
+// defaultMaskedPaths son los que Docker enmascara en /proc por defecto.
+var defaultMaskedPaths = []string{
+	"/proc/asound", "/proc/acpi", "/proc/kcore", "/proc/keys", "/proc/latency_stats",
+	"/proc/timer_list", "/proc/timer_stats", "/proc/sched_debug", "/proc/scsi",
+	"/sys/firmware", "/sys/devices/virtual/powercap",
+}
+var defaultReadonlyPaths = []string{"/proc/bus", "/proc/fs", "/proc/irq", "/proc/sys", "/proc/sysrq-trigger"}
+
+// okNamespace acepta un modo de espacio de nombres: vacío, los predefinidos,
+// o container:<id> y <red> del propio proyecto. Rechaza host y lo desconocido.
+func okNamespace(mode, project string, ns bool) bool {
+	switch mode {
+	case "", "none", "private", "default", "shareable":
+		return true
+	}
+	if target, ok := strings.CutPrefix(mode, "container:"); ok {
+		return strings.HasPrefix(target, project+"-") || strings.HasPrefix(target, project+"_")
+	}
+	// Las redes del proyecto se llaman "<proyecto>_<nombre>"; también se
+	// admite una red concreta por su nombre de proyecto.
+	return ns && strings.HasPrefix(mode, project+"_")
+}
+
 func checkCreate(body []byte, project string, protected []string) error {
 	var req createRequest
 	if err := json.Unmarshal(body, &req); err != nil {
 		return fmt.Errorf("cuerpo inválido: %w", err)
+	}
+	// Lista blanca de los campos de HostConfig.
+	var top struct {
+		HostConfig map[string]json.RawMessage `json:"HostConfig"`
+	}
+	_ = json.Unmarshal(body, &top)
+	if err := checkHostFields(top.HostConfig); err != nil {
+		return err
 	}
 	h := req.HostConfig
 	switch {
@@ -345,10 +407,14 @@ func checkCreate(body []byte, project string, protected []string) error {
 		return fmt.Errorf("añadir capabilities (cap_add: %s) no está permitido", strings.Join(h.CapAdd, ", "))
 	case len(h.Devices) > 0 || len(h.DeviceRequests) > 0:
 		return fmt.Errorf("acceder a dispositivos del host (devices, gpus) no está permitido")
-	case h.PidMode == "host", h.IpcMode == "host", h.UTSMode == "host", h.UsernsMode == "host", h.CgroupnsMode == "host":
-		return fmt.Errorf("compartir los espacios de nombres del host (pid/ipc/uts/userns: host) no está permitido")
-	case h.NetworkMode == "host":
-		return fmt.Errorf("la red del host (network_mode: host) no está permitida: Traefik enruta el tráfico por la red de Dockfly")
+	case !okNamespace(h.PidMode, project, false):
+		return fmt.Errorf("pid: %q no está permitido (solo contenedores del proyecto)", h.PidMode)
+	case !okNamespace(h.IpcMode, project, false):
+		return fmt.Errorf("ipc: %q no está permitido (solo contenedores del proyecto)", h.IpcMode)
+	case !okNamespace(h.NetworkMode, project, true):
+		return fmt.Errorf("network_mode: %q no está permitido (solo redes o contenedores del proyecto)", h.NetworkMode)
+	case h.UTSMode == "host", h.UsernsMode == "host", h.CgroupnsMode == "host":
+		return fmt.Errorf("compartir los espacios de nombres del host (uts/userns/cgroup: host) no está permitido")
 	}
 	for _, o := range h.SecurityOpt {
 		if strings.Contains(o, "unconfined") || strings.HasPrefix(o, "no-new-privileges:false") {
@@ -378,6 +444,87 @@ func checkCreate(body []byte, project string, protected []string) error {
 
 // checkMount revisa el origen de un montaje: una ruta del host (bind) o un
 // volumen con nombre (vacío = volumen anónimo, siempre nuevo).
+// isEmptyJSON indica si un valor JSON es "vacío" (cero, nulo, lista/objeto
+// vacíos): un campo peligroso solo hace daño con un valor no vacío.
+func isEmptyJSON(v json.RawMessage) bool {
+	t := strings.TrimSpace(string(v))
+	return t == "" || t == "null" || t == `""` || t == "0" || t == "false" || t == "[]" || t == "{}"
+}
+
+// checkHostFields aplica la política a HostConfig: los campos seguros pueden
+// llevar valor; los peligrosos conocidos se validan; cualquier otro campo
+// debe ir vacío.
+func checkHostFields(h map[string]json.RawMessage) error {
+	empty := func(field string) bool {
+		v, ok := h[field]
+		return !ok || isEmptyJSON(v)
+	}
+	// Campos peligrosos que nunca pueden llevar valor.
+	if !empty("Privileged") {
+		return fmt.Errorf("los contenedores privilegiados (privileged: true) no están permitidos")
+	}
+	if !empty("CapAdd") {
+		return fmt.Errorf("añadir capabilities (cap_add) no está permitido")
+	}
+	if !empty("Devices") || !empty("DeviceRequests") || !empty("DeviceCgroupRules") {
+		return fmt.Errorf("acceder a dispositivos del host (devices, gpus) no está permitido")
+	}
+	for _, field := range []string{"Capabilities", "Sysctls", "OomKillDisable", "Tmpfs", "VolumesFrom"} {
+		if !empty(field) {
+			return fmt.Errorf("HostConfig.%s no está permitido", field)
+		}
+	}
+	for _, field := range []string{"CgroupParent", "Cgroup", "Runtime"} {
+		if !empty(field) && string(h[field]) != `"runc"` {
+			return fmt.Errorf("HostConfig.%s solo puede ir vacío", field)
+		}
+	}
+	// MaskedPaths/ReadonlyPaths: ausentes o null = Docker aplica sus defaults
+	// (seguro); una lista vacía o acortada desenmascara /proc, así que solo
+	// se admite exactamente la lista por defecto.
+	for field, def := range map[string][]string{"MaskedPaths": defaultMaskedPaths, "ReadonlyPaths": defaultReadonlyPaths} {
+		raw, ok := h[field]
+		if !ok || strings.TrimSpace(string(raw)) == "null" {
+			continue
+		}
+		var got []string
+		if json.Unmarshal(raw, &got) != nil || !sameSet(got, def) {
+			return fmt.Errorf("HostConfig.%s solo puede tener los valores por defecto", field)
+		}
+	}
+	// Cualquier otro campo (desconocido o no listado como seguro) debe ir vacío.
+	handled := map[string]bool{"CgroupParent": true, "Cgroup": true, "Runtime": true, "SecurityOpt": true}
+	for field, v := range h {
+		if safeNonEmpty[field] || handled[field] {
+			continue
+		}
+		if !isEmptyJSON(v) {
+			return fmt.Errorf("el campo HostConfig.%s no está permitido", field)
+		}
+	}
+	return nil
+}
+
+// sameSet compara dos listas sin tener en cuenta el orden.
+func sameSet(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	m := map[string]int{}
+	for _, x := range a {
+		m[x]++
+	}
+	for _, x := range b {
+		m[x]--
+	}
+	for _, v := range m {
+		if v != 0 {
+			return false
+		}
+	}
+	return true
+}
+
 func checkMount(src string, bind bool, project string, protected []string) error {
 	if !bind {
 		// Compose llama a los volúmenes del proyecto "<proyecto>_<nombre>".

@@ -43,6 +43,29 @@ func TestCheckCreate(t *testing.T) {
 		{"volumen ajeno", ok(`{"Binds":["dockfly_data:/data"]}`), false},
 		{"volumen ajeno por Mounts", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-otra_db"}]}`), false},
 		{"volumes_from", ok(`{"VolumesFrom":["dockfly"]}`), false},
+		// C2: compartir namespaces con otro contenedor (no del proyecto).
+		{"pid container ajeno", ok(`{"PidMode":"container:dockfly"}`), false},
+		{"pid container del proyecto", ok(`{"PidMode":"container:dockfly-web-db-1"}`), true},
+		{"ipc container ajeno", ok(`{"IpcMode":"container:abc123"}`), false},
+		{"network container ajeno", ok(`{"NetworkMode":"container:dockfly"}`), false},
+		{"network container del proyecto", ok(`{"NetworkMode":"container:dockfly-web-api-1"}`), true},
+		{"network red ajena", ok(`{"NetworkMode":"otra_red"}`), false},
+		{"ipc shareable", ok(`{"IpcMode":"shareable"}`), true},
+		// A1: campos de HostConfig fuera de la lista blanca.
+		{"sysctls", ok(`{"Sysctls":{"net.ipv4.ip_forward":"1"}}`), false},
+		{"maskedpaths vacío (desenmascara /proc)", ok(`{"MaskedPaths":[]}`), false},
+		{"maskedpaths acortado", ok(`{"MaskedPaths":["/proc/kcore"]}`), false},
+		{"oomkilldisable", ok(`{"OomKillDisable":true}`), false},
+		{"cgroupparent", ok(`{"CgroupParent":"/"}`), false},
+		{"runtime ajeno", ok(`{"Runtime":"custom"}`), false},
+		{"tmpfs", ok(`{"Tmpfs":{"/run":""}}`), false},
+		{"deviceCgroupRules", ok(`{"DeviceCgroupRules":["c 1:3 rwm"]}`), false},
+		{"campo desconocido futuro", ok(`{"FutureEscapeField":true}`), false},
+		// Lo que Compose envía de verdad: campos estándar vacíos y defaults.
+		{"compose típico", ok(`{"RestartPolicy":{"Name":"unless-stopped"},"Memory":134217728,"NetworkMode":"dockfly-web_default","CpuRealtimePeriod":0,"CpuRealtimeRuntime":0,"CgroupParent":"","Runtime":"","Cgroup":"","OomKillDisable":false,"Sysctls":null,"MaskedPaths":null,"ReadonlyPaths":null,"Tmpfs":null}`), true},
+		{"maskedpaths por defecto", ok(`{"MaskedPaths":["/proc/asound","/proc/acpi","/proc/kcore","/proc/keys","/proc/latency_stats","/proc/timer_list","/proc/timer_stats","/proc/sched_debug","/proc/scsi","/sys/firmware","/sys/devices/virtual/powercap"]}`), true},
+		{"runc explícito", ok(`{"Runtime":"runc"}`), true},
+		{"campos normales permitidos", ok(`{"RestartPolicy":{"Name":"always"},"Memory":536870912,"CapDrop":["ALL"],"ReadonlyRootfs":true,"Init":true,"Ulimits":[{"Name":"nofile","Soft":1024,"Hard":2048}]}`), true},
 	} {
 		err := checkCreate([]byte(tc.body), project, protected)
 		if (err == nil) != tc.allowed {
