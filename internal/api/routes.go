@@ -24,9 +24,11 @@ func (s *Server) Handler() http.Handler {
 	r.Use(s.clientIP())
 	r.Use(s.requestLogger)
 	r.Use(s.recoverer)
+	r.Use(securityHeaders)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Use(middleware.NoCache)
+		r.Use(s.crossOrigin)
 		r.Use(jsonOnly)
 		r.NotFound(func(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusNotFound, errNotFoundRoute)

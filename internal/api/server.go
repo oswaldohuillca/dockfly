@@ -78,8 +78,10 @@ type Server struct {
 	// SetupToken es el código de instalación mientras no hay usuarios.
 	SetupToken string
 
-	applyMu sync.Mutex
-	mfa     mfaFailures
+	applyMu  sync.Mutex
+	mfa      mfaFailures
+	csrf     *http.CrossOriginProtection
+	csrfOnce sync.Once
 }
 
 // Apply publica el estado actual: regenera la configuración de Traefik y la

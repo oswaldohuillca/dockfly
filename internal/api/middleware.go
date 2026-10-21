@@ -67,8 +67,36 @@ func (s *Server) sessionUser(r *http.Request) (*store.User, bool) {
 	return u, true
 }
 
+// crossOrigin rechaza las peticiones de navegador que no son del mismo origen
+// (incluidas las de otro subdominio del mismo sitio, que SameSite=Strict no
+// frena). Deja pasar las que no son de navegador (CLI con token, webhooks,
+// agentes), que no llevan Sec-Fetch-Site ni Origin.
+func (s *Server) crossOrigin(next http.Handler) http.Handler {
+	s.csrfOnce.Do(func() { s.csrf = http.NewCrossOriginProtection() })
+	return s.csrf.Handler(next)
+}
+
+// securityHeaders protege el panel: evita que se enmarque (clickjacking), no
+// deja adivinar el tipo de contenido y limita de dónde carga recursos.
+func securityHeaders(next http.Handler) http.Handler {
+	const csp = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; " +
+		"img-src 'self' data:; font-src 'self'; connect-src 'self'; " +
+		"frame-ancestors 'none'; base-uri 'none'; object-src 'none'"
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := w.Header()
+		h.Set("X-Content-Type-Options", "nosniff")
+		h.Set("X-Frame-Options", "DENY")
+		h.Set("Referrer-Policy", "no-referrer")
+		h.Set("Content-Security-Policy", csp)
+		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
+			h.Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // jsonOnly exige Content-Type JSON en peticiones que modifican estado. Junto
-// con la cookie SameSite=Strict, esto bloquea CSRF desde formularios HTML.
+// con SameSite=Strict y crossOrigin, bloquea CSRF desde formularios HTML.
 // La única excepción son las subidas de despliegues, que llevan una cabecera
 // propia que un formulario no puede añadir.
 func jsonOnly(next http.Handler) http.Handler {
