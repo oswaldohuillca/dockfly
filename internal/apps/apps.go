@@ -356,6 +356,9 @@ func (m *Manager) deploy(ctx context.Context, d *store.AppDeployment, log io.Wri
 	if err := m.waitHealthy(ctx, app, cid, log); err != nil {
 		return fail(err)
 	}
+	if err := dc.KeepRunning(ctx, cid); err != nil {
+		return fail(fmt.Errorf("activando el reinicio automático: %w", err))
+	}
 
 	// 5. Activar: la base de datos primero y luego Traefik, que pasa el
 	// tráfico al contenedor nuevo.
@@ -474,9 +477,10 @@ func (m *Manager) waitHealthy(ctx context.Context, app *store.App, id string, lo
 		if firstStart.IsZero() {
 			firstStart = info.StartedAt
 		}
-		// Con la política unless-stopped, Docker reinicia en bucle un
-		// contenedor que se cae al arrancar: entre reinicio y reinicio parece
-		// "en marcha". Un reinicio durante la espera es una caída.
+		// El contenedor nuevo no tiene política de reinicio hasta estar listo,
+		// así que una caída lo deja parado con su código de salida. Por si
+		// acaso (Docker antiguo, cambios externos), un reinicio durante la
+		// espera también cuenta como caída.
 		crashed := !info.Running || info.Restarting || !info.StartedAt.Equal(firstStart)
 		if crashed {
 			reason := fmt.Sprintf("el contenedor terminó con código %d", info.ExitCode)

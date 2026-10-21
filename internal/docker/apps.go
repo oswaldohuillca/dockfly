@@ -31,9 +31,12 @@ type AppSpec struct {
 	CPUs     float64
 }
 
+// CreateAppContainer crea el contenedor de una app sin política de reinicio:
+// mientras se comprueba si arranca bien, una caída debe quedarse caída (con
+// su código de salida). Cuando está listo, KeepRunning le pone unless-stopped.
 func (c *Client) CreateAppContainer(ctx context.Context, spec AppSpec) (string, error) {
 	host := map[string]any{
-		"RestartPolicy": map[string]any{"Name": "unless-stopped"},
+		"RestartPolicy": map[string]any{"Name": "no"},
 		"Init":          true,
 		// Rotación de logs: un servicio que escribe mucho no llena el disco.
 		"LogConfig": map[string]any{"Type": "json-file", "Config": map[string]string{"max-size": "10m", "max-file": "3"}},
@@ -316,4 +319,11 @@ func (c *Client) Exec(ctx context.Context, container string, cmd []string) (stri
 	var out strings.Builder
 	err = Demux(resp.Body, &out)
 	return out.String(), err
+}
+
+// KeepRunning hace que Docker reinicie el contenedor si se cae o si se
+// reinicia el servidor (unless-stopped).
+func (c *Client) KeepRunning(ctx context.Context, id string) error {
+	body := map[string]any{"RestartPolicy": map[string]any{"Name": "unless-stopped"}}
+	return c.do(ctx, http.MethodPost, "/containers/"+url.PathEscape(id)+"/update", body, nil)
 }

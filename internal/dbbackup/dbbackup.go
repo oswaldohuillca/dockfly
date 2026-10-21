@@ -173,11 +173,14 @@ func (m *Manager) Start(ctx context.Context, app *store.App, trigger string) (*s
 		m.unlock(app.ID)
 		return nil, err
 	}
+	// La copia en marcha trabaja sobre su propio registro: el que se devuelve
+	// lo lee (y lo serializa) quien llamó, a la vez.
+	work := *b
 	go func() {
 		defer m.unlock(app.ID)
 		bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Hour)
 		defer cancel()
-		m.run(bg, app, b)
+		m.run(bg, app, &work)
 	}()
 	return b, nil
 }
