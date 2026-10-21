@@ -4,18 +4,74 @@ Panel para publicar aplicaciones detrás de **Traefik** con SSL automático, al 
 Nginx Proxy Manager. Todo va en **una sola imagen** (`scratch`, ~54 MB comprimida) con dos
 binarios: `dockfly` (API en Go + frontend React incrustado) y `traefik`.
 
-## Uso
+## Instalación
 
-```bash
-docker compose up -d --build
+Solo hace falta Docker. Crea un `docker-compose.yml`:
+
+```yaml
+services:
+  dockfly:
+    image: 'ghcr.io/oswaldohuillca/dockfly:latest'
+    container_name: dockfly
+    restart: unless-stopped
+
+    ports:
+      # Formato <puerto-del-host>:<puerto-del-contenedor>
+      - '80:80'   # HTTP público (Traefik)
+      - '443:443' # HTTPS público (Traefik)
+      - '81:81'   # Panel de Dockfly
+      # Añade los puertos de los streams TCP/UDP que quieras exponer
+      # - '5432:5432' # PostgreSQL
+
+    environment:
+      # Red de Docker que Dockfly comparte con las apps (la crea si no existe).
+      DOCKFLY_NETWORK: 'dockfly'
+
+      # Email para Let's Encrypt (avisos de caducidad). Opcional.
+      # DOCKFLY_ACME_EMAIL: 'tu@email.com'
+
+      # Descomenta para probar con el entorno de pruebas de Let's Encrypt
+      # (sin límites, pero los certificados no son de confianza).
+      # DOCKFLY_ACME_STAGING: 'true'
+
+    volumes:
+      # Base de datos, certificados, sitios publicados, copias…
+      - ./data:/data
+      # Para gestionar contenedores y apps. Sin él, solo proxy hosts y sitios.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    extra_hosts:
+      # Para apuntar a servicios que corren directamente en el servidor.
+      - 'host.docker.internal:host-gateway'
 ```
 
-Abre `http://TU_SERVIDOR:81` y crea la cuenta de administrador.
+```bash
+docker compose up -d
+```
+
+Abre `http://TU_SERVIDOR:81` y crea la cuenta de administrador (el primer usuario que se
+registra es el administrador). Para actualizar:
+
+```bash
+docker compose pull && docker compose up -d
+```
 
 | Puerto | Uso |
 |---|---|
 | 80 / 443 | Tráfico de las aplicaciones (Traefik) |
 | 81 | Panel de Dockfly |
+
+Las imágenes están en `ghcr.io/oswaldohuillca/dockfly` para **amd64 y arm64**: `:latest` es la
+última versión publicada, `:1.2.3` una versión concreta y `:edge` lo último de `main`. Todas las
+variables de entorno están en [Configuración](#configuración).
+
+> ⚠️ El socket de Docker da control total del servidor: protege el puerto 81 (cortafuegos o
+> VPN), o publica el panel con un dominio y SSL desde un proxy host y cierra el 81.
+
+Para desarrollar Dockfly, el `docker-compose.yml` del repositorio construye la imagen desde el
+código: `docker compose up -d --build`.
+
+## Funciones
 
 ### Destinos de un proxy host
 
@@ -128,7 +184,7 @@ Los binarios para Linux, macOS y Windows están en cada release; también se pue
 - run: npm ci && npm run build
 - run: >
     docker run --rm -v "$PWD/dist:/dist" -e DOCKFLY_URL -e DOCKFLY_TOKEN
-    ghcr.io/<propietario>/dockfly deploy /dist --site mi-web
+    ghcr.io/oswaldohuillca/dockfly deploy /dist --site mi-web
   env:
     DOCKFLY_URL: https://dockfly.midominio.com
     DOCKFLY_TOKEN: ${{ secrets.DOCKFLY_TOKEN }}
@@ -170,7 +226,7 @@ services:
       ALLOW_STOP: 1
       ALLOW_RESTARTS: 1
   dockfly:
-    image: ghcr.io/<propietario>/dockfly
+    image: ghcr.io/oswaldohuillca/dockfly
     environment:
       DOCKFLY_DOCKER_SOCKET: tcp://socket-proxy:2375
     # …sin montar /var/run/docker.sock
@@ -205,7 +261,7 @@ En *Servidores → Añadir servidor*, Dockfly da un comando para ejecutar en otr
 docker run -d --name dockfly-agent --restart unless-stopped \
   -p 80:80 -p 443:443 \
   -v /var/run/docker.sock:/var/run/docker.sock -v dockfly-agent:/data \
-  ghcr.io/<propietario>/dockfly agent --join https://dockfly.midominio.com --token dfa_…
+  ghcr.io/oswaldohuillca/dockfly agent --join https://dockfly.midominio.com --token dfa_…
 ```
 
 El **agente** se conecta al panel (no hay que abrir puertos en el servidor, funciona tras NAT) y
@@ -308,10 +364,14 @@ La base de datos es la única fuente de verdad: en cada cambio (y al arrancar) s
 > ⚠️ Montar el socket de Docker da control total del host. Protege el puerto 81
 > (firewall o VPN, o publica el panel detrás de un proxy host con SSL).
 
-## Imágenes publicadas
+## Publicar una versión
 
-Cada versión se publica en `ghcr.io/<propietario>/dockfly` para **amd64 y arm64** (Raspberry
-Pi, instancias ARM…): `:latest` y `:1.2.3` para las versiones, `:edge` para `main`.
+Cada push a `main` publica `ghcr.io/oswaldohuillca/dockfly:edge`. Una etiqueta publica la
+versión, `:latest` y los binarios del CLI en la release de GitHub:
+
+```bash
+git tag v0.1.0 && git push origin v0.1.0
+```
 
 ## Desarrollo
 

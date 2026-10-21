@@ -243,7 +243,7 @@ function TokenCreatedDialog({ token, onClose }: { token: string; onClose: () => 
 DOCKFLY_TOKEN=${token} \\
 dockfly deploy ./dist --site mi-web`;
   const dockerCommand =
-    'docker run --rm -v $PWD/dist:/dist -e DOCKFLY_URL -e DOCKFLY_TOKEN ghcr.io/<propietario>/dockfly deploy /dist --site mi-web';
+    'docker run --rm -v $PWD/dist:/dist -e DOCKFLY_URL -e DOCKFLY_TOKEN ghcr.io/oswaldohuillca/dockfly deploy /dist --site mi-web';
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-xl">

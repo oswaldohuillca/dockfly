@@ -152,7 +152,7 @@ func (s *Server) joinCommand(ctx context.Context, r *http.Request, token string)
 	}
 	image := s.Image
 	if image == "" {
-		image = "ghcr.io/<propietario>/dockfly"
+		image = "ghcr.io/oswaldohuillca/dockfly:latest"
 	}
 	return fmt.Sprintf("docker run -d --name dockfly-agent --restart unless-stopped \\\n"+
 		"  -p 80:80 -p 443:443 \\\n"+

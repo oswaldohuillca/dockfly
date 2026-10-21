@@ -1,6 +1,6 @@
 name: Publicar imagen
 
-# Publica ghcr.io/<propietario>/dockfly para amd64 y arm64:
+# Publica ghcr.io/<propietario>/dockfly (ghcr.io/oswaldohuillca/dockfly) para amd64 y arm64:
 #   - push a main  → :edge
 #   - etiqueta v1.2.3 → :1.2.3, :1.2 y :latest
 # y, con cada etiqueta, el binario (servidor + CLI "dockfly deploy") para
