@@ -347,6 +347,7 @@ func TestRedirectsAndHeaders(t *testing.T) {
 `,
 		"_headers": `/*
   X-Frame-Options: DENY
+  Set-Cookie: evil=1; Domain=test
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 /sin-frame
@@ -389,6 +390,9 @@ func TestRedirectsAndHeaders(t *testing.T) {
 	}
 	if h := get(srv, "s.test", "/sin-frame").Header(); h.Get("X-Frame-Options") != "" {
 		t.Errorf("«! Cabecera» debe quitarla: %v", h)
+	}
+	if h := get(srv, "s.test", "/").Header(); h.Get("Set-Cookie") != "" {
+		t.Errorf("_headers no debe poder fijar Set-Cookie: %q", h.Get("Set-Cookie"))
 	}
 	for _, p := range []string{"/_redirects", "/_headers"} {
 		if rec := get(srv, "s.test", p); rec.Code != 404 {

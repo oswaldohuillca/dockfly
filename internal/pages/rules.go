@@ -106,6 +106,9 @@ func ParseRedirects(r io.Reader) []RedirectRule {
 
 // ParseHeaders lee un _headers: una ruta y, sangradas debajo, sus cabeceras
 // ("Nombre: valor", o "! Nombre" para quitarla).
+// forbiddenHeader son cabeceras que un _headers no puede fijar.
+var forbiddenHeader = map[string]bool{"Set-Cookie": true}
+
 func ParseHeaders(r io.Reader) []HeaderRule {
 	var out []HeaderRule
 	var cur *HeaderRule
@@ -134,8 +137,13 @@ func ParseHeaders(r io.Reader) []HeaderRule {
 			cur.Remove = append(cur.Remove, http.CanonicalHeaderKey(strings.TrimSpace(name)))
 			continue
 		}
-		if name, value, ok := strings.Cut(line, ":"); ok && strings.TrimSpace(name) != "" {
-			cur.Set[http.CanonicalHeaderKey(strings.TrimSpace(name))] = strings.TrimSpace(value)
+		if name, value, ok := strings.Cut(line, ":"); ok {
+			key := http.CanonicalHeaderKey(strings.TrimSpace(name))
+			// Set-Cookie permitiría plantar cookies en el dominio padre
+			// (cookie tossing contra el panel si comparten dominio).
+			if key != "" && !forbiddenHeader[key] {
+				cur.Set[key] = strings.TrimSpace(value)
+			}
 		}
 	}
 	return out
