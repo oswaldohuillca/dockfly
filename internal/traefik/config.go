@@ -31,14 +31,13 @@ const (
 
 // Options define la configuración estática de Traefik.
 type Options struct {
-	DataDir      string // directorio persistente (/data)
-	HTTPAddr     string // ":80"
-	HTTPSAddr    string // ":443"
-	ACMEEmail    string
-	ACMEStaging  bool
-	DockerSocket string // vacío si Docker no está disponible
-	DockerNet    string // red en la que Traefik busca contenedores con labels
-	LogLevel     string
+	DataDir     string // directorio persistente (/data)
+	HTTPAddr    string // ":80"
+	HTTPSAddr   string // ":443"
+	ACMEEmail   string
+	ACMEStaging bool
+	DockerNet   string // red en la que Traefik busca contenedores con labels
+	LogLevel    string
 	// Streams son los puertos TCP/UDP que escucha Traefik. Son configuración
 	// estática: cambiarlos exige reiniciar Traefik.
 	Streams []StreamPort
@@ -84,16 +83,10 @@ func WriteStatic(o Options) error {
 		// Aplica los cambios del panel casi al instante (por defecto, 2 s).
 		"providersThrottleDuration": "200ms",
 	}
-	if o.DockerSocket != "" {
-		docker := map[string]any{
-			"endpoint":         dockerEndpoint(o.DockerSocket),
-			"exposedByDefault": false,
-		}
-		if o.DockerNet != "" {
-			docker["network"] = o.DockerNet
-		}
-		providers["docker"] = docker
-	}
+	// Sin proveedor Docker: todas las rutas las genera Dockfly en el proveedor
+	// de archivos. Con él, cualquier contenedor (una app o la etiqueta de una
+	// imagen) podría declarar sus propios routers con etiquetas traefik.* y
+	// quedarse con el tráfico de cualquier dominio.
 
 	resolvers := map[string]any{CertResolver: map[string]any{"acme": acme}}
 	for _, p := range o.DNSProviders {
@@ -548,12 +541,4 @@ func streamConfig(streams []Stream, into map[string]any) {
 	for proto, sec := range sections {
 		into[proto] = map[string]any{"routers": sec["routers"], "services": sec["services"]}
 	}
-}
-
-// dockerEndpoint acepta la ruta del socket o una dirección "tcp://…".
-func dockerEndpoint(socket string) string {
-	if strings.HasPrefix(socket, "tcp://") || strings.HasPrefix(socket, "unix://") {
-		return socket
-	}
-	return "unix://" + socket
 }

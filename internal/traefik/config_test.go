@@ -1,6 +1,7 @@
 package traefik
 
 import (
+	"os"
 	"slices"
 	"strings"
 	"testing"
@@ -157,5 +158,18 @@ func TestWildcardAndResolvers(t *testing.T) {
 	c := routers["concreto-secure"].(map[string]any)
 	if _, has := c["tls"].(map[string]any)["certResolver"]; has || c["priority"] != nil {
 		t.Errorf("con certificado propio no debe pedirse a Let's Encrypt: %v", c)
+	}
+}
+
+// Traefik no debe leer etiquetas de los contenedores: las rutas solo las
+// genera Dockfly.
+func TestStaticWithoutDockerProvider(t *testing.T) {
+	o := Options{DataDir: t.TempDir(), HTTPAddr: ":80", HTTPSAddr: ":443", DockerNet: "dockfly"}
+	if err := WriteStatic(o); err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := os.ReadFile(o.StaticFile())
+	if strings.Contains(string(raw), "docker:") || strings.Contains(string(raw), "exposedByDefault") {
+		t.Errorf("la configuración estática no debe tener el proveedor Docker:\n%s", raw)
 	}
 }
