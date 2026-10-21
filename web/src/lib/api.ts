@@ -590,8 +590,9 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
 }
 
 export const api = {
-  setupStatus: () => request<{ needs_setup: boolean }>('GET', '/setup'),
-  setup: (data: { name: string; email: string; password: string }) => request<User>('POST', '/setup', data),
+  setupStatus: () => request<{ needs_setup: boolean; setup_code_required: boolean }>('GET', '/setup'),
+  setup: (data: { name: string; email: string; password: string; setup_token?: string }) =>
+    request<User>('POST', '/setup', data),
   login: (data: { email: string; password: string }) => request<LoginResult>('POST', '/auth/login', data),
   login2FA: (data: { ticket: string; code: string }) =>
     request<{ user: User; used_recovery_code: boolean; recovery_codes_left: number }>('POST', '/auth/login/2fa', data),
@@ -756,9 +757,19 @@ function uploadDeployment(siteId: number, payload: UploadPayload, onProgress?: (
   return upload<Deployment>(`/api/sites/${siteId}/deployments`, form, onProgress);
 }
 
-/** Sube una copia de seguridad para restaurarla. */
-export function restoreBackup(file: File, onProgress?: (p: number) => void) {
+/**
+ * Sube una copia de seguridad para restaurarla. Se confirma con la contraseña
+ * del administrador o, en una instalación nueva, con el código de instalación.
+ */
+export function restoreBackup(
+  file: File,
+  confirm: { password?: string; setup_token?: string },
+  onProgress?: (p: number) => void,
+) {
   const form = new FormData();
+  // Los campos de confirmación van antes que el archivo (el servidor los lee en orden).
+  if (confirm.password) form.append('password', confirm.password);
+  if (confirm.setup_token) form.append('setup_token', confirm.setup_token);
   form.append('backup', file);
   return upload<{ message: string }>('/api/backup/restore', form, onProgress);
 }

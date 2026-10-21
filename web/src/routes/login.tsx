@@ -18,13 +18,14 @@ export const Route = createFileRoute('/login')({
 });
 
 function Login() {
-  const { needs_setup } = Route.useLoaderData();
+  const { needs_setup, setup_code_required } = Route.useLoaderData();
   const { redirect: target } = Route.useSearch();
   const router = useRouter();
 
   return (
     <AuthForm
       setup={needs_setup}
+      setupCodeRequired={setup_code_required}
       onAuthenticated={(user) => {
         setUser(user);
         router.history.push(safeRedirect(target));

@@ -145,6 +145,7 @@ export const apiErrors: Record<string, MessageDescriptor> = {
   server_invalid_name: msg({ context: "api:server_invalid_name", message: "The name can only contain lowercase letters, numbers and hyphens" }),
   server_name_taken: msg({ context: "api:server_name_taken", message: "A server with that name already exists" }),
   server_not_found: msg({ context: "api:server_not_found", message: "Server not found" }),
+  setup_token_invalid: msg({ context: "api:setup_token_invalid", message: "Wrong setup code: find it in Dockfly's logs (docker logs dockfly) or in /data/setup-token" }),
   site_name_invalid: msg({ context: "api:site_name_invalid", message: "The name can only contain lowercase letters, numbers and hyphens (max. 63)" }),
   site_name_taken: msg({ context: "api:site_name_taken", message: "A site with that name already exists" }),
   site_not_found: msg({ context: "api:site_not_found", message: "Site not found" }),

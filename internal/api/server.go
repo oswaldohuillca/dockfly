@@ -75,6 +75,9 @@ type Server struct {
 	// restauración de copias, que se aplica al arrancar).
 	Restart func()
 
+	// SetupToken es el código de instalación mientras no hay usuarios.
+	SetupToken string
+
 	applyMu sync.Mutex
 	mfa     mfaFailures
 }
@@ -241,6 +244,7 @@ var (
 	errPasswordTooShort = newError("password_too_short", "The password must be at least {min} characters long")
 	errAlreadySetUp     = newError("already_set_up", "This installation is already set up")
 	errBadCredentials   = newError("bad_credentials", "Wrong email or password")
+	errSetupToken       = newError("setup_token_invalid", "Wrong setup code: find it in Dockfly's logs (docker logs dockfly) or in /data/setup-token")
 )
 
 func currentUser(r *http.Request) *store.User {
@@ -269,13 +273,15 @@ func (s *Server) handleSetupStatus(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]bool{"needs_setup": n == 0})
+	writeJSON(w, http.StatusOK, map[string]bool{"needs_setup": n == 0, "setup_code_required": n == 0 && s.SetupToken != ""})
 }
 
 type credentials struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
+	// SetupToken es el código de instalación (solo en el alta inicial).
+	SetupToken string `json:"setup_token,omitempty"`
 }
 
 // handleSetup crea el primer administrador. Solo funciona mientras no haya usuarios.
@@ -311,6 +317,10 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, errAlreadySetUp)
 		return
 	}
+	if !s.checkSetupToken(in.SetupToken) {
+		writeError(w, http.StatusForbidden, errSetupToken)
+		return
+	}
 	hash, err := auth.HashPassword(in.Password)
 	if err != nil {
 		s.internalError(w, err)
@@ -321,6 +331,7 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
+	s.clearSetupToken()
 	s.setSession(w, r, u)
 	writeJSON(w, http.StatusCreated, u)
 }

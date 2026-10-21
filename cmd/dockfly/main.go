@@ -198,6 +198,14 @@ func run(log *slog.Logger) error {
 	certs.OnError = srv.OnCertError
 	srv.Builds = builder.New(buildCfg)
 	srv.Hub = &tunnel.Hub{OnConnect: srv.OnAgentConnect}
+	// Instalación nueva: el alta del administrador exige este código, que
+	// solo ve quien tiene acceso al servidor.
+	if token, err := srv.PrepareSetupToken(ctx); err != nil {
+		return fmt.Errorf("preparando el código de instalación: %w", err)
+	} else if token != "" {
+		log.Warn("instalación nueva: para crear el administrador usa el código de instalación "+token,
+			"también_en", filepath.Join(dataDir, "setup-token"))
+	}
 	srv.Apps = apps.New(apps.Config{
 		Remote: srv.RemoteDocker, RemoteNetwork: srv.RemoteNetwork, RemoteProbe: srv.RemoteProbe,
 		Store: st, Docker: dc, Secrets: box, Providers: srv.Git, LogDir: filepath.Join(dataDir, "builds"),

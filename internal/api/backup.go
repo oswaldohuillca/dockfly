@@ -8,7 +8,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/dockfly/dockfly/internal/auth"
 	"github.com/dockfly/dockfly/internal/backup"
+	"github.com/dockfly/dockfly/internal/store"
 )
 
 // Una copia incluye los sitios publicados: puede pesar bastante más que una
@@ -44,11 +46,22 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
+	// Restaurar sustituye la base de datos y las claves: con usuarios, solo
+	// un administrador con su sesión del panel (no un token de API) y
+	// volviendo a escribir su contraseña; en una instalación nueva, con el
+	// código de instalación.
+	var admin *store.User
 	if n > 0 {
-		if _, ok := s.sessionUser(r); !ok {
+		u, ok := s.sessionUser(r)
+		if !ok {
 			writeError(w, http.StatusUnauthorized, errUnauthenticated)
 			return
 		}
+		if u.Role != store.RoleAdmin {
+			writeError(w, http.StatusForbidden, errRoleForbidden)
+			return
+		}
+		admin = u
 	}
 	if !isMultipartUpload(r) {
 		writeError(w, http.StatusBadRequest, errBackupMultipart)
@@ -60,6 +73,8 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errBackupMultipart)
 		return
 	}
+	// Los campos de confirmación van antes que el archivo.
+	var password, setupToken string
 	for {
 		part, err := mr.NextPart()
 		if err == io.EOF {
@@ -70,9 +85,30 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusBadRequest, errBackupUpload.With("detail", err.Error()))
 			return
 		}
-		if part.FormName() != "backup" {
+		switch part.FormName() {
+		case "password", "setup_token":
+			v, _ := io.ReadAll(io.LimitReader(part, 1024))
+			part.Close()
+			if part.FormName() == "password" {
+				password = string(v)
+			} else {
+				setupToken = string(v)
+			}
+			continue
+		case "backup":
+		default:
 			part.Close()
 			continue
+		}
+		if admin != nil && !auth.CheckPassword(admin.PasswordHash, password) {
+			part.Close()
+			writeError(w, http.StatusForbidden, errWrongPassword)
+			return
+		}
+		if admin == nil && !s.checkSetupToken(setupToken) {
+			part.Close()
+			writeError(w, http.StatusForbidden, errSetupToken)
+			return
 		}
 		m, err := backup.Stage(part, s.DataDir)
 		part.Close()

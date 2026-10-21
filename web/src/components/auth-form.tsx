@@ -15,10 +15,13 @@ import { api, ApiError, errorMessage, type User } from '@/lib/api';
 interface Props {
   /** true en la primera instalación: crea el administrador en vez de iniciar sesión. */
   setup: boolean;
+  /** La instalación exige el código de instalación (está en el log del servidor). */
+  setupCodeRequired?: boolean;
   onAuthenticated: (user: User) => void;
 }
 
-export function AuthForm({ setup, onAuthenticated }: Props) {
+export function AuthForm({ setup, setupCodeRequired, onAuthenticated }: Props) {
+  const [setupCode, setSetupCode] = useState('');
   const { t } = useLingui();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -36,7 +39,7 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
     setBusy(true);
     try {
       if (setup) {
-        onAuthenticated(await api.setup({ name, email, password }));
+        onAuthenticated(await api.setup({ name, email, password, setup_token: setupCode }));
         return;
       }
       if (ticket) {
@@ -160,6 +163,29 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-4">
+              {setup && setupCodeRequired && (
+                <div className="space-y-2">
+                  <Label htmlFor="setup-code">
+                    <Trans>Setup code</Trans>
+                  </Label>
+                  <Input
+                    id="setup-code"
+                    value={setupCode}
+                    onChange={(e) => setSetupCode(e.target.value)}
+                    required
+                    autoComplete="off"
+                    className="font-mono"
+                    placeholder="xxxxxx-xxxxxx-xxxxxx-xxxxxx"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    <Trans>
+                      So nobody can claim your panel before you do. It's in the server logs (
+                      <code className="font-mono">docker logs dockfly</code>) and in{' '}
+                      <code className="font-mono">/data/setup-token</code>.
+                    </Trans>
+                  </p>
+                </div>
+              )}
               {setup && (
                 <div className="space-y-2">
                   <Label htmlFor="name">
@@ -210,7 +236,7 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
                 <p className="text-xs text-muted-foreground">
                   <Trans>Coming from another server?</Trans>
                 </p>
-                <RestoreBackup variant="link" />
+                <RestoreBackup variant="link" setupToken={setupCode} />
               </div>
             )}
           </CardContent>

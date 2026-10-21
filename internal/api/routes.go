@@ -51,7 +51,7 @@ func (s *Server) Handler() http.Handler {
 		r.With(mfaLimit).Post("/auth/login/2fa", s.handleLogin2FA)
 		r.Post("/auth/logout", s.handleLogout)
 		// Sin sesión solo en una instalación nueva (lo comprueba el handler).
-		r.Post("/backup/restore", s.handleRestoreBackup)
+		r.With(authLimit).Post("/backup/restore", s.handleRestoreBackup)
 		// Webhooks de GitHub/GitLab: sin sesión, autenticados por su firma.
 		r.Post("/hooks/github-app", s.handleGitHubAppWebhook)
 		r.Post("/hooks/{provider}/apps/{id}", s.handleAppWebhook)
