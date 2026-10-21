@@ -619,8 +619,9 @@ export const api = {
   trafficSummary: () => request<Record<string, TrafficSummary>>('GET', '/traffic'),
   listServers: () => request<RemoteServer[]>('GET', '/servers'),
   createServer: (name: string) =>
-    request<{ server: RemoteServer; token: string; command: string }>('POST', '/servers', { name }),
-  rotateServerToken: (id: number) => request<{ token: string; command: string }>('POST', `/servers/${id}/token`),
+    request<{ server: RemoteServer; token: string; command: string; warning: string }>('POST', '/servers', { name }),
+  rotateServerToken: (id: number) =>
+    request<{ token: string; command: string; warning: string }>('POST', `/servers/${id}/token`),
   deleteServer: (id: number) => request<void>('DELETE', `/servers/${id}`),
   listTokens: () => request<APIToken[]>('GET', '/tokens'),
   createToken: (data: { name: string; role: Role; expires_days: number }) =>

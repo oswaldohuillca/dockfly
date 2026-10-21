@@ -53,6 +53,7 @@ func TestServersAndAgent(t *testing.T) {
 	s := serverOf(t, ts)
 	c := newClient(t, ts)
 	c.do("POST", "/api/setup", adminJSON)
+	c.do("PUT", "/api/settings", `{"public_url":"https://dockfly.ejemplo.com"}`)
 
 	code, body := c.do("POST", "/api/servers", `{"name":"Madrid-1"}`)
 	if code != 201 {
@@ -60,7 +61,7 @@ func TestServersAndAgent(t *testing.T) {
 	}
 	token := body["token"].(string)
 	cmd := body["command"].(string)
-	if !strings.HasPrefix(token, "dfa_") || !strings.Contains(cmd, "agent --join "+ts.URL+" --token "+token) {
+	if !strings.HasPrefix(token, "dfa_") || !strings.Contains(cmd, "agent --join https://dockfly.ejemplo.com --token "+token) {
 		t.Errorf("token/comando: %s\n%s", token, cmd)
 	}
 	if code, _ := c.do("POST", "/api/servers", `{"name":"madrid-1"}`); code != 409 {
@@ -166,5 +167,24 @@ func waitFor(t *testing.T, what string, cond func() bool) {
 			t.Fatalf("esperando a que %s", what)
 		}
 		time.Sleep(20 * time.Millisecond)
+	}
+}
+
+// Sin URL pública HTTPS no se genera el comando del agente (el canal debe ir
+// cifrado: lleva el token y la API de Docker del servidor remoto).
+func TestServerCommandNeedsHTTPS(t *testing.T) {
+	ts, _ := testServer(t)
+	c := newClient(t, ts)
+	c.do("POST", "/api/setup", adminJSON)
+	if _, body := c.do("POST", "/api/servers", `{"name":"s1"}`); body["command"].(string) != "" || body["warning"].(string) == "" {
+		t.Errorf("sin URL pública debe avisar y no dar comando: %v", body)
+	}
+	c.do("PUT", "/api/settings", `{"public_url":"http://inseguro.test"}`)
+	if _, body := c.do("POST", "/api/servers", `{"name":"s2"}`); body["command"].(string) != "" {
+		t.Errorf("con URL http (no https) tampoco debe dar comando: %v", body)
+	}
+	c.do("PUT", "/api/settings", `{"public_url":"https://seguro.test"}`)
+	if _, body := c.do("POST", "/api/servers", `{"name":"s3"}`); body["command"].(string) == "" || body["warning"].(string) != "" {
+		t.Errorf("con https debe dar el comando: %v", body)
 	}
 }

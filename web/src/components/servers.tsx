@@ -1,14 +1,21 @@
 import { ph } from '@lingui/core/macro';
 import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import { useCallback, useEffect, useState } from 'react';
-import { Copy, KeyRound, Loader2, Plus, Server, Trash2 } from 'lucide-react';
+import { Copy, KeyRound, Loader2, Plus, Server, Trash2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, errorMessage, type RemoteServer } from '@/lib/api';
@@ -19,7 +26,7 @@ export function Servers() {
   const { t } = useLingui();
   const [servers, setServers] = useState<RemoteServer[]>([]);
   const [adding, setAdding] = useState(false);
-  const [join, setJoin] = useState<{ name: string; command: string } | null>(null);
+  const [join, setJoin] = useState<{ name: string; command: string; warning: string } | null>(null);
 
   const load = useCallback(() => {
     api
@@ -37,7 +44,7 @@ export function Servers() {
   async function rotate(s: RemoteServer) {
     try {
       const res = await api.rotateServerToken(s.id);
-      setJoin({ name: s.name, command: res.command });
+      setJoin({ name: s.name, command: res.command, warning: res.warning });
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -138,9 +145,9 @@ export function Servers() {
       {adding && (
         <AddServerDialog
           onClose={() => setAdding(false)}
-          onCreated={(name, command) => {
+          onCreated={(info) => {
             setAdding(false);
-            setJoin({ name, command });
+            setJoin(info);
             load();
           }}
         />
@@ -150,7 +157,13 @@ export function Servers() {
   );
 }
 
-function AddServerDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (name: string, command: string) => void }) {
+function AddServerDialog({
+  onClose,
+  onCreated,
+}: {
+  onClose: () => void;
+  onCreated: (info: { name: string; command: string; warning: string }) => void;
+}) {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -161,7 +174,7 @@ function AddServerDialog({ onClose, onCreated }: { onClose: () => void; onCreate
     setBusy(true);
     try {
       const res = await api.createServer(name);
-      onCreated(res.server.name, res.command);
+      onCreated({ name: res.server.name, command: res.command, warning: res.warning });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -214,7 +227,17 @@ function AddServerDialog({ onClose, onCreated }: { onClose: () => void; onCreate
   );
 }
 
-function JoinDialog({ name, command, onClose }: { name: string; command: string; onClose: () => void }) {
+function JoinDialog({
+  name,
+  command,
+  warning,
+  onClose,
+}: {
+  name: string;
+  command: string;
+  warning: string;
+  onClose: () => void;
+}) {
   const { t } = useLingui();
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
@@ -230,7 +253,14 @@ function JoinDialog({ name, command, onClose }: { name: string; command: string;
             </Trans>
           </DialogDescription>
         </DialogHeader>
-        <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs">{command}</pre>
+        {warning ? (
+          <Alert variant="destructive">
+            <TriangleAlert />
+            <AlertDescription>{warning}</AlertDescription>
+          </Alert>
+        ) : (
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs">{command}</pre>
+        )}
         <p className="text-xs text-muted-foreground">
           <Trans>
             It uses the server's ports 80 and 443 for its apps. The panel must be reachable from it: set its public URL
@@ -240,6 +270,7 @@ function JoinDialog({ name, command, onClose }: { name: string; command: string;
         <DialogFooter>
           <Button
             variant="outline"
+            disabled={!command}
             onClick={() => navigator.clipboard.writeText(command).then(() => toast.success(t`Command copied`))}
           >
             <Copy /> <Trans>Copy</Trans>

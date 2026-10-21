@@ -141,14 +141,13 @@ func (s *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
 }
 
 // joinCommand es lo que se ejecuta en el servidor nuevo para conectarlo.
-func (s *Server) joinCommand(ctx context.Context, r *http.Request, token string) string {
+// joinCommand arma el comando que conecta un servidor nuevo. warning != ""
+// si falta la URL pública HTTPS: el token del agente y la API de Docker del
+// servidor viajan por ese canal, así que debe ir cifrado.
+func (s *Server) joinCommand(ctx context.Context, token string) (cmd, warning string) {
 	panel, _ := s.Store.GetSetting(ctx, store.SettingPublicURL)
-	if panel == "" {
-		scheme := "http"
-		if r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https" {
-			scheme = "https"
-		}
-		panel = scheme + "://" + r.Host
+	if !strings.HasPrefix(panel, "https://") {
+		return "", "configura primero la URL pública del panel (https://) en Integraciones: el agente se conecta a ella y el canal debe ir cifrado"
 	}
 	image := s.Image
 	if image == "" {
@@ -158,7 +157,7 @@ func (s *Server) joinCommand(ctx context.Context, r *http.Request, token string)
 		"  -p 80:80 -p 443:443 \\\n"+
 		"  -v /var/run/docker.sock:/var/run/docker.sock \\\n"+
 		"  -v dockfly-agent:/data \\\n"+
-		"  %s agent --join %s --token %s", image, panel, token)
+		"  %s agent --join %s --token %s", image, panel, token), ""
 }
 
 func (s *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
@@ -182,8 +181,9 @@ func (s *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
+	cmd, warning := s.joinCommand(r.Context(), token)
 	writeJSON(w, http.StatusCreated, map[string]any{
-		"server": serverView{Server: sv}, "token": token, "command": s.joinCommand(r.Context(), r, token),
+		"server": serverView{Server: sv}, "token": token, "command": cmd, "warning": warning,
 	})
 }
 
@@ -214,7 +214,8 @@ func (s *Server) handleServerToken(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"token": token, "command": s.joinCommand(r.Context(), r, token)})
+	cmd, warning := s.joinCommand(r.Context(), token)
+	writeJSON(w, http.StatusOK, map[string]any{"token": token, "command": cmd, "warning": warning})
 }
 
 func (s *Server) handleDeleteServer(w http.ResponseWriter, r *http.Request) {

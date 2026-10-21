@@ -440,11 +440,18 @@ func agentCommand(args []string) int {
 	fl := flag.NewFlagSet("agent", flag.ContinueOnError)
 	panel := fl.String("join", os.Getenv("DOCKFLY_PANEL_URL"), "dirección del panel")
 	token := fl.String("token", os.Getenv("DOCKFLY_AGENT_TOKEN"), "token del servidor")
+	// El token del agente y toda la API de Docker del servidor viajan por este
+	// canal: sin HTTPS, cualquiera en la red podría robarlos.
+	insecure := fl.Bool("insecure", os.Getenv("DOCKFLY_AGENT_INSECURE") == "1", "permitir una conexión sin cifrar (solo pruebas)")
 	if err := fl.Parse(args); err != nil {
 		return 2
 	}
 	if *panel == "" || *token == "" {
 		fmt.Fprintln(os.Stderr, "uso: dockfly agent --join https://dockfly.midominio.com --token dfa_…\n(el comando completo está en el panel: Servidores → Añadir servidor)")
+		return 2
+	}
+	if !strings.HasPrefix(*panel, "https://") && !*insecure {
+		fmt.Fprintln(os.Stderr, "la dirección del panel debe empezar por https:// (o añade --insecure, solo para pruebas en red local)")
 		return 2
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel()}))
