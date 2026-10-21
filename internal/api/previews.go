@@ -154,23 +154,29 @@ func (s *Server) prunePreview(ctx context.Context, siteID int64, preview string)
 // sitio y devuelve la ruta de Traefik del comodín (ok=false si no hay
 // dominio de previews).
 func (s *Server) previewRoutes(ctx context.Context, sites []*store.Site, table map[string]pages.Route,
-	acl map[int64][]string) (traefik.Route, bool, error) {
+	acl map[int64][]string) (wildcard traefik.Route, protectedPreviews []traefik.Route, ok bool, err error) {
 	domain, err := s.previewDomain(ctx)
 	if err != nil || domain == "" {
-		return traefik.Route{}, false, err
+		return traefik.Route{}, nil, false, err
 	}
+	// Los previews de un sitio protegido llevan la lista de acceso del sitio
+	// en un router propio por host (gana al comodín por prioridad). Se
+	// devuelven como rutas extra.
 	for _, site := range sites {
 		if !site.Previews {
 			continue
 		}
 		deps, err := s.Store.ListPreviews(ctx, site.ID)
 		if err != nil {
-			return traefik.Route{}, false, err
+			return traefik.Route{}, nil, false, err
 		}
 		for _, d := range deps {
 			host := previewHost(domain, site.Name, d.Preview)
 			if _, taken := table[host]; !taken {
 				table[host] = pages.Route{Dir: s.PagesStorage.DeploymentDir(site.ID, d.ID), DeploymentID: d.ID, SPA: site.SPA}
+			}
+			if site.AccessListID != nil {
+				protectedPreviews = append(protectedPreviews, previewSiteRoute(site, host, s.StaticURL))
 			}
 		}
 	}
@@ -185,10 +191,24 @@ func (s *Server) previewRoutes(ctx context.Context, sites []*store.Site, table m
 		}
 	}
 	// Con certificado comodín (zona DNS o propio), las previews van por HTTPS.
+	ssl := false
 	if plan, err := s.loadCertPlan(ctx); err == nil && plan.resolver(rt.Domains) != "" {
-		rt.SSL, rt.ForceHTTPS = true, true
+		rt.SSL, rt.ForceHTTPS, ssl = true, true, true
 	}
-	return rt, true, nil
+	for i := range protectedPreviews {
+		protectedPreviews[i].SSL, protectedPreviews[i].ForceHTTPS = ssl, ssl
+		protectedPreviews[i].Resolver = traefik.NoResolver // el comodín ya tiene el certificado
+	}
+	return rt, protectedPreviews, true, nil
+}
+
+// previewSiteRoute es el router de un host de preview concreto, con la lista
+// de acceso de su sitio.
+func previewSiteRoute(site *store.Site, host, staticURL string) traefik.Route {
+	return traefik.Route{
+		Name: fmt.Sprintf("preview-%d-%s", site.ID, host), Domains: []string{host},
+		URL: staticURL, PreserveHost: true, Compress: true,
+	}
 }
 
 type previewView struct {

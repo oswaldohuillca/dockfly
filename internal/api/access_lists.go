@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -53,6 +54,12 @@ func (s *Server) accessListUsage(ctx context.Context) (map[int64]int, error) {
 		if h.AccessListID != nil {
 			used[*h.AccessListID]++
 		}
+		// Las ubicaciones personalizadas también pueden usar una lista.
+		for _, l := range h.Locations {
+			if l.AccessListID != nil {
+				used[*l.AccessListID]++
+			}
+		}
 	}
 	sites, err := s.Store.ListSites(ctx)
 	if err != nil {
@@ -70,6 +77,13 @@ func (s *Server) accessListUsage(ctx context.Context) (map[int64]int, error) {
 	for _, a := range appList {
 		if a.AccessListID != nil {
 			used[*a.AccessListID]++
+		}
+	}
+	// La lista global de previews.
+	if raw, _ := s.Store.GetSetting(ctx, store.SettingPreviewAccessList); raw != "" {
+		var id int64
+		if _, err := fmt.Sscan(raw, &id); err == nil {
+			used[id]++
 		}
 	}
 	return used, nil

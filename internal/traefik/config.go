@@ -21,9 +21,12 @@ import (
 const (
 	CertResolver = "letsencrypt"
 
-	mwRedirectHTTPS  = "dockfly-redirect-https"
-	mwHSTS           = "dockfly-hsts"
-	mwCompress       = "dockfly-compress"
+	mwRedirectHTTPS = "dockfly-redirect-https"
+	mwHSTS          = "dockfly-hsts"
+	mwCompress      = "dockfly-compress"
+	// MwDeny lo deniega todo: se usa cuando una ruta debería estar protegida
+	// por una lista de acceso que ya no existe (nunca debe quedar abierta).
+	MwDeny           = "dockfly-deny"
 	transportNoCheck = "dockfly-insecure"
 
 	dynamicFile = "dockfly.yml"
@@ -291,6 +294,8 @@ func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 		},
 		// gzip/brotli/zstd según lo que acepte el navegador.
 		mwCompress: map[string]any{"compress": map[string]any{}},
+		// Ningún cliente real tiene esta IP: deniega todo.
+		MwDeny: map[string]any{"ipAllowList": map[string]any{"sourceRange": []string{"255.255.255.255/32"}}},
 	}
 	for name, mw := range extra {
 		middlewares[name] = mw

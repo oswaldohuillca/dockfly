@@ -113,9 +113,15 @@ func (s *Server) Apply(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	// withACL aplica la lista de acceso id a una ruta. Si la lista ya no
+	// existe (se borró), deniega todo en vez de dejar la ruta pública.
 	withACL := func(rt traefik.Route, id *int64) traefik.Route {
 		if id != nil {
-			rt.Middlewares = acl[*id]
+			if mw, ok := acl[*id]; ok {
+				rt.Middlewares = mw
+			} else {
+				rt.Middlewares = []string{traefik.MwDeny}
+			}
 		}
 		return rt
 	}
@@ -201,10 +207,19 @@ func (s *Server) Apply(ctx context.Context) error {
 			table[d] = pr
 		}
 	}
-	if rt, ok, err := s.previewRoutes(ctx, sites, table, acl); err != nil {
+	if rt, protectedPreviews, ok, err := s.previewRoutes(ctx, sites, table, acl); err != nil {
 		return err
 	} else if ok {
 		routes = append(routes, rt)
+		for _, pr := range protectedPreviews {
+			// La lista del sitio protege también sus previews.
+			for _, site := range sites {
+				if pr.Name == fmt.Sprintf("preview-%d-%s", site.ID, pr.Domains[0]) {
+					routes = append(routes, withACL(pr, site.AccessListID))
+					break
+				}
+			}
+		}
 	}
 
 	// Primero el servidor estático y luego Traefik: así, cuando Traefik
