@@ -24,6 +24,33 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
+var (
+	errGitInvalidProvider    = newError("git_invalid_provider", "Invalid provider: use github or gitlab")
+	errGitTokenRequired      = newError("git_token_required", "The token is required")
+	errGitTokenCheckFailed   = newError("git_token_check_failed", "Couldn't verify the token: {detail}")
+	errGitConnectionInUse    = newError("git_connection_in_use", "These sites use it; disconnect them first: {sites}")
+	errGitConnectionNotFound = newError("git_connection_not_found", "Account not found")
+	errPreviewDomainInvalid  = newError("preview_domain_invalid", "The previews domain must look like previews.mydomain.com (without *.)")
+	errPublicURLInvalid      = newError("public_url_invalid", "The public URL must look like https://dockfly.mydomain.com")
+	errGitRootDirDotDot      = newError("git_root_dir_dotdot", "The root directory can't contain \"..\"")
+	errGitOutputDirDotDot    = newError("git_output_dir_dotdot", "The output directory can't contain \"..\"")
+	errGitConnectionRequired = newError("git_connection_required", "Choose a GitHub or GitLab account")
+	errGitRepoRequired       = newError("git_repo_required", "Choose a repository")
+	errGitBranchRequired     = newError("git_branch_required", "Enter the branch to deploy")
+	errGitInvalidBuildImage  = newError("git_invalid_build_image", "Invalid image: {image}")
+	errGitInvalidEnvName     = newError("git_invalid_env_name", "Invalid variable name: {name}")
+	errGitConnectionMissing  = newError("git_connection_missing", "The selected account doesn't exist")
+	errGitBranchUnreachable  = newError("git_branch_unreachable", "Couldn't access {repo} ({branch}): {detail}")
+	errSiteNotLinked         = newError("site_not_linked", "The site isn't linked to any repository")
+	errBuildInvalidID        = newError("build_invalid_id", "Invalid build ID")
+	errBuildNotFound         = newError("build_not_found", "Build not found")
+	errWebhookBodyTooLarge   = newError("webhook_body_too_large", "Body too large")
+	errSiteWebhooksInactive  = newError("site_webhooks_inactive", "This site has no active webhooks")
+	errWebhookBadSignature   = newError("webhook_bad_signature", "Invalid signature")
+	errWebhookBadPayload     = newError("webhook_bad_payload", "Invalid payload")
+	errBuildCacheClearFailed = newError("build_cache_clear_failed", "Couldn't clear the cache (is a build running?): {detail}")
+)
+
 // --- Cuentas de GitHub / GitLab ---
 
 func (s *Server) handleListConnections(w http.ResponseWriter, r *http.Request) {
@@ -45,24 +72,24 @@ func (s *Server) handleCreateConnection(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if in.Provider != gitprovider.GitHub && in.Provider != gitprovider.GitLab {
-		writeError(w, http.StatusBadRequest, "proveedor inválido: usa github o gitlab")
+		writeError(w, http.StatusBadRequest, errGitInvalidProvider)
 		return
 	}
 	in.Token = strings.TrimSpace(in.Token)
 	if in.Token == "" {
-		writeError(w, http.StatusBadRequest, "el token es obligatorio")
+		writeError(w, http.StatusBadRequest, errGitTokenRequired)
 		return
 	}
 	base, err := gitprovider.NormalizeBaseURL(in.Provider, in.BaseURL)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	// Validamos el token antes de guardarlo.
 	p, _ := gitprovider.New(in.Provider, base, in.Token)
 	user, err := p.CurrentUser(r.Context())
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "no se pudo verificar el token: "+err.Error())
+		writeError(w, http.StatusBadRequest, errGitTokenCheckFailed.With("detail", err.Error()))
 		return
 	}
 	conn := &store.GitConnection{Provider: in.Provider, BaseURL: base, Username: user, TokenEnc: s.Secrets.Seal([]byte(in.Token))}
@@ -92,13 +119,13 @@ func (s *Server) handleDeleteConnection(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	if len(using) > 0 {
-		writeError(w, http.StatusConflict, "la usan estos sitios; desconéctalos primero: "+strings.Join(using, ", "))
+		writeError(w, http.StatusConflict, errGitConnectionInUse.With("sites", strings.Join(using, ", ")))
 		return
 	}
 	s.Git.Forget(id)
 	err = s.Store.DeleteGitConnection(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "cuenta no encontrada")
+		writeError(w, http.StatusNotFound, errGitConnectionNotFound)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -124,10 +151,10 @@ func (s *Server) loadConnection(w http.ResponseWriter, r *http.Request) (gitprov
 	}
 	_, p, err := s.connectionProvider(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "cuenta no encontrada")
+		writeError(w, http.StatusNotFound, errGitConnectionNotFound)
 		return nil, false
 	} else if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeErrorFrom(w, http.StatusBadGateway, err, errUnexpected)
 		return nil, false
 	}
 	return p, true
@@ -140,7 +167,7 @@ func (s *Server) handleListRepos(w http.ResponseWriter, r *http.Request) {
 	}
 	repos, err := p.ListRepos(r.Context(), r.URL.Query().Get("q"))
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeErrorFrom(w, http.StatusBadGateway, err, errUnexpected)
 		return
 	}
 	if repos == nil {
@@ -156,7 +183,7 @@ func (s *Server) handleListBranches(w http.ResponseWriter, r *http.Request) {
 	}
 	branches, err := p.ListBranches(r.Context(), r.URL.Query().Get("repo"))
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeErrorFrom(w, http.StatusBadGateway, err, errUnexpected)
 		return
 	}
 	writeJSON(w, http.StatusOK, branches)
@@ -249,7 +276,7 @@ func (s *Server) putPreviewSettings(w http.ResponseWriter, r *http.Request, doma
 		if d != "" {
 			list, err := normalizeDomains([]string{d})
 			if err != nil || len(list) != 1 || strings.HasPrefix(list[0], "*.") || !strings.Contains(list[0], ".") {
-				writeError(w, http.StatusBadRequest, "el dominio de previews debe ser del tipo previews.midominio.com (sin *.)")
+				writeError(w, http.StatusBadRequest, errPreviewDomainInvalid)
 				return false
 			}
 			d = list[0]
@@ -280,7 +307,7 @@ func (s *Server) putPublicURL(w http.ResponseWriter, r *http.Request, raw string
 	if publicURL != "" {
 		u, err := url.Parse(publicURL)
 		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || (u.Path != "" && u.Path != "/") {
-			writeError(w, http.StatusBadRequest, "la URL pública debe ser del tipo https://dockfly.midominio.com")
+			writeError(w, http.StatusBadRequest, errPublicURLInvalid)
 			return "", false
 		}
 	}
@@ -330,24 +357,25 @@ func (in *siteGitInput) validate() error {
 	in.BuildImage = strings.TrimSpace(in.BuildImage)
 	switch {
 	case in.ConnectionID == 0:
-		return errors.New("elige una cuenta de GitHub o GitLab")
+		return errGitConnectionRequired
 	case !strings.Contains(in.Repo, "/"):
-		return errors.New("elige un repositorio")
+		return errGitRepoRequired
 	case in.Branch == "":
-		return errors.New("indica la rama a desplegar")
+		return errGitBranchRequired
 	case in.BuildImage != "" && !imageRe.MatchString(in.BuildImage):
-		return fmt.Errorf("imagen inválida: %q", in.BuildImage)
+		return errGitInvalidBuildImage.With("image", in.BuildImage)
 	}
 	var err error
+	// relDir solo falla si el directorio contiene "..".
 	if in.RootDir, err = relDir("el directorio raíz", in.RootDir); err != nil {
-		return err
+		return errGitRootDirDotDot
 	}
 	if in.OutputDir, err = relDir("el directorio de salida", in.OutputDir); err != nil {
-		return err
+		return errGitOutputDirDotDot
 	}
 	for k := range in.Env {
 		if !envNameRe.MatchString(k) {
-			return fmt.Errorf("nombre de variable inválido: %q", k)
+			return errGitInvalidEnvName.With("name", k)
 		}
 	}
 	return nil
@@ -365,13 +393,13 @@ func (s *Server) handlePutSiteGit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := in.validate(); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	ctx := r.Context()
 	conn, prov, err := s.connectionProvider(ctx, in.ConnectionID)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusBadRequest, "la cuenta elegida no existe")
+		writeError(w, http.StatusBadRequest, errGitConnectionMissing)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -379,7 +407,7 @@ func (s *Server) handlePutSiteGit(w http.ResponseWriter, r *http.Request) {
 	}
 	// Comprobamos que la rama existe con el token de la cuenta.
 	if _, err := prov.LatestCommit(ctx, in.Repo, in.Branch); err != nil {
-		writeError(w, http.StatusBadRequest, fmt.Sprintf("no se pudo acceder a %s (%s): %v", in.Repo, in.Branch, err))
+		writeError(w, http.StatusBadRequest, errGitBranchUnreachable.With("repo", in.Repo, "branch", in.Branch, "detail", err.Error()))
 		return
 	}
 
@@ -503,12 +531,12 @@ func (s *Server) handleTriggerBuild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if site.Repo == "" {
-		writeError(w, http.StatusBadRequest, "el sitio no está enlazado a ningún repositorio")
+		writeError(w, http.StatusBadRequest, errSiteNotLinked)
 		return
 	}
 	b, err := s.Builds.Enqueue(r.Context(), site.ID, store.TriggerManual, site.Branch, "", gitprovider.Commit{})
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, err.Error())
+		writeErrorFrom(w, http.StatusServiceUnavailable, err, errUnexpected)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, b)
@@ -517,12 +545,12 @@ func (s *Server) handleTriggerBuild(w http.ResponseWriter, r *http.Request) {
 func (s *Server) loadBuild(w http.ResponseWriter, r *http.Request) (*store.Build, bool) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "buildID"), 10, 64)
 	if err != nil || id < 1 {
-		writeError(w, http.StatusBadRequest, "id de build inválido")
+		writeError(w, http.StatusBadRequest, errBuildInvalidID)
 		return nil, false
 	}
 	b, err := s.Store.GetBuild(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "build no encontrado")
+		writeError(w, http.StatusNotFound, errBuildNotFound)
 		return nil, false
 	} else if err != nil {
 		s.internalError(w, err)
@@ -543,7 +571,7 @@ func (s *Server) handleCancelBuild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Builds.Cancel(r.Context(), b.ID); err != nil {
-		writeError(w, http.StatusConflict, err.Error())
+		writeErrorFrom(w, http.StatusConflict, err, errUnexpected)
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -643,16 +671,16 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 25<<20))
 	if err != nil {
-		writeError(w, http.StatusRequestEntityTooLarge, "cuerpo demasiado grande")
+		writeError(w, http.StatusRequestEntityTooLarge, errWebhookBodyTooLarge)
 		return
 	}
 	if site.WebhookSecret == "" || site.GitConnectionID == nil {
-		writeError(w, http.StatusNotFound, "este sitio no tiene webhooks activos")
+		writeError(w, http.StatusNotFound, errSiteWebhooksInactive)
 		return
 	}
 	conn, err := s.Store.GetGitConnection(r.Context(), *site.GitConnectionID)
 	if err != nil || conn.Provider != provider {
-		writeError(w, http.StatusNotFound, "este sitio no tiene webhooks activos")
+		writeError(w, http.StatusNotFound, errSiteWebhooksInactive)
 		return
 	}
 
@@ -667,10 +695,10 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		push, isPush, err = gitprovider.ParseGitLabWebhook(r.Header, body, site.WebhookSecret)
 	}
 	if errors.Is(err, gitprovider.ErrBadSignature) {
-		writeError(w, http.StatusUnauthorized, "firma inválida")
+		writeError(w, http.StatusUnauthorized, errWebhookBadSignature)
 		return
 	} else if err != nil {
-		writeError(w, http.StatusBadRequest, "payload inválido")
+		writeError(w, http.StatusBadRequest, errWebhookBadPayload)
 		return
 	}
 	// GitHub y GitLab reintentan si no reciben 2xx: los eventos que no nos
@@ -681,7 +709,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	id, status, err := s.handleSitePush(r.Context(), site, push)
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, err.Error())
+		writeErrorFrom(w, http.StatusServiceUnavailable, err, errUnexpected)
 		return
 	}
 	if id == 0 {
@@ -699,7 +727,7 @@ func (s *Server) handleClearBuildCache(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Builds.ClearCache(r.Context(), site.ID); err != nil {
-		writeError(w, http.StatusConflict, "no se pudo vaciar la caché (¿hay un build en marcha?): "+err.Error())
+		writeError(w, http.StatusConflict, errBuildCacheClearFailed.With("detail", err.Error()))
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

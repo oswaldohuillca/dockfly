@@ -16,6 +16,17 @@ import (
 // tal cual al editar, se conserva el valor guardado.
 const secretMask = "••••••••"
 
+// Errores de los canales de notificación.
+var (
+	errChannelType       = newError("channel_type_invalid", "Invalid channel type")
+	errChannelName       = newError("channel_name_required", "Give the channel a name")
+	errChannelNoEvents   = newError("channel_events_required", "Choose at least one event")
+	errChannelEvent      = newError("channel_event_unknown", "Unknown event: {event}")
+	errChannelConfig     = newError("channel_config_invalid", "Invalid channel settings: {detail}")
+	errChannelNotFound   = newError("channel_not_found", "Channel not found")
+	errChannelTestFailed = newError("channel_test_failed", "Couldn't send the test notification: {detail}")
+)
+
 type channelView struct {
 	*store.NotificationChannel
 	Config map[string]any `json:"config"`
@@ -60,18 +71,18 @@ type channelInput struct {
 // secretos que llegan enmascarados.
 func (s *Server) buildChannel(in channelInput, previous map[string]any) (*store.NotificationChannel, error) {
 	if !slices.Contains(notify.Types, in.Type) {
-		return nil, errors.New("tipo de canal inválido")
+		return nil, errChannelType
 	}
 	in.Name = strings.TrimSpace(in.Name)
 	if in.Name == "" {
-		return nil, errors.New("ponle un nombre al canal")
+		return nil, errChannelName
 	}
 	if len(in.Events) == 0 {
-		return nil, errors.New("elige al menos un evento")
+		return nil, errChannelNoEvents
 	}
 	for _, e := range in.Events {
 		if !slices.Contains(notify.AllEvents, e) {
-			return nil, errors.New("evento desconocido: " + e)
+			return nil, errChannelEvent.With("event", e)
 		}
 	}
 	if in.Config == nil {
@@ -84,7 +95,7 @@ func (s *Server) buildChannel(in channelInput, previous map[string]any) (*store.
 	}
 	raw, _ := json.Marshal(in.Config)
 	if _, err := notify.NewSender(in.Type, raw); err != nil {
-		return nil, err
+		return nil, errChannelConfig.With("detail", err.Error())
 	}
 	return &store.NotificationChannel{
 		Type: in.Type, Name: in.Name, Events: in.Events, Enabled: in.Enabled == nil || *in.Enabled,
@@ -99,7 +110,7 @@ func (s *Server) handleCreateChannel(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := s.buildChannel(in, nil)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	if err := s.Store.CreateNotificationChannel(r.Context(), c); err != nil {
@@ -116,7 +127,7 @@ func (s *Server) loadChannel(w http.ResponseWriter, r *http.Request) (*store.Not
 	}
 	c, err := s.Store.GetNotificationChannel(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "canal no encontrado")
+		writeError(w, http.StatusNotFound, errChannelNotFound)
 		return nil, false
 	} else if err != nil {
 		s.internalError(w, err)
@@ -140,7 +151,7 @@ func (s *Server) handleUpdateChannel(w http.ResponseWriter, r *http.Request) {
 	}
 	c, err := s.buildChannel(in, previous)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	c.ID = existing.ID
@@ -176,7 +187,7 @@ func (s *Server) handleTestChannel(w http.ResponseWriter, r *http.Request) {
 		Message: "Si ves esto, el canal «" + c.Name + "» está bien configurado.", URL: s.panelLink(r.Context(), ""),
 	})
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeError(w, http.StatusBadGateway, errChannelTestFailed.With("detail", err.Error()))
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)

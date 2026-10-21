@@ -36,7 +36,8 @@ func TestBackupStorageSettings(t *testing.T) {
 	cfg := func(key, secret string) string {
 		return fmt.Sprintf(`{"type":"s3","endpoint":%q,"region":"auto","bucket":"copias","prefix":"/dockfly/","access_key":%q,"secret_key":%q}`, s3.URL+"/", key, secret)
 	}
-	if code, body := c.do("PUT", "/api/backup-storage", cfg("MALA", "x")); code != 400 || !strings.Contains(body["error"].(string), "credenciales") {
+	if code, body := c.do("PUT", "/api/backup-storage", cfg("MALA", "x")); code != 400 || body["code"] != "backup_storage_write_failed" ||
+		!strings.Contains(body["params"].(map[string]any)["detail"].(string), "credenciales") {
 		t.Errorf("credenciales malas: %d %v", code, body)
 	}
 	if code, _ := c.do("PUT", "/api/backup-storage", `{"type":"s3","endpoint":"ftp://x","bucket":"b","access_key":"a","secret_key":"s"}`); code != 400 {

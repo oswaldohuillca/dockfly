@@ -28,6 +28,15 @@ import (
 
 const agentTokenPrefix = "dfa_"
 
+var (
+	errServerInvalidName = newError("server_invalid_name", "The name can only contain lowercase letters, numbers and hyphens")
+	errServerNameTaken   = newError("server_name_taken", "A server with that name already exists")
+	errServerNotFound    = newError("server_not_found", "Server not found")
+	errServerHasApps     = newError("server_has_apps", "The server has {count} apps: delete them first")
+	errAgentTokenMissing = newError("agent_token_missing", "The server token is missing")
+	errAgentTokenInvalid = newError("agent_token_invalid", "Invalid server token: generate a new one in the panel")
+)
+
 var serverNameRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`)
 
 // remotes guarda un cliente Docker por servidor (se crean al primer uso).
@@ -161,13 +170,13 @@ func (s *Server) handleCreateServer(w http.ResponseWriter, r *http.Request) {
 	}
 	name := strings.ToLower(strings.TrimSpace(in.Name))
 	if !serverNameRe.MatchString(name) {
-		writeError(w, http.StatusBadRequest, "el nombre solo puede tener minúsculas, números y guiones")
+		writeError(w, http.StatusBadRequest, errServerInvalidName)
 		return
 	}
 	token := agentTokenPrefix + newToken()[len(tokenPrefix):]
 	sv := &store.Server{Name: name, TokenHash: hashToken(token)}
 	if err := s.Store.CreateServer(r.Context(), sv); isUniqueViolation(err) {
-		writeError(w, http.StatusConflict, "ya hay un servidor con ese nombre")
+		writeError(w, http.StatusConflict, errServerNameTaken)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -185,7 +194,7 @@ func (s *Server) loadServer(w http.ResponseWriter, r *http.Request) (*store.Serv
 	}
 	sv, err := s.Store.GetServer(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "servidor no encontrado")
+		writeError(w, http.StatusNotFound, errServerNotFound)
 		return nil, false
 	} else if err != nil {
 		s.internalError(w, err)
@@ -217,7 +226,7 @@ func (s *Server) handleDeleteServer(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	} else if n > 0 {
-		writeError(w, http.StatusConflict, fmt.Sprintf("el servidor tiene %d apps: bórralas antes", n))
+		writeError(w, http.StatusConflict, errServerHasApps.With("count", n))
 		return
 	}
 	if err := s.Store.DeleteServer(r.Context(), sv.ID); err != nil {
@@ -232,12 +241,12 @@ func (s *Server) handleDeleteServer(w http.ResponseWriter, r *http.Request) {
 func (s *Server) agentServer(w http.ResponseWriter, r *http.Request) (*store.Server, bool) {
 	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if !ok || !strings.HasPrefix(token, agentTokenPrefix) {
-		writeError(w, http.StatusUnauthorized, "falta el token del servidor")
+		writeError(w, http.StatusUnauthorized, errAgentTokenMissing)
 		return nil, false
 	}
 	sv, err := s.Store.ServerByTokenHash(r.Context(), hashToken(token))
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "token del servidor inválido: genera otro en el panel")
+		writeError(w, http.StatusUnauthorized, errAgentTokenInvalid)
 		return nil, false
 	}
 	return sv, true

@@ -26,6 +26,19 @@ const (
 	mfaLockout     = 15 * time.Minute
 )
 
+// Errores de la verificación en dos pasos.
+var (
+	// errLoginExpired: el ticket del segundo paso caducó; el panel vuelve a pedir la contraseña.
+	errLoginExpired      = newError("login_expired", "Your sign-in has expired; enter your password again")
+	errTooManyCodes      = newError("too_many_wrong_codes", "Too many wrong codes; wait a few minutes")
+	errWrongCode         = newError("wrong_2fa_code", "Wrong code")
+	errWrongPassword     = newError("wrong_password", "Wrong password")
+	err2FAAlreadyEnabled = newError("two_factor_already_enabled", "Two-step verification is already enabled")
+	err2FANoSetup        = newError("two_factor_setup_required", "Generate the QR code first")
+	err2FAWrongSetupCode = newError("two_factor_wrong_setup_code", "Wrong code: check that your phone's clock is correct")
+	err2FANotEnabled     = newError("two_factor_not_enabled", "Two-step verification isn't enabled")
+)
+
 // mfaFailures cuenta los códigos incorrectos por usuario.
 type mfaFailures struct {
 	mu   sync.Mutex
@@ -100,16 +113,16 @@ func (s *Server) handleLogin2FA(w http.ResponseWriter, r *http.Request) {
 	}
 	id, err := s.Signer.VerifyTicket(mfaTicketPurpose, in.Ticket)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "el inicio de sesión caducó; vuelve a escribir tu contraseña")
+		writeError(w, http.StatusUnauthorized, errLoginExpired)
 		return
 	}
 	if s.mfa.blocked(id) {
-		writeError(w, http.StatusTooManyRequests, "demasiados códigos incorrectos; espera unos minutos")
+		writeError(w, http.StatusTooManyRequests, errTooManyCodes)
 		return
 	}
 	u, err := s.Store.UserByID(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusUnauthorized, "el inicio de sesión caducó; vuelve a escribir tu contraseña")
+		writeError(w, http.StatusUnauthorized, errLoginExpired)
 		return
 	}
 	ok, recovery, err := s.checkSecondFactor(r.Context(), u, in.Code)
@@ -119,7 +132,7 @@ func (s *Server) handleLogin2FA(w http.ResponseWriter, r *http.Request) {
 	}
 	if !ok {
 		s.mfa.fail(id)
-		writeError(w, http.StatusUnauthorized, "código incorrecto")
+		writeError(w, http.StatusUnauthorized, errWrongCode)
 		return
 	}
 	s.mfa.reset(id)
@@ -138,7 +151,7 @@ func (s *Server) handleLogin2FA(w http.ResponseWriter, r *http.Request) {
 func (s *Server) requirePassword(w http.ResponseWriter, r *http.Request, password string) (*store.User, bool) {
 	u := currentUser(r)
 	if !auth.CheckPassword(u.PasswordHash, password) {
-		writeError(w, http.StatusForbidden, "contraseña incorrecta")
+		writeError(w, http.StatusForbidden, errWrongPassword)
 		return nil, false
 	}
 	return u, true
@@ -163,7 +176,7 @@ func (s *Server) handleSetup2FA(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if u.TOTPEnabled {
-		writeError(w, http.StatusConflict, "la verificación en dos pasos ya está activada")
+		writeError(w, http.StatusConflict, err2FAAlreadyEnabled)
 		return
 	}
 	secret := auth.NewTOTPSecret()
@@ -192,11 +205,11 @@ func (s *Server) handleEnable2FA(w http.ResponseWriter, r *http.Request) {
 	}
 	u := currentUser(r)
 	if u.TOTPEnabled {
-		writeError(w, http.StatusConflict, "la verificación en dos pasos ya está activada")
+		writeError(w, http.StatusConflict, err2FAAlreadyEnabled)
 		return
 	}
 	if len(u.TOTPSecretEnc) == 0 {
-		writeError(w, http.StatusBadRequest, "primero genera el código QR")
+		writeError(w, http.StatusBadRequest, err2FANoSetup)
 		return
 	}
 	secret, err := s.Secrets.Open(u.TOTPSecretEnc)
@@ -206,7 +219,7 @@ func (s *Server) handleEnable2FA(w http.ResponseWriter, r *http.Request) {
 	}
 	step, valid := auth.VerifyTOTP(string(secret), in.Code, time.Now(), 0)
 	if !valid {
-		writeError(w, http.StatusBadRequest, "código incorrecto: revisa que la hora del móvil sea correcta")
+		writeError(w, http.StatusBadRequest, err2FAWrongSetupCode)
 		return
 	}
 	codes := auth.NewRecoveryCodes(recoveryCodes)
@@ -249,7 +262,7 @@ func (s *Server) handleRegenerateRecoveryCodes(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if !u.TOTPEnabled {
-		writeError(w, http.StatusBadRequest, "la verificación en dos pasos no está activada")
+		writeError(w, http.StatusBadRequest, err2FANotEnabled)
 		return
 	}
 	codes := auth.NewRecoveryCodes(recoveryCodes)

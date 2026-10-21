@@ -32,6 +32,15 @@ type proxyHostInput struct {
 	Enabled       *bool    `json:"enabled"`
 }
 
+var (
+	errProxyTargetTypeInvalid = newError("proxy_target_type_invalid", "Invalid target type")
+	errProxySchemeInvalid     = newError("proxy_scheme_invalid", "The scheme must be http or https")
+	errProxyHostRequired      = newError("proxy_forward_host_required", "Enter the target host")
+	errProxyHostInvalid       = newError("proxy_forward_host_invalid", "Invalid target host: \"{host}\" (no http:// or paths)")
+	errProxyPortInvalid       = newError("proxy_port_invalid", "The port must be between 1 and 65535")
+	errProxyHostNotFound      = newError("proxy_host_not_found", "Proxy host not found")
+)
+
 func (in *proxyHostInput) normalize() (*store.ProxyHost, error) {
 	h := &store.ProxyHost{
 		TargetType:    in.TargetType,
@@ -55,24 +64,24 @@ func (in *proxyHostInput) normalize() (*store.ProxyHost, error) {
 	switch h.TargetType {
 	case store.TargetDocker, store.TargetHost, store.TargetExternal:
 	default:
-		return nil, errors.New("tipo de destino inválido")
+		return nil, errProxyTargetTypeInvalid
 	}
 	if h.ForwardScheme == "" {
 		h.ForwardScheme = "http"
 	}
 	if h.ForwardScheme != "http" && h.ForwardScheme != "https" {
-		return nil, errors.New("el esquema debe ser http o https")
+		return nil, errProxySchemeInvalid
 	}
 	h.SkipTLSVerify = h.ForwardScheme == "https" && in.SkipTLSVerify
 
 	if h.ForwardHost == "" {
-		return nil, errors.New("indica el host de destino")
+		return nil, errProxyHostRequired
 	}
 	if net.ParseIP(h.ForwardHost) == nil && !hostnameRe.MatchString(h.ForwardHost) {
-		return nil, fmt.Errorf("host de destino inválido: %q (sin http:// ni rutas)", h.ForwardHost)
+		return nil, errProxyHostInvalid.With("host", h.ForwardHost)
 	}
 	if h.ForwardPort < 1 || h.ForwardPort > 65535 {
-		return nil, errors.New("el puerto debe estar entre 1 y 65535")
+		return nil, errProxyPortInvalid
 	}
 	return h, nil
 }
@@ -105,7 +114,7 @@ func (s *Server) handleUpdateProxyHost(w http.ResponseWriter, r *http.Request) {
 	}
 	existing, err := s.Store.GetProxyHost(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "proxy host no encontrado")
+		writeError(w, http.StatusNotFound, errProxyHostNotFound)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -130,7 +139,7 @@ func (s *Server) handleDeleteProxyHost(w http.ResponseWriter, r *http.Request) {
 	}
 	err := s.Store.DeleteProxyHost(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "proxy host no encontrado")
+		writeError(w, http.StatusNotFound, errProxyHostNotFound)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -152,7 +161,7 @@ func (s *Server) readProxyHost(w http.ResponseWriter, r *http.Request, selfID in
 	}
 	h, err := in.normalize()
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return nil, false
 	}
 	if !s.checkDomains(w, r, h.Domains, owner{kind: ownerProxyHost, id: selfID}) || !s.checkAccessList(w, r, h.AccessListID) ||
@@ -181,7 +190,7 @@ func (s *Server) afterChange(w http.ResponseWriter, r *http.Request, h *store.Pr
 func pathID(w http.ResponseWriter, r *http.Request) (int64, bool) {
 	id, err := strconv.ParseInt(chi.URLParam(r, "id"), 10, 64)
 	if err != nil || id < 1 {
-		writeError(w, http.StatusBadRequest, "id inválido")
+		writeError(w, http.StatusBadRequest, errInvalidID)
 		return 0, false
 	}
 	return id, true

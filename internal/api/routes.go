@@ -29,10 +29,10 @@ func (s *Server) Handler() http.Handler {
 		r.Use(middleware.NoCache)
 		r.Use(jsonOnly)
 		r.NotFound(func(w http.ResponseWriter, r *http.Request) {
-			writeError(w, http.StatusNotFound, "ruta no encontrada")
+			writeError(w, http.StatusNotFound, errNotFoundRoute)
 		})
 		r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
-			writeError(w, http.StatusMethodNotAllowed, "método no permitido")
+			writeError(w, http.StatusMethodNotAllowed, errMethod)
 		})
 
 		// Rutas públicas.
@@ -41,7 +41,7 @@ func (s *Server) Handler() http.Handler {
 		limiter := func() func(http.Handler) http.Handler {
 			return httprate.LimitBy(authAttempts, authWindow, keyByClientIP,
 				httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
-					writeError(w, http.StatusTooManyRequests, "demasiados intentos, espera un minuto")
+					writeError(w, http.StatusTooManyRequests, errTooManyAttempts)
 				}))
 		}
 		authLimit, mfaLimit, accountLimit := limiter(), limiter(), limiter()

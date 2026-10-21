@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api, errorMessage, type User } from '@/lib/api';
+import { api, ApiError, errorMessage, type User } from '@/lib/api';
 
 interface Props {
   /** true en la primera instalación: crea el administrador en vez de iniciar sesión. */
@@ -57,7 +57,7 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
     } catch (err) {
       setError(errorMessage(err));
       // El ticket caduca a los 5 minutos: hay que volver a la contraseña.
-      if (ticket && errorMessage(err).includes('caducó')) {
+      if (ticket && err instanceof ApiError && err.code === 'login_expired') {
         setTicket('');
         setCode('');
       }

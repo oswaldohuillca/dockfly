@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/dockfly/dockfly/internal/backup"
@@ -13,6 +14,14 @@ import (
 // Una copia incluye los sitios publicados: puede pesar bastante más que una
 // subida normal.
 const maxBackupBytes = 10 << 30
+
+// Errores de la restauración de copias.
+var (
+	errBackupMultipart = newError("backup_multipart_required", "The backup must be sent as multipart/form-data")
+	errBackupNoFile    = newError("backup_missing", "No backup was received")
+	errBackupUpload    = newError("backup_upload_failed", "Couldn't read the upload: {detail}")
+	errBackupInvalid   = newError("backup_invalid", "Invalid backup: {detail}")
+)
 
 func (s *Server) handleDownloadBackup(w http.ResponseWriter, r *http.Request) {
 	name := "dockfly-backup-" + time.Now().UTC().Format("20060102-1504") + ".tar.gz"
@@ -37,28 +46,28 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	if n > 0 {
 		if _, ok := s.sessionUser(r); !ok {
-			writeError(w, http.StatusUnauthorized, "no autenticado")
+			writeError(w, http.StatusUnauthorized, errUnauthenticated)
 			return
 		}
 	}
 	if !isMultipartUpload(r) {
-		writeError(w, http.StatusBadRequest, "se esperaba la copia en multipart/form-data")
+		writeError(w, http.StatusBadRequest, errBackupMultipart)
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxBackupBytes)
 	mr, err := r.MultipartReader()
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "se esperaba multipart/form-data")
+		writeError(w, http.StatusBadRequest, errBackupMultipart)
 		return
 	}
 	for {
 		part, err := mr.NextPart()
 		if err == io.EOF {
-			writeError(w, http.StatusBadRequest, "no se recibió ninguna copia")
+			writeError(w, http.StatusBadRequest, errBackupNoFile)
 			return
 		}
 		if err != nil {
-			writeError(w, http.StatusBadRequest, err.Error())
+			writeError(w, http.StatusBadRequest, errBackupUpload.With("detail", err.Error()))
 			return
 		}
 		if part.FormName() != "backup" {
@@ -68,7 +77,9 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 		m, err := backup.Stage(part, s.DataDir)
 		part.Close()
 		if errors.Is(err, backup.ErrInvalid) {
-			writeError(w, http.StatusBadRequest, err.Error())
+			// El detalle es lo que sigue a "copia de seguridad inválida: ".
+			detail := strings.TrimPrefix(err.Error(), backup.ErrInvalid.Error()+": ")
+			writeError(w, http.StatusBadRequest, errBackupInvalid.With("detail", detail))
 			return
 		} else if err != nil {
 			s.internalError(w, err)

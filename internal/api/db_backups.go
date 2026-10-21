@@ -25,6 +25,21 @@ import (
 
 const settingBackupStorage = "backup_storage"
 
+var (
+	errBackupEndpointInvalid = newError("backup_storage_endpoint_invalid", "The endpoint must be a URL, e.g. https://s3.eu-west-1.amazonaws.com")
+	errBackupMissingKeys     = newError("backup_storage_missing_credentials", "The bucket or the access keys are missing")
+	errBackupWriteFailed     = newError("backup_storage_write_failed", "Couldn't write to the bucket: {detail}")
+	errBackupStorageType     = newError("backup_storage_type_unknown", "Unknown storage type: use local or s3")
+	errDBBackupsNoDocker     = newError("db_backups_docker_unavailable", "Docker isn't available")
+	errDBBackupUnsupported   = newError("db_backup_unsupported", "Automatic backups are for database apps from an image (postgres, mysql, mariadb, redis)")
+	errDBBackupPolicyInvalid = newError("db_backup_policy_invalid", "The interval must be between 1 hour and 30 days, and you can keep 1 to 365 backups")
+	errDBBackupBusy          = newError("db_backup_busy", "A backup or restore is already running for this database")
+	errDBBackupInvalidID     = newError("db_backup_invalid_id", "Invalid backup ID")
+	errDBBackupNotFound      = newError("db_backup_not_found", "Backup not found")
+	errDBBackupRestoreFailed = newError("db_backup_restore_failed", "Couldn't restore: {detail}")
+	errDBBackupStillRunning  = newError("db_backup_running", "The backup is still running")
+)
+
 // backupStorageConfig se guarda cifrado en los ajustes.
 type backupStorageConfig struct {
 	Type      string `json:"type"` // "local" | "s3"
@@ -106,19 +121,19 @@ func (s *Server) handlePutBackupStorage(w http.ResponseWriter, r *http.Request) 
 		u, err := url.Parse(in.Endpoint)
 		switch {
 		case err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "":
-			writeError(w, http.StatusBadRequest, "el endpoint debe ser una URL, p. ej. https://s3.eu-west-1.amazonaws.com")
+			writeError(w, http.StatusBadRequest, errBackupEndpointInvalid)
 			return
 		case in.Bucket == "" || in.AccessKey == "" || in.SecretKey == "":
-			writeError(w, http.StatusBadRequest, "faltan el bucket o las claves de acceso")
+			writeError(w, http.StatusBadRequest, errBackupMissingKeys)
 			return
 		}
 		// Antes de guardarla, se comprueba que se puede escribir en el bucket.
 		if err := in.store("").Check(r.Context()); err != nil {
-			writeError(w, http.StatusBadRequest, "no se pudo escribir en el bucket: "+err.Error())
+			writeError(w, http.StatusBadRequest, errBackupWriteFailed.With("detail", err.Error()))
 			return
 		}
 	default:
-		writeError(w, http.StatusBadRequest, "tipo de almacenamiento desconocido: usa local o s3")
+		writeError(w, http.StatusBadRequest, errBackupStorageType)
 		return
 	}
 	raw, _ := json.Marshal(in)
@@ -135,7 +150,7 @@ func (s *Server) handlePutBackupStorage(w http.ResponseWriter, r *http.Request) 
 // dentro de los contenedores).
 func (s *Server) dbBackupsAvailable(w http.ResponseWriter) bool {
 	if s.DBBackups == nil {
-		writeError(w, http.StatusServiceUnavailable, "Docker no está disponible")
+		writeError(w, http.StatusServiceUnavailable, errDBBackupsNoDocker)
 		return false
 	}
 	return true
@@ -150,7 +165,7 @@ func (s *Server) loadDBApp(w http.ResponseWriter, r *http.Request) (*store.App, 
 		return nil, false
 	}
 	if dbbackup.Engine(a.Image) == "" || a.Source == store.AppSourceCompose {
-		writeError(w, http.StatusBadRequest, "las copias automáticas son para apps de bases de datos desde una imagen (postgres, mysql, mariadb, redis)")
+		writeError(w, http.StatusBadRequest, errDBBackupUnsupported)
 		return nil, false
 	}
 	return a, true
@@ -195,7 +210,7 @@ func (s *Server) handlePutDBBackupPolicy(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if in.IntervalHours < 1 || in.IntervalHours > 24*30 || in.Keep < 1 || in.Keep > 365 {
-		writeError(w, http.StatusBadRequest, "el intervalo debe estar entre 1 hora y 30 días, y se pueden conservar de 1 a 365 copias")
+		writeError(w, http.StatusBadRequest, errDBBackupPolicyInvalid)
 		return
 	}
 	in.AppID = a.ID
@@ -213,10 +228,10 @@ func (s *Server) handleStartDBBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	b, err := s.DBBackups.Start(r.Context(), a, "manual")
 	if errors.Is(err, dbbackup.ErrBusy) {
-		writeError(w, http.StatusConflict, err.Error())
+		writeError(w, http.StatusConflict, errDBBackupBusy)
 		return
 	} else if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeError(w, http.StatusBadRequest, errUnexpected.With("detail", err.Error()))
 		return
 	}
 	writeJSON(w, http.StatusAccepted, b)
@@ -232,12 +247,12 @@ func (s *Server) loadDBBackup(w http.ResponseWriter, r *http.Request) (*store.Ap
 	}
 	id, err := strconv.ParseInt(chi.URLParam(r, "backupID"), 10, 64)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "id de copia inválido")
+		writeError(w, http.StatusBadRequest, errDBBackupInvalidID)
 		return nil, nil, false
 	}
 	b, err := s.Store.GetDBBackup(r.Context(), a.ID, id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "copia no encontrada")
+		writeError(w, http.StatusNotFound, errDBBackupNotFound)
 		return nil, nil, false
 	} else if err != nil {
 		s.internalError(w, err)
@@ -253,7 +268,7 @@ func (s *Server) handleDownloadDBBackup(w http.ResponseWriter, r *http.Request) 
 	}
 	rc, err := s.DBBackups.Open(r.Context(), b)
 	if err != nil {
-		writeError(w, http.StatusConflict, err.Error())
+		writeError(w, http.StatusConflict, errUnexpected.With("detail", err.Error()))
 		return
 	}
 	defer rc.Close()
@@ -271,10 +286,10 @@ func (s *Server) handleRestoreDBBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.DBBackups.Restore(r.Context(), a, b); errors.Is(err, dbbackup.ErrBusy) {
-		writeError(w, http.StatusConflict, err.Error())
+		writeError(w, http.StatusConflict, errDBBackupBusy)
 		return
 	} else if err != nil {
-		writeError(w, http.StatusBadRequest, "no se pudo restaurar: "+err.Error())
+		writeError(w, http.StatusBadRequest, errDBBackupRestoreFailed.With("detail", err.Error()))
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -286,7 +301,7 @@ func (s *Server) handleDeleteDBBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if b.Status == store.DBBackupRunning {
-		writeError(w, http.StatusConflict, "la copia todavía está en marcha")
+		writeError(w, http.StatusConflict, errDBBackupStillRunning)
 		return
 	}
 	if err := s.DBBackups.Delete(r.Context(), b); err != nil {

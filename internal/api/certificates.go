@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -61,6 +60,23 @@ var (
 	envKeyRe       = regexp.MustCompile(`^[A-Z][A-Z0-9_]{1,63}$`)
 )
 
+var (
+	errDNSProviderCodeInvalid = newError("dns_provider_code_invalid", "Invalid provider code (e.g. cloudflare, hetznerv2…)")
+	errDNSZoneInvalid         = newError("dns_zone_invalid", "Zones: invalid domain: {domain}")
+	errDNSNoZones             = newError("dns_no_zones", "Zones: enter at least one domain")
+	errDNSZoneWildcard        = newError("dns_zone_wildcard", "Zones are domains without a wildcard (e.g. example.com)")
+	errDNSEnvNameInvalid      = newError("dns_env_name_invalid", "Invalid variable name: \"{name}\"")
+	errDNSFieldMissing        = newError("dns_field_missing", "{field} is missing")
+	errDNSEnvRequired         = newError("dns_env_required", "Enter the provider's environment variables (see the lego documentation)")
+	errDNSZoneTaken           = newError("dns_zone_taken", "The zone {zone} is already managed by {provider}")
+	errDNSProviderNotFound    = newError("dns_provider_not_found", "Provider not found")
+	errCertKeyPairInvalid     = newError("cert_key_pair_invalid", "The certificate and key are invalid or don't match: {detail}")
+	errCertUnreadable         = newError("cert_unreadable", "Unreadable certificate")
+	errCertNoDomains          = newError("cert_no_domains", "The certificate doesn't name any domain")
+	errCertNotFound           = newError("cert_not_found", "Certificate not found")
+	errWildcardSSLNeedsDNS    = newError("wildcard_ssl_needs_dns", "For a wildcard domain with SSL, set up its DNS zone in Settings → Certificates (Let's Encrypt only issues wildcards via DNS) or upload your own certificate")
+)
+
 func catalogEntry(code string) (dnsProviderInfo, bool) {
 	i := slices.IndexFunc(dnsCatalog, func(p dnsProviderInfo) bool { return p.Code == code })
 	if i < 0 {
@@ -112,22 +128,26 @@ type dnsProviderInput struct {
 func (in *dnsProviderInput) build(previous map[string]string) (*store.DNSProvider, map[string]string, error) {
 	code := strings.ToLower(strings.TrimSpace(in.Provider))
 	if !providerCodeRe.MatchString(code) {
-		return nil, nil, errors.New("código de proveedor inválido (p. ej. cloudflare, hetznerv2…)")
+		return nil, nil, errDNSProviderCodeInvalid
 	}
 	zones, err := normalizeDomains(in.Zones)
 	if err != nil {
-		return nil, nil, fmt.Errorf("zonas: %w", err)
+		var e apiError
+		if errors.As(err, &e) && e.Code == errInvalidDomain.Code {
+			return nil, nil, errDNSZoneInvalid.With("domain", e.Params["domain"])
+		}
+		return nil, nil, errDNSNoZones
 	}
 	for _, z := range zones {
 		if strings.HasPrefix(z, "*.") {
-			return nil, nil, errors.New("las zonas son dominios sin comodín (p. ej. ejemplo.com)")
+			return nil, nil, errDNSZoneWildcard
 		}
 	}
 	env := map[string]string{}
 	for k, v := range in.Env {
 		k = strings.TrimSpace(k)
 		if !envKeyRe.MatchString(k) {
-			return nil, nil, fmt.Errorf("nombre de variable inválido: %q", k)
+			return nil, nil, errDNSEnvNameInvalid.With("name", k)
 		}
 		if v == secretMask {
 			v = previous[k]
@@ -139,11 +159,11 @@ func (in *dnsProviderInput) build(previous map[string]string) (*store.DNSProvide
 	if info, ok := catalogEntry(code); ok {
 		for _, f := range info.Fields {
 			if !f.Optional && env[f.Env] == "" {
-				return nil, nil, fmt.Errorf("falta %s", f.Label)
+				return nil, nil, errDNSFieldMissing.With("field", f.Label, "env", f.Env)
 			}
 		}
 	} else if len(env) == 0 {
-		return nil, nil, errors.New("indica las variables de entorno del proveedor (consulta la documentación de lego)")
+		return nil, nil, errDNSEnvRequired
 	}
 	return &store.DNSProvider{Provider: code, Zones: zones}, env, nil
 }
@@ -171,7 +191,7 @@ func (s *Server) handleSaveDNSProvider(w http.ResponseWriter, r *http.Request) {
 	}
 	p, env, err := in.build(previous)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	// Una zona solo puede tener un proveedor.
@@ -181,7 +201,7 @@ func (s *Server) handleSaveDNSProvider(w http.ResponseWriter, r *http.Request) {
 		}
 		for _, z := range p.Zones {
 			if slices.Contains(other.Zones, z) {
-				writeError(w, http.StatusConflict, fmt.Sprintf("la zona %s ya la gestiona %s", z, other.Provider))
+				writeError(w, http.StatusConflict, errDNSZoneTaken.With("zone", z, "provider", other.Provider))
 				return
 			}
 		}
@@ -212,7 +232,7 @@ func (s *Server) handleDeleteDNSProvider(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err := s.Store.DeleteDNSProvider(r.Context(), id); errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "proveedor no encontrado")
+		writeError(w, http.StatusNotFound, errDNSProviderNotFound)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -294,12 +314,12 @@ func (s *Server) handleUploadCustomCert(w http.ResponseWriter, r *http.Request) 
 	// X509KeyPair comprueba que la clave corresponde al certificado.
 	pair, err := tls.X509KeyPair([]byte(in.Cert), []byte(in.Key))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "el certificado y la clave no son válidos o no se corresponden: "+err.Error())
+		writeError(w, http.StatusBadRequest, errCertKeyPairInvalid.With("detail", err.Error()))
 		return
 	}
 	leaf, err := x509.ParseCertificate(pair.Certificate[0])
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "certificado ilegible")
+		writeError(w, http.StatusBadRequest, errCertUnreadable)
 		return
 	}
 	domains := leaf.DNSNames
@@ -307,7 +327,7 @@ func (s *Server) handleUploadCustomCert(w http.ResponseWriter, r *http.Request) 
 		domains = []string{leaf.Subject.CommonName}
 	}
 	if len(domains) == 0 {
-		writeError(w, http.StatusBadRequest, "el certificado no indica ningún dominio")
+		writeError(w, http.StatusBadRequest, errCertNoDomains)
 		return
 	}
 	name := strings.TrimSpace(in.Name)
@@ -333,7 +353,7 @@ func (s *Server) handleDeleteCustomCert(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := s.Store.DeleteCertificate(r.Context(), id); errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "certificado no encontrado")
+		writeError(w, http.StatusNotFound, errCertNotFound)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -459,7 +479,7 @@ func (s *Server) checkSSL(w http.ResponseWriter, r *http.Request, domains []stri
 		return false
 	}
 	if plan.resolver(domains) == "" {
-		writeError(w, http.StatusBadRequest, "para un dominio comodín con SSL, configura su zona DNS en Ajustes → Certificados (Let's Encrypt solo emite comodines por DNS) o sube un certificado propio")
+		writeError(w, http.StatusBadRequest, errWildcardSSLNeedsDNS)
 		return false
 	}
 	return true

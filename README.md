@@ -331,6 +331,15 @@ textos se escriben en inglés en el código con las macros de [Lingui](https://l
 cd web && npm run extract   # añade los textos nuevos a los catálogos (y quita los que ya no se usan)
 ```
 
+Los errores de la API también se traducen en el panel: cada uno lleva un código estable
+(`{"error": "Wrong email or password", "code": "bad_credentials"}`) y el mensaje en inglés como
+respaldo. Los códigos se definen en Go con `newError` y se exportan a `web/src/lib/api-errors.gen.ts`:
+
+```bash
+go test ./internal/api -run TestAPIErrorsTS -update   # tras añadir o cambiar un código
+cd web && npm run extract                              # y traducir los nuevos en el .po
+```
+
 El build falla si a un idioma le falta alguna traducción. Para añadir otro idioma, inclúyelo en
 `web/lingui.config.ts` y en `web/src/lib/i18n.ts`, ejecuta `npm run extract` y traduce su `.po`.
 

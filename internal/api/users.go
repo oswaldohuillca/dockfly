@@ -16,6 +16,18 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
+// Errores de usuarios, permisos y enlaces de invitación.
+var (
+	errPanelOnly         = newError("panel_only", "This can only be done from the panel, not with an API token")
+	errRoleForbidden     = newError("role_forbidden", "Your role doesn't allow this; ask an administrator")
+	errInviteLinkInvalid = newError("invite_link_invalid", "The link is invalid or has expired; ask an administrator for a new one")
+	errUnknownRole       = newError("unknown_role", "Unknown role: use admin, deployer or viewer")
+	errUserEmailTaken    = newError("user_email_taken", "A user with that email already exists")
+	errUserNotFound      = newError("user_not_found", "User not found")
+	errLastAdmin         = newError("last_admin", "This is the only administrator: make someone else an administrator first")
+	errDeleteSelf        = newError("delete_own_account", "You can't delete your own account")
+)
+
 // --- Permisos ---
 
 // requiredRole decide qué rol hace falta para una petición. Está todo aquí,
@@ -58,11 +70,11 @@ func (s *Server) authorize(next http.Handler) http.Handler {
 		// La cuenta (contraseña, 2FA) y los propios tokens solo se gestionan
 		// desde el panel: un token filtrado no puede crear otros.
 		if t != nil && (strings.HasPrefix(r.URL.Path, "/api/auth/") || strings.HasPrefix(r.URL.Path, "/api/tokens")) {
-			writeError(w, http.StatusForbidden, "esto solo se puede hacer desde el panel, no con un token de API")
+			writeError(w, http.StatusForbidden, errPanelOnly)
 			return
 		}
 		if store.RoleRank(effectiveRole(u, t)) < store.RoleRank(requiredRole(r.Method, r.URL.Path)) {
-			writeError(w, http.StatusForbidden, "tu rol no permite hacer esto; pídeselo a un administrador")
+			writeError(w, http.StatusForbidden, errRoleForbidden)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -127,7 +139,7 @@ func (s *Server) linkUser(ctx context.Context, token string) (*store.User, error
 func (s *Server) handleGetInvite(w http.ResponseWriter, r *http.Request) {
 	u, err := s.linkUser(r.Context(), chi.URLParam(r, "token"))
 	if err != nil {
-		writeError(w, http.StatusNotFound, "el enlace no es válido o ya caducó; pide otro a un administrador")
+		writeError(w, http.StatusNotFound, errInviteLinkInvalid)
 		return
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"name": u.Name, "email": u.Email, "new": u.PasswordHash == ""})
@@ -143,11 +155,11 @@ func (s *Server) handleAcceptInvite(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := s.linkUser(r.Context(), chi.URLParam(r, "token"))
 	if err != nil {
-		writeError(w, http.StatusNotFound, "el enlace no es válido o ya caducó; pide otro a un administrador")
+		writeError(w, http.StatusNotFound, errInviteLinkInvalid)
 		return
 	}
 	if len(in.Password) < minPassword {
-		writeError(w, http.StatusBadRequest, "la contraseña debe tener al menos 8 caracteres")
+		writeError(w, http.StatusBadRequest, errPasswordTooShort.With("min", minPassword))
 		return
 	}
 	hash, err := auth.HashPassword(in.Password)
@@ -185,7 +197,7 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(in.New) < minPassword {
-		writeError(w, http.StatusBadRequest, "la contraseña debe tener al menos 8 caracteres")
+		writeError(w, http.StatusBadRequest, errPasswordTooShort.With("min", minPassword))
 		return
 	}
 	hash, err := auth.HashPassword(in.New)
@@ -233,11 +245,11 @@ func (in *userInput) validate(withEmail bool) error {
 	in.Email = strings.ToLower(strings.TrimSpace(in.Email))
 	switch {
 	case in.Name == "":
-		return errors.New("el nombre es obligatorio")
+		return errNameRequired
 	case withEmail && !strings.Contains(in.Email, "@"):
-		return errors.New("email inválido")
+		return errInvalidEmail
 	case store.RoleRank(in.Role) == 0:
-		return errors.New("rol desconocido: usa admin, deployer o viewer")
+		return errUnknownRole
 	}
 	return nil
 }
@@ -250,12 +262,12 @@ func (s *Server) handleInviteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := in.validate(true); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	u := &store.User{Name: in.Name, Email: in.Email, Role: in.Role}
 	if err := s.Store.CreateUser(r.Context(), u); isUniqueViolation(err) {
-		writeError(w, http.StatusConflict, "ya hay un usuario con ese email")
+		writeError(w, http.StatusConflict, errUserEmailTaken)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -272,7 +284,7 @@ func (s *Server) loadUser(w http.ResponseWriter, r *http.Request) (*store.User, 
 	}
 	u, err := s.Store.UserByID(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "usuario no encontrado")
+		writeError(w, http.StatusNotFound, errUserNotFound)
 		return nil, false
 	} else if err != nil {
 		s.internalError(w, err)
@@ -301,7 +313,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := in.validate(false); err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	if in.Role != store.RoleAdmin {
@@ -309,7 +321,7 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) {
 			s.internalError(w, err)
 			return
 		} else if last {
-			writeError(w, http.StatusConflict, "es el único administrador: nombra antes a otro")
+			writeError(w, http.StatusConflict, errLastAdmin)
 			return
 		}
 	}
@@ -327,14 +339,14 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if u.ID == currentUser(r).ID {
-		writeError(w, http.StatusConflict, "no puedes borrar tu propia cuenta")
+		writeError(w, http.StatusConflict, errDeleteSelf)
 		return
 	}
 	if last, err := s.lastAdmin(r.Context(), u); err != nil {
 		s.internalError(w, err)
 		return
 	} else if last {
-		writeError(w, http.StatusConflict, "es el único administrador: nombra antes a otro")
+		writeError(w, http.StatusConflict, errLastAdmin)
 		return
 	}
 	if err := s.Store.DeleteUser(r.Context(), u.ID); err != nil {

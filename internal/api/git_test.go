@@ -104,7 +104,7 @@ func TestGitIntegrationFlow(t *testing.T) {
 
 	// 1. Vincular la cuenta: el token se valida antes de guardarse.
 	if code, body := c.do("POST", "/api/git/connections", fmt.Sprintf(`{"provider":"github","base_url":%q,"token":"ghp_malo"}`, gh.URL)); code != 400 ||
-		!strings.Contains(body["error"].(string), "token inválido") {
+		body["code"] != "git_token_check_failed" {
 		t.Errorf("token inválido: %d %v", code, body)
 	}
 	code, body := c.do("POST", "/api/git/connections", fmt.Sprintf(`{"provider":"github","base_url":%q,"token":"ghp_bueno"}`, gh.URL))

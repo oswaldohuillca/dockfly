@@ -19,6 +19,14 @@ import (
 
 const tokenPrefix = "dfy_"
 
+// Errores de los tokens de API.
+var (
+	errTokenNameRequired = newError("token_name_required", "Give it a name (e.g. \"GitHub Actions\")")
+	errTokenRoleTooHigh  = newError("token_role_too_high", "A token can't have more permissions than your user")
+	errTokenExpiry       = newError("token_expiry_out_of_range", "Expiry must be between 0 (never) and {max} days")
+	errTokenNotFound     = newError("token_not_found", "Token not found")
+)
+
 type tokenCtxKey struct{}
 
 // currentToken devuelve el token con el que se autenticó la petición (nil
@@ -103,16 +111,16 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 	in.Name = strings.TrimSpace(in.Name)
 	switch {
 	case in.Name == "":
-		writeError(w, http.StatusBadRequest, "ponle un nombre (p. ej. «GitHub Actions»)")
+		writeError(w, http.StatusBadRequest, errTokenNameRequired)
 		return
 	case store.RoleRank(in.Role) == 0:
-		writeError(w, http.StatusBadRequest, "rol desconocido: usa admin, deployer o viewer")
+		writeError(w, http.StatusBadRequest, errUnknownRole)
 		return
 	case store.RoleRank(in.Role) > store.RoleRank(u.Role):
-		writeError(w, http.StatusForbidden, "un token no puede tener más permisos que tu usuario")
+		writeError(w, http.StatusForbidden, errTokenRoleTooHigh)
 		return
 	case in.ExpiresDays < 0 || in.ExpiresDays > 3650:
-		writeError(w, http.StatusBadRequest, "la caducidad debe estar entre 0 (nunca) y 3650 días")
+		writeError(w, http.StatusBadRequest, errTokenExpiry.With("max", 3650))
 		return
 	}
 	token := newToken()
@@ -135,7 +143,7 @@ func (s *Server) handleDeleteToken(w http.ResponseWriter, r *http.Request) {
 	}
 	err := s.Store.DeleteAPIToken(r.Context(), currentUser(r).ID, id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "token no encontrado")
+		writeError(w, http.StatusNotFound, errTokenNotFound)
 		return
 	} else if err != nil {
 		s.internalError(w, err)

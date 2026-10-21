@@ -18,13 +18,18 @@ var trafficRanges = map[string]struct{ span, step time.Duration }{
 	"7d":  {7 * 24 * time.Hour, 4 * time.Hour},
 }
 
+var (
+	errTrafficInvalidOwner = newError("traffic_invalid_owner", "Invalid owner")
+	errTrafficInvalidRange = newError("traffic_invalid_range", "Invalid range: use 1h, 24h or 7d")
+)
+
 var ownerRe = regexp.MustCompile(`^(ph|site|app|rd)-[0-9]+$|^previews$`)
 
 // handleTraffic devuelve la gráfica de tráfico de un proxy host, sitio o app.
 func (s *Server) handleTraffic(w http.ResponseWriter, r *http.Request) {
 	owner := chi.URLParam(r, "owner")
 	if !ownerRe.MatchString(owner) {
-		writeError(w, http.StatusBadRequest, "dueño inválido")
+		writeError(w, http.StatusBadRequest, errTrafficInvalidOwner)
 		return
 	}
 	name := r.URL.Query().Get("range")
@@ -33,7 +38,7 @@ func (s *Server) handleTraffic(w http.ResponseWriter, r *http.Request) {
 	}
 	rg, ok := trafficRanges[name]
 	if !ok {
-		writeError(w, http.StatusBadRequest, "rango inválido: usa 1h, 24h o 7d")
+		writeError(w, http.StatusBadRequest, errTrafficInvalidRange)
 		return
 	}
 	n := int(rg.span / rg.step)

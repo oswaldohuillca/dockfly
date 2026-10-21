@@ -81,8 +81,9 @@ func TestTwoFactorFlow(t *testing.T) {
 	// Un ticket caducado o falsificado no sirve.
 	s := serverOf(t, ts)
 	old := s.Signer.IssueTicket(mfaTicketPurpose, 1, -time.Second)
-	if code, _ := rc.do("POST", "/api/auth/login/2fa", fmt.Sprintf(`{"ticket":%q,"code":%q}`, old, next)); code != 401 {
-		t.Errorf("ticket caducado: %d", code)
+	// El panel reconoce el código login_expired para volver a pedir la contraseña.
+	if code, body := rc.do("POST", "/api/auth/login/2fa", fmt.Sprintf(`{"ticket":%q,"code":%q}`, old, next)); code != 401 || body["code"] != "login_expired" {
+		t.Errorf("ticket caducado: %d %v", code, body)
 	}
 
 	// Desactivar pide la contraseña.

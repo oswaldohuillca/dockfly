@@ -14,6 +14,15 @@ import (
 	"github.com/dockfly/dockfly/internal/traefik"
 )
 
+var (
+	errStreamProtocolInvalid = newError("stream_protocol_invalid", "The protocol must be tcp or udp")
+	errStreamPortsInvalid    = newError("stream_ports_invalid", "Ports must be between 1 and 65535")
+	errStreamHostInvalid     = newError("stream_forward_host_invalid", "Enter the target host (a container, an app or an IP)")
+	errStreamPortReserved    = newError("stream_port_reserved", "Port {port} is used by Dockfly ({addr})")
+	errStreamPortTaken       = newError("stream_port_taken", "There's already a {protocol} stream on port {port}")
+	errStreamNotFound        = newError("stream_not_found", "Stream not found")
+)
+
 type streamInput struct {
 	Protocol    string `json:"protocol"`
 	ListenPort  int    `json:"listen_port"`
@@ -46,21 +55,21 @@ func (s *Server) readStream(w http.ResponseWriter, r *http.Request, selfID int64
 		ForwardHost: strings.TrimSpace(in.ForwardHost), ForwardPort: in.ForwardPort,
 		Enabled: in.Enabled == nil || *in.Enabled,
 	}
-	fail := func(msg string) (*store.Stream, bool) {
-		writeError(w, http.StatusBadRequest, msg)
+	fail := func(e apiError) (*store.Stream, bool) {
+		writeError(w, http.StatusBadRequest, e)
 		return nil, false
 	}
 	switch {
 	case st.Protocol != "tcp" && st.Protocol != "udp":
-		return fail("el protocolo debe ser tcp o udp")
+		return fail(errStreamProtocolInvalid)
 	case st.ListenPort < 1 || st.ListenPort > 65535 || st.ForwardPort < 1 || st.ForwardPort > 65535:
-		return fail("los puertos deben estar entre 1 y 65535")
+		return fail(errStreamPortsInvalid)
 	case st.ForwardHost == "" || (net.ParseIP(st.ForwardHost) == nil && !hostnameRe.MatchString(st.ForwardHost)):
-		return fail("indica el host de destino (un contenedor, una app o una IP)")
+		return fail(errStreamHostInvalid)
 	}
 	if st.Protocol == "tcp" {
 		if used, ok := s.reservedPorts()[st.ListenPort]; ok {
-			return fail(fmt.Sprintf("el puerto %d lo usa Dockfly (%s)", st.ListenPort, used))
+			return fail(errStreamPortReserved.With("port", st.ListenPort, "addr", used))
 		}
 	}
 	existing, err := s.Store.ListStreams(r.Context())
@@ -70,7 +79,7 @@ func (s *Server) readStream(w http.ResponseWriter, r *http.Request, selfID int64
 	}
 	for _, o := range existing {
 		if o.ID != selfID && o.Protocol == st.Protocol && o.ListenPort == st.ListenPort {
-			return fail(fmt.Sprintf("ya hay un stream %s en el puerto %d", st.Protocol, st.ListenPort))
+			return fail(errStreamPortTaken.With("protocol", st.Protocol, "port", st.ListenPort))
 		}
 	}
 	return st, true
@@ -124,7 +133,7 @@ func (s *Server) handleUpdateStream(w http.ResponseWriter, r *http.Request) {
 	}
 	existing, err := s.Store.GetStream(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "stream no encontrado")
+		writeError(w, http.StatusNotFound, errStreamNotFound)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -148,7 +157,7 @@ func (s *Server) handleDeleteStream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Store.DeleteStream(r.Context(), id); errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "stream no encontrado")
+		writeError(w, http.StatusNotFound, errStreamNotFound)
 		return
 	} else if err != nil {
 		s.internalError(w, err)

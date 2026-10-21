@@ -26,7 +26,7 @@ func TestAppsAPI(t *testing.T) {
 		}
 	}
 	if code, res := c.do("POST", "/api/apps", `{"name":"a","source":"image","image":"nginx","port":80,"domains":["web.test"]}`); code != 409 ||
-		!strings.Contains(res["error"].(string), "sitio") {
+		res["code"] != "domain_in_use" || res["params"].(map[string]any)["kind"] != "site" || res["params"].(map[string]any)["domain"] != "web.test" {
 		t.Errorf("un dominio de un sitio no puede usarlo una app: %d %v", code, res)
 	}
 

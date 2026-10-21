@@ -36,7 +36,7 @@ func TestCertificatesAndWildcards(t *testing.T) {
 	}
 
 	// Sin zona DNS, un comodín con SSL no es posible.
-	if code, res := host("*.zona.com"); code != 400 || !strings.Contains(res["error"].(string), "zona DNS") {
+	if code, res := host("*.zona.com"); code != 400 || res["code"] != "wildcard_ssl_needs_dns" {
 		t.Errorf("comodín sin zona: %d %v", code, res)
 	}
 

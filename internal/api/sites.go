@@ -29,6 +29,19 @@ const uploadHeader = "X-Dockfly-Upload"
 
 var siteNameRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$`)
 
+var (
+	errSiteNameInvalid     = newError("site_name_invalid", "The name can only contain lowercase letters, numbers and hyphens (max. 63)")
+	errSiteNameTaken       = newError("site_name_taken", "A site with that name already exists")
+	errUploadHeaderMissing = newError("upload_header_missing", "The {header} header is missing")
+	errMultipartExpected   = newError("multipart_expected", "multipart/form-data was expected")
+	errUploadTooLarge      = newError("upload_too_large", "The upload exceeds {max_mb} MiB")
+	errDeploymentInvalid   = newError("deployment_invalid", "Invalid deployment: {detail}")
+	errDeploymentActive    = newError("deployment_active", "The published deployment can't be deleted; activate another one first")
+	errSiteNotFound        = newError("site_not_found", "Site not found")
+	errInvalidDeploymentID = newError("invalid_deployment_id", "Invalid deployment ID")
+	errDeploymentNotFound  = newError("deployment_not_found", "Deployment not found")
+)
+
 type siteInput struct {
 	Name       string   `json:"name"`
 	Domains    []string `json:"domains"`
@@ -43,7 +56,7 @@ type siteInput struct {
 func (in *siteInput) normalize() (*store.Site, error) {
 	name := strings.ToLower(strings.TrimSpace(in.Name))
 	if !siteNameRe.MatchString(name) {
-		return nil, errors.New("el nombre solo puede tener minúsculas, números y guiones (máx. 63)")
+		return nil, errSiteNameInvalid
 	}
 	domains, err := normalizeDomains(in.Domains)
 	if err != nil {
@@ -91,7 +104,7 @@ func (s *Server) handleCreateSite(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.Store.CreateSite(r.Context(), site); err != nil {
 		if isUniqueViolation(err) {
-			writeError(w, http.StatusConflict, "ya existe un sitio con ese nombre")
+			writeError(w, http.StatusConflict, errSiteNameTaken)
 			return
 		}
 		s.internalError(w, err)
@@ -113,7 +126,7 @@ func (s *Server) handleUpdateSite(w http.ResponseWriter, r *http.Request) {
 	site.ActiveDeploymentID = existing.ActiveDeploymentID
 	if err := s.Store.UpdateSite(r.Context(), site); err != nil {
 		if isUniqueViolation(err) {
-			writeError(w, http.StatusConflict, "ya existe un sitio con ese nombre")
+			writeError(w, http.StatusConflict, errSiteNameTaken)
 			return
 		}
 		s.internalError(w, err)
@@ -155,13 +168,13 @@ func (s *Server) handleUploadDeployment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if r.Header.Get(uploadHeader) != "1" {
-		writeError(w, http.StatusBadRequest, "falta la cabecera "+uploadHeader)
+		writeError(w, http.StatusBadRequest, errUploadHeaderMissing.With("header", uploadHeader))
 		return
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, s.MaxUploadMB<<20)
 	mr, err := r.MultipartReader()
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "se esperaba multipart/form-data")
+		writeError(w, http.StatusBadRequest, errMultipartExpected)
 		return
 	}
 
@@ -246,9 +259,11 @@ func (s *Server) uploadError(w http.ResponseWriter, err error) {
 	var tooBig *http.MaxBytesError
 	switch {
 	case errors.As(err, &tooBig):
-		writeError(w, http.StatusRequestEntityTooLarge, fmt.Sprintf("la subida supera %d MiB", s.MaxUploadMB))
+		writeError(w, http.StatusRequestEntityTooLarge, errUploadTooLarge.With("max_mb", s.MaxUploadMB))
 	case errors.Is(err, pages.ErrInvalid):
-		writeError(w, http.StatusBadRequest, err.Error())
+		// El detalle viene de pages (en español), sin el prefijo de ErrInvalid.
+		detail := strings.TrimPrefix(err.Error(), pages.ErrInvalid.Error()+": ")
+		writeError(w, http.StatusBadRequest, errDeploymentInvalid.With("detail", detail))
 	default:
 		s.internalError(w, err)
 	}
@@ -272,7 +287,7 @@ func (s *Server) handleDeleteDeployment(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if site.ActiveDeploymentID != nil && *site.ActiveDeploymentID == dep.ID {
-		writeError(w, http.StatusConflict, "no se puede borrar el despliegue publicado; activa otro primero")
+		writeError(w, http.StatusConflict, errDeploymentActive)
 		return
 	}
 	if err := s.Store.DeleteDeployment(r.Context(), site.ID, dep.ID); err != nil {
@@ -344,7 +359,7 @@ func (s *Server) readSite(w http.ResponseWriter, r *http.Request, selfID int64) 
 	}
 	site, err := in.normalize()
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return nil, false
 	}
 	if !s.checkDomains(w, r, site.Domains, owner{kind: ownerSite, id: selfID}) || !s.checkAccessList(w, r, site.AccessListID) ||
@@ -361,7 +376,7 @@ func (s *Server) loadSite(w http.ResponseWriter, r *http.Request) (*store.Site, 
 	}
 	site, err := s.Store.GetSite(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "sitio no encontrado")
+		writeError(w, http.StatusNotFound, errSiteNotFound)
 		return nil, false
 	} else if err != nil {
 		s.internalError(w, err)
@@ -377,12 +392,12 @@ func (s *Server) loadDeployment(w http.ResponseWriter, r *http.Request) (*store.
 	}
 	depID, err := strconv.ParseInt(chi.URLParam(r, "deploymentID"), 10, 64)
 	if err != nil || depID < 1 {
-		writeError(w, http.StatusBadRequest, "id de despliegue inválido")
+		writeError(w, http.StatusBadRequest, errInvalidDeploymentID)
 		return nil, nil, false
 	}
 	dep, err := s.Store.GetDeployment(r.Context(), site.ID, depID)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "despliegue no encontrado")
+		writeError(w, http.StatusNotFound, errDeploymentNotFound)
 		return nil, nil, false
 	} else if err != nil {
 		s.internalError(w, err)

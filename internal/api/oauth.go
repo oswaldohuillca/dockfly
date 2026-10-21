@@ -18,6 +18,14 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
+var (
+	errInvalidPanelURL        = newError("invalid_panel_url", "Invalid panel address")
+	errGitAppNotFound         = newError("git_app_not_found", "App not found")
+	errGitHubAppUnknown       = newError("github_app_unknown", "Unknown app")
+	errGitLabAppCredsRequired = newError("gitlab_app_credentials_required", "The Application ID and Secret are required")
+	errGitLabAppNotConfigured = newError("gitlab_app_not_configured", "Set up the GitLab application first")
+)
+
 // --- Estados OAuth ---
 //
 // Los retornos desde GitHub/GitLab no llevan la cookie de sesión (es
@@ -76,7 +84,7 @@ func (s *stateStore) take(key, kind string) (oauthState, bool) {
 func panelURL(raw string) (string, error) {
 	u, err := url.Parse(strings.TrimRight(strings.TrimSpace(raw), "/"))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || (u.Path != "" && u.Path != "/") {
-		return "", errors.New("dirección del panel inválida")
+		return "", errInvalidPanelURL
 	}
 	return u.Scheme + "://" + u.Host, nil
 }
@@ -121,12 +129,12 @@ func (s *Server) handleGitHubManifestStart(w http.ResponseWriter, r *http.Reques
 	}
 	panel, err := panelURL(in.PanelURL)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	web, apiURL, err := gitprovider.GitHubWebURLs(in.EnterpriseURL)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	publicURL, _ := s.Store.GetSetting(r.Context(), store.SettingPublicURL)
@@ -247,12 +255,12 @@ func (s *Server) handleGitHubInstallURL(w http.ResponseWriter, r *http.Request) 
 	}
 	panel, err := panelURL(in.PanelURL)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	app, err := s.Store.GetGitHubApp(r.Context(), id)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "app no encontrada")
+		writeError(w, http.StatusNotFound, errGitAppNotFound)
 		return
 	}
 	state := s.oauthStates.issue(oauthState{kind: "github_install", panelURL: panel, appID: app.ID})
@@ -268,7 +276,7 @@ func (s *Server) handleDeleteGitHubApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Store.DeleteGitHubApp(r.Context(), id); errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "app no encontrada")
+		writeError(w, http.StatusNotFound, errGitAppNotFound)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -301,7 +309,7 @@ func (s *Server) refuseIfInUse(w http.ResponseWriter, r *http.Request, match fun
 		for i, st := range sites {
 			names[i] = st.Name
 		}
-		writeError(w, http.StatusConflict, "la usan estos sitios; desconéctalos primero: "+strings.Join(names, ", "))
+		writeError(w, http.StatusConflict, errGitConnectionInUse.With("sites", strings.Join(names, ", ")))
 		return false
 	}
 	return true
@@ -361,7 +369,7 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 	appID, _ := strconv.ParseInt(r.Header.Get("X-GitHub-Hook-Installation-Target-ID"), 10, 64)
 	app, err := s.Store.GitHubAppByAppID(ctx, appID)
 	if err != nil || len(app.WebhookSecretEnc) == 0 {
-		writeError(w, http.StatusNotFound, "app desconocida")
+		writeError(w, http.StatusNotFound, errGitHubAppUnknown)
 		return
 	}
 	secret, err := s.Secrets.Open(app.WebhookSecretEnc)
@@ -370,7 +378,7 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := gitprovider.VerifyGitHubSignature(r.Header, body, string(secret)); err != nil {
-		writeError(w, http.StatusUnauthorized, "firma inválida")
+		writeError(w, http.StatusUnauthorized, errWebhookBadSignature)
 		return
 	}
 
@@ -387,7 +395,7 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 
 	push, isPush, err := gitprovider.ParseGitHubPush(r.Header, body)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "payload inválido")
+		writeError(w, http.StatusBadRequest, errWebhookBadPayload)
 		return
 	}
 	if !isPush {
@@ -421,7 +429,7 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 		}
 		d, err := s.Apps.Enqueue(ctx, a.ID, store.TriggerPush, push.Commit, "")
 		if err != nil {
-			writeError(w, http.StatusServiceUnavailable, err.Error())
+			writeErrorFrom(w, http.StatusServiceUnavailable, err, errUnexpected)
 			return
 		}
 		builds = append(builds, d.ID)
@@ -433,7 +441,7 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 		}
 		id, _, err := s.handleSitePush(ctx, site, push)
 		if err != nil {
-			writeError(w, http.StatusServiceUnavailable, err.Error())
+			writeErrorFrom(w, http.StatusServiceUnavailable, err, errUnexpected)
 			return
 		}
 		if id != 0 {
@@ -456,7 +464,7 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 func readWebhookBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 25<<20))
 	if err != nil {
-		writeError(w, http.StatusRequestEntityTooLarge, "cuerpo demasiado grande")
+		writeError(w, http.StatusRequestEntityTooLarge, errWebhookBodyTooLarge)
 	}
 	return body, err
 }
@@ -474,12 +482,12 @@ func (s *Server) handlePutGitLabApp(w http.ResponseWriter, r *http.Request) {
 	}
 	web, err := gitprovider.GitLabWebURL(in.WebURL)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	in.ClientID, in.ClientSecret = strings.TrimSpace(in.ClientID), strings.TrimSpace(in.ClientSecret)
 	if in.ClientID == "" || in.ClientSecret == "" {
-		writeError(w, http.StatusBadRequest, "el Application ID y el Secret son obligatorios")
+		writeError(w, http.StatusBadRequest, errGitLabAppCredsRequired)
 		return
 	}
 	app := &store.GitLabApp{WebURL: web, ClientID: in.ClientID, ClientSecretEnc: s.Secrets.Seal([]byte(in.ClientSecret))}
@@ -499,7 +507,7 @@ func (s *Server) handleDeleteGitLabApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Store.DeleteGitLabApp(r.Context(), id); errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "app no encontrada")
+		writeError(w, http.StatusNotFound, errGitAppNotFound)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -519,12 +527,12 @@ func (s *Server) handleGitLabAuthorize(w http.ResponseWriter, r *http.Request) {
 	}
 	panel, err := panelURL(in.PanelURL)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	app, err := s.Store.GetGitLabApp(r.Context(), in.AppID)
 	if err != nil {
-		writeError(w, http.StatusNotFound, "configura primero la aplicación de GitLab")
+		writeError(w, http.StatusNotFound, errGitLabAppNotConfigured)
 		return
 	}
 	redirectURI := panel + "/api/git/gitlab/callback"

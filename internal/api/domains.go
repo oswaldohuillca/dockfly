@@ -1,8 +1,6 @@
 package api
 
 import (
-	"errors"
-	"fmt"
 	"net/http"
 	"regexp"
 	"slices"
@@ -22,21 +20,29 @@ func normalizeDomains(in []string) ([]string, error) {
 		}
 		// Se admite un comodín de un nivel: *.ejemplo.com.
 		if !domainRe.MatchString(strings.TrimPrefix(d, "*.")) || strings.Contains(strings.TrimPrefix(d, "*."), "*") {
-			return nil, fmt.Errorf("dominio inválido: %q", d)
+			return nil, errInvalidDomain.With("domain", d)
 		}
 		out = append(out, d)
 	}
 	if len(out) == 0 {
-		return nil, errors.New("indica al menos un dominio")
+		return nil, errNoDomains
 	}
 	return out, nil
 }
 
+var (
+	errInvalidDomain = newError("invalid_domain", "Invalid domain: {domain}")
+	errNoDomains     = newError("no_domains", "Enter at least one domain")
+	// {kind} es proxy_host, site, app o redirect.
+	errDomainInUse = newError("domain_in_use", "The domain {domain} is already used by another {kind}")
+)
+
+// Tipos de recurso que usan dominios (también van en errDomainInUse).
 const (
-	ownerProxyHost = "proxy host"
-	ownerSite      = "sitio"
+	ownerProxyHost = "proxy_host"
+	ownerSite      = "site"
 	ownerApp       = "app"
-	ownerRedirect  = "redirección"
+	ownerRedirect  = "redirect"
 )
 
 // owner identifica al recurso que se está editando, para no considerarlo
@@ -67,7 +73,7 @@ func (s *Server) checkDomains(w http.ResponseWriter, r *http.Request, domains []
 		}
 		for _, d := range domains {
 			if slices.Contains(theirs, d) {
-				writeError(w, http.StatusConflict, fmt.Sprintf("el dominio %s ya está en uso por otro %s", d, kind))
+				writeError(w, http.StatusConflict, errDomainInUse.With("domain", d, "kind", kind))
 				return true
 			}
 		}

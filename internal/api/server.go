@@ -214,6 +214,15 @@ func (s *Server) Apply(ctx context.Context) error {
 	return traefik.WriteDynamic(s.Traefik, traefik.Dynamic{Routes: routes, Middlewares: extra, Streams: streams, Certificates: certFiles})
 }
 
+// Errores del alta y el login (y del resto de la gestión de cuentas).
+var (
+	errNameRequired     = newError("name_required", "Name is required")
+	errInvalidEmail     = newError("invalid_email", "Invalid email")
+	errPasswordTooShort = newError("password_too_short", "The password must be at least {min} characters long")
+	errAlreadySetUp     = newError("already_set_up", "This installation is already set up")
+	errBadCredentials   = newError("bad_credentials", "Wrong email or password")
+)
+
 func currentUser(r *http.Request) *store.User {
 	u, _ := r.Context().Value(ctxKey{}).(*store.User)
 	return u
@@ -259,13 +268,13 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	in.Name = strings.TrimSpace(in.Name)
 	switch {
 	case in.Name == "":
-		writeError(w, http.StatusBadRequest, "el nombre es obligatorio")
+		writeError(w, http.StatusBadRequest, errNameRequired)
 		return
 	case !strings.Contains(in.Email, "@"):
-		writeError(w, http.StatusBadRequest, "email inválido")
+		writeError(w, http.StatusBadRequest, errInvalidEmail)
 		return
 	case len(in.Password) < 8:
-		writeError(w, http.StatusBadRequest, "la contraseña debe tener al menos 8 caracteres")
+		writeError(w, http.StatusBadRequest, errPasswordTooShort.With("min", minPassword))
 		return
 	}
 
@@ -279,7 +288,7 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if n > 0 {
-		writeError(w, http.StatusConflict, "la instalación ya está configurada")
+		writeError(w, http.StatusConflict, errAlreadySetUp)
 		return
 	}
 	hash, err := auth.HashPassword(in.Password)
@@ -313,7 +322,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		hash = u.PasswordHash
 	}
 	if !auth.CheckPassword(hash, in.Password) || u == nil {
-		writeError(w, http.StatusUnauthorized, "email o contraseña incorrectos")
+		writeError(w, http.StatusUnauthorized, errBadCredentials)
 		return
 	}
 	if u.TOTPEnabled {
@@ -354,7 +363,7 @@ func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(v); err != nil {
-		writeError(w, http.StatusBadRequest, "JSON inválido: "+err.Error())
+		writeError(w, http.StatusBadRequest, errInvalidJSON.With("detail", err.Error()))
 		return false
 	}
 	return true
@@ -366,13 +375,9 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func writeError(w http.ResponseWriter, status int, msg string) {
-	writeJSON(w, status, map[string]string{"error": msg})
-}
-
 func (s *Server) internalError(w http.ResponseWriter, err error) {
 	s.Log.Error("error interno", "error", err)
-	writeError(w, http.StatusInternalServerError, "error interno")
+	writeError(w, http.StatusInternalServerError, errInternal)
 }
 
 // spaHandler sirve los archivos del frontend y devuelve index.html para

@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -85,10 +84,22 @@ type accessListInput struct {
 	AllowIPs []string `json:"allow_ips"`
 }
 
+var (
+	errAccessListNameRequired = newError("access_list_name_required", "Give the list a name")
+	errAccessUserInvalid      = newError("access_list_user_invalid", "Invalid or duplicate user: \"{username}\"")
+	errAccessPasswordShort    = newError("access_list_password_too_short", "The password for {username} must be at least {min} characters long")
+	errAccessPasswordMissing  = newError("access_list_password_missing", "The password for {username} is missing")
+	errAccessIPInvalid        = newError("access_list_ip_invalid", "Invalid IP or range: \"{ip}\" (e.g. 203.0.113.7 or 192.168.1.0/24)")
+	errAccessListEmpty        = newError("access_list_empty", "Add at least one user or allowed IP")
+	errAccessListNotFound     = newError("access_list_not_found", "List not found")
+	errAccessListInUse        = newError("access_list_in_use", "{count} hosts, sites or apps use it: remove it from them first")
+	errAccessListMissing      = newError("access_list_missing", "The chosen access list doesn't exist")
+)
+
 func (in *accessListInput) build(previous *store.AccessList) (*store.AccessList, error) {
 	l := &store.AccessList{Name: strings.TrimSpace(in.Name), Users: []store.AccessUser{}, AllowIPs: []string{}}
 	if l.Name == "" {
-		return nil, errors.New("ponle un nombre a la lista")
+		return nil, errAccessListNameRequired
 	}
 	old := map[string]string{}
 	if previous != nil {
@@ -100,13 +111,13 @@ func (in *accessListInput) build(previous *store.AccessList) (*store.AccessList,
 	for _, u := range in.Users {
 		name := strings.TrimSpace(u.Username)
 		if name == "" || strings.ContainsAny(name, ": ") || seen[name] {
-			return nil, fmt.Errorf("usuario inválido o repetido: %q", u.Username)
+			return nil, errAccessUserInvalid.With("username", u.Username)
 		}
 		seen[name] = true
 		hash := old[name]
 		if u.Password != "" {
 			if len(u.Password) < 6 {
-				return nil, fmt.Errorf("la contraseña de %s debe tener al menos 6 caracteres", name)
+				return nil, errAccessPasswordShort.With("username", name, "min", 6)
 			}
 			var err error
 			if hash, err = auth.HashPassword(u.Password); err != nil {
@@ -114,7 +125,7 @@ func (in *accessListInput) build(previous *store.AccessList) (*store.AccessList,
 			}
 		}
 		if hash == "" {
-			return nil, fmt.Errorf("falta la contraseña de %s", name)
+			return nil, errAccessPasswordMissing.With("username", name)
 		}
 		l.Users = append(l.Users, store.AccessUser{Username: name, PasswordHash: hash})
 	}
@@ -130,12 +141,12 @@ func (in *accessListInput) build(previous *store.AccessList) (*store.AccessList,
 		} else if p, err := netip.ParsePrefix(ip); err == nil {
 			ip = p.Masked().String()
 		} else {
-			return nil, fmt.Errorf("IP o rango inválido: %q (p. ej. 203.0.113.7 o 192.168.1.0/24)", ip)
+			return nil, errAccessIPInvalid.With("ip", ip)
 		}
 		l.AllowIPs = append(l.AllowIPs, ip)
 	}
 	if len(l.Users) == 0 && len(l.AllowIPs) == 0 {
-		return nil, errors.New("añade al menos un usuario o una IP permitida")
+		return nil, errAccessListEmpty
 	}
 	return l, nil
 }
@@ -147,7 +158,7 @@ func (s *Server) handleCreateAccessList(w http.ResponseWriter, r *http.Request) 
 	}
 	l, err := in.build(nil)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	if err := s.Store.CreateAccessList(r.Context(), l); err != nil {
@@ -164,7 +175,7 @@ func (s *Server) handleUpdateAccessList(w http.ResponseWriter, r *http.Request) 
 	}
 	prev, err := s.Store.GetAccessList(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "lista no encontrada")
+		writeError(w, http.StatusNotFound, errAccessListNotFound)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -176,7 +187,7 @@ func (s *Server) handleUpdateAccessList(w http.ResponseWriter, r *http.Request) 
 	}
 	l, err := in.build(prev)
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	l.ID = id
@@ -200,11 +211,11 @@ func (s *Server) handleDeleteAccessList(w http.ResponseWriter, r *http.Request) 
 	// Borrarla dejaría públicos de golpe los hosts que protege: mejor que el
 	// usuario lo decida uno a uno.
 	if used[id] > 0 {
-		writeError(w, http.StatusConflict, fmt.Sprintf("la usan %d hosts, sitios o apps: quítasela primero", used[id]))
+		writeError(w, http.StatusConflict, errAccessListInUse.With("count", used[id]))
 		return
 	}
 	if err := s.Store.DeleteAccessList(r.Context(), id); errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "lista no encontrada")
+		writeError(w, http.StatusNotFound, errAccessListNotFound)
 		return
 	} else if err != nil {
 		s.internalError(w, err)
@@ -219,7 +230,7 @@ func (s *Server) checkAccessList(w http.ResponseWriter, r *http.Request, id *int
 		return true
 	}
 	if _, err := s.Store.GetAccessList(r.Context(), *id); err != nil {
-		writeError(w, http.StatusBadRequest, "la lista de acceso elegida no existe")
+		writeError(w, http.StatusBadRequest, errAccessListMissing)
 		return false
 	}
 	return true

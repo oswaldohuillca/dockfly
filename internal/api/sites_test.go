@@ -86,7 +86,7 @@ func TestSiteDeployFlow(t *testing.T) {
 	// Un dominio no puede estar en un sitio y en un proxy host a la vez.
 	if code, body := c.do("POST", "/api/proxy-hosts",
 		`{"domains":["web.test"],"target_type":"external","forward_host":"1.1.1.1","forward_port":80}`); code != 409 ||
-		!strings.Contains(body["error"].(string), "sitio") {
+		body["code"] != "domain_in_use" {
 		t.Errorf("dominio de un sitio en un proxy host: %d %v", code, body)
 	}
 

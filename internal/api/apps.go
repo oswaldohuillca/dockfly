@@ -26,6 +26,34 @@ var (
 	volNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,30}$`)
 )
 
+var (
+	errAppNameInvalid          = newError("app_name_invalid", "The name can only contain lowercase letters, numbers and hyphens (max. 42)")
+	errAppImageInvalid         = newError("app_image_invalid", "Invalid image: {image}")
+	errAppGitSourceIncomplete  = newError("app_git_source_incomplete", "Choose the account, the repository and the branch")
+	errAppRootDirDotDot        = newError("app_root_dir_dotdot", "The root directory can't contain \"..\"")
+	errAppDockerfileDotDot     = newError("app_dockerfile_dotdot", "The Dockerfile can't contain \"..\"")
+	errAppComposeFileDotDot    = newError("app_compose_file_dotdot", "The Compose file can't contain \"..\"")
+	errAppComposeVolumes       = newError("app_compose_volumes", "With Compose, volumes are defined in docker-compose.yml")
+	errAppComposeServiceNeeded = newError("app_compose_service_required", "Specify which docker-compose.yml service receives the web traffic")
+	errAppSourceInvalid        = newError("app_source_invalid", "The source must be an image or a repository")
+	errAppPortInvalid          = newError("app_port_invalid", "Invalid port")
+	errAppPortRequired         = newError("app_port_required", "To publish the app on a domain, specify the port it listens on")
+	errAppResourcesNegative    = newError("app_resources_negative", "Resource limits can't be negative")
+	errAppVolumeNameInvalid    = newError("app_volume_name_invalid", "Invalid or duplicate volume name: {name}")
+	errAppVolumePathRelative   = newError("app_volume_path_not_absolute", "The path of volume {name} must be absolute (e.g. /data)")
+	errAppEnvNameInvalid       = newError("app_env_name_invalid", "Invalid variable name: {name}")
+	errAppCommandUnclosedQuote = newError("app_command_unclosed_quote", "The command has an unclosed quote")
+	errAppNotFound             = newError("app_not_found", "App not found")
+	errAppServerNotFound       = newError("app_server_not_found", "The server doesn't exist")
+	errAppComposeRemote        = newError("app_compose_remote", "Compose apps can only be deployed on the main server, for now")
+	errAppNameTaken            = newError("app_name_taken", "An app with that name already exists")
+	errAppNoReusableImage      = newError("app_no_reusable_image", "That deployment has no reusable image")
+	errAppImageGone            = newError("app_image_gone", "That deployment's image no longer exists; deploy again")
+	errAppNotDeployed          = newError("app_not_deployed", "The app hasn't been deployed yet")
+	errAppWebhookInactive      = newError("app_webhook_inactive", "This app has no active webhooks")
+	errAppWebhookProvider      = newError("app_webhook_unknown_provider", "Unknown provider")
+)
+
 type appInput struct {
 	Name         string            `json:"name"`
 	Source       string            `json:"source"`
@@ -63,48 +91,49 @@ func (in *appInput) toApp() (*store.App, error) {
 		AccessListID: in.AccessListID,
 	}
 	if !appNameRe.MatchString(a.Name) {
-		return nil, errors.New("el nombre solo puede tener minúsculas, números y guiones (máx. 42)")
+		return nil, errAppNameInvalid
 	}
 	switch a.Source {
 	case store.AppSourceImage:
 		a.Image = strings.TrimSpace(in.Image)
 		if !imageRe.MatchString(a.Image) {
-			return nil, fmt.Errorf("imagen inválida: %q", in.Image)
+			return nil, errAppImageInvalid.With("image", in.Image)
 		}
 	case store.AppSourceGit, store.AppSourceCompose:
 		if in.ConnectionID == 0 || !strings.Contains(in.Repo, "/") || strings.TrimSpace(in.Branch) == "" {
-			return nil, errors.New("elige la cuenta, el repositorio y la rama")
+			return nil, errAppGitSourceIncomplete
 		}
 		a.GitConnectionID = &in.ConnectionID
 		a.Repo, a.Branch = strings.Trim(strings.TrimSpace(in.Repo), "/"), strings.TrimSpace(in.Branch)
 		var err error
+		// relDir solo falla si el directorio contiene "..".
 		if a.RootDir, err = relDir("el directorio raíz", in.RootDir); err != nil {
-			return nil, err
+			return nil, errAppRootDirDotDot
 		}
 		if a.Dockerfile, err = relDir("el Dockerfile", in.Dockerfile); err != nil {
-			return nil, err
+			return nil, errAppDockerfileDotDot
 		}
 		if a.Source == store.AppSourceCompose {
 			if a.ComposeFile, err = relDir("el archivo de Compose", in.ComposeFile); err != nil {
-				return nil, err
+				return nil, errAppComposeFileDotDot
 			}
 			a.ComposeService = strings.TrimSpace(in.Service)
 			if len(in.Volumes) > 0 {
-				return nil, errors.New("con Compose, los volúmenes se definen en el docker-compose.yml")
+				return nil, errAppComposeVolumes
 			}
 			if len(in.Domains) > 0 && a.ComposeService == "" {
-				return nil, errors.New("indica qué servicio del docker-compose.yml recibe el tráfico web")
+				return nil, errAppComposeServiceNeeded
 			}
 		}
 	default:
-		return nil, errors.New("el origen debe ser una imagen o un repositorio")
+		return nil, errAppSourceInvalid
 	}
 	if a.Port < 0 || a.Port > 65535 {
-		return nil, errors.New("puerto inválido")
+		return nil, errAppPortInvalid
 	}
 	if len(in.Domains) > 0 {
 		if a.Port == 0 {
-			return nil, errors.New("para publicar la app en un dominio, indica el puerto en el que escucha")
+			return nil, errAppPortRequired
 		}
 		domains, err := normalizeDomains(in.Domains)
 		if err != nil {
@@ -116,27 +145,27 @@ func (in *appInput) toApp() (*store.App, error) {
 		a.HealthPath = "/" + a.HealthPath
 	}
 	if a.MemoryMB < 0 || a.CPUs < 0 {
-		return nil, errors.New("los límites de recursos no pueden ser negativos")
+		return nil, errAppResourcesNegative
 	}
 	seen := map[string]bool{}
 	for _, v := range in.Volumes {
 		v.Name, v.Path = strings.TrimSpace(v.Name), strings.TrimSpace(v.Path)
 		if !volNameRe.MatchString(v.Name) || seen[v.Name] {
-			return nil, fmt.Errorf("nombre de volumen inválido o repetido: %q", v.Name)
+			return nil, errAppVolumeNameInvalid.With("name", v.Name)
 		}
 		if !strings.HasPrefix(v.Path, "/") || v.Path == "/" {
-			return nil, fmt.Errorf("la ruta del volumen %s debe ser absoluta (p. ej. /data)", v.Name)
+			return nil, errAppVolumePathRelative.With("name", v.Name)
 		}
 		seen[v.Name] = true
 		a.Volumes = append(a.Volumes, v)
 	}
 	for k := range in.Env {
 		if !envNameRe.MatchString(k) {
-			return nil, fmt.Errorf("nombre de variable inválido: %q", k)
+			return nil, errAppEnvNameInvalid.With("name", k)
 		}
 	}
 	if _, err := apps.SplitCommand(a.Command); err != nil {
-		return nil, err
+		return nil, errAppCommandUnclosedQuote // el único error de SplitCommand
 	}
 	return a, nil
 }
@@ -187,7 +216,7 @@ func (s *Server) loadApp(w http.ResponseWriter, r *http.Request) (*store.App, bo
 	}
 	a, err := s.Store.GetApp(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "app no encontrada")
+		writeError(w, http.StatusNotFound, errAppNotFound)
 		return nil, false
 	} else if err != nil {
 		s.internalError(w, err)
@@ -216,16 +245,16 @@ func (s *Server) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 	}
 	a, err := in.toApp()
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	if in.ServerID != nil && *in.ServerID != 0 {
 		if _, err := s.Store.GetServer(r.Context(), *in.ServerID); err != nil {
-			writeError(w, http.StatusBadRequest, "el servidor no existe")
+			writeError(w, http.StatusBadRequest, errAppServerNotFound)
 			return
 		}
 		if a.Source == store.AppSourceCompose {
-			writeError(w, http.StatusBadRequest, "las apps de Compose solo se pueden desplegar en el servidor principal, por ahora")
+			writeError(w, http.StatusBadRequest, errAppComposeRemote)
 			return
 		}
 		a.ServerID = in.ServerID
@@ -240,7 +269,7 @@ func (s *Server) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.Store.CreateApp(r.Context(), a); err != nil {
 		if isUniqueViolation(err) {
-			writeError(w, http.StatusConflict, "ya existe una app con ese nombre")
+			writeError(w, http.StatusConflict, errAppNameTaken)
 			return
 		}
 		s.internalError(w, err)
@@ -268,7 +297,7 @@ func (s *Server) handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 	in.Name = existing.Name // el nombre no cambia: de él dependen volúmenes y red
 	a, err := in.toApp()
 	if err != nil {
-		writeError(w, http.StatusBadRequest, err.Error())
+		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
 	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp, id: existing.ID}) || !s.checkAccessList(w, r, a.AccessListID) ||
@@ -344,7 +373,7 @@ func (s *Server) handleDeployApp(w http.ResponseWriter, r *http.Request) {
 	}
 	d, err := s.Apps.Enqueue(r.Context(), a.ID, store.TriggerManual, gitprovider.Commit{}, "")
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, err.Error())
+		writeError(w, http.StatusServiceUnavailable, errUnexpected.With("detail", err.Error()))
 		return
 	}
 	writeJSON(w, http.StatusAccepted, d)
@@ -362,17 +391,17 @@ func (s *Server) handleRedeploy(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if prev.AppID != a.ID || prev.Image == "" {
-		writeError(w, http.StatusBadRequest, "ese despliegue no tiene una imagen reutilizable")
+		writeError(w, http.StatusBadRequest, errAppNoReusableImage)
 		return
 	}
 	if exists, _ := s.Apps.Docker(a).ImageExists(r.Context(), prev.Image); !exists {
-		writeError(w, http.StatusConflict, "la imagen de ese despliegue ya no existe; despliega de nuevo")
+		writeError(w, http.StatusConflict, errAppImageGone)
 		return
 	}
 	d, err := s.Apps.Enqueue(r.Context(), a.ID, "rollback",
 		gitprovider.Commit{SHA: prev.CommitSHA, Message: prev.CommitMessage}, prev.Image)
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, err.Error())
+		writeError(w, http.StatusServiceUnavailable, errUnexpected.With("detail", err.Error()))
 		return
 	}
 	writeJSON(w, http.StatusAccepted, d)
@@ -385,7 +414,7 @@ func (s *Server) appAction(action func(context.Context, *store.App) error) http.
 			return
 		}
 		if err := action(r.Context(), a); err != nil {
-			writeError(w, http.StatusConflict, err.Error())
+			writeError(w, http.StatusConflict, errUnexpected.With("detail", err.Error()))
 			return
 		}
 		w.WriteHeader(http.StatusNoContent)
@@ -395,12 +424,12 @@ func (s *Server) appAction(action func(context.Context, *store.App) error) http.
 func (s *Server) loadAppDeployment(w http.ResponseWriter, r *http.Request, param string) (*store.AppDeployment, bool) {
 	id, err := strconv.ParseInt(chi.URLParam(r, param), 10, 64)
 	if err != nil || id < 1 {
-		writeError(w, http.StatusBadRequest, "id de despliegue inválido")
+		writeError(w, http.StatusBadRequest, errInvalidDeploymentID)
 		return nil, false
 	}
 	d, err := s.Store.GetAppDeployment(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
-		writeError(w, http.StatusNotFound, "despliegue no encontrado")
+		writeError(w, http.StatusNotFound, errDeploymentNotFound)
 		return nil, false
 	} else if err != nil {
 		s.internalError(w, err)
@@ -415,7 +444,7 @@ func (s *Server) handleCancelAppDeployment(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if err := s.Apps.Cancel(r.Context(), d.ID); err != nil {
-		writeError(w, http.StatusConflict, err.Error())
+		writeError(w, http.StatusConflict, errUnexpected.With("detail", err.Error()))
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
@@ -504,12 +533,12 @@ func (s *Server) handleAppLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.Current == nil || a.Current.Container == "" {
-		writeError(w, http.StatusConflict, "la app todavía no se ha desplegado")
+		writeError(w, http.StatusConflict, errAppNotDeployed)
 		return
 	}
 	rc, err := s.Apps.Docker(a).FollowLogs(r.Context(), a.Current.Container, 300)
 	if err != nil {
-		writeError(w, http.StatusBadGateway, err.Error())
+		writeError(w, http.StatusBadGateway, errUnexpected.With("detail", err.Error()))
 		return
 	}
 	defer rc.Close()
@@ -602,7 +631,7 @@ func (s *Server) handleAppWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if a.WebhookSecret == "" || a.GitConnectionID == nil {
-		writeError(w, http.StatusNotFound, "esta app no tiene webhooks activos")
+		writeError(w, http.StatusNotFound, errAppWebhookInactive)
 		return
 	}
 	var push gitprovider.Push
@@ -613,14 +642,14 @@ func (s *Server) handleAppWebhook(w http.ResponseWriter, r *http.Request) {
 	case gitprovider.GitLab:
 		push, isPush, err = gitprovider.ParseGitLabWebhook(r.Header, body, a.WebhookSecret)
 	default:
-		writeError(w, http.StatusNotFound, "proveedor desconocido")
+		writeError(w, http.StatusNotFound, errAppWebhookProvider)
 		return
 	}
 	if errors.Is(err, gitprovider.ErrBadSignature) {
-		writeError(w, http.StatusUnauthorized, "firma inválida")
+		writeError(w, http.StatusUnauthorized, errWebhookBadSignature)
 		return
 	} else if err != nil {
-		writeError(w, http.StatusBadRequest, "payload inválido")
+		writeError(w, http.StatusBadRequest, errWebhookBadPayload)
 		return
 	}
 	if !isPush || push.Deleted || push.Branch != a.Branch {
@@ -629,7 +658,7 @@ func (s *Server) handleAppWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	d, err := s.Apps.Enqueue(r.Context(), a.ID, store.TriggerPush, push.Commit, "")
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, err.Error())
+		writeError(w, http.StatusServiceUnavailable, errUnexpected.With("detail", err.Error()))
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]any{"status": "en cola", "deployment_id": d.ID})

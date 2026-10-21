@@ -1,7 +1,10 @@
 // Cliente mínimo de la API de Dockfly. Los tipos reflejan los structs de Go
 // (internal/store, internal/docker, internal/traefik).
 
-import { t } from '@lingui/core/macro';
+import { i18n } from '@lingui/core';
+import { msg, t } from '@lingui/core/macro';
+
+import { apiErrors } from '@/lib/api-errors.gen';
 
 export type TargetType = 'docker' | 'host' | 'external';
 export type Scheme = 'http' | 'https';
@@ -530,13 +533,25 @@ export interface CustomCertificate {
   created_at: string;
 }
 
+/**
+ * Error de la API. code identifica el error (los textos de cada idioma
+ * están en api-errors.gen.ts, generado desde Go) y params lleva sus datos;
+ * message es el texto de respaldo que envía el servidor, en inglés.
+ */
 export class ApiError extends Error {
   constructor(
     public status: number,
     message: string,
+    public code = '',
+    public params: Record<string, unknown> = {},
   ) {
     super(message);
   }
+}
+
+/** Construye el ApiError a partir del cuerpo de una respuesta con error. */
+function apiError(status: number, data: { error?: string; code?: string; params?: Record<string, unknown> } | null, fallback: string) {
+  return new ApiError(status, data?.error || fallback, data?.code ?? '', data?.params ?? {});
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -554,7 +569,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
   if (res.status === 204) return undefined as T;
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new ApiError(res.status, data.error || res.statusText);
+  if (!res.ok) throw apiError(res.status, data, res.statusText);
   return data as T;
 }
 
@@ -746,7 +761,7 @@ function upload<T>(url: string, form: FormData, onProgress?: (p: number) => void
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
     xhr.onload = () => {
       if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as T);
-      else reject(new ApiError(xhr.status, xhr.response?.error || xhr.statusText));
+      else reject(apiError(xhr.status, xhr.response, xhr.statusText));
     };
     xhr.onerror = () => reject(new ApiError(0, t`network error during upload`));
     xhr.send(form);
@@ -754,6 +769,27 @@ function upload<T>(url: string, form: FormData, onProgress?: (p: number) => void
 }
 
 /** Mensaje legible de cualquier error capturado en un `catch`. */
+// Valores de parámetros que también se traducen: el tipo de recurso de
+// domain_in_use («…already used by another {kind}»; en español lleva el
+// determinante: «otra app»).
+const paramLabels: Record<string, Record<string, ReturnType<typeof msg>>> = {
+  kind: {
+    proxy_host: msg({ context: 'domain owner', message: 'proxy host' }),
+    site: msg({ context: 'domain owner', message: 'site' }),
+    app: msg({ context: 'domain owner', message: 'app' }),
+    redirect: msg({ context: 'domain owner', message: 'redirect' }),
+  },
+};
+
+/** El mensaje de un error, en el idioma activo si la API lo identifica con un código. */
 export function errorMessage(e: unknown): string {
+  if (e instanceof ApiError && e.code && apiErrors[e.code]) {
+    const values: Record<string, unknown> = { ...e.params };
+    for (const [key, labels] of Object.entries(paramLabels)) {
+      const label = labels[String(values[key])];
+      if (label) values[key] = i18n._(label);
+    }
+    return i18n._({ ...apiErrors[e.code], values });
+  }
   return e instanceof Error ? e.message : String(e);
 }

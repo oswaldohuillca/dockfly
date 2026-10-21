@@ -34,7 +34,7 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 		if r.Header.Get("Authorization") != "" {
 			u, t, ok := s.bearerUser(r)
 			if !ok {
-				writeError(w, http.StatusUnauthorized, "token de API inválido, caducado o revocado")
+				writeError(w, http.StatusUnauthorized, errBadAPIToken)
 				return
 			}
 			ctx := context.WithValue(r.Context(), ctxKey{}, u)
@@ -43,7 +43,7 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 		}
 		u, ok := s.sessionUser(r)
 		if !ok {
-			writeError(w, http.StatusUnauthorized, "no autenticado o sesión expirada")
+			writeError(w, http.StatusUnauthorized, errUnauthenticated)
 			return
 		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKey{}, u)))
@@ -78,7 +78,7 @@ func jsonOnly(next http.Handler) http.Handler {
 		default:
 			if r.ContentLength != 0 && !strings.HasPrefix(r.Header.Get("Content-Type"), "application/json") &&
 				!isMultipartUpload(r) {
-				writeError(w, http.StatusUnsupportedMediaType, "se requiere application/json")
+				writeError(w, http.StatusUnsupportedMediaType, errJSONRequired)
 				return
 			}
 		}
@@ -96,7 +96,7 @@ func (s *Server) recoverer(next http.Handler) http.Handler {
 				}
 				s.Log.Error("panic en handler", "panic", v, "path", r.URL.Path,
 					"request_id", middleware.GetReqID(r.Context()))
-				writeError(w, http.StatusInternalServerError, "error interno")
+				writeError(w, http.StatusInternalServerError, errInternal)
 			}
 		}()
 		next.ServeHTTP(w, r)
