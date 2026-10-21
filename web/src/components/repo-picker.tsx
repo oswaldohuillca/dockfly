@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Lock, Search } from 'lucide-react';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { ProviderIcon } from '@/components/brand-icons';
 import { Label } from '@/components/ui/label';
@@ -22,6 +23,7 @@ interface Props {
 
 /** Elegir cuenta, repositorio (con búsqueda) y rama. */
 export function RepoPicker({ connections, value, onChange, onError }: Props) {
+  const { t } = useLingui();
   const [repos, setRepos] = useState<Repo[] | null>(null);
   const [query, setQuery] = useState('');
   const [branches, setBranches] = useState<string[]>([]);
@@ -56,13 +58,15 @@ export function RepoPicker({ connections, value, onChange, onError }: Props) {
     <div className="space-y-4">
       <div className="grid gap-4 sm:grid-cols-[1fr_1.4fr]">
         <div className="space-y-2">
-          <Label>Cuenta</Label>
+          <Label>
+            <Trans>Account</Trans>
+          </Label>
           <Select
             value={String(value.connection_id || '')}
             onValueChange={(v) => onChange({ connection_id: Number(v), repo: '', branch: '' })}
           >
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Elige una cuenta" />
+              <SelectValue placeholder={t`Choose an account`} />
             </SelectTrigger>
             <SelectContent>
               {connections.map((c) => (
@@ -74,10 +78,12 @@ export function RepoPicker({ connections, value, onChange, onError }: Props) {
           </Select>
         </div>
         <div className="space-y-2">
-          <Label>Rama</Label>
+          <Label>
+            <Trans>Branch</Trans>
+          </Label>
           <Select value={value.branch} onValueChange={(v) => onChange({ ...value, branch: v })} disabled={!value.repo}>
             <SelectTrigger className="w-full">
-              <SelectValue placeholder="Elige un repositorio" />
+              <SelectValue placeholder={t`Choose a repository`} />
             </SelectTrigger>
             <SelectContent>
               {(branches.includes(value.branch) || !value.branch ? branches : [value.branch, ...branches]).map((b) => (
@@ -91,23 +97,31 @@ export function RepoPicker({ connections, value, onChange, onError }: Props) {
       </div>
 
       <div className="space-y-2">
-        <Label>Repositorio</Label>
+        <Label>
+          <Trans>Repository</Trans>
+        </Label>
         <div className="rounded-md border">
           <div className="relative border-b">
             <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
             <input
               className="h-9 w-full bg-transparent pr-3 pl-8 text-sm outline-none placeholder:text-muted-foreground"
-              placeholder="Buscar…"
+              placeholder={t`Search…`}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
             />
           </div>
           <ul className="max-h-44 overflow-y-auto p-1">
             {repos === null ? (
-              <li className="px-2 py-3 text-center text-sm text-muted-foreground">Cargando repositorios…</li>
+              <li className="px-2 py-3 text-center text-sm text-muted-foreground">
+                <Trans>Loading repositories…</Trans>
+              </li>
             ) : visible.length === 0 ? (
               <li className="px-2 py-3 text-center text-sm text-muted-foreground">
-                Ningún repositorio{query && ` coincide con «${query}»`}. Revisa a qué repos tiene acceso la cuenta.
+                {query ? (
+                  <Trans>No repositories match “{query}”. Check which repos the account can access.</Trans>
+                ) : (
+                  <Trans>No repositories. Check which repos the account can access.</Trans>
+                )}
               </li>
             ) : (
               visible.map((r) => (

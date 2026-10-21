@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, Loader2, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { CertBadge } from '@/components/cert-badge';
 import { CheckField } from '@/components/check-field';
@@ -20,6 +21,7 @@ import { cn } from '@/lib/utils';
 import { useCan } from '@/lib/roles';
 
 export function Redirects() {
+  const { t } = useLingui();
   const canEdit = useCan('admin');
   const [list, setList] = useState<RedirectHost[]>([]);
   const [editing, setEditing] = useState<RedirectHost | 'new' | null>(null);
@@ -54,12 +56,16 @@ export function Redirects() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Redirecciones</CardTitle>
-        <CardDescription>Envía un dominio a otra URL: www → raíz, un dominio antiguo al nuevo…</CardDescription>
+        <CardTitle className="text-lg">
+          <Trans>Redirects</Trans>
+        </CardTitle>
+        <CardDescription>
+          <Trans>Send a domain to another URL: www → apex, an old domain to a new one…</Trans>
+        </CardDescription>
         <CardAction>
           {canEdit && (
             <Button variant="outline" onClick={() => setEditing('new')}>
-              <Plus /> Añadir
+              <Plus /> <Trans>Add</Trans>
             </Button>
           )}
         </CardAction>
@@ -69,10 +75,16 @@ export function Redirects() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-6">Dominios</TableHead>
-                <TableHead>Destino</TableHead>
+                <TableHead className="pl-6">
+                  <Trans>Domains</Trans>
+                </TableHead>
+                <TableHead>
+                  <Trans>Target</Trans>
+                </TableHead>
                 <TableHead>SSL</TableHead>
-                <TableHead>Activa</TableHead>
+                <TableHead>
+                  <Trans context="redirect">Enabled</Trans>
+                </TableHead>
                 <TableHead className="pr-6" />
               </TableRow>
             </TableHeader>
@@ -102,13 +114,13 @@ export function Redirects() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Switch checked={r.enabled} onCheckedChange={() => toggle(r)} aria-label="Activa" />
+                    <Switch checked={r.enabled} onCheckedChange={() => toggle(r)} aria-label={t({ message: 'Enabled', context: 'redirect' })} />
                   </TableCell>
                   <TableCell className="pr-6 text-right">
-                    <Button variant="ghost" size="icon-sm" onClick={() => setEditing(r)} aria-label="Editar">
+                    <Button variant="ghost" size="icon-sm" onClick={() => setEditing(r)} aria-label={t`Edit`}>
                       <Pencil />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => remove(r)} aria-label="Eliminar">
+                    <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => remove(r)} aria-label={t`Delete`}>
                       <Trash2 />
                     </Button>
                   </TableCell>
@@ -137,6 +149,7 @@ function RedirectDialog({ redirect, onClose, onSaved }: { redirect?: RedirectHos
     domains: redirect?.domains ?? [], target: redirect?.target ?? '', permanent: redirect?.permanent ?? true,
     preserve_path: redirect?.preserve_path ?? true, ssl: redirect?.ssl ?? true, enabled: redirect?.enabled ?? true,
   }));
+  const { t } = useLingui();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const set = <K extends keyof RedirectInput>(k: K, v: RedirectInput[K]) => setForm((f) => ({ ...f, [k]: v }));
@@ -148,7 +161,7 @@ function RedirectDialog({ redirect, onClose, onSaved }: { redirect?: RedirectHos
     try {
       if (redirect) await api.updateRedirect(redirect.id, form);
       else await api.createRedirect(form);
-      toast.success('Redirección guardada');
+      toast.success(t`Redirect saved`);
       onSaved();
     } catch (err) {
       setError(errorMessage(err));
@@ -157,43 +170,49 @@ function RedirectDialog({ redirect, onClose, onSaved }: { redirect?: RedirectHos
     }
   }
 
-  const example = form.domains[0] ?? 'viejo.com';
+  const example = form.domains[0] ?? 'old.com';
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={save} className="contents">
           <DialogHeader>
-            <DialogTitle>{redirect ? 'Editar redirección' : 'Nueva redirección'}</DialogTitle>
-            <DialogDescription>Traefik responde directamente, sin ningún servidor detrás.</DialogDescription>
+            <DialogTitle>{redirect ? <Trans>Edit redirect</Trans> : <Trans>New redirect</Trans>}</DialogTitle>
+            <DialogDescription>
+              <Trans>Traefik responds directly, with no server behind it.</Trans>
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="rd-domains">Dominios de origen</Label>
+            <Label htmlFor="rd-domains">
+              <Trans>Source domains</Trans>
+            </Label>
             <DomainsInput id="rd-domains" value={form.domains} onChange={(d) => set('domains', d)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="rd-target">Destino</Label>
-            <Input id="rd-target" className="font-mono" value={form.target} onChange={(e) => set('target', e.target.value)} placeholder="https://nuevo.com" required />
+            <Label htmlFor="rd-target">
+              <Trans>Target</Trans>
+            </Label>
+            <Input id="rd-target" className="font-mono" value={form.target} onChange={(e) => set('target', e.target.value)} placeholder="https://new.com" required />
           </div>
           <CheckField
             id="rd-path"
             checked={form.preserve_path}
             onChange={(v) => set('preserve_path', v)}
-            label="Conservar la ruta"
-            hint={`${example}/blog/post → ${form.target || 'https://nuevo.com'}/blog/post`}
+            label={t`Preserve path`}
+            hint={`${example}/blog/post → ${form.target || 'https://new.com'}/blog/post`}
           />
           <CheckField
             id="rd-perm"
             checked={form.permanent}
             onChange={(v) => set('permanent', v)}
-            label="Permanente (301)"
-            hint="Los buscadores y navegadores recuerdan el cambio. Desactívalo (302) si la redirección es temporal."
+            label={t`Permanent (301)`}
+            hint={t`Search engines and browsers remember the change. Turn it off (302) if the redirect is temporary.`}
           />
           <CheckField
             id="rd-ssl"
             checked={form.ssl}
             onChange={(v) => set('ssl', v)}
-            label="Certificado SSL para el dominio de origen"
-            hint="Necesario para que https://dominio-de-origen funcione antes de redirigir."
+            label={t`SSL certificate for the source domain`}
+            hint={t`Required for https://source-domain to work before redirecting.`}
           />
           {error && (
             <Alert variant="destructive">
@@ -203,11 +222,11 @@ function RedirectDialog({ redirect, onClose, onSaved }: { redirect?: RedirectHos
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" disabled={busy}>
               {busy && <Loader2 className="animate-spin" />}
-              Guardar
+              <Trans>Save</Trans>
             </Button>
           </DialogFooter>
         </form>

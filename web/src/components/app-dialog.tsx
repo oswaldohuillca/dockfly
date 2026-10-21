@@ -1,3 +1,5 @@
+import { ph } from '@lingui/core/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { Box, ChevronDown, GitBranch, Layers, Loader2, Plus, TriangleAlert, X } from 'lucide-react';
@@ -36,6 +38,7 @@ const empty: AppInput = {
 };
 
 export function AppDialog({ app, onClose, onSaved }: Props) {
+  const { t, i18n } = useLingui();
   const isNew = app === undefined;
   const [form, setForm] = useState<AppInput>(() =>
     app
@@ -93,13 +96,14 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
     try {
       if (isNew) {
         const res = await api.createApp(payload);
-        if (res.warning) toast.warning('App creada, con un aviso', { description: res.warning });
-        else toast.success(deploy ? `Desplegando ${res.app.name}…` : `${res.app.name} creada`);
+        const name = res.app.name;
+        if (res.warning) toast.warning(t`App created, with a warning`, { description: res.warning });
+        else toast.success(deploy ? t`Deploying ${name}…` : t({ context: 'app', message: `${name} created` }));
         onSaved(res.app);
       } else {
         const res = await api.updateApp(app.id, payload);
-        toast.success('Cambios guardados', {
-          description: 'Los dominios ya están aplicados; el resto se aplica en el próximo despliegue.',
+        toast.success(t`Changes saved`, {
+          description: t`Domains are already applied; everything else takes effect on the next deploy.`,
         });
         if (res.warning) toast.warning(res.warning);
         onSaved(res.app);
@@ -118,20 +122,24 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
       <DialogContent className="max-h-[92svh] overflow-y-auto sm:max-w-2xl">
         <form onSubmit={save} className="contents">
           <DialogHeader>
-            <DialogTitle>{isNew ? 'Nueva app' : `Configurar ${app.name}`}</DialogTitle>
+            <DialogTitle>{isNew ? t`New app` : t`Configure ${ph({ name: app.name })}`}</DialogTitle>
             <DialogDescription>
-              Un contenedor que Dockfly gestiona de principio a fin: despliegues sin corte, variables cifradas, volúmenes y
-              dominio con SSL.
+              <Trans>
+                A container that Dockfly manages end to end: zero-downtime deploys, encrypted variables, volumes and a
+                domain with SSL.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
 
           {isNew && (
             <div className="space-y-2">
-              <Label>Empezar desde una plantilla</Label>
+              <Label>
+                <Trans>Start from a template</Trans>
+              </Label>
               <div className="flex flex-wrap gap-1.5">
-                {appTemplates.map((t) => (
-                  <Button key={t.id} type="button" variant="outline" size="sm" onClick={() => applyTemplate(t.id)} title={t.description}>
-                    {t.label}
+                {appTemplates.map((tpl) => (
+                  <Button key={tpl.id} type="button" variant="outline" size="sm" onClick={() => applyTemplate(tpl.id)} title={i18n._(tpl.description)}>
+                    {typeof tpl.label === 'string' ? tpl.label : i18n._(tpl.label)}
                   </Button>
                 ))}
               </div>
@@ -140,18 +148,30 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
 
           <Tabs defaultValue="general">
             <TabsList className="w-full">
-              <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="env">Variables{env.length > 0 && ` (${env.length})`}</TabsTrigger>
+              <TabsTrigger value="general">
+                <Trans>General</Trans>
+              </TabsTrigger>
+              <TabsTrigger value="env">
+                <Trans>Variables</Trans>
+                {env.length > 0 && ` (${env.length})`}
+              </TabsTrigger>
               {form.source !== 'compose' && (
-                <TabsTrigger value="volumes">Volúmenes{form.volumes.length > 0 && ` (${form.volumes.length})`}</TabsTrigger>
+                <TabsTrigger value="volumes">
+                  <Trans>Volumes</Trans>
+                  {form.volumes.length > 0 && ` (${form.volumes.length})`}
+                </TabsTrigger>
               )}
-              <TabsTrigger value="ssl">Dominio y SSL</TabsTrigger>
+              <TabsTrigger value="ssl">
+                <Trans>Domain & SSL</Trans>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="general" className="space-y-5 pt-3">
               {isNew && servers.length > 0 && (
                 <div className="space-y-2">
-                  <Label>Servidor</Label>
+                  <Label>
+                    <Trans>Server</Trans>
+                  </Label>
                   <Select
                     value={String(form.server_id ?? 0)}
                     onValueChange={(v) => set('server_id', v === '0' ? null : Number(v))}
@@ -160,44 +180,50 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="0">Este servidor (el del panel)</SelectItem>
+                      <SelectItem value="0">
+                        <Trans>This server (the panel's)</Trans>
+                      </SelectItem>
                       {servers.map((s) => (
                         <SelectItem key={s.id} value={String(s.id)} disabled={!s.online}>
                           {s.name}
-                          {!s.online && ' (desconectado)'}
+                          {!s.online && ' ' + t`(offline)`}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   <p className="text-xs text-muted-foreground">
                     {form.server_id
-                      ? 'Sus dominios deben apuntar a la IP de ese servidor: su propio Traefik sirve el tráfico y pide los certificados. No se puede cambiar después.'
-                      : 'No se puede cambiar después.'}
+                      ? t`Its domains must point to that server's IP: its own Traefik serves the traffic and requests the certificates. Can't be changed later.`
+                      : t`Can't be changed later.`}
                   </p>
                 </div>
               )}
               <div className="grid gap-4 sm:grid-cols-[1fr_8rem]">
                 <div className="space-y-2">
-                  <Label htmlFor="app-name">Nombre</Label>
+                  <Label htmlFor="app-name">
+                    <Trans>Name</Trans>
+                  </Label>
                   <Input
                     id="app-name"
                     value={form.name}
                     onChange={(e) => set('name', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-                    placeholder="mi-api"
+                    placeholder={t`my-api`}
                     disabled={!isNew}
                     required
                   />
                   <p className="text-xs text-muted-foreground">
-                    {isNew ? 'No se puede cambiar después: de él dependen sus volúmenes. ' : ''}
+                    {isNew ? t`Can't be changed later: its volumes depend on it.` + ' ' : ''}
                     {internalHost && (
-                      <>
-                        Otras apps la encuentran en <code className="font-mono">{internalHost}</code>.
-                      </>
+                      <Trans>
+                        Other apps reach it at <code className="font-mono">{internalHost}</code>.
+                      </Trans>
                     )}
                   </p>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="app-port">Puerto</Label>
+                  <Label htmlFor="app-port">
+                    <Trans>Port</Trans>
+                  </Label>
                   <Input
                     id="app-port"
                     type="number"
@@ -207,12 +233,16 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                     onChange={(e) => set('port', Number(e.target.value))}
                     placeholder="3000"
                   />
-                  <p className="text-xs text-muted-foreground">En el que escucha. Vacío si no es web.</p>
+                  <p className="text-xs text-muted-foreground">
+                    <Trans>The one it listens on. Leave empty if it isn't a web app.</Trans>
+                  </p>
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Origen</Label>
+                <Label>
+                  <Trans>Source</Trans>
+                </Label>
                 <ToggleGroup
                   type="single"
                   variant="outline"
@@ -222,7 +252,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                   onValueChange={(v) => v && set('source', v as AppSource)}
                 >
                   <ToggleGroupItem value="image" className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                    <Box /> Imagen de Docker
+                    <Box /> <Trans>Docker image</Trans>
                   </ToggleGroupItem>
                   <ToggleGroupItem value="git" className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
                     <GitBranch /> Dockerfile
@@ -235,13 +265,15 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
 
               {form.source === 'image' ? (
                 <div className="space-y-2">
-                  <Label htmlFor="app-image">Imagen</Label>
+                  <Label htmlFor="app-image">
+                    <Trans>Image</Trans>
+                  </Label>
                   <Input
                     id="app-image"
                     className="font-mono"
                     value={form.image}
                     onChange={(e) => set('image', e.target.value)}
-                    placeholder="nginx:alpine, ghcr.io/usuario/app:1.0…"
+                    placeholder={t`nginx:alpine, ghcr.io/user/app:1.0…`}
                     required
                   />
                 </div>
@@ -249,11 +281,13 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                 <Alert>
                   <TriangleAlert />
                   <AlertDescription>
-                    Vincula primero tu cuenta de GitHub o GitLab en{' '}
-                    <Link to="/integrations" className="font-medium underline">
-                      Integraciones
-                    </Link>
-                    .
+                    <Trans>
+                      First connect your GitHub or GitLab account in{' '}
+                      <Link to="/integrations" className="font-medium underline">
+                        Integrations
+                      </Link>
+                      .
+                    </Trans>
                   </AlertDescription>
                 </Alert>
               ) : (
@@ -266,13 +300,15 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                   />
                   <div className="grid gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="app-root">Directorio</Label>
+                      <Label htmlFor="app-root">
+                        <Trans>Directory</Trans>
+                      </Label>
                       <Input
                         id="app-root"
                         className="font-mono"
                         value={form.root_dir}
                         onChange={(e) => set('root_dir', e.target.value)}
-                        placeholder="(raíz del repo)"
+                        placeholder={t`(repo root)`}
                       />
                     </div>
                     {form.source === 'git' ? (
@@ -288,7 +324,9 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                       </div>
                     ) : (
                       <div className="space-y-2">
-                        <Label htmlFor="app-compose">Archivo de Compose</Label>
+                        <Label htmlFor="app-compose">
+                          <Trans>Compose file</Trans>
+                        </Label>
                         <Input
                           id="app-compose"
                           className="font-mono"
@@ -301,7 +339,9 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                   </div>
                   {form.source === 'compose' && (
                     <div className="space-y-2">
-                      <Label htmlFor="app-service">Servicio web</Label>
+                      <Label htmlFor="app-service">
+                        <Trans>Web service</Trans>
+                      </Label>
                       <Input
                         id="app-service"
                         className="font-mono"
@@ -310,9 +350,11 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                         placeholder="web"
                       />
                       <p className="text-xs text-muted-foreground">
-                        El servicio del docker-compose.yml que recibe el tráfico de los dominios (en el puerto indicado
-                        arriba). Los volúmenes se definen en el propio archivo; las rutas relativas del host
-                        (<code className="font-mono">./datos:/datos</code>) no funcionan: usa volúmenes con nombre.
+                        <Trans>
+                          The docker-compose.yml service that receives the domains' traffic (on the port set above).
+                          Volumes are defined in the file itself; relative host paths (
+                          <code className="font-mono">./data:/data</code>) don't work: use named volumes.
+                        </Trans>
                       </p>
                     </div>
                   )}
@@ -324,22 +366,27 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                 onClick={() => setAdvanced((a) => !a)}
                 className="flex w-fit items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
               >
-                <ChevronDown className={cn('size-4 transition-transform', advanced && 'rotate-180')} /> Opciones avanzadas
+                <ChevronDown className={cn('size-4 transition-transform', advanced && 'rotate-180')} />{' '}
+                <Trans>Advanced options</Trans>
               </button>
               {advanced && (
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2 sm:col-span-2">
-                    <Label htmlFor="app-cmd">Comando</Label>
+                    <Label htmlFor="app-cmd">
+                      <Trans>Command</Trans>
+                    </Label>
                     <Input
                       id="app-cmd"
                       className="font-mono"
                       value={form.command}
                       onChange={(e) => set('command', e.target.value)}
-                      placeholder="(el de la imagen)"
+                      placeholder={t`(image default)`}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="app-health">Ruta de salud</Label>
+                    <Label htmlFor="app-health">
+                      <Trans>Health check path</Trans>
+                    </Label>
                     <Input
                       id="app-health"
                       className="font-mono"
@@ -348,18 +395,22 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                       placeholder="/health"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Un despliegue no recibe tráfico hasta que esta ruta responde. Sin ella, basta con que el puerto acepte
-                      conexiones.
+                      <Trans>
+                        A deploy receives no traffic until this path responds. Without it, the port just has to accept
+                        connections.
+                      </Trans>
                     </p>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-2">
-                      <Label htmlFor="app-mem">Memoria (MB)</Label>
-                      <Input id="app-mem" type="number" min={0} value={form.memory_mb || ''} onChange={(e) => set('memory_mb', Number(e.target.value))} placeholder="sin límite" />
+                      <Label htmlFor="app-mem">
+                        <Trans>Memory (MB)</Trans>
+                      </Label>
+                      <Input id="app-mem" type="number" min={0} value={form.memory_mb || ''} onChange={(e) => set('memory_mb', Number(e.target.value))} placeholder={t`no limit`} />
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="app-cpu">CPUs</Label>
-                      <Input id="app-cpu" type="number" min={0} step={0.25} value={form.cpus || ''} onChange={(e) => set('cpus', Number(e.target.value))} placeholder="sin límite" />
+                      <Input id="app-cpu" type="number" min={0} step={0.25} value={form.cpus || ''} onChange={(e) => set('cpus', Number(e.target.value))} placeholder={t`no limit`} />
                     </div>
                   </div>
                 </div>
@@ -367,7 +418,9 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
             </TabsContent>
 
             <TabsContent value="env" className="space-y-2 pt-3">
-              <p className="text-xs text-muted-foreground">Se guardan cifradas y se aplican en el próximo despliegue.</p>
+              <p className="text-xs text-muted-foreground">
+                <Trans>Stored encrypted and applied on the next deploy.</Trans>
+              </p>
               <EnvEditor
                 rows={env}
                 onChange={(rows) => {
@@ -379,9 +432,10 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
 
             <TabsContent value="volumes" className="space-y-3 pt-3">
               <p className="text-xs text-muted-foreground">
-                Los datos que deben sobrevivir a los despliegues (bases de datos, subidas…). Con volúmenes, cada despliegue
-                detiene la versión actual antes de arrancar la nueva: dos instancias escribiendo en los mismos datos los
-                corromperían.
+                <Trans>
+                  Data that must survive deploys (databases, uploads…). With volumes, each deploy stops the current
+                  version before starting the new one: two instances writing to the same data would corrupt it.
+                </Trans>
               </p>
               {form.volumes.map((v, i) => (
                 <div key={i} className="flex gap-2">
@@ -395,7 +449,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                   />
                   <Input
                     className="font-mono"
-                    placeholder="/var/lib/datos"
+                    placeholder={t`/var/lib/data`}
                     value={v.path}
                     onChange={(e) => set('volumes', form.volumes.map((x, j) => (j === i ? { ...x, path: e.target.value } : x)))}
                   />
@@ -405,16 +459,20 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                 </div>
               ))}
               <Button type="button" variant="outline" size="sm" onClick={() => set('volumes', [...form.volumes, { name: '', path: '' }])}>
-                <Plus /> Añadir volumen
+                <Plus /> <Trans>Add volume</Trans>
               </Button>
             </TabsContent>
 
             <TabsContent value="ssl" className="space-y-4 pt-3">
               <div className="space-y-2">
-                <Label htmlFor="app-domains">Dominios</Label>
+                <Label htmlFor="app-domains">
+                  <Trans>Domains</Trans>
+                </Label>
                 <DomainsInput id="app-domains" value={form.domains} onChange={(d) => set('domains', d)} />
                 {!form.port && form.domains.length > 0 && (
-                  <p className="text-xs text-destructive">Indica el puerto de la app (pestaña General) para publicarla.</p>
+                  <p className="text-xs text-destructive">
+                    <Trans>Set the app's port (General tab) to publish it.</Trans>
+                  </p>
                 )}
               </div>
               <SSLFields value={form} onChange={set} />
@@ -422,7 +480,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
             </TabsContent>
           </Tabs>
 
-          {isNew && <CheckField id="app-deploy" checked={deploy} onChange={setDeploy} label="Desplegar al crearla" />}
+          {isNew && <CheckField id="app-deploy" checked={deploy} onChange={setDeploy} label={t`Deploy on create`} />}
           {error && (
             <Alert variant="destructive">
               <TriangleAlert />
@@ -431,11 +489,11 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" disabled={busy}>
               {busy && <Loader2 className="animate-spin" />}
-              {isNew ? 'Crear app' : 'Guardar'}
+              {isNew ? <Trans>Create app</Trans> : <Trans>Save</Trans>}
             </Button>
           </DialogFooter>
         </form>

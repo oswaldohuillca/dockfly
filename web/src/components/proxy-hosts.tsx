@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Box, ExternalLink, Globe, Pencil, Plus, Search, Server, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { CertBadge } from '@/components/cert-badge';
 import { ProxyHostDialog } from '@/components/proxy-host-dialog';
@@ -27,10 +30,10 @@ import { useCan } from '@/lib/roles';
 import { useCertificates } from '@/lib/use-certificates';
 import { cn } from '@/lib/utils';
 
-const targets: Record<TargetType, { label: string; icon: typeof Box }> = {
-  docker: { label: 'Contenedor', icon: Box },
-  host: { label: 'Este servidor', icon: Server },
-  external: { label: 'Externo', icon: Globe },
+const targets: Record<TargetType, { label: MessageDescriptor; icon: typeof Box }> = {
+  docker: { label: msg`Container`, icon: Box },
+  host: { label: msg`This server`, icon: Server },
+  external: { label: msg`External`, icon: Globe },
 };
 
 /** La API rechaza campos desconocidos: enviamos solo los editables. */
@@ -39,6 +42,7 @@ function toInput({ id: _id, created_at: _c, updated_at: _u, ...rest }: ProxyHost
 }
 
 export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
+  const { t, i18n } = useLingui();
   const traffic = useTrafficSummary();
   const [trafficOf, setTrafficOf] = useState<ProxyHost | null>(null);
   const canEdit = useCan('admin');
@@ -85,7 +89,8 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
     if (!deleting) return;
     try {
       await api.deleteProxyHost(deleting.id);
-      toast.success(`${deleting.domains[0]} eliminado`);
+      const domain = deleting.domains[0];
+      toast.success(t`${domain} deleted`);
       load();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -99,12 +104,14 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
       <Card>
         <CardHeader>
           <CardTitle className="text-lg">Proxy Hosts</CardTitle>
-          <CardDescription>Publica contenedores, apps de este servidor o servicios externos.</CardDescription>
+          <CardDescription>
+            <Trans>Publish containers, apps on this server or external services.</Trans>
+          </CardDescription>
           <CardAction className="flex gap-2">
             <div className="relative hidden sm:block">
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Buscar…"
+                placeholder={t`Search…`}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
                 className="w-56 pl-8"
@@ -112,7 +119,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
             </div>
             {canEdit && (
               <Button onClick={() => setEditing({})}>
-                <Plus /> Añadir
+                <Plus /> <Trans>Add</Trans>
               </Button>
             )}
           </CardAction>
@@ -120,18 +127,28 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
 
         <CardContent className="px-0">
           {loading ? (
-            <p className="px-6 py-8 text-center text-sm text-muted-foreground">Cargando…</p>
+            <p className="px-6 py-8 text-center text-sm text-muted-foreground">
+              <Trans>Loading…</Trans>
+            </p>
           ) : hosts.length === 0 ? (
             <EmptyState onCreate={() => setEditing({})} />
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="pl-6">Dominios</TableHead>
-                  <TableHead>Destino</TableHead>
+                  <TableHead className="pl-6">
+                    <Trans>Domains</Trans>
+                  </TableHead>
+                  <TableHead>
+                    <Trans>Target</Trans>
+                  </TableHead>
                   <TableHead>SSL</TableHead>
-                  <TableHead>Tráfico (24 h)</TableHead>
-                  <TableHead>Activo</TableHead>
+                  <TableHead>
+                    <Trans>Traffic (24 h)</Trans>
+                  </TableHead>
+                  <TableHead>
+                    <Trans>Enabled</Trans>
+                  </TableHead>
                   <TableHead className="pr-6" />
                 </TableRow>
               </TableHeader>
@@ -159,7 +176,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
                           {h.forward_scheme}://{h.forward_host}:{h.forward_port}
                         </code>
                         <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
-                          <target.icon className="size-3" /> {target.label}
+                          <target.icon className="size-3" /> {i18n._(target.label)}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -178,11 +195,11 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
                         <Switch
                           checked={h.enabled}
                           onCheckedChange={() => toggle(h)}
-                          aria-label={h.enabled ? 'Desactivar' : 'Activar'}
+                          aria-label={h.enabled ? t`Disable` : t`Enable`}
                         />
                       </TableCell>
                       <TableCell className="pr-6 text-right">
-                        <Button variant="ghost" size="icon-sm" onClick={() => setEditing(h)} aria-label="Editar">
+                        <Button variant="ghost" size="icon-sm" onClick={() => setEditing(h)} aria-label={t`Edit`}>
                           <Pencil />
                         </Button>
                         <Button
@@ -190,7 +207,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
                           size="icon-sm"
                           className="text-destructive hover:text-destructive"
                           onClick={() => setDeleting(h)}
-                          aria-label="Eliminar"
+                          aria-label={t`Delete`}
                         >
                           <Trash2 />
                         </Button>
@@ -201,7 +218,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
                 {visible.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={6} className="py-8 text-center text-muted-foreground">
-                      Ningún proxy host coincide con «{filter}».
+                      <Trans>No proxy hosts match “{filter}”.</Trans>
                     </TableCell>
                   </TableRow>
                 )}
@@ -238,15 +255,19 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
       <AlertDialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar {deleting?.domains[0]}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              <Trans>Delete {deleting?.domains[0]}?</Trans>
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              El dominio dejará de responder de inmediato. Esta acción no se puede deshacer.
+              <Trans>The domain will stop responding immediately. This action can't be undone.</Trans>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>
+              <Trans>Cancel</Trans>
+            </AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={confirmDelete}>
-              Eliminar
+              <Trans>Delete</Trans>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -263,14 +284,16 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         <Globe className="size-6 text-muted-foreground" />
       </div>
       <div>
-        <p className="font-medium">Todavía no hay proxy hosts</p>
+        <p className="font-medium">
+          <Trans>No proxy hosts yet</Trans>
+        </p>
         <p className="text-sm text-muted-foreground">
-          Crea uno para publicar un contenedor, una app de este servidor o un servicio externo.
+          <Trans>Create one to publish a container, an app on this server or an external service.</Trans>
         </p>
       </div>
       {canEdit && (
         <Button onClick={onCreate}>
-          <Plus /> Añadir proxy host
+          <Plus /> <Trans>Add proxy host</Trans>
         </Button>
       )}
     </div>
@@ -287,7 +310,7 @@ export function TrafficCell({ summary, onClick }: { summary?: TrafficSummary; on
     <button type="button" onClick={onClick} className="flex items-center gap-2 rounded px-1 py-0.5 text-left hover:bg-muted">
       <Sparkline values={summary.spark} />
       <span className="text-xs leading-tight tabular-nums">
-        {compactNumber.format(summary.requests)}
+        {compactNumber(summary.requests)}
         <span className={cn('block', errors >= 5 ? 'text-destructive' : errors >= 1 ? 'text-amber-600' : 'text-muted-foreground')}>
           {errors > 0 ? `${errors.toFixed(1)} % 5xx` : formatMs(summary.p95_ms) + ' p95'}
         </span>

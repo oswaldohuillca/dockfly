@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from '@tanstack/react-router';
+import { Trans } from '@lingui/react/macro';
 
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -13,13 +14,17 @@ export function AccessSelect({ value, onChange }: { value: number | null; onChan
   }, []);
   return (
     <div className="space-y-2">
-      <Label>Acceso</Label>
+      <Label>
+        <Trans>Access</Trans>
+      </Label>
       <Select value={value ? String(value) : 'public'} onValueChange={(v) => onChange(v === 'public' ? null : Number(v))}>
         <SelectTrigger className="w-full">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="public">Público</SelectItem>
+          <SelectItem value="public">
+            <Trans>Public</Trans>
+          </SelectItem>
           {lists.map((l) => (
             <SelectItem key={l.id} value={String(l.id)}>
               {l.name}
@@ -28,11 +33,13 @@ export function AccessSelect({ value, onChange }: { value: number | null; onChan
         </SelectContent>
       </Select>
       <p className="text-xs text-muted-foreground">
-        Protégelo con usuario y contraseña o limítalo a ciertas IPs. Las listas se crean en{' '}
-        <Link to="/settings" className="underline">
-          Ajustes
-        </Link>
-        .
+        <Trans>
+          Protect it with a username and password, or restrict it to certain IPs. Lists are created in{' '}
+          <Link to="/settings" className="underline">
+            Settings
+          </Link>
+          .
+        </Trans>
       </p>
     </div>
   );

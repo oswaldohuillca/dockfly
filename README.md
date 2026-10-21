@@ -321,6 +321,19 @@ cd web && npm run dev     # frontend con recarga en caliente (proxy /api → :81
 make test
 ```
 
+### Idiomas
+
+El panel está en **inglés** (por defecto) y **español**; cada usuario lo cambia en su menú. Los
+textos se escriben en inglés en el código con las macros de [Lingui](https://lingui.dev)
+(`<Trans>…</Trans>`, ``t`…` ``) y sus traducciones están en `web/src/locales/<idioma>/messages.po`:
+
+```bash
+cd web && npm run extract   # añade los textos nuevos a los catálogos (y quita los que ya no se usan)
+```
+
+El build falla si a un idioma le falta alguna traducción. Para añadir otro idioma, inclúyelo en
+`web/lingui.config.ts` y en `web/src/lib/i18n.ts`, ejecuta `npm run extract` y traduce su `.po`.
+
 ## Roadmap
 
 1. ✅ Proxy hosts con SSL automático (Docker, host, externos)

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { Activity } from "lucide-react";
+import { plural } from "@lingui/core/macro";
+import { Trans, useLingui } from "@lingui/react/macro";
 
 import {
   Card,
@@ -16,12 +18,16 @@ import {
   type TrafficRange,
   type TrafficTotals,
 } from "@/lib/api";
+import { currentLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-const compact = new Intl.NumberFormat("es", {
-  notation: "compact",
-  maximumFractionDigits: 1,
-});
+/** Número abreviado (1,2 k…) en el idioma activo. */
+export function compactNumber(n: number): string {
+  return new Intl.NumberFormat(currentLocale(), {
+    notation: "compact",
+    maximumFractionDigits: 1,
+  }).format(n);
+}
 
 export function formatMs(ms: number): string {
   if (ms <= 0) return "—";
@@ -36,12 +42,12 @@ function errorRate(t: { requests: number; s5xx: number }) {
 
 function pointLabel(p: TrafficPoint, range: TrafficRange) {
   const d = new Date(p.t);
-  const time = d.toLocaleTimeString("es", {
+  const time = d.toLocaleTimeString(currentLocale(), {
     hour: "2-digit",
     minute: "2-digit",
   });
   return range === "7d"
-    ? `${d.toLocaleDateString("es", { weekday: "short", day: "numeric" })} ${time}`
+    ? `${d.toLocaleDateString(currentLocale(), { weekday: "short", day: "numeric" })} ${time}`
     : time;
 }
 
@@ -53,6 +59,7 @@ export function TrafficCard({
   owner: string;
   bare?: boolean;
 }) {
+  const { t } = useLingui();
   const [range, setRange] = useState<TrafficRange>("24h");
   const [data, setData] = useState<{
     points: TrafficPoint[];
@@ -84,7 +91,9 @@ export function TrafficCard({
     >
       <ToggleGroupItem value="1h">1 h</ToggleGroupItem>
       <ToggleGroupItem value="24h">24 h</ToggleGroupItem>
-      <ToggleGroupItem value="7d">7 días</ToggleGroupItem>
+      <ToggleGroupItem value="7d">
+        <Trans>7 days</Trans>
+      </ToggleGroupItem>
     </ToggleGroup>
   );
   const body = (
@@ -95,11 +104,11 @@ export function TrafficCard({
         <>
           <dl className="grid grid-cols-2 gap-4 sm:grid-cols-4">
             <Stat
-              label="Peticiones"
-              value={compact.format(data.totals.requests)}
+              label={t`Requests`}
+              value={compactNumber(data.totals.requests)}
             />
             <Stat
-              label="Errores 5xx"
+              label={t`5xx errors`}
               value={`${errorRate(data.totals).toFixed(errorRate(data.totals) < 10 ? 1 : 0)} %`}
               tone={
                 errorRate(data.totals) >= 5
@@ -109,12 +118,12 @@ export function TrafficCard({
                     : undefined
               }
             />
-            <Stat label="Latencia p50" value={formatMs(data.totals.p50_ms)} />
-            <Stat label="Latencia p95" value={formatMs(data.totals.p95_ms)} />
+            <Stat label={t`p50 latency`} value={formatMs(data.totals.p50_ms)} />
+            <Stat label={t`p95 latency`} value={formatMs(data.totals.p95_ms)} />
           </dl>
           {data.totals.requests === 0 ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
-              Sin peticiones en este periodo. Los datos se recogen cada minuto.
+              <Trans>No requests in this period. Data is collected every minute.</Trans>
             </p>
           ) : (
             <>
@@ -138,10 +147,10 @@ export function TrafficCard({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Activity className="size-4 text-muted-foreground" /> Tráfico
+          <Activity className="size-4 text-muted-foreground" /> <Trans>Traffic</Trans>
         </CardTitle>
         <CardDescription>
-          Peticiones que han pasado por Traefik, por estado, y su latencia.
+          <Trans>Requests that went through Traefik, by status, and their latency.</Trans>
         </CardDescription>
         <CardAction>{picker}</CardAction>
       </CardHeader>
@@ -184,8 +193,10 @@ function RequestsChart({
   points: TrafficPoint[];
   range: TrafficRange;
 }) {
+  const { t } = useLingui();
   const H = 120;
   const peak = Math.max(1, ...points.map((p) => p.requests));
+  const peakLabel = compactNumber(peak);
   const bw = W / points.length;
   const y = (v: number) => (v / peak) * (H - 4);
   return (
@@ -195,10 +206,12 @@ function RequestsChart({
         className="h-32 w-full"
         preserveAspectRatio="none"
         role="img"
-        aria-label="Peticiones por intervalo"
+        aria-label={t`Requests per interval`}
       >
         {points.map((p, i) => {
           const ok = p.requests - p.s4xx - p.s5xx;
+          const label = pointLabel(p, range);
+          const requests = p.requests;
           const x = i * bw + bw * 0.1;
           const w = bw * 0.8;
           let top = H;
@@ -220,7 +233,7 @@ function RequestsChart({
           return (
             <g key={p.t}>
               <title>
-                {`${pointLabel(p, range)}: ${p.requests} peticiones` +
+                {t`${label}: ${plural(requests, { one: "# request", other: "# requests" })}` +
                   (p.s4xx ? `, ${p.s4xx} 4xx` : "") +
                   (p.s5xx ? `, ${p.s5xx} 5xx` : "")}
               </title>
@@ -244,9 +257,13 @@ function RequestsChart({
           <Legend className="bg-primary/70">2xx/3xx</Legend>
           <Legend className="bg-amber-500">4xx</Legend>
           <Legend className="bg-destructive">5xx</Legend>
-          <span>máx. {compact.format(peak)}</span>
+          <span>
+            <Trans>max {peakLabel}</Trans>
+          </span>
         </span>
-        <span>ahora</span>
+        <span>
+          <Trans>now</Trans>
+        </span>
       </figcaption>
     </figure>
   );
@@ -274,8 +291,10 @@ function LatencyChart({
   points: TrafficPoint[];
   range: TrafficRange;
 }) {
+  const { t } = useLingui();
   const H = 60;
   const peak = Math.max(1, ...points.map((p) => p.p95_ms));
+  const peakMs = formatMs(peak);
   const bw = W / points.length;
   const coords = points
     .map((p, i) =>
@@ -292,7 +311,7 @@ function LatencyChart({
         className="h-16 w-full"
         preserveAspectRatio="none"
         role="img"
-        aria-label="Latencia p95"
+        aria-label={t`p95 latency`}
       >
         <polyline
           points={coords}
@@ -329,7 +348,7 @@ function LatencyChart({
         ))}
       </svg>
       <figcaption className="text-xs text-muted-foreground">
-        Latencia p95 · máx. {formatMs(peak)}
+        <Trans>p95 latency · max {peakMs}</Trans>
       </figcaption>
     </figure>
   );
@@ -384,4 +403,3 @@ export function useTrafficSummary() {
   return summary;
 }
 
-export { compact as compactNumber };

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { FileKey, Globe, Loader2, Plus, Trash2, TriangleAlert, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { DomainsInput } from '@/components/domains-input';
 import { EnvEditor, envToRows, rowsToEnv, type EnvRow } from '@/components/env-editor';
@@ -23,6 +24,7 @@ import {
 import { formatDate } from '@/lib/format';
 
 export function CertificatesSettings() {
+  const { t } = useLingui();
   const [catalog, setCatalog] = useState<DNSProviderInfo[]>([]);
   const [providers, setProviders] = useState<DNSProvider[]>([]);
   const [certs, setCerts] = useState<CustomCertificate[]>([]);
@@ -43,23 +45,31 @@ export function CertificatesSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Certificados</CardTitle>
+        <CardTitle className="text-lg">
+          <Trans>Certificates</Trans>
+        </CardTitle>
         <CardDescription>
-          Por defecto, Let&apos;s Encrypt valida cada dominio por HTTP. Para dominios comodín (*.ejemplo.com) o servidores
-          sin el puerto 80 abierto, configura la zona con su proveedor DNS: los hosts de esa zona usarán el desafío DNS
-          automáticamente.
+          <Trans>
+            By default, Let&apos;s Encrypt validates each domain over HTTP. For wildcard domains (*.example.com) or servers
+            without port 80 open, set up the zone with its DNS provider: hosts in that zone will use the DNS challenge
+            automatically.
+          </Trans>
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">Zonas DNS</h3>
+            <h3 className="text-sm font-medium">
+              <Trans>DNS zones</Trans>
+            </h3>
             <Button size="sm" variant="outline" onClick={() => setEditing('new')}>
-              <Plus /> Añadir proveedor
+              <Plus /> <Trans>Add provider</Trans>
             </Button>
           </div>
           {providers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Ninguna: todos los certificados se validan por HTTP.</p>
+            <p className="text-sm text-muted-foreground">
+              <Trans>None: all certificates are validated over HTTP.</Trans>
+            </p>
           ) : (
             <ul className="divide-y rounded-lg border">
               {providers.map((p) => (
@@ -76,14 +86,14 @@ export function CertificatesSettings() {
                     </div>
                   </div>
                   <Button variant="ghost" size="sm" onClick={() => setEditing(p)}>
-                    Editar
+                    <Trans>Edit</Trans>
                   </Button>
                   <Button
                     variant="ghost"
                     size="icon-sm"
                     className="text-destructive hover:text-destructive"
                     onClick={() => api.deleteDNSProvider(p.id).then(load).catch((e) => toast.error(errorMessage(e)))}
-                    aria-label="Eliminar"
+                    aria-label={t`Delete`}
                   >
                     <Trash2 />
                   </Button>
@@ -95,37 +105,43 @@ export function CertificatesSettings() {
 
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-medium">Certificados propios</h3>
+            <h3 className="text-sm font-medium">
+              <Trans>Custom certificates</Trans>
+            </h3>
             <Button size="sm" variant="outline" onClick={() => setUploading(true)}>
-              <Upload /> Subir certificado
+              <Upload /> <Trans>Upload certificate</Trans>
             </Button>
           </div>
           {certs.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Ninguno. Si subes uno, se usará automáticamente para los dominios que cubre.
+              <Trans>None. If you upload one, it will be used automatically for the domains it covers.</Trans>
             </p>
           ) : (
             <ul className="divide-y rounded-lg border">
-              {certs.map((c) => (
-                <li key={c.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                  <FileKey className="size-4 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <div className="font-medium">{c.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {c.domains.join(', ')} · {c.issuer || 'emisor desconocido'} · caduca el {formatDate(c.not_after)}
+              {certs.map((c) => {
+                const issuer = c.issuer || t`unknown issuer`;
+                const expires = formatDate(c.not_after);
+                return (
+                  <li key={c.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
+                    <FileKey className="size-4 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium">{c.name}</div>
+                      <div className="text-xs text-muted-foreground">
+                        {c.domains.join(', ')} · {issuer} · <Trans>expires on {expires}</Trans>
+                      </div>
                     </div>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => api.deleteCustomCert(c.id).then(load).catch((e) => toast.error(errorMessage(e)))}
-                    aria-label="Eliminar"
-                  >
-                    <Trash2 />
-                  </Button>
-                </li>
-              ))}
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      className="text-destructive hover:text-destructive"
+                      onClick={() => api.deleteCustomCert(c.id).then(load).catch((e) => toast.error(errorMessage(e)))}
+                      aria-label={t`Delete`}
+                    >
+                      <Trash2 />
+                    </Button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>
@@ -158,6 +174,7 @@ export function CertificatesSettings() {
 function DNSDialog({ catalog, provider, onClose, onSaved }: {
   catalog: DNSProviderInfo[]; provider?: DNSProvider; onClose: () => void; onSaved: () => void;
 }) {
+  const { t } = useLingui();
   const known = (code: string) => catalog.some((c) => c.code === code);
   const [code, setCode] = useState(provider ? (known(provider.provider) ? provider.provider : 'custom') : 'cloudflare');
   const [customCode, setCustomCode] = useState(provider && !known(provider.provider) ? provider.provider : '');
@@ -178,7 +195,7 @@ function DNSDialog({ catalog, provider, onClose, onSaved }: {
         zones,
         env: code === 'custom' ? rowsToEnv(rows) : env,
       });
-      toast.success('Proveedor DNS guardado', { description: 'Traefik se reinició para cargar las credenciales.' });
+      toast.success(t`DNS provider saved`, { description: t`Traefik restarted to load the credentials.` });
       onSaved();
     } catch (err) {
       setError(errorMessage(err));
@@ -192,14 +209,18 @@ function DNSDialog({ catalog, provider, onClose, onSaved }: {
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
         <form onSubmit={save} className="contents">
           <DialogHeader>
-            <DialogTitle>{provider ? 'Editar proveedor DNS' : 'Proveedor DNS'}</DialogTitle>
+            <DialogTitle>{provider ? <Trans>Edit DNS provider</Trans> : <Trans>DNS provider</Trans>}</DialogTitle>
             <DialogDescription>
-              Let&apos;s Encrypt comprobará que controlas el dominio creando un registro TXT temporal. Las credenciales se
-              guardan cifradas.
+              <Trans>
+                Let&apos;s Encrypt will verify that you control the domain by creating a temporary TXT record. Credentials
+                are stored encrypted.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label>Proveedor</Label>
+            <Label>
+              <Trans>Provider</Trans>
+            </Label>
             <Select value={code} onValueChange={(v) => { setCode(v); setEnv({}); }} disabled={!!provider}>
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -210,31 +231,43 @@ function DNSDialog({ catalog, provider, onClose, onSaved }: {
                     {c.name}
                   </SelectItem>
                 ))}
-                <SelectItem value="custom">Otro (cualquier proveedor de lego)</SelectItem>
+                <SelectItem value="custom">
+                  <Trans>Other (any lego provider)</Trans>
+                </SelectItem>
               </SelectContent>
             </Select>
             {info?.help && <p className="text-xs text-muted-foreground">{info.help}</p>}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="dns-zones">Zonas</Label>
+            <Label htmlFor="dns-zones">
+              <Trans>Zones</Trans>
+            </Label>
             <DomainsInput id="dns-zones" value={zones} onChange={setZones} />
-            <p className="text-xs text-muted-foreground">Cada zona cubre el dominio, sus subdominios y su comodín.</p>
+            <p className="text-xs text-muted-foreground">
+              <Trans>Each zone covers the domain, its subdomains and its wildcard.</Trans>
+            </p>
           </div>
           {code === 'custom' ? (
             <>
               <div className="space-y-2">
-                <Label htmlFor="dns-code">Código del proveedor</Label>
+                <Label htmlFor="dns-code">
+                  <Trans>Provider code</Trans>
+                </Label>
                 <Input id="dns-code" className="font-mono" value={customCode} onChange={(e) => setCustomCode(e.target.value)} placeholder="hetzner" required disabled={!!provider} />
                 <p className="text-xs text-muted-foreground">
-                  El código y las variables de cada proveedor están en{' '}
-                  <a className="underline" href="https://doc.traefik.io/traefik/https/acme/#providers" target="_blank" rel="noreferrer">
-                    la documentación de Traefik
-                  </a>
-                  .
+                  <Trans>
+                    Each provider&apos;s code and variables are listed in{' '}
+                    <a className="underline" href="https://doc.traefik.io/traefik/https/acme/#providers" target="_blank" rel="noreferrer">
+                      the Traefik documentation
+                    </a>
+                    .
+                  </Trans>
                 </p>
               </div>
               <div className="space-y-2">
-                <Label>Variables</Label>
+                <Label>
+                  <Trans>Variables</Trans>
+                </Label>
                 <EnvEditor rows={rows} onChange={setRows} />
               </div>
             </>
@@ -243,7 +276,10 @@ function DNSDialog({ catalog, provider, onClose, onSaved }: {
               <div key={f.env} className="space-y-2">
                 <Label htmlFor={f.env}>
                   {f.label}
-                  {f.optional && <span className="font-normal text-muted-foreground"> (opcional)</span>}
+                  {f.optional && <span className="font-normal text-muted-foreground">
+                      {' '}
+                      <Trans>(optional)</Trans>
+                    </span>}
                 </Label>
                 <Input
                   id={f.env}
@@ -266,11 +302,11 @@ function DNSDialog({ catalog, provider, onClose, onSaved }: {
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" disabled={busy || zones.length === 0}>
               {busy && <Loader2 className="animate-spin" />}
-              Guardar
+              <Trans>Save</Trans>
             </Button>
           </DialogFooter>
         </form>
@@ -280,6 +316,7 @@ function DNSDialog({ catalog, provider, onClose, onSaved }: {
 }
 
 function UploadCertDialog({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
+  const { t } = useLingui();
   const [name, setName] = useState('');
   const [cert, setCert] = useState('');
   const [key, setKey] = useState('');
@@ -296,7 +333,7 @@ function UploadCertDialog({ onClose, onSaved }: { onClose: () => void; onSaved: 
     setBusy(true);
     try {
       await api.uploadCustomCert({ name, cert, key });
-      toast.success('Certificado subido');
+      toast.success(t`Certificate uploaded`);
       onSaved();
     } catch (err) {
       setError(errorMessage(err));
@@ -311,20 +348,30 @@ function UploadCertDialog({ onClose, onSaved }: { onClose: () => void; onSaved: 
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
         <form onSubmit={save} className="contents">
           <DialogHeader>
-            <DialogTitle>Subir certificado</DialogTitle>
-            <DialogDescription>En formato PEM. Incluye la cadena intermedia después del certificado.</DialogDescription>
+            <DialogTitle>
+              <Trans>Upload certificate</Trans>
+            </DialogTitle>
+            <DialogDescription>
+              <Trans>In PEM format. Include the intermediate chain after the certificate.</Trans>
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="cert-name">Nombre</Label>
-            <Input id="cert-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="(el primer dominio)" />
+            <Label htmlFor="cert-name">
+              <Trans>Name</Trans>
+            </Label>
+            <Input id="cert-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t`(the first domain)`} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="cert-pem">Certificado</Label>
+            <Label htmlFor="cert-pem">
+              <Trans>Certificate</Trans>
+            </Label>
             <textarea id="cert-pem" className={area} value={cert} onChange={(e) => setCert(e.target.value)} placeholder="-----BEGIN CERTIFICATE-----" required />
             <Input type="file" accept=".pem,.crt,.cer" onChange={readFile(setCert)} />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="key-pem">Clave privada</Label>
+            <Label htmlFor="key-pem">
+              <Trans>Private key</Trans>
+            </Label>
             <textarea id="key-pem" className={area} value={key} onChange={(e) => setKey(e.target.value)} placeholder="-----BEGIN PRIVATE KEY-----" required />
             <Input type="file" accept=".pem,.key" onChange={readFile(setKey)} />
           </div>
@@ -336,11 +383,11 @@ function UploadCertDialog({ onClose, onSaved }: { onClose: () => void; onSaved: 
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" disabled={busy}>
               {busy && <Loader2 className="animate-spin" />}
-              Subir
+              <Trans>Upload</Trans>
             </Button>
           </DialogFooter>
         </form>

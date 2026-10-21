@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -10,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { api, errorMessage } from '@/lib/api';
 
 export function ChangePassword() {
+  const { t } = useLingui();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
@@ -20,13 +22,13 @@ export function ChangePassword() {
     e.preventDefault();
     setError('');
     if (next !== confirm) {
-      setError('Las contraseñas nuevas no coinciden');
+      setError(t`The new passwords don't match`);
       return;
     }
     setBusy(true);
     try {
       await api.changePassword(current, next);
-      toast.success('Contraseña cambiada', { description: 'Se han cerrado tus sesiones en otros dispositivos.' });
+      toast.success(t`Password changed`, { description: t`Your sessions on other devices have been signed out.` });
       setCurrent('');
       setNext('');
       setConfirm('');
@@ -40,13 +42,19 @@ export function ChangePassword() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Contraseña</CardTitle>
-        <CardDescription>Al cambiarla se cierran tus sesiones en otros dispositivos.</CardDescription>
+        <CardTitle className="text-lg">
+          <Trans>Password</Trans>
+        </CardTitle>
+        <CardDescription>
+          <Trans>Changing it signs you out on other devices.</Trans>
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={save} className="grid max-w-sm gap-4">
           <div className="space-y-2">
-            <Label htmlFor="pw-current">Contraseña actual</Label>
+            <Label htmlFor="pw-current">
+              <Trans>Current password</Trans>
+            </Label>
             <Input
               id="pw-current"
               type="password"
@@ -57,7 +65,9 @@ export function ChangePassword() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="pw-new">Contraseña nueva</Label>
+            <Label htmlFor="pw-new">
+              <Trans>New password</Trans>
+            </Label>
             <Input
               id="pw-new"
               type="password"
@@ -69,7 +79,9 @@ export function ChangePassword() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="pw-confirm">Repite la contraseña nueva</Label>
+            <Label htmlFor="pw-confirm">
+              <Trans>Confirm new password</Trans>
+            </Label>
             <Input
               id="pw-confirm"
               type="password"
@@ -88,7 +100,7 @@ export function ChangePassword() {
           <div>
             <Button type="submit" size="sm" disabled={busy}>
               {busy && <Loader2 className="animate-spin" />}
-              Cambiar contraseña
+              <Trans>Change password</Trans>
             </Button>
           </div>
         </form>

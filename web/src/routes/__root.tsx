@@ -1,4 +1,5 @@
 import { createRootRoute, Link, Outlet } from '@tanstack/react-router';
+import { Trans } from '@lingui/react/macro';
 import { ThemeProvider } from 'next-themes';
 
 import { Button } from '@/components/ui/button';
@@ -26,9 +27,11 @@ function NotFound() {
     <div className="grid min-h-svh place-items-center text-center">
       <div className="space-y-2">
         <p className="text-4xl font-semibold">404</p>
-        <p className="text-muted-foreground">Esta página no existe.</p>
+        <p className="text-muted-foreground"><Trans>This page doesn't exist.</Trans></p>
         <Button variant="link" asChild>
-          <Link to="/">Volver al panel</Link>
+          <Link to="/">
+            <Trans>Back to dashboard</Trans>
+          </Link>
         </Button>
       </div>
     </div>

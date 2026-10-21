@@ -1,0 +1,2862 @@
+msgid ""
+msgstr ""
+
+#: src/components/app-dialog.tsx:383
+msgid "(image default)"
+msgstr "(el de la imagen)"
+
+#: src/components/app-dialog.tsx:189
+msgid "(offline)"
+msgstr "(desconectado)"
+
+#: src/components/certificates-settings.tsx:281
+#: src/components/notifications.tsx:360
+msgid "(optional)"
+msgstr "(opcional)"
+
+#: src/components/app-dialog.tsx:311
+#: src/components/git-dialog.tsx:201
+msgid "(repo root)"
+msgstr "(raíz del repo)"
+
+#: src/components/cert-badge.tsx:68
+msgid "(staging)"
+msgstr "(pruebas)"
+
+#: src/components/certificates-settings.tsx:362
+msgid "(the first domain)"
+msgstr "(el primer dominio)"
+
+#: src/components/users.tsx:91
+msgid "(you)"
+msgstr "(tú)"
+
+#. placeholder {0}: s.apps
+#: src/components/servers.tsx:100
+msgid "{0, plural, one {# app} other {# apps}}"
+msgstr "{0, plural, one {# app} other {# apps}}"
+
+#. placeholder {0}: l.used_by
+#: src/components/access-lists.tsx:78
+msgid "{0, plural, one {Protects # item} other {Protects # items}}"
+msgstr "{0, plural, one {Protege # elemento} other {Protege # elementos}}"
+
+#. placeholder {0}: status.recovery_codes_left
+#: src/components/two-factor.tsx:68
+msgid "{0, plural, one {You have # recovery code left.} other {You have # recovery codes left.}}"
+msgstr "{0, plural, one {Te queda # código de recuperación.} other {Te quedan # códigos de recuperación.}}"
+
+#. placeholder {0}: form.forward_host
+#: src/components/proxy-host-dialog.tsx:240
+msgid "{0} (not found)"
+msgstr "{0} (no encontrado)"
+
+#: src/components/proxy-hosts.tsx:93
+msgid "{domain} deleted"
+msgstr "{domain} eliminado"
+
+#: src/components/site-detail.tsx:71
+msgid "{fileCount, plural, one {# file} other {# files}} · {size}"
+msgstr "{fileCount, plural, one {# archivo} other {# archivos}} · {size}"
+
+#: src/components/traffic.tsx:236
+msgid "{label}: {requests, plural, one {# request} other {# requests}}"
+msgstr "{label}: {requests, plural, one {# petición} other {# peticiones}}"
+
+#: src/lib/collect-files.ts:24
+msgid "{n, plural, one {# file} other {# files}}"
+msgstr "{n, plural, one {# archivo} other {# archivos}}"
+
+#: src/components/app-detail.tsx:121
+msgctxt "app"
+msgid "{name} and its data deleted"
+msgstr "{name} eliminada junto con sus datos"
+
+#: src/components/integrations.tsx:618
+msgid "{name} connected as {username}"
+msgstr "{name} vinculado como {username}"
+
+#: src/components/app-dialog.tsx:101
+msgctxt "app"
+msgid "{name} created"
+msgstr "{name} creada"
+
+#: src/components/servers.tsx:49
+#: src/components/site-detail.tsx:105
+msgid "{name} deleted"
+msgstr "{name} eliminado"
+
+#: src/components/app-detail.tsx:122
+msgctxt "app"
+msgid "{name} deleted"
+msgstr "{name} eliminada"
+
+#: src/components/notifications.tsx:132
+msgid "{name} isn't working"
+msgstr "{name} no funciona"
+
+#: src/components/users.tsx:53
+msgid "{name} no longer has access"
+msgstr "{name} ya no tiene acceso"
+
+#: src/components/git-dialog.tsx:88
+msgid "{repo} connected"
+msgstr "{repo} conectado"
+
+#: src/components/integrations.tsx:43
+msgid "{username} disconnected from Dockfly"
+msgstr "{username} desconectado de Dockfly"
+
+#: src/components/app-detail.tsx:380
+msgid "{volumeNames}: this can't be undone."
+msgstr "{volumeNames}: no se puede deshacer."
+
+#: src/components/app-dialog.tsx:452
+msgid "/var/lib/data"
+msgstr "/var/lib/datos"
+
+#: src/components/proxy-host-dialog.tsx:305
+msgid "<0>host.docker.internal</0> points to the server Dockfly runs on. Useful for apps outside Docker (systemd, PM2…). The app must listen on an IP reachable from Docker, not just on <1>127.0.0.1</1>."
+msgstr "<0>host.docker.internal</0> apunta al servidor donde corre Dockfly. Útil para apps fuera de Docker (systemd, PM2…). La app debe escuchar en una IP accesible desde Docker, no solo en <1>127.0.0.1</1>."
+
+#: src/components/notifications.tsx:76
+msgid "123456789 or -100…"
+msgstr "123456789 o -100…"
+
+#: src/components/proxy-host-dialog.tsx:261
+msgid "192.168.1.50 or api.other.com"
+msgstr "192.168.1.50 o api.otro.com"
+
+#: src/components/traffic.tsx:111
+msgid "5xx errors"
+msgstr "Errores 5xx"
+
+#: src/components/traffic.tsx:95
+msgid "7 days"
+msgstr "7 días"
+
+#: src/routes/_app/settings.tsx:42
+msgid "A backup includes the database, the keys (sessions and token encryption), the published sites and the Let's Encrypt certificates. Keep it somewhere safe: it can be used to read the tokens of your Git accounts."
+msgstr "Una copia incluye la base de datos, las claves (sesiones y cifrado de tokens), los sitios publicados y los certificados de Let's Encrypt. Guárdala en un lugar seguro: con ella se pueden leer los tokens de tus cuentas de Git."
+
+#: src/components/app-dialog.tsx:127
+msgid "A container that Dockfly manages end to end: zero-downtime deploys, encrypted variables, volumes and a domain with SSL."
+msgstr "Un contenedor que Dockfly gestiona de principio a fin: despliegues sin corte, variables cifradas, volúmenes y dominio con SSL."
+
+#: src/components/app-dialog.tsx:398
+msgid "A deploy receives no traffic until this path responds. Without it, the port just has to accept connections."
+msgstr "Un despliegue no recibe tráfico hasta que esta ruta responde. Sin ella, basta con que el puerto acepte conexiones."
+
+#: src/components/access-select.tsx:18
+msgid "Access"
+msgstr "Acceso"
+
+#: src/components/access-lists.tsx:37
+msgid "Access lists"
+msgstr "Listas de acceso"
+
+#: src/components/integrations.tsx:79
+#: src/components/repo-picker.tsx:62
+msgid "Account"
+msgstr "Cuenta"
+
+#: src/components/notifications.tsx:213
+msgid "Active"
+msgstr "Activo"
+
+#: src/components/proxy-hosts.tsx:122
+#: src/components/redirects.tsx:68
+#: src/components/streams.tsx:77
+msgid "Add"
+msgstr "Añadir"
+
+#: src/components/integrations.tsx:236
+msgid "Add account or organization"
+msgstr "Añadir cuenta u organización"
+
+#: src/components/integrations.tsx:345
+msgid "Add another GitLab instance"
+msgstr "Añadir otra instancia de GitLab"
+
+#: src/components/notifications.tsx:171
+msgid "Add channel"
+msgstr "Añadir canal"
+
+#: src/components/certificates-settings.tsx:66
+msgid "Add provider"
+msgstr "Añadir proveedor"
+
+#: src/components/proxy-hosts.tsx:296
+msgid "Add proxy host"
+msgstr "Añadir proxy host"
+
+#: src/components/servers.tsx:70
+#: src/components/servers.tsx:178
+msgid "Add server"
+msgstr "Añadir servidor"
+
+#: src/components/access-lists.tsx:183
+msgid "Add user"
+msgstr "Añadir usuario"
+
+#: src/components/env-editor.tsx:42
+msgid "Add variable"
+msgstr "Añadir variable"
+
+#: src/components/app-dialog.tsx:462
+msgid "Add volume"
+msgstr "Añadir volumen"
+
+#: src/lib/roles.ts:11
+msgid "Administrator"
+msgstr "Administrador"
+
+#: src/components/app-dialog.tsx:370
+#: src/components/git-dialog.tsx:183
+msgid "Advanced options"
+msgstr "Opciones avanzadas"
+
+#: src/components/integrations.tsx:481
+msgid "Advanced: personal access tokens"
+msgstr "Avanzado: tokens de acceso personal"
+
+#: src/components/notifications.tsx:164
+msgid "Alerts when a build fails, an SSL certificate has problems or a container goes down. Each alert is sent only once, not repeatedly."
+msgstr "Avisos cuando falla un build, un certificado SSL da problemas o cae un contenedor. Cada aviso se envía una sola vez, no en bucle."
+
+#: src/components/access-lists.tsx:188
+msgid "Allowed IPs"
+msgstr "IPs permitidas"
+
+#: src/components/app-detail.tsx:379
+msgid "Also delete its data (volumes)"
+msgstr "Borrar también sus datos (volúmenes)"
+
+#: src/components/apps.tsx:94
+msgid "another server"
+msgstr "otro servidor"
+
+#: src/components/api-tokens.tsx:48
+msgid "API tokens"
+msgstr "Tokens de API"
+
+#. placeholder {0}: app.name
+#: src/components/integrations.tsx:240
+msgid "App {0}"
+msgstr "App {0}"
+
+#: src/components/integrations.tsx:155
+msgid "App {name} removed from Dockfly"
+msgstr "App {name} quitada de Dockfly"
+
+#: src/components/app-dialog.tsx:100
+msgid "App created, with a warning"
+msgstr "App creada, con un aviso"
+
+#: src/components/header.tsx:49
+msgid "Apps"
+msgstr "Apps"
+
+#: src/components/integrations.tsx:172
+msgid "Authorize Dockfly on your account or organization and choose which repositories it can access (read-only)."
+msgstr "Autoriza Dockfly en tu cuenta u organización y elige a qué repositorios puede acceder (solo lectura)."
+
+#: src/components/db-backups.tsx:151
+msgid "Automatic backups"
+msgstr "Copias automáticas"
+
+#: src/components/db-backups.tsx:67
+msgid "Automatic backups disabled"
+msgstr "Copias automáticas desactivadas"
+
+#: src/components/db-backups.tsx:67
+msgid "Automatic backups enabled"
+msgstr "Copias automáticas activadas"
+
+#: src/components/git-dialog.tsx:221
+msgid "Available during the build (e.g. <0>VITE_API_URL</0>). Stored encrypted."
+msgstr "Disponibles durante el build (p. ej. <0>VITE_API_URL</0>). Se guardan cifradas."
+
+#: src/components/backup-storage.tsx:98
+msgid "AWS, Cloudflare R2 (<0>{r2Endpoint}</0>), Backblaze B2, MinIO… any S3-compatible storage."
+msgstr "AWS, Cloudflare R2 (<0>{r2Endpoint}</0>), Backblaze B2, MinIO… cualquier almacenamiento compatible con S3."
+
+#: src/components/auth-form.tsx:136
+msgid "Back"
+msgstr "Volver"
+
+#: src/components/app-detail.tsx:138
+msgid "Back to apps"
+msgstr "Volver a las apps"
+
+#: src/routes/__root.tsx:33
+msgid "Back to dashboard"
+msgstr "Volver al panel"
+
+#: src/components/site-detail.tsx:120
+msgid "Back to sites"
+msgstr "Volver a los sitios"
+
+#: src/components/db-backups.tsx:136
+msgid "Back up now"
+msgstr "Copia ahora"
+
+#: src/components/db-backups.tsx:207
+msgid "Backup"
+msgstr "Copia"
+
+#: src/components/db-backups.tsx:92
+msgid "Backup from {date}"
+msgstr "Copia del {date}"
+
+#: src/components/db-backups.tsx:121
+#: src/routes/_app/settings.tsx:39
+msgid "Backups"
+msgstr "Copias de seguridad"
+
+#: src/components/app-detail.tsx:246
+msgctxt "tab"
+msgid "Backups"
+msgstr "Copias"
+
+#: src/components/backup-storage.tsx:50
+msgid "Backups are stored in {location}"
+msgstr "Las copias se guardan en {location}"
+
+#: src/components/two-factor.tsx:48
+msgid "Besides your password, the dashboard will ask for a code from your authenticator app (Google Authenticator, 1Password, Bitwarden, Authy…). Anyone who steals your password won't be able to sign in without your phone."
+msgstr "Además de la contraseña, el panel pedirá un código de tu app de autenticación (Google Authenticator, 1Password, Bitwarden, Authy…). Quien robe tu contraseña no podrá entrar sin tu móvil."
+
+#: src/components/notifications.tsx:72
+msgid "Bot token"
+msgstr "Token del bot"
+
+#: src/components/repo-picker.tsx:82
+msgid "Branch"
+msgstr "Rama"
+
+#: src/components/preview-settings.tsx:56
+#: src/components/site-dialog.tsx:117
+msgid "Branch previews"
+msgstr "Previews por rama"
+
+#: src/components/ssl-fields.tsx:42
+msgid "Browsers will remember to always use HTTPS for one year."
+msgstr "El navegador recordará usar siempre HTTPS durante un año."
+
+#: src/components/git-dialog.tsx:169
+#: src/components/site-git.tsx:176
+msgid "Build"
+msgstr "Build"
+
+#. placeholder {0}: build.id
+#: src/components/build-log.tsx:79
+msgid "Build #{0}"
+msgstr "Build #{0}"
+
+#: src/components/git-dialog.tsx:218
+msgid "Build environment variables"
+msgstr "Variables de entorno del build"
+
+#: src/components/notifications.tsx:31
+msgid "Build failed"
+msgstr "Build fallido"
+
+#: src/components/git-dialog.tsx:206
+msgid "Build image"
+msgstr "Imagen de build"
+
+#: src/components/git-dialog.tsx:129
+msgid "Build settings"
+msgstr "Configurar el build"
+
+#: src/components/build-status.tsx:12
+msgid "Building"
+msgstr "Construyendo"
+
+#: src/components/certificates-settings.tsx:52
+msgid "By default, Let's Encrypt validates each domain over HTTP. For wildcard domains (*.example.com) or servers without port 80 open, set up the zone with its DNS provider: hosts in that zone will use the DNS challenge automatically."
+msgstr "Por defecto, Let's Encrypt valida cada dominio por HTTP. Para dominios comodín (*.ejemplo.com) o servidores sin el puerto 80 abierto, configura la zona con su proveedor DNS: los hosts de esa zona usarán el desafío DNS automáticamente."
+
+#: src/lib/app-templates.ts:50
+msgid "Cache and queues. Other apps connect at redis:6379."
+msgstr "Caché y colas. Otras apps conectan en redis:6379."
+
+#: src/components/git-dialog.tsx:69
+msgid "Cache cleared: the next build will download dependencies again"
+msgstr "Caché vaciada: el próximo build descargará las dependencias de nuevo"
+
+#: src/components/app-dialog.tsx:215
+msgid "Can't be changed later: its volumes depend on it."
+msgstr "No se puede cambiar después: de él dependen sus volúmenes."
+
+#: src/components/app-dialog.tsx:197
+msgid "Can't be changed later."
+msgstr "No se puede cambiar después."
+
+#: src/components/two-factor.tsx:206
+msgid "Can't scan it? Enter the key manually"
+msgstr "¿No puedes escanearlo? Escribe la clave a mano"
+
+#: src/components/access-lists.tsx:209
+#: src/components/api-tokens.tsx:227
+#: src/components/app-detail.tsx:385
+#: src/components/app-dialog.tsx:492
+#: src/components/certificates-settings.tsx:305
+#: src/components/certificates-settings.tsx:386
+#: src/components/db-backups.tsx:294
+#: src/components/git-dialog.tsx:111
+#: src/components/git-dialog.tsx:237
+#: src/components/integrations.tsx:438
+#: src/components/integrations.tsx:698
+#: src/components/notifications.tsx:404
+#: src/components/proxy-host-dialog.tsx:370
+#: src/components/proxy-hosts.tsx:267
+#: src/components/redirects.tsx:225
+#: src/components/servers.tsx:204
+#: src/components/site-detail.tsx:310
+#: src/components/site-dialog.tsx:137
+#: src/components/site-git.tsx:252
+#: src/components/streams.tsx:248
+#: src/components/two-factor.tsx:253
+#: src/components/users.tsx:234
+msgid "Cancel"
+msgstr "Cancelar"
+
+#: src/components/build-log.tsx:110
+msgid "Cancel build"
+msgstr "Cancelar build"
+
+#: src/components/app-detail.tsx:426
+msgid "Cancel deploy"
+msgstr "Cancelar despliegue"
+
+#: src/components/app-status.tsx:16
+#: src/components/build-status.tsx:15
+msgid "Canceled"
+msgstr "Cancelado"
+
+#: src/components/certificates-settings.tsx:366
+msgid "Certificate"
+msgstr "Certificado"
+
+#: src/components/certificates-settings.tsx:336
+msgid "Certificate uploaded"
+msgstr "Certificado subido"
+
+#: src/components/certificates-settings.tsx:49
+msgid "Certificates"
+msgstr "Certificados"
+
+#: src/components/change-password.tsx:103
+msgid "Change password"
+msgstr "Cambiar contraseña"
+
+#: src/components/site-dialog.tsx:68
+msgid "Changes apply instantly."
+msgstr "Los cambios se aplican al instante."
+
+#: src/components/app-dialog.tsx:105
+#: src/components/proxy-host-dialog.tsx:133
+#: src/components/site-dialog.tsx:49
+#: src/components/users.tsx:175
+msgid "Changes saved"
+msgstr "Cambios guardados"
+
+#: src/components/change-password.tsx:49
+msgid "Changing it signs you out on other devices."
+msgstr "Al cambiarla se cierran tus sesiones en otros dispositivos."
+
+#: src/components/notifications.tsx:282
+msgid "Channel created: click \"Test\" to check it"
+msgstr "Canal creado: pulsa «Probar» para comprobarlo"
+
+#: src/components/notifications.tsx:282
+msgid "Channel saved"
+msgstr "Canal guardado"
+
+#: src/components/dropzone.tsx:81
+msgid "Choose .zip"
+msgstr "Elegir .zip"
+
+#: src/components/proxy-host-dialog.tsx:220
+msgid "Choose a container…"
+msgstr "Elige un contenedor…"
+
+#. placeholder {0}: data.email
+#: src/routes/invite/$token.tsx:82
+msgid "Choose a new password for {0}."
+msgstr "Elige una contraseña nueva para {0}."
+
+#: src/components/repo-picker.tsx:86
+msgid "Choose a repository"
+msgstr "Elige un repositorio"
+
+#: src/components/repo-picker.tsx:69
+msgid "Choose an account"
+msgstr "Elige una cuenta"
+
+#: src/components/dropzone.tsx:78
+msgid "Choose folder"
+msgstr "Elegir carpeta"
+
+#: src/components/integrations.tsx:86
+msgid "Choose repositories"
+msgstr "Elegir repositorios"
+
+#: src/components/git-dialog.tsx:191
+msgid "Clear cache"
+msgstr "Vaciar la caché"
+
+#: src/components/auth-form.tsx:90
+#: src/components/two-factor.tsx:214
+msgid "Code"
+msgstr "Código"
+
+#: src/components/two-factor.tsx:163
+msgid "Codes copied"
+msgstr "Códigos copiados"
+
+#: src/components/auth-form.tsx:211
+msgid "Coming from another server?"
+msgstr "¿Vienes de otro servidor?"
+
+#: src/components/app-dialog.tsx:376
+msgid "Command"
+msgstr "Comando"
+
+#: src/components/servers.tsx:243
+msgid "Command copied"
+msgstr "Comando copiado"
+
+#: src/components/site-git.tsx:179
+msgid "Commit"
+msgstr "Commit"
+
+#: src/components/app-dialog.tsx:328
+msgid "Compose file"
+msgstr "Archivo de Compose"
+
+#: src/components/app-detail.tsx:222
+#: src/components/site-git.tsx:150
+msgid "Configure"
+msgstr "Configurar"
+
+#: src/components/app-dialog.tsx:125
+msgid "Configure {name}"
+msgstr "Configurar {name}"
+
+#: src/components/change-password.tsx:83
+msgid "Confirm new password"
+msgstr "Repite la contraseña nueva"
+
+#: src/routes/invite/$token.tsx:106
+msgid "Confirm password"
+msgstr "Repite la contraseña"
+
+#: src/components/git-dialog.tsx:241
+#: src/components/integrations.tsx:702
+msgid "Connect"
+msgstr "Conectar"
+
+#: src/components/integrations.tsx:635
+msgid "Connect {name}"
+msgstr "Vincular {name}"
+
+#: src/components/servers.tsx:224
+msgctxt "server"
+msgid "Connect {name}"
+msgstr "Conecta {name}"
+
+#: src/components/site-git.tsx:141
+msgid "Connect a GitHub or GitLab repository to build and publish the site on every push."
+msgstr "Conecta un repositorio de GitHub o GitLab para construir y publicar el sitio en cada push."
+
+#: src/components/git-dialog.tsx:129
+msgid "Connect a repository"
+msgstr "Conectar un repositorio"
+
+#: src/components/git-dialog.tsx:103
+msgid "Connect an account first"
+msgstr "Primero vincula una cuenta"
+
+#: src/components/site-git.tsx:159
+msgid "Connect repository"
+msgstr "Conectar repositorio"
+
+#: src/components/integrations.tsx:330
+msgid "Connect with {host}"
+msgstr "Conectar con {host}"
+
+#: src/components/integrations.tsx:181
+msgid "Connect with GitHub"
+msgstr "Conectar con GitHub"
+
+#: src/components/servers.tsx:97
+msgid "connected"
+msgstr "conectado"
+
+#: src/components/servers.tsx:87
+#: src/components/servers.tsx:105
+msgid "Connected"
+msgstr "Conectado"
+
+#: src/components/integrations.tsx:80
+msgid "connected {connectedAgo}"
+msgstr "conectada {connectedAgo}"
+
+#: src/components/proxy-host-dialog.tsx:185
+#: src/components/proxy-host-dialog.tsx:216
+#: src/components/proxy-host-dialog.tsx:250
+#: src/components/proxy-hosts.tsx:34
+msgid "Container"
+msgstr "Contenedor"
+
+#: src/components/notifications.tsx:35
+msgid "Container down"
+msgstr "Contenedor caído"
+
+#: src/components/app-status.tsx:52
+msgid "Container not found"
+msgstr "Contenedor no encontrado"
+
+#: src/components/notifications.tsx:36
+msgid "Container recovered"
+msgstr "Contenedor recuperado"
+
+#: src/components/proxy-host-dialog.tsx:261
+msgid "container-name"
+msgstr "nombre-del-contenedor"
+
+#: src/components/apps.tsx:41
+msgid "Containers that Dockfly deploys and manages: APIs, databases, services… from an image or a Dockerfile."
+msgstr "Contenedores que Dockfly despliega y gestiona: APIs, bases de datos, servicios… desde una imagen o un Dockerfile."
+
+#: src/components/servers.tsx:208
+#: src/components/two-factor.tsx:257
+msgid "Continue"
+msgstr "Continuar"
+
+#: src/components/integrations.tsx:464
+msgid "Copied"
+msgstr "Copiado"
+
+#: src/components/api-tokens.tsx:261
+#: src/components/integrations.tsx:464
+#: src/components/servers.tsx:245
+#: src/components/two-factor.tsx:165
+#: src/components/users.tsx:275
+msgid "Copy"
+msgstr "Copiar"
+
+#: src/components/api-tokens.tsx:252
+msgid "Copy your token"
+msgstr "Copia tu token"
+
+#: src/components/site-detail.tsx:75
+msgid "Couldn't publish"
+msgstr "No se pudo publicar"
+
+#: src/components/restore-backup.tsx:34
+msgid "Couldn't restore"
+msgstr "No se pudo restaurar"
+
+#: src/components/api-tokens.tsx:231
+msgid "Create"
+msgstr "Crear"
+
+#: src/components/integrations.tsx:581
+msgid "Create a <0>fine-grained token</0> with access to the repositories you want to deploy and these permissions: <1>Contents</1> (read), <2>Metadata</2> (read) and <3>Webhooks</3> (read and write)."
+msgstr "Crea un <0>fine-grained token</0> con acceso a los repositorios que quieras desplegar y estos permisos: <1>Contents</1> (lectura), <2>Metadata</2> (lectura) y <3>Webhooks</3> (lectura y escritura)."
+
+#: src/components/integrations.tsx:593
+msgid "Create a personal access token with the <0>api</0> scope (required to register the push webhook)."
+msgstr "Crea un token de acceso personal con el scope <0>api</0> (necesario para registrar el webhook de push)."
+
+#: src/components/auth-form.tsx:205
+msgid "Create administrator"
+msgstr "Crear administrador"
+
+#: src/components/notifications.tsx:68
+msgid "Create an app at api.slack.com with \"Incoming Webhooks\" and add a webhook to the channel."
+msgstr "Crea una app en api.slack.com con «Incoming Webhooks» y añade un webhook al canal."
+
+#: src/components/api-tokens.tsx:157
+msgid "Create API token"
+msgstr "Crear token de API"
+
+#: src/components/app-dialog.tsx:496
+msgid "Create app"
+msgstr "Crear app"
+
+#: src/components/users.tsx:238
+msgid "Create invitation"
+msgstr "Crear invitación"
+
+#: src/components/notifications.tsx:72
+msgid "Create it by talking to @BotFather."
+msgstr "Créalo hablando con @BotFather."
+
+#: src/routes/invite/$token.tsx:125
+msgid "Create my account"
+msgstr "Crear mi cuenta"
+
+#: src/components/sites.tsx:69
+msgid "Create one and upload your <0>dist/</0>: it goes live instantly, with SSL and rollback."
+msgstr "Crea uno y sube tu <0>dist/</0>: se publica al instante, con SSL y rollback."
+
+#: src/components/proxy-hosts.tsx:291
+msgid "Create one to publish a container, an app on this server or an external service."
+msgstr "Crea uno para publicar un contenedor, una app de este servidor o un servicio externo."
+
+#: src/components/site-dialog.tsx:141
+msgid "Create site"
+msgstr "Crear sitio"
+
+#: src/components/integrations.tsx:206
+msgid "Create the app in an organization or on GitHub Enterprise"
+msgstr "Crear la app en una organización o en GitHub Enterprise"
+
+#: src/components/integrations.tsx:647
+msgid "Create the token on {name}"
+msgstr "Crear el token en {name}"
+
+#: src/components/api-tokens.tsx:58
+msgid "Create token"
+msgstr "Crear token"
+
+#. placeholder {0}: timeAgo(site.created_at)
+#: src/components/sites.tsx:113
+msgid "Created {0}"
+msgstr "Creado {0}"
+
+#: src/components/change-password.tsx:56
+msgid "Current password"
+msgstr "Contraseña actual"
+
+#: src/components/git-dialog.tsx:161
+msgid "Custom"
+msgstr "Personalizado"
+
+#: src/components/certificates-settings.tsx:109
+msgid "Custom certificates"
+msgstr "Certificados propios"
+
+#: src/components/header.tsx:109
+msgid "Dark"
+msgstr "Oscuro"
+
+#: src/components/notifications.tsx:298
+msgid "Data is stored encrypted; secret fields are never shown again."
+msgstr "Los datos se guardan cifrados; los campos secretos no se vuelven a mostrar."
+
+#: src/components/app-dialog.tsx:435
+msgid "Data that must survive deploys (databases, uploads…). With volumes, each deploy stops the current version before starting the new one: two instances writing to the same data would corrupt it."
+msgstr "Los datos que deben sobrevivir a los despliegues (bases de datos, subidas…). Con volúmenes, cada despliegue detiene la versión actual antes de arrancar la nueva: dos instancias escribiendo en los mismos datos los corromperían."
+
+#: src/components/notifications.tsx:37
+msgid "Database backup failed"
+msgstr "Copia de una base de datos fallida"
+
+#: src/components/backup-storage.tsx:62
+msgid "Database backups"
+msgstr "Copias de las bases de datos"
+
+#: src/components/db-backups.tsx:92
+msgid "Database restored"
+msgstr "Base de datos restaurada"
+
+#: src/lib/app-templates.ts:38
+msgid "Database. Other apps connect at mysql:3306."
+msgstr "Base de datos. Otras apps conectan en mysql:3306."
+
+#: src/lib/app-templates.ts:27
+msgid "Database. Other apps connect at postgres:5432."
+msgstr "Base de datos. Otras apps conectan en postgres:5432."
+
+#: src/components/app-detail.tsx:272
+#: src/components/site-detail.tsx:213
+#: src/components/site-git.tsx:185
+msgid "Date"
+msgstr "Fecha"
+
+#: src/components/access-lists.tsx:91
+#: src/components/app-detail.tsx:388
+#: src/components/certificates-settings.tsx:96
+#: src/components/certificates-settings.tsx:138
+#: src/components/notifications.tsx:222
+#: src/components/proxy-hosts.tsx:210
+#: src/components/proxy-hosts.tsx:270
+#: src/components/redirects.tsx:123
+#: src/components/site-detail.tsx:177
+#: src/components/site-detail.tsx:313
+#: src/components/streams.tsx:147
+msgid "Delete"
+msgstr "Eliminar"
+
+#. placeholder {0}: deleting?.domains[0]
+#. placeholder {0}: site.name
+#: src/components/proxy-hosts.tsx:259
+#: src/components/site-detail.tsx:300
+msgid "Delete {0}?"
+msgstr "¿Eliminar {0}?"
+
+#: src/components/servers.tsx:130
+msgid "Delete {name}"
+msgstr "Eliminar {name}"
+
+#: src/components/app-detail.tsx:369
+msgid "Delete {name}?"
+msgstr "¿Eliminar {name}?"
+
+#: src/components/db-backups.tsx:258
+msgid "Delete backup"
+msgstr "Borrar la copia"
+
+#. placeholder {0}: dep.id
+#: src/components/site-detail.tsx:269
+msgid "Delete deployment {0}"
+msgstr "Eliminar despliegue {0}"
+
+#. placeholder {0}: p.branch
+#: src/components/site-previews.tsx:82
+msgid "Delete preview for {0}"
+msgstr "Borrar la preview de {0}"
+
+#: src/components/git-dialog.tsx:188
+msgid "Dependencies are cached between builds. Clear the cache if you see odd install errors."
+msgstr "Las dependencias se guardan en caché entre builds. Vacíala si ves errores extraños al instalar."
+
+#: src/components/app-detail.tsx:203
+msgid "Deploy"
+msgstr "Desplegar"
+
+#: src/components/api-tokens.tsx:266
+msgid "Deploy a folder"
+msgstr "Desplegar una carpeta"
+
+#: src/components/servers.tsx:63
+msgid "Deploy apps to other machines. Each server runs a Dockfly agent with its own Traefik: the agent connects to this panel (no open ports needed) and, if the panel goes down, its apps keep running."
+msgstr "Despliega apps en otras máquinas. Cada servidor ejecuta un agente de Dockfly con su propio Traefik: el agente se conecta a este panel (no hace falta abrir puertos) y, si el panel se cae, sus apps siguen funcionando."
+
+#: src/components/app-detail.tsx:203
+msgid "Deploy for the first time"
+msgstr "Desplegar por primera vez"
+
+#: src/components/site-git.tsx:148
+msgid "Deploy now"
+msgstr "Desplegar ahora"
+
+#: src/components/app-dialog.tsx:483
+msgid "Deploy on create"
+msgstr "Desplegar al crearla"
+
+#: src/lib/roles.ts:13
+msgid "Deployer"
+msgstr "Despliegues"
+
+#: src/components/app-status.tsx:12
+msgid "Deploying"
+msgstr "Desplegando"
+
+#: src/components/app-dialog.tsx:101
+msgid "Deploying {name}…"
+msgstr "Desplegando {name}…"
+
+#: src/components/app-detail.tsx:263
+#: src/components/site-detail.tsx:210
+msgid "Deployment"
+msgstr "Despliegue"
+
+#. placeholder {0}: site.active_deployment.id
+#. placeholder {1}: timeAgo(site.active_deployment.created_at)
+#: src/components/sites.tsx:109
+msgid "Deployment #{0} · {1}"
+msgstr "Despliegue #{0} · {1}"
+
+#: src/components/site-detail.tsx:70
+msgid "Deployment #{depId} published"
+msgstr "Despliegue #{depId} publicado"
+
+#: src/components/site-detail.tsx:85
+msgid "Deployment #{depId} published again"
+msgstr "Despliegue #{depId} publicado de nuevo"
+
+#: src/components/app-detail.tsx:405
+msgid "Deployment #{id}"
+msgstr "Despliegue #{id}"
+
+#: src/components/app-detail.tsx:234
+#: src/components/site-detail.tsx:194
+msgid "Deployments"
+msgstr "Despliegues"
+
+#: src/components/site-git.tsx:121
+msgid "Deploys on every push"
+msgstr "Despliegue en cada push"
+
+#: src/components/proxy-host-dialog.tsx:157
+#: src/components/site-dialog.tsx:76
+msgid "Details"
+msgstr "Detalles"
+
+#: src/components/app-dialog.tsx:304
+msgid "Directory"
+msgstr "Directorio"
+
+#: src/components/proxy-hosts.tsx:198
+#: src/components/two-factor.tsx:56
+#: src/components/two-factor.tsx:257
+msgid "Disable"
+msgstr "Desactivar"
+
+#: src/components/two-factor.tsx:127
+msgid "Disable two-step verification"
+msgstr "Desactivar la verificación en dos pasos"
+
+#: src/components/two-factor.tsx:43
+msgid "Disabled"
+msgstr "Desactivada"
+
+#: src/components/site-git.tsx:153
+#: src/components/site-git.tsx:255
+msgid "Disconnect"
+msgstr "Desconectar"
+
+#. placeholder {0}: site.repo
+#: src/components/site-git.tsx:242
+msgid "Disconnect {0}?"
+msgstr "¿Desconectar {0}?"
+
+#: src/components/integrations.tsx:95
+msgid "Disconnect {username}"
+msgstr "Desconectar {username}"
+
+#: src/components/servers.tsx:109
+msgid "Disconnected"
+msgstr "Desconectado"
+
+#: src/components/certificates-settings.tsx:212
+msgid "DNS provider"
+msgstr "Proveedor DNS"
+
+#: src/components/certificates-settings.tsx:198
+msgid "DNS provider saved"
+msgstr "Proveedor DNS guardado"
+
+#: src/components/certificates-settings.tsx:63
+msgid "DNS zones"
+msgstr "Zonas DNS"
+
+#: src/components/header.tsx:81
+msgid "Docker connected"
+msgstr "Docker conectado"
+
+#: src/components/app-dialog.tsx:255
+msgid "Docker image"
+msgstr "Imagen de Docker"
+
+#: src/components/apps.tsx:56
+msgid "Docker is unavailable: mount <0>/var/run/docker.sock</0> into the Dockfly container to use apps."
+msgstr "Docker no está disponible: monta <0>/var/run/docker.sock</0> en el contenedor de Dockfly para usar apps."
+
+#: src/components/header.tsx:81
+msgid "Docker unavailable"
+msgstr "Docker no disponible"
+
+#: src/components/restore-backup.tsx:93
+msgid "Dockfly didn't start again. If it has no restart policy, start it manually (docker start dockfly)."
+msgstr "Dockfly no volvió a arrancar. Si no tiene política de reinicio, arráncalo a mano (docker start dockfly)."
+
+#: src/components/integrations.tsx:548
+msgid "Dockfly public URL"
+msgstr "URL pública de Dockfly"
+
+#: src/components/notifications.tsx:95
+msgid "dockfly@mydomain.com"
+msgstr "dockfly@midominio.com"
+
+#: src/components/app-dialog.tsx:165
+msgid "Domain & SSL"
+msgstr "Dominio y SSL"
+
+#: src/components/app-dialog.tsx:469
+#: src/components/proxy-host-dialog.tsx:167
+#: src/components/proxy-hosts.tsx:140
+#: src/components/redirects.tsx:79
+#: src/components/site-dialog.tsx:102
+msgid "Domains"
+msgstr "Dominios"
+
+#: src/components/app-dialog.tsx:106
+msgid "Domains are already applied; everything else takes effect on the next deploy."
+msgstr "Los dominios ya están aplicados; el resto se aplica en el próximo despliegue."
+
+#: src/components/ssl-fields.tsx:26
+msgid "Domains must point to this server (DNS A/AAAA record) and ports 80 and 443 must be open. Traefik issues and renews the certificate automatically."
+msgstr "Los dominios deben apuntar a este servidor (registro DNS A/AAAA) y los puertos 80 y 443 deben estar abiertos. Traefik obtiene y renueva el certificado automáticamente."
+
+#: src/components/proxy-host-dialog.tsx:319
+msgid "Don't verify the target's certificate"
+msgstr "No verificar el certificado del destino"
+
+#: src/components/api-tokens.tsx:278
+#: src/components/servers.tsx:248
+#: src/components/users.tsx:280
+msgid "Done"
+msgstr "Hecho"
+
+#: src/components/app-status.tsx:55
+msgid "Down ({state})"
+msgstr "Caída ({state})"
+
+#: src/components/db-backups.tsx:242
+#: src/components/two-factor.tsx:169
+msgid "Download"
+msgstr "Descargar"
+
+#: src/routes/_app/settings.tsx:53
+msgid "Download backup"
+msgstr "Descargar copia"
+
+#: src/components/dropzone.tsx:67
+msgid "Drop your build folder or a .zip here"
+msgstr "Arrastra aquí la carpeta de tu build o un .zip"
+
+#: src/components/certificates-settings.tsx:258
+msgid "Each provider's code and variables are listed in <0>the Traefik documentation</0>."
+msgstr "El código y las variables de cada proveedor están en <0>la documentación de Traefik</0>."
+
+#: src/components/certificates-settings.tsx:247
+msgid "Each zone covers the domain, its subdomains and its wildcard."
+msgstr "Cada zona cubre el dominio, sus subdominios y su comodín."
+
+#: src/components/access-lists.tsx:83
+#: src/components/certificates-settings.tsx:89
+#: src/components/notifications.tsx:214
+#: src/components/proxy-hosts.tsx:202
+#: src/components/redirects.tsx:120
+#: src/components/site-detail.tsx:169
+#: src/components/streams.tsx:144
+#: src/components/users.tsx:107
+msgid "Edit"
+msgstr "Editar"
+
+#. placeholder {0}: list.name
+#. placeholder {0}: site.name
+#: src/components/access-lists.tsx:148
+#: src/components/site-dialog.tsx:63
+msgid "Edit {0}"
+msgstr "Editar {0}"
+
+#: src/components/notifications.tsx:296
+msgid "Edit {channelName}"
+msgstr "Editar {channelName}"
+
+#: src/components/users.tsx:192
+msgid "Edit {userName}"
+msgstr "Editar a {userName}"
+
+#: src/components/certificates-settings.tsx:212
+msgid "Edit DNS provider"
+msgstr "Editar proveedor DNS"
+
+#: src/components/proxy-host-dialog.tsx:148
+msgid "Edit proxy host"
+msgstr "Editar proxy host"
+
+#: src/components/redirects.tsx:179
+msgid "Edit redirect"
+msgstr "Editar redirección"
+
+#: src/components/streams.tsx:202
+msgid "Edit stream"
+msgstr "Editar stream"
+
+#: src/components/auth-form.tsx:173
+msgid "Email"
+msgstr "Email"
+
+#: src/components/proxy-hosts.tsx:198
+#: src/components/two-factor.tsx:60
+#: src/components/two-factor.tsx:257
+msgid "Enable"
+msgstr "Activar"
+
+#: src/components/ssl-fields.tsx:41
+msgid "Enable HSTS"
+msgstr "Activar HSTS"
+
+#: src/components/two-factor.tsx:126
+msgid "Enable two-step verification"
+msgstr "Activar la verificación en dos pasos"
+
+#: src/components/proxy-host-dialog.tsx:330
+#: src/components/proxy-hosts.tsx:150
+#: src/components/streams.tsx:97
+#: src/components/streams.tsx:141
+msgid "Enabled"
+msgstr "Activo"
+
+#: src/components/two-factor.tsx:39
+msgctxt "2fa"
+msgid "Enabled"
+msgstr "Activada"
+
+#: src/components/redirects.tsx:86
+#: src/components/redirects.tsx:117
+msgctxt "redirect"
+msgid "Enabled"
+msgstr "Activa"
+
+#: src/components/auth-form.tsx:81
+msgid "Enter one of your recovery codes. Each code can only be used once."
+msgstr "Escribe uno de tus códigos de recuperación. Cada código solo sirve una vez."
+
+#: src/components/auth-form.tsx:83
+msgid "Enter the 6-digit code from your authenticator app."
+msgstr "Escribe el código de 6 dígitos de tu app de autenticación."
+
+#: src/components/notifications.tsx:33
+msgid "Error obtaining an SSL certificate"
+msgstr "Error al obtener un certificado SSL"
+
+#: src/components/backup-storage.tsx:116
+msgid "eu-west-1 (on R2: auto)"
+msgstr "eu-west-1 (en R2: auto)"
+
+#: src/components/db-backups.tsx:174
+msgid "Every {customHours} h"
+msgstr "Cada {customHours} h"
+
+#: src/components/db-backups.tsx:35
+msgid "Every 12 hours"
+msgstr "Cada 12 horas"
+
+#: src/components/db-backups.tsx:34
+msgid "Every 6 hours"
+msgstr "Cada 6 horas"
+
+#: src/components/db-backups.tsx:36
+msgid "Every day"
+msgstr "Cada día"
+
+#: src/components/db-backups.tsx:33
+msgid "Every hour"
+msgstr "Cada hora"
+
+#: src/components/site-previews.tsx:46
+msgid "Every push to a branch other than <0>{productionBranch}</0> is published at its own URL. Previews are removed automatically when the branch is deleted."
+msgstr "Cada push a una rama distinta de <0>{productionBranch}</0> se publica en su propia URL. Se borran solas al borrar la rama."
+
+#: src/components/site-dialog.tsx:118
+msgid "Every push to another branch is published at its own URL (branch--site.previews-domain). Set the domain in Settings."
+msgstr "Cada push a otra rama se publica en su propia URL (rama--sitio.dominio-de-previews). Configura el dominio en Ajustes."
+
+#: src/components/git-dialog.tsx:131
+msgid "Every push to the selected branch builds the site in an isolated container and publishes the result."
+msgstr "Cada push a la rama elegida construye el sitio en un contenedor aislado y publica el resultado."
+
+#: src/components/db-backups.tsx:37
+msgid "Every week"
+msgstr "Cada semana"
+
+#: src/lib/roles.ts:22
+msgid "Everything: proxy hosts, certificates, integrations, settings and users."
+msgstr "Todo: proxy hosts, certificados, integraciones, ajustes y usuarios."
+
+#: src/components/api-tokens.tsx:80
+#: src/components/cert-badge.tsx:34
+msgid "Expired"
+msgstr "Caducado"
+
+#: src/components/api-tokens.tsx:196
+msgid "Expires"
+msgstr "Caduca"
+
+#: src/components/cert-badge.tsx:31
+msgid "Expires in {days, plural, one {# day} other {# days}}"
+msgstr "Caduca en {days, plural, one {# día} other {# días}}"
+
+#. placeholder {0}: formatDate(token.expires_at)
+#: src/components/api-tokens.tsx:92
+msgid "expires on {0}"
+msgstr "caduca el {0}"
+
+#: src/components/certificates-settings.tsx:130
+msgid "expires on {expires}"
+msgstr "caduca el {expires}"
+
+#: src/components/proxy-host-dialog.tsx:191
+#: src/components/proxy-hosts.tsx:36
+msgid "External"
+msgstr "Externo"
+
+#: src/components/app-status.tsx:15
+#: src/components/build-status.tsx:14
+msgid "Failed"
+msgstr "Fallido"
+
+#: src/components/db-backups.tsx:230
+msgctxt "backup"
+msgid "Failed"
+msgstr "Falló"
+
+#: src/components/site-detail.tsx:216
+msgid "Files"
+msgstr "Archivos"
+
+#: src/components/app-dialog.tsx:284
+msgid "First connect your GitHub or GitLab account in <0>Integrations</0>."
+msgstr "Vincula primero tu cuenta de GitHub o GitLab en <0>Integraciones</0>."
+
+#: src/components/auth-form.tsx:155
+msgid "First-time setup: create the administrator account."
+msgstr "Primera instalación: crea la cuenta de administrador."
+
+#: src/components/backup-storage.tsx:136
+msgid "Folder"
+msgstr "Carpeta"
+
+#: src/components/integrations.tsx:486
+msgid "For cases where authorization can't be used (e.g. without a browser). The token is stored encrypted."
+msgstr "Para casos en los que no se puede usar la autorización (p. ej. sin navegador). El token se guarda cifrado."
+
+#: src/components/api-tokens.tsx:51
+msgid "For deploying from the terminal or CI with <0>dockfly deploy</0>. They act on your behalf, with the role you choose (never more than your own)."
+msgstr "Para desplegar desde la terminal o la integración continua con <0>dockfly deploy</0>. Actúan en tu nombre, con el rol que elijas (nunca más que el tuyo)."
+
+#: src/components/dropzone.tsx:70
+msgid "For example <0>dist/</0> or <1>build/</1>. It goes live as soon as the upload finishes."
+msgstr "Por ejemplo <0>dist/</0> o <1>build/</1>. Se publica en cuanto termina la subida."
+
+#: src/components/notifications.tsx:94
+msgid "For Gmail, use an app password."
+msgstr "En Gmail, usa una contraseña de aplicación."
+
+#: src/components/git-dialog.tsx:202
+msgid "For monorepos, e.g. apps/web."
+msgstr "Para monorepos, p. ej. apps/web."
+
+#: src/components/two-factor.tsx:192
+msgid "For security, confirm your password."
+msgstr "Por seguridad, confirma tu contraseña."
+
+#: src/components/proxy-host-dialog.tsx:320
+msgid "For targets with self-signed certificates."
+msgstr "Para destinos con certificados autofirmados."
+
+#: src/components/ssl-fields.tsx:33
+msgid "Force HTTPS"
+msgstr "Forzar HTTPS"
+
+#: src/components/streams.tsx:69
+msgid "Forward a port to a non-web service: databases, game servers, MQTT… Adding or removing a port restarts Traefik (~1 s outage)."
+msgstr "Reenvía un puerto a un servicio que no es web: bases de datos, servidores de juegos, MQTT… Añadir o quitar un puerto reinicia Traefik (corte de ~1 s)."
+
+#: src/components/git-dialog.tsx:148
+msgid "Framework"
+msgstr "Framework"
+
+#: src/components/db-backups.tsx:156
+msgid "Frequency"
+msgstr "Frecuencia"
+
+#: src/routes/_app/settings.tsx:67
+msgid "From the terminal (e.g. with a cron job, or if the dashboard won't start)"
+msgstr "Desde la terminal (p. ej. con un cron, o si el panel no arranca)"
+
+#: src/components/db-backups.tsx:124
+msgid "Full, compressed {engineLabel} backups in <0>{location}</0>. Storage (e.g. an S3 bucket) is configured in <1>Settings</1>."
+msgstr "Copias completas de {engineLabel}, comprimidas, en <0>{location}</0>. El almacenamiento (p. ej. un bucket S3) se configura en <1>Ajustes</1>."
+
+#: src/components/app-dialog.tsx:152
+msgid "General"
+msgstr "General"
+
+#: src/components/two-factor.tsx:75
+msgid "Generate new codes"
+msgstr "Generar códigos nuevos"
+
+#: src/components/auth-form.tsx:47
+msgid "Generate new codes in My account if you're running low."
+msgstr "Genera códigos nuevos en Mi cuenta si te quedan pocos."
+
+#: src/components/ssl-fields.tsx:25
+msgid "Get an SSL certificate from Let's Encrypt"
+msgstr "Obtener certificado SSL de Let's Encrypt"
+
+#: src/components/integrations.tsx:551
+msgid "GitHub and GitLab notify this address on every push. Expose the panel with a proxy host (for example,<0>dockfly.mydomain.com</0> → <1>127.0.0.1:81</1> with SSL) and enter it here. Without it, sites only deploy with the Deploy now button."
+msgstr "GitHub y GitLab avisan de cada push a esta dirección. Publica el panel con un proxy host (por ejemplo,<0>dockfly.midominio.com</0> → <1>127.0.0.1:81</1> con SSL) y escríbela aquí. Sin ella, los sitios solo se despliegan con el botón «Desplegar ahora»."
+
+#: src/components/integrations.tsx:218
+msgid "GitHub Enterprise (optional)"
+msgstr "GitHub Enterprise (opcional)"
+
+#: src/components/integrations.tsx:670
+msgid "GitHub Enterprise URL"
+msgstr "URL de GitHub Enterprise"
+
+#: src/components/integrations.tsx:494
+msgid "GitHub token"
+msgstr "Token de GitHub"
+
+#: src/components/integrations.tsx:535
+msgid "GitHub webhook"
+msgstr "Webhook de GitHub"
+
+#: src/components/integrations.tsx:184
+msgid "GitHub will ask you to create the “Dockfly” app (already configured: just confirm) and then choose the account or organization and the repositories."
+msgstr "GitHub te pedirá crear la aplicación «Dockfly» (ya configurada: solo confirmas) y después elegir la cuenta u organización y los repositorios."
+
+#: src/components/integrations.tsx:307
+msgid "GitLab doesn't allow creating the app automatically: you need to register it once (takes a minute). After that, connecting an account is just a click on Connect."
+msgstr "GitLab no permite crear la aplicación automáticamente: hay que registrarla una vez (un minuto). Después, conectar una cuenta es solo pulsar «Conectar»."
+
+#: src/components/integrations.tsx:382
+msgid "GitLab instance"
+msgstr "Instancia de GitLab"
+
+#: src/components/integrations.tsx:369
+msgid "GitLab is set up: you can now connect your account"
+msgstr "GitLab configurado: ya puedes conectar tu cuenta"
+
+#: src/components/integrations.tsx:497
+msgid "GitLab token"
+msgstr "Token de GitLab"
+
+#: src/components/integrations.tsx:297
+msgid "gitlab.com or your own GitLab instance."
+msgstr "gitlab.com o tu propia instancia de GitLab."
+
+#: src/components/api-tokens.tsx:160
+msgid "Give it a name that tells you where it's used, so you can revoke it later."
+msgstr "Dale un nombre que te diga dónde lo usas, para poder revocarlo después."
+
+#: src/components/git-dialog.tsx:115
+msgid "Go to Integrations"
+msgstr "Ir a Integraciones"
+
+#: src/routes/invite/$token.tsx:70
+msgid "Go to login"
+msgstr "Ir al inicio de sesión"
+
+#: src/components/proxy-host-dialog.tsx:365
+msgid "Got it"
+msgstr "Entendido"
+
+#: src/components/app-dialog.tsx:388
+msgid "Health check path"
+msgstr "Ruta de salud"
+
+#. placeholder {0}: data.name
+#: src/routes/invite/$token.tsx:77
+msgid "Hi, {0}"
+msgstr "Hola, {0}"
+
+#: src/components/notifications.tsx:81
+msgid "https://my-service.com/dockfly"
+msgstr "https://mi-servicio.com/dockfly"
+
+#: src/components/two-factor.tsx:174
+msgid "I've saved them"
+msgstr "Ya los he guardado"
+
+#: src/components/two-factor.tsx:141
+msgid "If you lose your phone, each code lets you sign in once. Keep them somewhere safe (a password manager): they won't be shown again."
+msgstr "Si pierdes el móvil, cada código te deja entrar una vez. Guárdalos en un lugar seguro (un gestor de contraseñas): no se volverán a mostrar."
+
+#: src/components/app-dialog.tsx:269
+msgid "Image"
+msgstr "Imagen"
+
+#: src/components/api-tokens.tsx:204
+msgid "In 30 days"
+msgstr "En 30 días"
+
+#: src/components/api-tokens.tsx:207
+msgid "In 90 days"
+msgstr "En 90 días"
+
+#: src/components/api-tokens.tsx:210
+msgid "In a year"
+msgstr "En un año"
+
+#: src/components/notifications.tsx:59
+msgid "In Discord: Channel settings → Integrations → Webhooks → New webhook → Copy webhook URL."
+msgstr "En Discord: Ajustes del canal → Integraciones → Webhooks → Nuevo webhook → Copiar URL."
+
+#: src/components/certificates-settings.tsx:355
+msgid "In PEM format. Include the intermediate chain after the certificate."
+msgstr "En formato PEM. Incluye la cadena intermedia después del certificado."
+
+#: src/components/git-dialog.tsx:168
+msgid "Install"
+msgstr "Instalar"
+
+#: src/components/header.tsx:57
+msgid "Integrations"
+msgstr "Integraciones"
+
+#: src/components/apps.tsx:117
+msgid "Internal:"
+msgstr "Interna:"
+
+#: src/routes/invite/$token.tsx:65
+msgid "Invalid link"
+msgstr "Enlace no válido"
+
+#: src/components/users.tsx:261
+msgid "Invitation for {userName}"
+msgstr "Invitación para {userName}"
+
+#: src/components/users.tsx:74
+msgid "Invite"
+msgstr "Invitar"
+
+#: src/components/users.tsx:192
+msgid "Invite someone"
+msgstr "Invitar a alguien"
+
+#: src/components/users.tsx:67
+msgid "Invite your team with a link. Everyone signs in with their own email and password (and their own two-factor authentication)."
+msgstr "Invita a tu equipo con un enlace. Cada uno entra con su email y contraseña (y su propia verificación en dos pasos)."
+
+#: src/components/proxy-host-dialog.tsx:254
+msgid "IP or domain"
+msgstr "IP o dominio"
+
+#. placeholder {0}: c.issuer
+#: src/components/cert-badge.tsx:81
+msgid "Issued by {0}"
+msgstr "Emitido por {0}"
+
+#: src/components/cert-badge.tsx:36
+msgid "Issuing certificate…"
+msgstr "Obteniendo certificado…"
+
+#: src/components/servers.tsx:181
+msgid "It only needs Docker. You'll run a command on it next."
+msgstr "Solo necesita Docker. Después ejecutarás un comando en él."
+
+#: src/components/servers.tsx:235
+msgid "It uses the server's ports 80 and 443 for its apps. The panel must be reachable from it: set its public URL in Integrations."
+msgstr "Usa los puertos 80 y 443 del servidor para sus apps. El panel debe ser accesible desde él: configura su URL pública en Integraciones."
+
+#: src/components/api-tokens.tsx:255
+msgid "It won't be shown again. Store it as a secret (e.g. in your GitHub Actions secrets)."
+msgstr "No se volverá a mostrar. Guárdalo como secreto (p. ej. en los secretos de GitHub Actions)."
+
+#: src/components/app-detail.tsx:371
+msgid "Its container is stopped and deleted. Its domains will stop responding."
+msgstr "Se detiene y se borra su contenedor. Sus dominios dejarán de responder."
+
+#: src/components/app-dialog.tsx:196
+msgid "Its domains must point to that server's IP: its own Traefik serves the traffic and requests the certificates. Can't be changed later."
+msgstr "Sus dominios deben apuntar a la IP de ese servidor: su propio Traefik sirve el tráfico y pide los certificados. No se puede cambiar después."
+
+#: src/components/site-detail.tsx:303
+msgid "Its domains will stop responding and all its deployments will be deleted. This can't be undone."
+msgstr "Sus dominios dejarán de responder y se borrarán todos sus despliegues. No se puede deshacer."
+
+#: src/lib/format.ts:20
+msgid "just now"
+msgstr "ahora mismo"
+
+#: src/components/db-backups.tsx:182
+msgid "Keep"
+msgstr "Conservar"
+
+#: src/components/header.tsx:117
+msgid "Language"
+msgstr "Idioma"
+
+#. placeholder {0}: timeAgo(c.last_sent_at)
+#: src/components/notifications.tsx:205
+msgid "Last alert {0}"
+msgstr "Último aviso {0}"
+
+#. placeholder {0}: c.last_error
+#: src/components/notifications.tsx:200
+msgid "Last delivery failed: {0}"
+msgstr "Último envío fallido: {0}"
+
+#. placeholder {0}: b.branch
+#: src/components/site-git.tsx:207
+msgid "latest commit on {0}"
+msgstr "último commit de {0}"
+
+#: src/components/certificates-settings.tsx:214
+msgid "Let's Encrypt will verify that you control the domain by creating a temporary TXT record. Credentials are stored encrypted."
+msgstr "Let's Encrypt comprobará que controlas el dominio creando un registro TXT temporal. Las credenciales se guardan cifradas."
+
+#: src/components/header.tsx:106
+msgid "Light"
+msgstr "Claro"
+
+#: src/components/users.tsx:273
+msgid "Link copied"
+msgstr "Enlace copiado"
+
+#: src/components/access-lists.tsx:134
+msgid "List saved"
+msgstr "Lista guardada"
+
+#: src/components/streams.tsx:214
+msgid "Listen port"
+msgstr "Puerto de entrada"
+
+#: src/components/app-status.tsx:13
+msgid "Live"
+msgstr "Activo"
+
+#: src/components/site-detail.tsx:234
+#: src/components/sites.tsx:94
+msgctxt "deployment"
+msgid "Live"
+msgstr "Publicado"
+
+#: src/components/repo-picker.tsx:116
+msgid "Loading repositories…"
+msgstr "Cargando repositorios…"
+
+#: src/components/app-detail.tsx:147
+#: src/components/app-detail.tsx:413
+#: src/components/apps.tsx:64
+#: src/components/build-log.tsx:103
+#: src/components/integrations.tsx:51
+#: src/components/live-log.tsx:70
+#: src/components/proxy-host-dialog.tsx:220
+#: src/components/proxy-hosts.tsx:131
+#: src/components/site-detail.tsx:129
+#: src/components/sites.tsx:57
+msgid "Loading…"
+msgstr "Cargando…"
+
+#: src/components/auth-form.tsx:152
+msgid "Log in"
+msgstr "Iniciar sesión"
+
+#: src/components/header.tsx:133
+msgid "Log out"
+msgstr "Cerrar sesión"
+
+#: src/components/app-detail.tsx:237
+msgid "Logs"
+msgstr "Logs"
+
+#: src/components/site-dialog.tsx:97
+msgid "Lowercase letters, numbers and hyphens."
+msgstr "Minúsculas, números y guiones."
+
+#: src/components/build-log.tsx:90
+msgid "manual"
+msgstr "manual"
+
+#: src/components/app-detail.tsx:48
+#: src/components/db-backups.tsx:236
+#: src/components/site-git.tsx:214
+msgid "Manual"
+msgstr "Manual"
+
+#: src/components/site-git.tsx:127
+msgid "Manual only"
+msgstr "Solo manual"
+
+#: src/components/site-detail.tsx:240
+msgid "Manual upload"
+msgstr "Subida manual"
+
+#: src/components/traffic.tsx:261
+msgid "max {peakLabel}"
+msgstr "máx. {peakLabel}"
+
+#: src/components/notifications.tsx:96
+msgid "me@mydomain.com, team@mydomain.com"
+msgstr "yo@midominio.com, equipo@midominio.com"
+
+#: src/components/app-dialog.tsx:407
+msgid "Memory (MB)"
+msgstr "Memoria (MB)"
+
+#: src/components/notifications.tsx:77
+msgid "Message the bot and get your ID with @userinfobot; for a group, add the bot and use the group ID (it starts with -100)."
+msgstr "Escríbele al bot y obtén tu ID con @userinfobot; para un grupo, añade el bot y usa el ID del grupo (empieza por -100)."
+
+#: src/components/header.tsx:129
+msgid "My account"
+msgstr "Mi cuenta"
+
+#: src/components/app-dialog.tsx:210
+msgid "my-api"
+msgstr "mi-api"
+
+#: src/components/integrations.tsx:214
+msgid "my-company"
+msgstr "mi-empresa"
+
+#: src/components/site-dialog.tsx:92
+msgid "my-site"
+msgstr "mi-web"
+
+#: src/components/access-lists.tsx:155
+#: src/components/api-tokens.tsx:165
+#: src/components/app-dialog.tsx:204
+#: src/components/auth-form.tsx:166
+#: src/components/certificates-settings.tsx:360
+#: src/components/notifications.tsx:322
+#: src/components/servers.tsx:186
+#: src/components/site-dialog.tsx:86
+#: src/components/users.tsx:199
+msgid "Name"
+msgstr "Nombre"
+
+#: src/components/env-editor.tsx:24
+msgid "NAME"
+msgstr "NOMBRE"
+
+#: src/components/integrations.tsx:402
+msgid "Name it <0>Dockfly</0>, check <1>Confidential</1> and the <2>api</2> scope. Paste this as the Redirect URI:"
+msgstr "Nombre <0>Dockfly</0>, marca <1>Confidential</1> y el scope <2>api</2>. Como Redirect URI pega:"
+
+#: src/lib/api.ts:751
+msgid "network error during upload"
+msgstr "error de red durante la subida"
+
+#: src/components/api-tokens.tsx:213
+msgid "Never"
+msgstr "Nunca"
+
+#: src/components/api-tokens.tsx:94
+msgid "never expires"
+msgstr "no caduca"
+
+#: src/components/api-tokens.tsx:88
+msgid "Never used"
+msgstr "Sin usar"
+
+#: src/components/access-lists.tsx:148
+msgid "New access list"
+msgstr "Nueva lista de acceso"
+
+#: src/components/app-dialog.tsx:125
+#: src/components/apps.tsx:48
+msgid "New app"
+msgstr "Nueva app"
+
+#: src/components/servers.tsx:120
+msgid "New install command (invalidates the previous one)"
+msgstr "Nuevo comando de instalación (invalida el anterior)"
+
+#: src/components/users.tsx:114
+msgid "New invitation link"
+msgstr "Nuevo enlace de invitación"
+
+#: src/components/users.tsx:113
+msgid "New invitation link for {name}"
+msgstr "Nuevo enlace de invitación para {name}"
+
+#: src/components/access-lists.tsx:47
+msgid "New list"
+msgstr "Nueva lista"
+
+#: src/components/notifications.tsx:296
+msgid "New notification channel"
+msgstr "Nuevo canal de notificación"
+
+#: src/components/change-password.tsx:69
+#: src/routes/invite/$token.tsx:77
+msgid "New password"
+msgstr "Nueva contraseña"
+
+#: src/components/proxy-host-dialog.tsx:148
+msgid "New proxy host"
+msgstr "Nuevo proxy host"
+
+#: src/components/two-factor.tsx:128
+msgid "New recovery codes"
+msgstr "Códigos de recuperación nuevos"
+
+#: src/components/redirects.tsx:179
+msgid "New redirect"
+msgstr "Nueva redirección"
+
+#: src/components/site-dialog.tsx:63
+#: src/components/sites.tsx:49
+#: src/components/sites.tsx:77
+msgid "New site"
+msgstr "Nuevo sitio"
+
+#: src/components/streams.tsx:202
+msgid "New stream"
+msgstr "Nuevo stream"
+
+#: src/components/servers.tsx:121
+msgid "New token for {name}"
+msgstr "Nuevo token para {name}"
+
+#: src/components/app-dialog.tsx:276
+msgid "nginx:alpine, ghcr.io/user/app:1.0…"
+msgstr "nginx:alpine, ghcr.io/usuario/app:1.0…"
+
+#: src/components/streams.tsx:128
+msgid "No"
+msgstr "No"
+
+#: src/components/access-lists.tsx:54
+msgid "No access lists yet."
+msgstr "Todavía no hay listas de acceso."
+
+#: src/components/apps.tsx:73
+msgid "No apps yet"
+msgstr "Todavía no hay apps"
+
+#: src/components/site-git.tsx:231
+msgid "No automatic deploys"
+msgstr "Sin despliegue automático"
+
+#: src/components/db-backups.tsx:200
+msgid "No backups yet."
+msgstr "Todavía no hay copias."
+
+#. placeholder {0}: site.branch
+#: src/components/site-git.tsx:169
+msgid "No builds yet. Push to {0} or click Deploy now."
+msgstr "Todavía no hay builds. Haz un push a {0} o pulsa «Desplegar ahora»."
+
+#: src/components/app-detail.tsx:256
+msgid "No deployments yet."
+msgstr "Todavía no hay despliegues."
+
+#: src/components/site-detail.tsx:203
+msgid "No deployments yet. Upload your first version above."
+msgstr "Aún no hay despliegues. Sube tu primera versión arriba."
+
+#: src/components/app-dialog.tsx:409
+#: src/components/app-dialog.tsx:413
+msgid "no limit"
+msgstr "sin límite"
+
+#: src/components/notifications.tsx:178
+msgid "No notification channels yet."
+msgstr "Todavía no hay canales de notificación."
+
+#: src/components/app-detail.tsx:347
+msgid "No output yet…"
+msgstr "Sin salida todavía…"
+
+#: src/components/site-previews.tsx:55
+msgid "No previews yet. Push to another branch to create the first one."
+msgstr "Aún no hay previews. Haz push a otra rama para crear la primera."
+
+#: src/components/proxy-hosts.tsx:221
+msgid "No proxy hosts match “{filter}”."
+msgstr "Ningún proxy host coincide con «{filter}»."
+
+#: src/components/proxy-hosts.tsx:288
+msgid "No proxy hosts yet"
+msgstr "Todavía no hay proxy hosts"
+
+#: src/components/integrations.tsx:193
+msgid "No public URL yet: the app will be created without a webhook and sites will only deploy with Deploy now. You can set it later and Dockfly will enable the webhook."
+msgstr "Aún no hay URL pública: la app se creará sin webhook y los sitios solo se desplegarán con «Desplegar ahora». Puedes configurarla después y Dockfly activará el webhook."
+
+#: src/components/repo-picker.tsx:121
+msgid "No repositories match “{query}”. Check which repos the account can access."
+msgstr "Ningún repositorio coincide con «{query}». Revisa a qué repos tiene acceso la cuenta."
+
+#: src/components/repo-picker.tsx:123
+msgid "No repositories. Check which repos the account can access."
+msgstr "Ningún repositorio. Revisa a qué repos tiene acceso la cuenta."
+
+#: src/components/traffic.tsx:126
+msgid "No requests in this period. Data is collected every minute."
+msgstr "Sin peticiones en este periodo. Los datos se recogen cada minuto."
+
+#: src/components/sites.tsx:66
+msgid "No sites yet"
+msgstr "Todavía no hay sitios"
+
+#: src/components/integrations.tsx:245
+msgid "No webhook: set the public URL to deploy on every push."
+msgstr "Sin webhook: configura la URL pública para desplegar en cada push."
+
+#: src/components/certificates-settings.tsx:71
+msgid "None: all certificates are validated over HTTP."
+msgstr "Ninguna: todos los certificados se validan por HTTP."
+
+#: src/components/certificates-settings.tsx:117
+msgid "None. If you upload one, it will be used automatically for the domains it covers."
+msgstr "Ninguno. Si subes uno, se usará automáticamente para los dominios que cubre."
+
+#: src/components/app-status.tsx:42
+#: src/components/sites.tsx:98
+msgid "Not deployed"
+msgstr "Sin desplegar"
+
+#: src/components/notifications.tsx:161
+msgid "Notifications"
+msgstr "Notificaciones"
+
+#: src/components/notifications.tsx:381
+msgid "Notify about"
+msgstr "Avisar de"
+
+#: src/components/traffic.tsx:265
+msgid "now"
+msgstr "ahora"
+
+#: src/components/apps.tsx:94
+msgid "on {server}"
+msgstr "en {server}"
+
+#: src/components/app-detail.tsx:174
+msgid "On server {server}"
+msgstr "En el servidor {server}"
+
+#: src/components/app-detail.tsx:195
+msgid "On the internal network:"
+msgstr "En la red interna:"
+
+#: src/components/backup-storage.tsx:80
+msgid "On this server"
+msgstr "En este servidor"
+
+#: src/components/access-lists.tsx:198
+msgid "One per line. Empty = any IP."
+msgstr "Una por línea. Vacío = cualquier IP."
+
+#: src/components/site-previews.tsx:73
+msgid "Open"
+msgstr "Abrir"
+
+#: src/components/integrations.tsx:388
+msgid "Open <0>Applications in GitLab <1/></0> and click “Add new application”."
+msgstr "Abre <0>Aplicaciones en GitLab <1/></0> y pulsa «Add new application»."
+
+#: src/components/integrations.tsx:157
+msgid "Open GitHub"
+msgstr "Abrir GitHub"
+
+#: src/components/notifications.tsx:87
+msgid "Optional: Dockfly will sign the body with HMAC-SHA256 in the X-Dockfly-Signature header."
+msgstr "Opcional: Dockfly firmará el cuerpo con HMAC-SHA256 en la cabecera X-Dockfly-Signature."
+
+#: src/components/integrations.tsx:79
+msgid "Organization"
+msgstr "Organización"
+
+#: src/components/integrations.tsx:212
+msgid "Organization (optional)"
+msgstr "Organización (opcional)"
+
+#: src/components/certificates-settings.tsx:235
+msgid "Other (any lego provider)"
+msgstr "Otro (cualquier proveedor de lego)"
+
+#: src/components/app-dialog.tsx:217
+msgid "Other apps reach it at <0>{internalHost}</0>."
+msgstr "Otras apps la encuentran en <0>{internalHost}</0>."
+
+#: src/components/git-dialog.tsx:170
+msgid "Output directory"
+msgstr "Directorio de salida"
+
+#: src/components/traffic.tsx:121
+msgid "p50 latency"
+msgstr "Latencia p50"
+
+#: src/components/traffic.tsx:122
+#: src/components/traffic.tsx:314
+msgid "p95 latency"
+msgstr "Latencia p95"
+
+#: src/components/traffic.tsx:351
+msgid "p95 latency · max {peakMs}"
+msgstr "Latencia p95 · máx. {peakMs}"
+
+#: src/components/access-lists.tsx:172
+msgid "password"
+msgstr "contraseña"
+
+#: src/components/auth-form.tsx:186
+#: src/components/change-password.tsx:46
+#: src/components/notifications.tsx:94
+#: src/components/two-factor.tsx:232
+#: src/routes/invite/$token.tsx:91
+msgid "Password"
+msgstr "Contraseña"
+
+#: src/components/change-password.tsx:31
+msgid "Password changed"
+msgstr "Contraseña cambiada"
+
+#: src/components/users.tsx:114
+msgid "Password reset link"
+msgstr "Enlace para restablecer la contraseña"
+
+#: src/routes/invite/$token.tsx:44
+msgid "Password saved: log in with it"
+msgstr "Contraseña guardada: inicia sesión con ella"
+
+#: src/components/access-lists.tsx:150
+msgid "Passwords are stored with bcrypt and are never shown again."
+msgstr "Las contraseñas se guardan con bcrypt y no se vuelven a mostrar."
+
+#: src/routes/invite/$token.tsx:36
+msgid "Passwords don't match"
+msgstr "Las contraseñas no coinciden"
+
+#: src/components/servers.tsx:113
+msgid "Pending"
+msgstr "Pendiente"
+
+#: src/components/users.tsx:96
+msgid "Pending invitation"
+msgstr "Invitación pendiente"
+
+#: src/components/redirects.tsx:207
+msgid "Permanent (301)"
+msgstr "Permanente (301)"
+
+#: src/components/api-tokens.tsx:179
+msgid "Permissions"
+msgstr "Permisos"
+
+#: src/lib/presets.ts:26
+msgid "Plain HTML (no build)"
+msgstr "HTML plano (sin build)"
+
+#: src/components/app-dialog.tsx:225
+#: src/components/notifications.tsx:92
+#: src/components/proxy-host-dialog.tsx:270
+#: src/components/streams.tsx:88
+#: src/components/streams.tsx:227
+msgid "Port"
+msgstr "Puerto"
+
+#: src/components/redirects.tsx:200
+msgid "Preserve path"
+msgstr "Conservar la ruta"
+
+#: src/components/proxy-host-dialog.tsx:327
+msgid "Preserve the original Host"
+msgstr "Conservar el Host original"
+
+#: src/components/domains-input.tsx:66
+msgid "Press Enter or comma to add more."
+msgstr "Pulsa Enter o coma para añadir varios."
+
+#. placeholder {0}: b.branch
+#: src/components/site-git.tsx:197
+msgid "Preview · {0}"
+msgstr "Preview · {0}"
+
+#: src/components/preview-settings.tsx:70
+msgid "Preview domain"
+msgstr "Dominio de previews"
+
+#: src/components/site-previews.tsx:28
+msgid "Preview for {branch} deleted"
+msgstr "Preview de {branch} borrada"
+
+#: src/components/site-previews.tsx:43
+msgid "Previews"
+msgstr "Previews"
+
+#: src/components/preview-settings.tsx:40
+msgid "Previews saved"
+msgstr "Previews guardadas"
+
+#: src/components/preview-settings.tsx:85
+msgid "Previews use HTTPS with a wildcard certificate for *.{domain}."
+msgstr "Las previews usan HTTPS con un certificado comodín para *.{domain}."
+
+#: src/components/preview-settings.tsx:50
+#: src/components/preview-settings.tsx:76
+msgid "previews.mydomain.com"
+msgstr "previews.midominio.com"
+
+#: src/components/certificates-settings.tsx:373
+msgid "Private key"
+msgstr "Clave privada"
+
+#: src/components/site-previews.tsx:37
+msgid "production"
+msgstr "producción"
+
+#: src/components/access-select.tsx:36
+msgid "Protect it with a username and password, or restrict it to certain IPs. Lists are created in <0>Settings</0>."
+msgstr "Protégelo con usuario y contraseña o limítalo a ciertas IPs. Las listas se crean en <0>Ajustes</0>."
+
+#: src/components/access-lists.tsx:40
+msgid "Protect proxy hosts, sites and apps with a username and password, or allow only certain IPs. If a list has both, both are required."
+msgstr "Protege proxy hosts, sitios y apps con usuario y contraseña, o permite solo ciertas IPs. Si una lista tiene ambas cosas, se exigen las dos."
+
+#: src/components/certificates-settings.tsx:222
+msgid "Provider"
+msgstr "Proveedor"
+
+#: src/components/certificates-settings.tsx:254
+msgid "Provider code"
+msgstr "Código del proveedor"
+
+#: src/components/proxy-host-dialog.tsx:133
+msgid "Proxy host created"
+msgstr "Proxy host creado"
+
+#: src/components/access-select.tsx:26
+msgid "Public"
+msgstr "Público"
+
+#: src/components/integrations.tsx:534
+msgid "Public URL saved"
+msgstr "URL pública guardada"
+
+#: src/components/site-detail.tsx:262
+msgid "Publish"
+msgstr "Publicar"
+
+#: src/components/proxy-hosts.tsx:108
+msgid "Publish containers, apps on this server or external services."
+msgstr "Publica contenedores, apps de este servidor o servicios externos."
+
+#: src/components/sites.tsx:44
+msgid "Publish static sites by uploading your build folder."
+msgstr "Publica sitios estáticos subiendo la carpeta de tu build."
+
+#: src/components/build-status.tsx:13
+#: src/components/streams.tsx:94
+msgid "Published"
+msgstr "Publicado"
+
+#: src/components/dropzone.tsx:43
+msgid "Publishing…"
+msgstr "Publicando…"
+
+#: src/components/build-log.tsx:90
+msgid "push"
+msgstr "push"
+
+#: src/components/app-detail.tsx:48
+#: src/components/site-git.tsx:214
+msgid "Push"
+msgstr "Push"
+
+#: src/components/app-status.tsx:11
+#: src/components/build-status.tsx:11
+msgid "Queued"
+msgstr "En cola"
+
+#: src/lib/roles.ts:15
+msgid "Read-only"
+msgstr "Solo lectura"
+
+#: src/components/notifications.tsx:96
+msgid "Recipients"
+msgstr "Destinatarios"
+
+#: src/components/auth-form.tsx:90
+msgid "Recovery code"
+msgstr "Código de recuperación"
+
+#: src/components/redirects.tsx:164
+msgid "Redirect saved"
+msgstr "Redirección guardada"
+
+#: src/components/redirects.tsx:60
+msgid "Redirects"
+msgstr "Redirecciones"
+
+#: src/components/ssl-fields.tsx:34
+msgid "Redirects HTTP → HTTPS."
+msgstr "Redirige HTTP → HTTPS."
+
+#: src/components/db-backups.tsx:271
+msgid "Redis backups are restored manually: stop the app, copy the decompressed file as <0>dump.rdb</0> into its data volume and start it again."
+msgstr "Las copias de Redis se restauran a mano: para la app, copia el archivo descomprimido como <0>dump.rdb</0> en su volumen de datos y vuelve a arrancarla."
+
+#: src/components/backup-storage.tsx:110
+msgid "Region"
+msgstr "Región"
+
+#. placeholder {0}: portLine(form)
+#: src/components/streams.tsx:234
+msgid "Remember to publish the port on the Dockfly container: <0>{0}</0> in the ports section of its docker-compose.yml."
+msgstr "Recuerda publicar el puerto en el contenedor de Dockfly: <0>{0}</0> en la sección ports de su docker-compose.yml."
+
+#: src/components/domains-input.tsx:49
+msgid "Remove {d}"
+msgstr "Quitar {d}"
+
+#: src/components/users.tsx:124
+msgid "Remove access for {name}"
+msgstr "Quitar el acceso a {name}"
+
+#: src/components/integrations.tsx:249
+#: src/components/integrations.tsx:333
+msgid "Remove app"
+msgstr "Quitar la app"
+
+#: src/components/app-status.tsx:14
+msgid "Replaced"
+msgstr "Sustituido"
+
+#: src/components/repo-picker.tsx:101
+#: src/components/site-git.tsx:108
+msgid "Repository"
+msgstr "Repositorio"
+
+#: src/components/site-git.tsx:90
+msgid "Repository disconnected"
+msgstr "Repositorio desconectado"
+
+#: src/components/traffic.tsx:107
+msgid "Requests"
+msgstr "Peticiones"
+
+#: src/components/traffic.tsx:209
+msgid "Requests per interval"
+msgstr "Peticiones por intervalo"
+
+#: src/components/traffic.tsx:153
+msgid "Requests that went through Traefik, by status, and their latency."
+msgstr "Peticiones que han pasado por Traefik, por estado, y su latencia."
+
+#: src/components/redirects.tsx:215
+msgid "Required for https://source-domain to work before redirecting."
+msgstr "Necesario para que https://dominio-de-origen funcione antes de redirigir."
+
+#: src/components/users.tsx:113
+msgid "Reset password for {name}"
+msgstr "Restablecer la contraseña de {name}"
+
+#: src/components/users.tsx:261
+msgid "Reset password for {userName}"
+msgstr "Restablecer la contraseña de {userName}"
+
+#: src/components/app-detail.tsx:208
+msgid "Restart"
+msgstr "Reiniciar"
+
+#: src/components/app-status.tsx:50
+msgid "Restart loop"
+msgstr "Reiniciándose en bucle"
+
+#: src/components/app-detail.tsx:207
+msgid "Restarted"
+msgstr "Reiniciada"
+
+#: src/components/restore-backup.tsx:42
+msgid "Restarting Dockfly with the restored backup…"
+msgstr "Reiniciando Dockfly con la copia restaurada…"
+
+#: src/components/db-backups.tsx:247
+#: src/components/db-backups.tsx:301
+msgid "Restore"
+msgstr "Restaurar"
+
+#: src/components/restore-backup.tsx:23
+msgid "Restore {fileName}? All current data will be replaced (it's kept aside just in case)."
+msgstr "¿Restaurar {fileName}? Se reemplazarán todos los datos actuales (se guardan aparte por si acaso)."
+
+#: src/components/restore-backup.tsx:60
+msgid "Restore a backup"
+msgstr "Restaurar una copia"
+
+#: src/components/db-backups.tsx:283
+msgid "Restore the backup from {restoringDate}?"
+msgstr "¿Restaurar la copia del {restoringDate}?"
+
+#. placeholder {0}: token.name
+#: src/components/api-tokens.tsx:104
+msgid "Revoke token {0}"
+msgstr "Revocar el token {0}"
+
+#: src/components/users.tsx:211
+msgid "Role"
+msgstr "Rol"
+
+#: src/components/users.tsx:194
+msgid "Role changes apply immediately."
+msgstr "El cambio de rol se aplica al momento."
+
+#: src/components/app-detail.tsx:317
+msgid "Roll back to this version"
+msgstr "Volver a esta versión"
+
+#: src/components/app-detail.tsx:48
+msgid "Rollback"
+msgstr "Vuelta atrás"
+
+#: src/components/git-dialog.tsx:198
+msgid "Root directory"
+msgstr "Directorio raíz"
+
+#: src/components/servers.tsx:227
+msgid "Run this on the server (with Docker installed). The agent connects to this panel and will show as connected within a few seconds. The command contains the server's token: don't share it."
+msgstr "Ejecuta esto en el servidor (con Docker instalado). El agente se conecta a este panel y aparecerá como conectado en unos segundos. El comando lleva el token del servidor: no lo compartas."
+
+#: src/components/app-status.tsx:48
+#: src/components/db-backups.tsx:226
+msgid "Running"
+msgstr "En marcha"
+
+#: src/components/backup-storage.tsx:83
+msgid "S3 bucket"
+msgstr "Bucket S3"
+
+#: src/components/access-lists.tsx:213
+#: src/components/app-dialog.tsx:496
+#: src/components/backup-storage.tsx:149
+#: src/components/certificates-settings.tsx:309
+#: src/components/git-dialog.tsx:241
+#: src/components/integrations.tsx:442
+#: src/components/integrations.tsx:568
+#: src/components/notifications.tsx:408
+#: src/components/preview-settings.tsx:92
+#: src/components/proxy-host-dialog.tsx:374
+#: src/components/redirects.tsx:229
+#: src/components/site-dialog.tsx:141
+#: src/components/streams.tsx:252
+#: src/components/users.tsx:238
+msgid "Save"
+msgstr "Guardar"
+
+#: src/routes/invite/$token.tsx:125
+msgid "Save and log in"
+msgstr "Guardar y entrar"
+
+#: src/components/two-factor.tsx:138
+msgid "Save your recovery codes"
+msgstr "Guarda tus códigos de recuperación"
+
+#: src/components/integrations.tsx:409
+msgid "Save, then copy the Application ID and Secret here:"
+msgstr "Guarda y copia aquí el Application ID y el Secret:"
+
+#: src/components/proxy-host-dialog.tsx:350
+msgid "Saved, with warnings"
+msgstr "Guardado, con avisos"
+
+#: src/components/two-factor.tsx:190
+msgid "Scan the code with your authenticator app and enter the 6-digit code it shows."
+msgstr "Escanea el código con tu app de autenticación y escribe el código de 6 dígitos que aparece."
+
+#: src/components/db-backups.tsx:236
+msgid "Scheduled"
+msgstr "Programada"
+
+#: src/components/proxy-host-dialog.tsx:199
+msgid "Scheme"
+msgstr "Esquema"
+
+#: src/components/redirects.tsx:208
+msgid "Search engines and browsers remember the change. Turn it off (302) if the redirect is temporary."
+msgstr "Los buscadores y navegadores recuerdan el cambio. Desactívalo (302) si la redirección es temporal."
+
+#: src/components/proxy-hosts.tsx:114
+#: src/components/repo-picker.tsx:108
+msgid "Search…"
+msgstr "Buscar…"
+
+#: src/components/notifications.tsx:84
+msgid "Secret"
+msgstr "Secreto"
+
+#: src/components/notifications.tsx:331
+msgid "Security"
+msgstr "Seguridad"
+
+#: src/components/servers.tsx:97
+msgid "seen {ago}"
+msgstr "visto {ago}"
+
+#: src/components/redirects.tsx:63
+msgid "Send a domain to another URL: www → apex, an old domain to a new one…"
+msgstr "Envía un dominio a otra URL: www → raíz, un dominio antiguo al nuevo…"
+
+#: src/components/users.tsx:263
+msgid "Send them this link to choose their password. It can only be used once and expires on {expires}."
+msgstr "Envíale este enlace. Con él elegirá su contraseña; sirve una sola vez y caduca el {expires}."
+
+#: src/components/notifications.tsx:95
+msgid "Sender"
+msgstr "Remitente"
+
+#: src/components/app-dialog.tsx:173
+msgid "Server"
+msgstr "Servidor"
+
+#: src/components/notifications.tsx:38
+msgid "Server disconnected"
+msgstr "Servidor desconectado"
+
+#: src/components/app-status.tsx:46
+msgid "Server offline"
+msgstr "Servidor desconectado"
+
+#: src/components/notifications.tsx:39
+msgid "Server reconnected"
+msgstr "Servidor conectado de nuevo"
+
+#: src/components/header.tsx:54
+#: src/components/servers.tsx:60
+msgid "Servers"
+msgstr "Servidores"
+
+#: src/components/site-dialog.tsx:111
+msgid "Serves index.html for any path that doesn't exist. Turn it on for React Router, Vue Router, etc."
+msgstr "Sirve index.html en cualquier ruta que no exista. Actívalo para React Router, Vue Router, etc."
+
+#: src/components/site-git.tsx:131
+msgid "Set Dockfly's public URL in Integrations and save the build settings again to deploy on every push."
+msgstr "Configura la URL pública de Dockfly en Integraciones y vuelve a guardar la configuración para desplegar en cada push."
+
+#: src/components/app-dialog.tsx:474
+msgid "Set the app's port (General tab) to publish it."
+msgstr "Indica el puerto de la app (pestaña General) para publicarla."
+
+#: src/components/integrations.tsx:304
+msgid "Set up GitLab"
+msgstr "Configurar GitLab"
+
+#: src/components/header.tsx:60
+msgid "Settings"
+msgstr "Ajustes"
+
+#: src/components/git-dialog.tsx:88
+msgid "Settings saved"
+msgstr "Configuración guardada"
+
+#: src/components/auth-form.tsx:205
+msgid "Sign in"
+msgstr "Entrar"
+
+#: src/components/auth-form.tsx:157
+msgid "Sign in to the admin dashboard."
+msgstr "Accede al panel de administración."
+
+#: src/components/users.tsx:102
+msgid "since {since}"
+msgstr "desde {since}"
+
+#: src/components/site-dialog.tsx:110
+msgid "Single-page application (SPA)"
+msgstr "Aplicación de una sola página (SPA)"
+
+#: src/components/site-dialog.tsx:49
+msgid "Site created"
+msgstr "Sitio creado"
+
+#: src/components/notifications.tsx:32
+msgid "Site published"
+msgstr "Sitio publicado"
+
+#: src/components/header.tsx:46
+#: src/components/site-detail.tsx:139
+#: src/components/sites.tsx:41
+msgid "Sites"
+msgstr "Sitios"
+
+#: src/components/preview-settings.tsx:59
+msgid "Sites with previews enabled publish every push to another branch at <0>branch--site.{example}</0>, and remove it when the branch is deleted. Point <1>*.{example}</1> to this server in your DNS."
+msgstr "Los sitios con previews activadas publican cada push a otra rama en <0>rama--sitio.{example}</0>, y la borran cuando se borra la rama. Apunta <1>*.{example}</1> a este servidor en tu DNS."
+
+#: src/lib/roles.ts:24
+msgid "Sites, apps, builds and deployments (including their environment variables)."
+msgstr "Sitios, apps, builds y despliegues (incluidas sus variables de entorno)."
+
+#: src/components/db-backups.tsx:210
+#: src/components/site-detail.tsx:219
+msgid "Size"
+msgstr "Tamaño"
+
+#: src/components/notifications.tsx:91
+msgid "SMTP server"
+msgstr "Servidor SMTP"
+
+#: src/components/app-dialog.tsx:244
+msgid "Source"
+msgstr "Origen"
+
+#: src/components/redirects.tsx:186
+msgid "Source domains"
+msgstr "Dominios de origen"
+
+#: src/components/proxy-host-dialog.tsx:160
+msgid "SSL & access"
+msgstr "SSL y acceso"
+
+#: src/components/site-dialog.tsx:79
+msgid "SSL and access"
+msgstr "SSL y acceso"
+
+#: src/components/notifications.tsx:34
+msgid "SSL certificate about to expire"
+msgstr "Certificado SSL a punto de caducar"
+
+#: src/components/redirects.tsx:214
+msgid "SSL certificate for the source domain"
+msgstr "Certificado SSL para el dominio de origen"
+
+#: src/components/cert-badge.tsx:35
+msgid "SSL error"
+msgstr "Error de SSL"
+
+#: src/components/cert-badge.tsx:85
+msgid "staging environment: browsers won't trust it"
+msgstr "entorno de pruebas: el navegador no confiará en él"
+
+#: src/components/app-detail.tsx:212
+msgid "Start"
+msgstr "Iniciar"
+
+#: src/components/app-dialog.tsx:137
+msgid "Start from a template"
+msgstr "Empezar desde una plantilla"
+
+#: src/components/apps.tsx:76
+msgid "Start from a template: PostgreSQL, Redis, n8n…"
+msgstr "Empieza con una plantilla: PostgreSQL, Redis, n8n…"
+
+#: src/components/app-detail.tsx:211
+msgid "Started"
+msgstr "En marcha"
+
+#: src/components/notifications.tsx:339
+msgid "STARTTLS (port 587)"
+msgstr "STARTTLS (puerto 587)"
+
+#: src/components/app-detail.tsx:216
+msgid "Stop"
+msgstr "Detener"
+
+#: src/components/app-detail.tsx:215
+#: src/components/app-status.tsx:43
+msgid "Stopped"
+msgstr "Detenida"
+
+#: src/components/backup-storage.tsx:50
+msgid "Storage saved"
+msgstr "Almacenamiento guardado"
+
+#: src/components/app-dialog.tsx:422
+msgid "Stored encrypted and applied on the next deploy."
+msgstr "Se guardan cifradas y se aplican en el próximo despliegue."
+
+#: src/components/integrations.tsx:664
+msgid "Stored encrypted and never exposed to build containers."
+msgstr "Se guarda cifrado y nunca llega a los contenedores de build."
+
+#: src/components/streams.tsx:187
+msgid "Stream saved"
+msgstr "Stream guardado"
+
+#: src/components/header.tsx:112
+msgid "System"
+msgstr "Sistema"
+
+#: src/components/proxy-host-dialog.tsx:174
+#: src/components/proxy-hosts.tsx:143
+#: src/components/redirects.tsx:82
+#: src/components/redirects.tsx:192
+#: src/components/streams.tsx:91
+#: src/components/streams.tsx:221
+msgid "Target"
+msgstr "Destino"
+
+#: src/components/streams.tsx:66
+msgid "TCP/UDP streams"
+msgstr "Streams TCP/UDP"
+
+#: src/components/access-lists.tsx:157
+#: src/components/notifications.tsx:324
+msgid "Team"
+msgstr "Equipo"
+
+#: src/components/notifications.tsx:211
+msgid "Test"
+msgstr "Probar"
+
+#: src/components/backup-storage.tsx:149
+msgid "Test and save"
+msgstr "Probar y guardar"
+
+#: src/components/notifications.tsx:129
+msgid "Test notification sent to {name}"
+msgstr "Aviso de prueba enviado a {name}"
+
+#: src/lib/app-templates.ts:79
+msgid "Test server that echoes the incoming request."
+msgstr "Servidor de prueba que muestra la petición recibida."
+
+#: src/components/api-tokens.tsx:270
+msgid "The <0>dockfly</0> binary is in the project's releases, or use it from the image: <1>{dockerCommand}</1>"
+msgstr "El binario <0>dockfly</0> está en las releases del proyecto, o úsalo desde la imagen: <1>{dockerCommand}</1>"
+
+#: src/components/site-detail.tsx:197
+msgid "The 10 most recent are kept. Publish any of them to roll back."
+msgstr "Se conservan los 10 más recientes. Publica cualquiera para hacer rollback."
+
+#: src/components/db-backups.tsx:286
+msgid "The current data is replaced with the backup's: anything changed since then will be lost. Back up first if you're not sure."
+msgstr "Los datos actuales se sustituyen por los de la copia: lo que haya cambiado desde entonces se perderá. Haz antes una copia si no estás seguro."
+
+#: src/components/app-dialog.tsx:353
+msgid "The docker-compose.yml service that receives the domains' traffic (on the port set above). Volumes are defined in the file itself; relative host paths (<0>./data:/data</0>) don't work: use named volumes."
+msgstr "El servicio del docker-compose.yml que recibe el tráfico de los dominios (en el puerto indicado arriba). Los volúmenes se definen en el propio archivo; las rutas relativas del host (<0>./datos:/datos</0>) no funcionan: usa volúmenes con nombre."
+
+#. placeholder {0}: portLine(s)
+#: src/components/streams.tsx:132
+msgid "The Dockfly container doesn't publish this port: add <0>{0}</0> to the ports section of its docker-compose.yml and run docker compose up -d."
+msgstr "El contenedor de Dockfly no publica este puerto: añade <0>{0}</0> a la sección ports de su docker-compose.yml y ejecuta docker compose up -d."
+
+#: src/components/proxy-hosts.tsx:262
+msgid "The domain will stop responding immediately. This action can't be undone."
+msgstr "El dominio dejará de responder de inmediato. Esta acción no se puede deshacer."
+
+#: src/components/change-password.tsx:25
+msgid "The new passwords don't match"
+msgstr "Las contraseñas nuevas no coinciden"
+
+#: src/components/app-dialog.tsx:237
+msgid "The one it listens on. Leave empty if it isn't a web app."
+msgstr "En el que escucha. Vacío si no es web."
+
+#: src/components/servers.tsx:83
+msgid "The panel's own server. Proxy hosts, sites and Compose apps."
+msgstr "El del panel. Proxy hosts, sitios y apps de Compose."
+
+#: src/components/streams.tsx:204
+msgid "The target can be a Dockfly app by name (e.g. postgres), a container or an IP."
+msgstr "El destino puede ser una app de Dockfly por su nombre (p. ej. postgres), un contenedor o una IP."
+
+#: src/components/site-git.tsx:245
+msgid "The webhook is deleted and pushes will no longer deploy. The site and its deployments are kept."
+msgstr "Se borra el webhook y los pushes dejarán de desplegar. El sitio y sus despliegues se conservan."
+
+#: src/components/users.tsx:266
+msgid "Their current password keeps working until they use it."
+msgstr "Su contraseña actual sigue valiendo hasta que lo use."
+
+#: src/components/header.tsx:102
+msgid "Theme"
+msgstr "Tema"
+
+#: src/components/streams.tsx:29
+msgid "There may have been an outage of ~1 s."
+msgstr "Puede haber habido un corte de ~1 s."
+
+#: src/components/app-detail.tsx:134
+msgid "This app doesn't exist"
+msgstr "Esta app no existe"
+
+#: src/components/proxy-host-dialog.tsx:296
+msgid "This container isn't on the Dockfly network. Saving will connect it automatically so Traefik can reach it."
+msgstr "Este contenedor no está en la red de Dockfly. Al guardar se conectará automáticamente para que Traefik pueda alcanzarlo."
+
+#: src/routes/__root.tsx:30
+msgid "This page doesn't exist."
+msgstr "Esta página no existe."
+
+#: src/components/proxy-host-dialog.tsx:229
+msgid "this panel"
+msgstr "este panel"
+
+#: src/components/proxy-host-dialog.tsx:188
+#: src/components/proxy-hosts.tsx:35
+#: src/components/servers.tsx:80
+msgid "This server"
+msgstr "Este servidor"
+
+#: src/components/app-dialog.tsx:184
+msgid "This server (the panel's)"
+msgstr "Este servidor (el del panel)"
+
+#: src/components/site-detail.tsx:116
+msgid "This site doesn't exist"
+msgstr "Este sitio no existe"
+
+#: src/components/notifications.tsx:342
+msgid "TLS (port 465)"
+msgstr "TLS (puerto 465)"
+
+#: src/components/git-dialog.tsx:106
+msgid "To build from a repository, connect your GitHub or GitLab account."
+msgstr "Para construir desde un repositorio necesitas vincular tu cuenta de GitHub o GitLab."
+
+#: src/components/integrations.tsx:156
+msgid "To delete it completely, remove it on GitHub too."
+msgstr "Para borrarla del todo, elimínala también en GitHub."
+
+#: src/components/api-tokens.tsx:37
+msgid "Token \"{name}\" revoked"
+msgstr "Token «{name}» revocado"
+
+#: src/components/api-tokens.tsx:260
+msgid "Token copied"
+msgstr "Token copiado"
+
+#: src/components/proxy-host-dialog.tsx:150
+msgid "Traefik applies changes instantly, with no restarts."
+msgstr "Traefik aplica los cambios al instante, sin reinicios."
+
+#: src/components/redirects.tsx:181
+msgid "Traefik responds directly, with no server behind it."
+msgstr "Traefik responde directamente, sin ningún servidor detrás."
+
+#: src/components/streams.tsx:28
+msgid "Traefik restarted to listen on the new port"
+msgstr "Traefik se reinició para escuchar el nuevo puerto"
+
+#: src/components/certificates-settings.tsx:198
+msgid "Traefik restarted to load the credentials."
+msgstr "Traefik se reinició para cargar las credenciales."
+
+#: src/components/header.tsx:74
+msgid "Traefik running"
+msgstr "Traefik activo"
+
+#: src/components/header.tsx:74
+msgid "Traefik stopped"
+msgstr "Traefik detenido"
+
+#: src/components/app-detail.tsx:241
+#: src/components/traffic.tsx:150
+msgid "Traffic"
+msgstr "Tráfico"
+
+#: src/components/proxy-hosts.tsx:147
+msgid "Traffic (24 h)"
+msgstr "Tráfico (24 h)"
+
+#: src/components/app-detail.tsx:269
+#: src/components/db-backups.tsx:213
+#: src/components/site-git.tsx:182
+msgid "Trigger"
+msgstr "Origen"
+
+#: src/components/proxy-host-dialog.tsx:328
+msgid "Turn it off if the target is an external site that requires its own domain."
+msgstr "Desactívalo si el destino es un sitio externo que exige su propio dominio."
+
+#: src/components/auth-form.tsx:77
+#: src/components/two-factor.tsx:36
+msgid "Two-step verification"
+msgstr "Verificación en dos pasos"
+
+#: src/components/two-factor.tsx:108
+msgid "Two-step verification disabled"
+msgstr "Verificación en dos pasos desactivada"
+
+#: src/components/two-factor.tsx:116
+msgid "Two-step verification enabled"
+msgstr "Verificación en dos pasos activada"
+
+#: src/components/notifications.tsx:305
+msgid "Type"
+msgstr "Tipo"
+
+#: src/components/access-lists.tsx:172
+msgid "unchanged"
+msgstr "sin cambios"
+
+#: src/components/notifications.tsx:345
+msgid "Unencrypted (local servers only)"
+msgstr "Sin cifrar (solo servidores locales)"
+
+#: src/components/app-status.tsx:54
+msgid "unknown"
+msgstr "desconocido"
+
+#: src/components/certificates-settings.tsx:122
+msgid "unknown issuer"
+msgstr "emisor desconocido"
+
+#: src/components/proxy-host-dialog.tsx:41
+msgid "untagged image ({digest})"
+msgstr "imagen sin etiqueta ({digest})"
+
+#: src/components/access-lists.tsx:80
+msgid "Unused"
+msgstr "Sin usar"
+
+#: src/components/certificates-settings.tsx:390
+msgid "Upload"
+msgstr "Subir"
+
+#: src/components/certificates-settings.tsx:112
+#: src/components/certificates-settings.tsx:352
+msgid "Upload certificate"
+msgstr "Subir certificado"
+
+#: src/components/dropzone.tsx:43
+msgid "Uploading {uploading}…"
+msgstr "Subiendo {uploading}…"
+
+#: src/components/restore-backup.tsx:52
+msgid "Uploading backup… {percent}%"
+msgstr "Subiendo la copia… {percent}%"
+
+#: src/components/auth-form.tsx:124
+msgid "Use a recovery code"
+msgstr "Usar un código de recuperación"
+
+#: src/components/git-dialog.tsx:210
+msgid "Use node:22 with npm ci / npm run build if your project doesn't work with Bun."
+msgstr "Usa node:22 con npm ci / npm run build si tu proyecto no funciona con Bun."
+
+#: src/components/auth-form.tsx:124
+msgid "Use the app"
+msgstr "Usar la app"
+
+#. placeholder {0}: timeAgo(token.last_used_at)
+#: src/components/api-tokens.tsx:86
+msgid "Used {0}"
+msgstr "Usado {0}"
+
+#: src/components/access-lists.tsx:166
+msgid "username"
+msgstr "usuario"
+
+#: src/components/notifications.tsx:93
+msgid "Username"
+msgstr "Usuario"
+
+#: src/components/access-lists.tsx:161
+#: src/components/users.tsx:64
+msgid "Users"
+msgstr "Usuarios"
+
+#: src/components/integrations.tsx:685
+msgid "Using GitHub Enterprise?"
+msgstr "¿Usas GitHub Enterprise?"
+
+#: src/components/integrations.tsx:685
+msgid "Using your own GitLab?"
+msgstr "¿Usas tu propio GitLab?"
+
+#: src/components/cert-badge.tsx:23
+msgid "Valid until {date}"
+msgstr "Válido hasta {date}"
+
+#: src/components/env-editor.tsx:32
+msgid "value"
+msgstr "valor"
+
+#: src/components/app-dialog.tsx:155
+#: src/components/certificates-settings.tsx:269
+msgid "Variables"
+msgstr "Variables"
+
+#: src/components/auth-form.tsx:110
+msgid "Verify"
+msgstr "Verificar"
+
+#: src/components/app-detail.tsx:266
+msgid "Version"
+msgstr "Versión"
+
+#: src/lib/roles.ts:26
+msgid "View the dashboard and logs, without changing anything or seeing secrets."
+msgstr "Ver el panel y los logs, sin cambiar nada ni ver secretos."
+
+#: src/components/app-dialog.tsx:160
+msgid "Volumes"
+msgstr "Volúmenes"
+
+#: src/components/servers.tsx:98
+msgid "Waiting for its agent to connect…"
+msgstr "Esperando a que se conecte su agente…"
+
+#: src/components/build-log.tsx:103
+msgid "Waiting in queue…"
+msgstr "Esperando turno en la cola…"
+
+#: src/components/app-detail.tsx:413
+msgid "Waiting in the queue…"
+msgstr "Esperando turno en la cola…"
+
+#: src/components/app-dialog.tsx:343
+msgid "Web service"
+msgstr "Servicio web"
+
+#: src/components/notifications.tsx:56
+#: src/components/notifications.tsx:65
+msgid "Webhook URL"
+msgstr "URL del webhook"
+
+#: src/lib/app-templates.ts:73
+msgid "Website and service monitoring."
+msgstr "Monitorización de webs y servicios."
+
+#: src/components/auth-form.tsx:152
+msgid "Welcome to Dockfly"
+msgstr "Bienvenido a Dockfly"
+
+#: src/routes/_app/settings.tsx:59
+msgid "When restoring, Dockfly restarts and applies the backup; the previous data is kept in <0>{beforeRestoreDir}</0>."
+msgstr "Al restaurar, Dockfly se reinicia y aplica la copia; los datos que había se conservan en <0>{beforeRestoreDir}</0>."
+
+#: src/components/backup-storage.tsx:65
+msgid "Where backups of PostgreSQL, MySQL and Redis apps are stored (they are scheduled in each app). With an S3 bucket, backups survive even if the server is lost. Currently: <0>{location}</0>"
+msgstr "Dónde se guardan las copias de las apps de PostgreSQL, MySQL y Redis (se programan en cada app). Con un bucket S3, las copias sobreviven aunque se pierda el servidor. Ahora: <0>{location}</0>"
+
+#: src/lib/app-templates.ts:78
+msgid "whoami (test)"
+msgstr "whoami (prueba)"
+
+#: src/components/preview-settings.tsx:86
+msgid "Without a DNS zone or custom certificate for *.{domain}, previews only respond over HTTP. Add the zone under Certificates to use HTTPS."
+msgstr "Sin zona DNS ni certificado propio para *.{domain}, las previews solo responden por HTTP. Añade la zona en Certificados para usar HTTPS."
+
+#: src/components/git-dialog.tsx:174
+msgid "Without commands, the repository files (or its output directory) are published as is."
+msgstr "Sin comandos se publican directamente los archivos del repositorio (o de su directorio de salida)."
+
+#: src/lib/app-templates.ts:61
+msgid "Workflow automation."
+msgstr "Automatización de flujos de trabajo."
+
+#: src/components/streams.tsx:122
+msgid "Yes"
+msgstr "Sí"
+
+#: src/components/site-dialog.tsx:66
+msgid "You can upload your build files afterwards."
+msgstr "Después podrás subir los archivos de tu build."
+
+#: src/components/api-tokens.tsx:65
+msgid "You don't have any tokens yet."
+msgstr "Todavía no tienes tokens."
+
+#: src/components/auth-form.tsx:46
+msgid "You used a recovery code: {left} left"
+msgstr "Has usado un código de recuperación: te quedan {left}"
+
+#: src/components/users.tsx:194
+msgid "You'll get a link to send them however you like."
+msgstr "Recibirás un enlace para enviárselo como prefieras."
+
+#. placeholder {0}: data.email
+#: src/routes/invite/$token.tsx:80
+msgid "You've been invited to Dockfly. Choose a password for {0}."
+msgstr "Te han invitado a Dockfly. Elige una contraseña para {0}."
+
+#: src/components/integrations.tsx:670
+msgid "Your GitLab URL"
+msgstr "URL de tu GitLab"
+
+#: src/components/two-factor.tsx:148
+msgid "Your previous codes no longer work."
+msgstr "Los códigos anteriores ya no sirven."
+
+#: src/components/change-password.tsx:31
+msgid "Your sessions on other devices have been signed out."
+msgstr "Se han cerrado tus sesiones en otros dispositivos."
+
+#: src/components/certificates-settings.tsx:243
+msgid "Zones"
+msgstr "Zonas"

@@ -1,30 +1,39 @@
 import { CircleAlert, Clock, Lock, LockOpen, TriangleAlert } from 'lucide-react';
+import { plural, t } from '@lingui/core/macro';
+import { Trans } from '@lingui/react/macro';
 
 import { Badge } from '@/components/ui/badge';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { CertState, CertStatus } from '@/lib/api';
+import { currentLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
 // De peor a mejor: con varios dominios se muestra el peor.
 const severity: CertState[] = ['error', 'expired', 'expiring', 'pending', 'valid'];
 
-const shortDate = (iso: string) => new Date(iso).toLocaleDateString('es', { day: 'numeric', month: 'short' });
+const shortDate = (iso: string) => new Date(iso).toLocaleDateString(currentLocale(), { day: 'numeric', month: 'short' });
 const daysLeft = (iso: string) => Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86_400_000));
 
 const look: Record<CertState, { icon: typeof Lock; className: string; label: (c: CertStatus) => string }> = {
   valid: {
     icon: Lock,
     className: 'text-emerald-600 dark:text-emerald-400',
-    label: (c) => `Válido hasta ${shortDate(c.not_after!)}`,
+    label: (c) => {
+      const date = shortDate(c.not_after!);
+      return t`Valid until ${date}`;
+    },
   },
   expiring: {
     icon: Clock,
     className: 'text-amber-600 dark:text-amber-400',
-    label: (c) => `Caduca en ${daysLeft(c.not_after!)} días`,
+    label: (c) => {
+      const days = daysLeft(c.not_after!);
+      return t`Expires in ${plural(days, { one: '# day', other: '# days' })}`;
+    },
   },
-  expired: { icon: LockOpen, className: 'text-destructive', label: () => 'Caducado' },
-  error: { icon: CircleAlert, className: 'text-destructive', label: () => 'Error de SSL' },
-  pending: { icon: Clock, className: 'text-muted-foreground', label: () => 'Obteniendo certificado…' },
+  expired: { icon: LockOpen, className: 'text-destructive', label: () => t`Expired` },
+  error: { icon: CircleAlert, className: 'text-destructive', label: () => t`SSL error` },
+  pending: { icon: Clock, className: 'text-muted-foreground', label: () => t`Issuing certificate…` },
 };
 
 interface Props {
@@ -55,7 +64,9 @@ export function CertBadge({ domains, certs }: Props) {
           <Badge variant="secondary" className={cn('gap-1', s.className)}>
             {renewalFailing && worst.status === 'valid' ? <TriangleAlert className="text-amber-500" /> : <s.icon />}
             {s.label(worst)}
-            {staging && <span className="font-normal opacity-70">(pruebas)</span>}
+            {staging && <span className="font-normal opacity-70">
+                <Trans>(staging)</Trans>
+              </span>}
           </Badge>
         </span>
       </TooltipTrigger>
@@ -67,8 +78,13 @@ export function CertBadge({ domains, certs }: Props) {
             </div>
             {c.issuer && (
               <div className="opacity-80">
-                Emitido por {c.issuer}
-                {c.staging && ' — entorno de pruebas: el navegador no confiará en él'}
+                <Trans>Issued by {c.issuer}</Trans>
+                {c.staging && (
+                  <>
+                    {' — '}
+                    <Trans>staging environment: browsers won't trust it</Trans>
+                  </>
+                )}
               </div>
             )}
             {c.hint && <div>{c.hint}</div>}

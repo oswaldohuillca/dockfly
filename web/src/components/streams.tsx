@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ArrowRight, Loader2, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import { i18n } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -22,11 +25,14 @@ const portLine = (s: Pick<Stream, 'listen_port' | 'protocol'>) =>
 
 function restartedToast(res: { traefik_restarted: boolean }) {
   if (res.traefik_restarted) {
-    toast.info('Traefik se reinició para escuchar el nuevo puerto', { description: 'Puede haber habido un corte de ~1 s.' });
+    toast.info(i18n._(msg`Traefik restarted to listen on the new port`), {
+      description: i18n._(msg`There may have been an outage of ~1 s.`),
+    });
   }
 }
 
 export function Streams() {
+  const { t } = useLingui();
   const canEdit = useCan('admin');
   const [list, setList] = useState<Stream[]>([]);
   const [editing, setEditing] = useState<Stream | 'new' | null>(null);
@@ -56,15 +62,19 @@ export function Streams() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Streams TCP/UDP</CardTitle>
+        <CardTitle className="text-lg">
+          <Trans>TCP/UDP streams</Trans>
+        </CardTitle>
         <CardDescription>
-          Reenvía un puerto a un servicio que no es web: bases de datos, servidores de juegos, MQTT… Añadir o quitar un
-          puerto reinicia Traefik (corte de ~1 s).
+          <Trans>
+            Forward a port to a non-web service: databases, game servers, MQTT… Adding or removing a port restarts
+            Traefik (~1 s outage).
+          </Trans>
         </CardDescription>
         <CardAction>
           {canEdit && (
             <Button variant="outline" onClick={() => setEditing('new')}>
-              <Plus /> Añadir
+              <Plus /> <Trans>Add</Trans>
             </Button>
           )}
         </CardAction>
@@ -74,10 +84,18 @@ export function Streams() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-6">Puerto</TableHead>
-                <TableHead>Destino</TableHead>
-                <TableHead>Publicado</TableHead>
-                <TableHead>Activo</TableHead>
+                <TableHead className="pl-6">
+                  <Trans>Port</Trans>
+                </TableHead>
+                <TableHead>
+                  <Trans>Target</Trans>
+                </TableHead>
+                <TableHead>
+                  <Trans>Published</Trans>
+                </TableHead>
+                <TableHead>
+                  <Trans>Enabled</Trans>
+                </TableHead>
                 <TableHead className="pr-6" />
               </TableRow>
             </TableHeader>
@@ -101,30 +119,32 @@ export function Streams() {
                       <span className="text-xs text-muted-foreground">—</span>
                     ) : s.published ? (
                       <Badge variant="secondary" className="text-emerald-600 dark:text-emerald-400">
-                        Sí
+                        <Trans>Yes</Trans>
                       </Badge>
                     ) : (
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Badge variant="secondary" className="gap-1 text-amber-600">
-                            <TriangleAlert /> No
+                            <TriangleAlert /> <Trans>No</Trans>
                           </Badge>
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs">
-                          El contenedor de Dockfly no publica este puerto: añade <code>{portLine(s)}</code> a la sección
-                          ports de su docker-compose.yml y ejecuta docker compose up -d.
+                          <Trans>
+                            The Dockfly container doesn't publish this port: add <code>{portLine(s)}</code> to the
+                            ports section of its docker-compose.yml and run docker compose up -d.
+                          </Trans>
                         </TooltipContent>
                       </Tooltip>
                     )}
                   </TableCell>
                   <TableCell>
-                    <Switch checked={s.enabled} onCheckedChange={() => toggle(s)} aria-label="Activo" />
+                    <Switch checked={s.enabled} onCheckedChange={() => toggle(s)} aria-label={t`Enabled`} />
                   </TableCell>
                   <TableCell className="pr-6 text-right">
-                    <Button variant="ghost" size="icon-sm" onClick={() => setEditing(s)} aria-label="Editar">
+                    <Button variant="ghost" size="icon-sm" onClick={() => setEditing(s)} aria-label={t`Edit`}>
                       <Pencil />
                     </Button>
-                    <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => remove(s)} aria-label="Eliminar">
+                    <Button variant="ghost" size="icon-sm" className="text-destructive hover:text-destructive" onClick={() => remove(s)} aria-label={t`Delete`}>
                       <Trash2 />
                     </Button>
                   </TableCell>
@@ -153,6 +173,7 @@ function StreamDialog({ stream, onClose, onSaved }: { stream?: Stream; onClose: 
     protocol: stream?.protocol ?? 'tcp', listen_port: stream?.listen_port ?? 0,
     forward_host: stream?.forward_host ?? '', forward_port: stream?.forward_port ?? 0, enabled: stream?.enabled ?? true,
   }));
+  const { t } = useLingui();
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
   const set = <K extends keyof StreamInput>(k: K, v: StreamInput[K]) => setForm((f) => ({ ...f, [k]: v }));
@@ -163,7 +184,7 @@ function StreamDialog({ stream, onClose, onSaved }: { stream?: Stream; onClose: 
     setBusy(true);
     try {
       const res = stream ? await api.updateStream(stream.id, form) : await api.createStream(form);
-      toast.success('Stream guardado');
+      toast.success(t`Stream saved`);
       restartedToast(res);
       onSaved();
     } catch (err) {
@@ -178,9 +199,9 @@ function StreamDialog({ stream, onClose, onSaved }: { stream?: Stream; onClose: 
       <DialogContent className="sm:max-w-md">
         <form onSubmit={save} className="contents">
           <DialogHeader>
-            <DialogTitle>{stream ? 'Editar stream' : 'Nuevo stream'}</DialogTitle>
+            <DialogTitle>{stream ? <Trans>Edit stream</Trans> : <Trans>New stream</Trans>}</DialogTitle>
             <DialogDescription>
-              El destino puede ser una app de Dockfly por su nombre (p. ej. postgres), un contenedor o una IP.
+              <Trans>The target can be a Dockfly app by name (e.g. postgres), a container or an IP.</Trans>
             </DialogDescription>
           </DialogHeader>
           <ToggleGroup type="single" variant="outline" spacing={0} className="w-full" value={form.protocol}
@@ -189,23 +210,31 @@ function StreamDialog({ stream, onClose, onSaved }: { stream?: Stream; onClose: 
             <ToggleGroupItem value="udp" className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">UDP</ToggleGroupItem>
           </ToggleGroup>
           <div className="space-y-2">
-            <Label htmlFor="st-port">Puerto de entrada</Label>
+            <Label htmlFor="st-port">
+              <Trans>Listen port</Trans>
+            </Label>
             <Input id="st-port" type="number" min={1} max={65535} value={form.listen_port || ''} onChange={(e) => set('listen_port', Number(e.target.value))} placeholder="5432" required />
           </div>
           <div className="grid grid-cols-[1fr_7rem] gap-3">
             <div className="space-y-2">
-              <Label htmlFor="st-host">Destino</Label>
+              <Label htmlFor="st-host">
+                <Trans>Target</Trans>
+              </Label>
               <Input id="st-host" className="font-mono" value={form.forward_host} onChange={(e) => set('forward_host', e.target.value)} placeholder="postgres" required />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="st-fport">Puerto</Label>
+              <Label htmlFor="st-fport">
+                <Trans>Port</Trans>
+              </Label>
               <Input id="st-fport" type="number" min={1} max={65535} value={form.forward_port || ''} onChange={(e) => set('forward_port', Number(e.target.value))} placeholder="5432" required />
             </div>
           </div>
           {form.listen_port > 0 && (
             <p className="text-xs text-muted-foreground">
-              Recuerda publicar el puerto en el contenedor de Dockfly: <code className="font-mono">{portLine(form)}</code> en
-              la sección ports de su docker-compose.yml.
+              <Trans>
+                Remember to publish the port on the Dockfly container: <code className="font-mono">{portLine(form)}</code>{' '}
+                in the ports section of its docker-compose.yml.
+              </Trans>
             </p>
           )}
           {error && (
@@ -216,11 +245,11 @@ function StreamDialog({ stream, onClose, onSaved }: { stream?: Stream; onClose: 
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" disabled={busy}>
               {busy && <Loader2 className="animate-spin" />}
-              Guardar
+              <Trans>Save</Trans>
             </Button>
           </DialogFooter>
         </form>

@@ -1,3 +1,6 @@
+import { msg } from '@lingui/core/macro';
+import type { MessageDescriptor } from '@lingui/core';
+
 import type { AppInput } from '@/lib/api';
 
 // Plantillas para las apps más habituales: rellenan imagen, puerto,
@@ -11,8 +14,9 @@ function password(length = 24) {
 
 export interface AppTemplate {
   id: string;
-  label: string;
-  description: string;
+  /** Nombre de producto (sin traducir) o mensaje traducible. */
+  label: string | MessageDescriptor;
+  description: MessageDescriptor;
   build: () => Partial<AppInput> & { env?: Record<string, string> };
 }
 
@@ -20,7 +24,7 @@ export const appTemplates: AppTemplate[] = [
   {
     id: 'postgres',
     label: 'PostgreSQL',
-    description: 'Base de datos. Otras apps conectan en postgres:5432.',
+    description: msg`Database. Other apps connect at postgres:5432.`,
     build: () => ({
       name: 'postgres',
       image: 'postgres:17',
@@ -31,7 +35,7 @@ export const appTemplates: AppTemplate[] = [
   {
     id: 'mysql',
     label: 'MySQL',
-    description: 'Base de datos. Otras apps conectan en mysql:3306.',
+    description: msg`Database. Other apps connect at mysql:3306.`,
     build: () => ({
       name: 'mysql',
       image: 'mysql:8.4',
@@ -43,7 +47,7 @@ export const appTemplates: AppTemplate[] = [
   {
     id: 'redis',
     label: 'Redis',
-    description: 'Caché y colas. Otras apps conectan en redis:6379.',
+    description: msg`Cache and queues. Other apps connect at redis:6379.`,
     build: () => ({
       name: 'redis',
       image: 'redis:7-alpine',
@@ -54,7 +58,7 @@ export const appTemplates: AppTemplate[] = [
   {
     id: 'n8n',
     label: 'n8n',
-    description: 'Automatización de flujos de trabajo.',
+    description: msg`Workflow automation.`,
     build: () => ({
       name: 'n8n',
       image: 'n8nio/n8n',
@@ -66,13 +70,13 @@ export const appTemplates: AppTemplate[] = [
   {
     id: 'uptime-kuma',
     label: 'Uptime Kuma',
-    description: 'Monitorización de webs y servicios.',
+    description: msg`Website and service monitoring.`,
     build: () => ({ name: 'uptime-kuma', image: 'louislam/uptime-kuma:2', port: 3001, volumes: [{ name: 'data', path: '/app/data' }] }),
   },
   {
     id: 'whoami',
-    label: 'whoami (prueba)',
-    description: 'Servidor de prueba que muestra la petición recibida.',
+    label: msg`whoami (test)`,
+    description: msg`Test server that echoes the incoming request.`,
     build: () => ({ name: 'whoami', image: 'traefik/whoami', port: 80, health_path: '/' }),
   },
 ];

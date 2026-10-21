@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ExternalLink, GitBranch, Trash2 } from 'lucide-react';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
@@ -9,6 +10,7 @@ import { timeAgo } from '@/lib/format';
 
 /** Ramas publicadas como preview. reload cambia cuando termina un build. */
 export function SitePreviews({ site, reload }: { site: Site; reload: unknown }) {
+  const { t } = useLingui();
   const [previews, setPreviews] = useState<Preview[]>([]);
 
   const load = useCallback(() => {
@@ -22,7 +24,8 @@ export function SitePreviews({ site, reload }: { site: Site; reload: unknown }) 
   async function remove(p: Preview) {
     try {
       await api.deletePreview(site.id, p.preview);
-      toast.success(`Preview de ${p.branch} borrada`);
+      const branch = p.branch;
+      toast.success(t`Preview for ${branch} deleted`);
       load();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -31,19 +34,25 @@ export function SitePreviews({ site, reload }: { site: Site; reload: unknown }) 
 
   if (!site.previews && previews.length === 0) return null;
 
+  const productionBranch = site.branch || t`production`;
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Previews</CardTitle>
+        <CardTitle>
+          <Trans>Previews</Trans>
+        </CardTitle>
         <CardDescription>
-          Cada push a una rama distinta de <code className="font-mono">{site.branch || 'producción'}</code> se publica
-          en su propia URL. Se borran solas al borrar la rama.
+          <Trans>
+            Every push to a branch other than <code className="font-mono">{productionBranch}</code> is published at
+            its own URL. Previews are removed automatically when the branch is deleted.
+          </Trans>
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">
         {previews.length === 0 ? (
           <p className="px-6 py-4 text-center text-sm text-muted-foreground">
-            Aún no hay previews. Haz push a otra rama para crear la primera.
+            <Trans>No previews yet. Push to another branch to create the first one.</Trans>
           </p>
         ) : (
           <ul className="divide-y">
@@ -61,7 +70,7 @@ export function SitePreviews({ site, reload }: { site: Site; reload: unknown }) 
                 {p.url && (
                   <Button variant="outline" size="sm" asChild>
                     <a href={p.url} target="_blank" rel="noreferrer">
-                      <ExternalLink /> Abrir
+                      <ExternalLink /> <Trans>Open</Trans>
                     </a>
                   </Button>
                 )}
@@ -70,7 +79,7 @@ export function SitePreviews({ site, reload }: { site: Site; reload: unknown }) 
                   size="icon-sm"
                   className="text-destructive hover:text-destructive"
                   onClick={() => remove(p)}
-                  aria-label={`Borrar la preview de ${p.branch}`}
+                  aria-label={t`Delete preview for ${p.branch}`}
                 >
                   <Trash2 />
                 </Button>

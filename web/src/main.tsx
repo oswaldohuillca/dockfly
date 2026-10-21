@@ -1,8 +1,11 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
+import { i18n } from '@lingui/core';
+import { I18nProvider } from '@lingui/react';
 
 import './index.css';
+import { activateLocale, savedLocale } from './lib/i18n';
 import { routeTree } from './routeTree.gen';
 
 const router = createRouter({
@@ -19,8 +22,13 @@ declare module '@tanstack/react-router' {
   }
 }
 
-createRoot(document.getElementById('app')!).render(
-  <StrictMode>
-    <RouterProvider router={router} />
-  </StrictMode>,
+// El idioma se carga antes de pintar nada: así no hay un instante en inglés.
+activateLocale(savedLocale()).then(() =>
+  createRoot(document.getElementById('app')!).render(
+    <StrictMode>
+      <I18nProvider i18n={i18n}>
+        <RouterProvider router={router} />
+      </I18nProvider>
+    </StrictMode>,
+  ),
 );

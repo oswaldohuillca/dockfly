@@ -1,3 +1,5 @@
+import { msg } from '@lingui/core/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { useCallback, useEffect, useState } from 'react';
 import { DatabaseBackup, Download, Loader2, RotateCcw, Trash2 } from 'lucide-react';
 import { Link } from '@tanstack/react-router';
@@ -28,15 +30,16 @@ import { useCan } from '@/lib/roles';
 const engineName = { postgres: 'PostgreSQL', mysql: 'MySQL/MariaDB', redis: 'Redis' } as const;
 
 const intervals = [
-  { hours: 1, label: 'Cada hora' },
-  { hours: 6, label: 'Cada 6 horas' },
-  { hours: 12, label: 'Cada 12 horas' },
-  { hours: 24, label: 'Cada día' },
-  { hours: 168, label: 'Cada semana' },
+  { hours: 1, label: msg`Every hour` },
+  { hours: 6, label: msg`Every 6 hours` },
+  { hours: 12, label: msg`Every 12 hours` },
+  { hours: 24, label: msg`Every day` },
+  { hours: 168, label: msg`Every week` },
 ];
 
 /** Copias de seguridad de una app de base de datos. */
 export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: DBBackups }) {
+  const { t, i18n } = useLingui();
   const canEdit = useCan('deployer');
   const [data, setData] = useState(initial);
   const [policy, setPolicy] = useState<DBBackupPolicy>(initial.policy);
@@ -61,7 +64,7 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
     setPolicy(next);
     try {
       await api.putDBBackupPolicy(appId, next);
-      toast.success(next.enabled ? 'Copias automáticas activadas' : 'Copias automáticas desactivadas');
+      toast.success(next.enabled ? t`Automatic backups enabled` : t`Automatic backups disabled`);
       load();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -85,7 +88,8 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
     setBusy(true);
     try {
       await api.restoreDBBackup(appId, b.id);
-      toast.success('Base de datos restaurada', { description: `Copia del ${formatDate(b.created_at)}` });
+      const date = formatDate(b.created_at);
+      toast.success(t`Database restored`, { description: t`Backup from ${date}` });
     } catch (e) {
       toast.error(errorMessage(e), { duration: 15000 });
     } finally {
@@ -105,23 +109,31 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
 
   if (!data.engine) return null;
   const engine = data.engine;
+  const engineLabel = engineName[engine];
+  const location = data.location;
+  const customHours = policy.interval_hours;
+  const restoringDate = restoring ? formatDate(restoring.created_at) : '';
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Copias de seguridad</CardTitle>
+        <CardTitle>
+          <Trans>Backups</Trans>
+        </CardTitle>
         <CardDescription>
-          Copias completas de {engineName[engine]}, comprimidas, en <code className="font-mono">{data.location}</code>.
-          El almacenamiento (p. ej. un bucket S3) se configura en{' '}
-          <Link to="/settings" className="underline">
-            Ajustes
-          </Link>
-          .
+          <Trans>
+            Full, compressed {engineLabel} backups in <code className="font-mono">{location}</code>. Storage (e.g.
+            an S3 bucket) is configured in{' '}
+            <Link to="/settings" className="underline">
+              Settings
+            </Link>
+            .
+          </Trans>
         </CardDescription>
         {canEdit && (
           <CardAction>
             <Button onClick={backupNow} disabled={busy || running}>
-              {running ? <Loader2 className="animate-spin" /> : <DatabaseBackup />} Copia ahora
+              {running ? <Loader2 className="animate-spin" /> : <DatabaseBackup />} <Trans>Back up now</Trans>
             </Button>
           </CardAction>
         )}
@@ -135,10 +147,14 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
               disabled={!canEdit}
               onCheckedChange={(enabled) => savePolicy({ ...policy, enabled })}
             />
-            <Label htmlFor="backup-enabled">Copias automáticas</Label>
+            <Label htmlFor="backup-enabled">
+              <Trans>Automatic backups</Trans>
+            </Label>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Frecuencia</Label>
+            <Label className="text-xs text-muted-foreground">
+              <Trans>Frequency</Trans>
+            </Label>
             <Select
               value={String(policy.interval_hours)}
               disabled={!canEdit}
@@ -150,18 +166,20 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
               <SelectContent>
                 {intervals.map((i) => (
                   <SelectItem key={i.hours} value={String(i.hours)}>
-                    {i.label}
+                    {i18n._(i.label)}
                   </SelectItem>
                 ))}
                 {!intervals.some((i) => i.hours === policy.interval_hours) && (
-                  <SelectItem value={String(policy.interval_hours)}>Cada {policy.interval_hours} h</SelectItem>
+                  <SelectItem value={String(policy.interval_hours)}>
+                    <Trans>Every {customHours} h</Trans>
+                  </SelectItem>
                 )}
               </SelectContent>
             </Select>
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="backup-keep" className="text-xs text-muted-foreground">
-              Conservar
+              <Trans>Keep</Trans>
             </Label>
             <Input
               id="backup-keep"
@@ -178,14 +196,22 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
         </div>
 
         {data.backups.length === 0 ? (
-          <p className="px-6 py-4 text-center text-sm text-muted-foreground">Todavía no hay copias.</p>
+          <p className="px-6 py-4 text-center text-sm text-muted-foreground">
+            <Trans>No backups yet.</Trans>
+          </p>
         ) : (
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="pl-6">Copia</TableHead>
-                <TableHead>Tamaño</TableHead>
-                <TableHead>Origen</TableHead>
+                <TableHead className="pl-6">
+                  <Trans>Backup</Trans>
+                </TableHead>
+                <TableHead>
+                  <Trans>Size</Trans>
+                </TableHead>
+                <TableHead>
+                  <Trans>Trigger</Trans>
+                </TableHead>
                 <TableHead className="pr-6" />
               </TableRow>
             </TableHeader>
@@ -197,26 +223,28 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
                       <span title={formatDate(b.created_at)}>{timeAgo(b.created_at)}</span>
                       {b.status === 'running' && (
                         <Badge variant="secondary">
-                          <Loader2 className="animate-spin" /> En marcha
+                          <Loader2 className="animate-spin" /> <Trans>Running</Trans>
                         </Badge>
                       )}
-                      {b.status === 'failed' && <Badge variant="destructive">Falló</Badge>}
+                      {b.status === 'failed' && <Badge variant="destructive">
+                          <Trans context="backup">Failed</Trans>
+                        </Badge>}
                     </div>
                     {b.status === 'failed' && <div className="max-w-md truncate text-xs text-destructive">{b.error}</div>}
                   </TableCell>
                   <TableCell>{b.status === 'success' ? formatBytes(b.size) : '—'}</TableCell>
-                  <TableCell className="text-muted-foreground">{b.trigger === 'schedule' ? 'Programada' : 'Manual'}</TableCell>
+                  <TableCell className="text-muted-foreground">{b.trigger === 'schedule' ? t`Scheduled` : t`Manual`}</TableCell>
                   <TableCell className="pr-6 text-right">
                     {b.status === 'success' && canEdit && (
                       <>
                         <Button variant="ghost" size="sm" asChild>
                           <a href={api.dbBackupURL(appId, b.id)} download>
-                            <Download /> Descargar
+                            <Download /> <Trans>Download</Trans>
                           </a>
                         </Button>
                         {data.can_restore && (
                           <Button variant="ghost" size="sm" onClick={() => setRestoring(b)}>
-                            <RotateCcw /> Restaurar
+                            <RotateCcw /> <Trans>Restore</Trans>
                           </Button>
                         )}
                       </>
@@ -227,7 +255,7 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
                         size="icon-sm"
                         className="text-destructive hover:text-destructive"
                         onClick={() => remove(b)}
-                        aria-label="Borrar la copia"
+                        aria-label={t`Delete backup`}
                       >
                         <Trash2 />
                       </Button>
@@ -240,8 +268,10 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
         )}
         {!data.can_restore && (
           <p className="px-6 text-xs text-muted-foreground">
-            Las copias de Redis se restauran a mano: para la app, copia el archivo descomprimido como{' '}
-            <code className="font-mono">dump.rdb</code> en su volumen de datos y vuelve a arrancarla.
+            <Trans>
+              Redis backups are restored manually: stop the app, copy the decompressed file as{' '}
+              <code className="font-mono">dump.rdb</code> into its data volume and start it again.
+            </Trans>
           </p>
         )}
       </CardContent>
@@ -249,20 +279,26 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
       <AlertDialog open={restoring !== null} onOpenChange={(open) => !open && setRestoring(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Restaurar la copia del {restoring && formatDate(restoring.created_at)}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              <Trans>Restore the backup from {restoringDate}?</Trans>
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Los datos actuales se sustituyen por los de la copia: lo que haya cambiado desde entonces se perderá. Haz
-              antes una copia si no estás seguro.
+              <Trans>
+                The current data is replaced with the backup's: anything changed since then will be lost. Back up
+                first if you're not sure.
+              </Trans>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={busy}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={busy}>
+              <Trans>Cancel</Trans>
+            </AlertDialogCancel>
             <AlertDialogAction variant="destructive" disabled={busy} onClick={(e) => {
               e.preventDefault();
               if (restoring) restore(restoring);
             }}>
               {busy && <Loader2 className="animate-spin" />}
-              Restaurar
+              <Trans>Restore</Trans>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

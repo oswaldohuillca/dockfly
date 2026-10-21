@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Loader2, Pencil, Plus, ShieldCheck, Trash2, TriangleAlert, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { Plural, Trans, useLingui } from '@lingui/react/macro';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -10,9 +11,9 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, errorMessage, type AccessList } from '@/lib/api';
-import { plural } from '@/lib/format';
 
 export function AccessLists() {
+  const { t } = useLingui();
   const [lists, setLists] = useState<AccessList[]>([]);
   const [editing, setEditing] = useState<AccessList | 'new' | null>(null);
   const load = useCallback(() => {
@@ -32,20 +33,26 @@ export function AccessLists() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Listas de acceso</CardTitle>
+        <CardTitle className="text-lg">
+          <Trans>Access lists</Trans>
+        </CardTitle>
         <CardDescription>
-          Protege proxy hosts, sitios y apps con usuario y contraseña, o permite solo ciertas IPs. Si una lista tiene
-          ambas cosas, se exigen las dos.
+          <Trans>
+            Protect proxy hosts, sites and apps with a username and password, or allow only certain IPs. If a list has
+            both, both are required.
+          </Trans>
         </CardDescription>
         <CardAction>
           <Button size="sm" onClick={() => setEditing('new')}>
-            <Plus /> Nueva lista
+            <Plus /> <Trans>New list</Trans>
           </Button>
         </CardAction>
       </CardHeader>
       <CardContent>
         {lists.length === 0 ? (
-          <p className="py-4 text-center text-sm text-muted-foreground">Todavía no hay listas de acceso.</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            <Trans>No access lists yet.</Trans>
+          </p>
         ) : (
           <ul className="divide-y rounded-lg border">
             {lists.map((l) => (
@@ -67,9 +74,13 @@ export function AccessLists() {
                   </div>
                 </div>
                 <span className="text-xs text-muted-foreground">
-                  {l.used_by ? `Protege ${plural(l.used_by, 'elemento', 'elementos')}` : 'Sin usar'}
+                  {l.used_by ? (
+                    <Plural value={l.used_by} one="Protects # item" other="Protects # items" />
+                  ) : (
+                    <Trans>Unused</Trans>
+                  )}
                 </span>
-                <Button variant="ghost" size="icon-sm" onClick={() => setEditing(l)} aria-label="Editar">
+                <Button variant="ghost" size="icon-sm" onClick={() => setEditing(l)} aria-label={t`Edit`}>
                   <Pencil />
                 </Button>
                 <Button
@@ -77,7 +88,7 @@ export function AccessLists() {
                   size="icon-sm"
                   className="text-destructive hover:text-destructive"
                   onClick={() => remove(l)}
-                  aria-label="Eliminar"
+                  aria-label={t`Delete`}
                 >
                   <Trash2 />
                 </Button>
@@ -101,6 +112,7 @@ export function AccessLists() {
 }
 
 function AccessListDialog({ list, onClose, onSaved }: { list?: AccessList; onClose: () => void; onSaved: () => void }) {
+  const { t } = useLingui();
   const [name, setName] = useState(list?.name ?? '');
   const [users, setUsers] = useState(list?.users.map((u) => ({ username: u, password: '', existing: true })) ?? []);
   const [ips, setIps] = useState(list?.allow_ips.join('\n') ?? '');
@@ -119,7 +131,7 @@ function AccessListDialog({ list, onClose, onSaved }: { list?: AccessList; onClo
     try {
       if (list) await api.updateAccessList(list.id, input);
       else await api.createAccessList(input);
-      toast.success('Lista guardada');
+      toast.success(t`List saved`);
       onSaved();
     } catch (err) {
       setError(errorMessage(err));
@@ -133,25 +145,31 @@ function AccessListDialog({ list, onClose, onSaved }: { list?: AccessList; onClo
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={save} className="contents">
           <DialogHeader>
-            <DialogTitle>{list ? `Editar ${list.name}` : 'Nueva lista de acceso'}</DialogTitle>
-            <DialogDescription>Las contraseñas se guardan con bcrypt y no se vuelven a mostrar.</DialogDescription>
+            <DialogTitle>{list ? <Trans>Edit {list.name}</Trans> : <Trans>New access list</Trans>}</DialogTitle>
+            <DialogDescription>
+              <Trans>Passwords are stored with bcrypt and are never shown again.</Trans>
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="acl-name">Nombre</Label>
-            <Input id="acl-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Equipo" required />
+            <Label htmlFor="acl-name">
+              <Trans>Name</Trans>
+            </Label>
+            <Input id="acl-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t`Team`} required />
           </div>
           <div className="space-y-2">
-            <Label>Usuarios</Label>
+            <Label>
+              <Trans>Users</Trans>
+            </Label>
             {users.map((u, i) => (
               <div key={i} className="flex gap-2">
                 <Input
-                  placeholder="usuario"
+                  placeholder={t`username`}
                   value={u.username}
                   onChange={(e) => setUsers(users.map((x, j) => (j === i ? { ...x, username: e.target.value } : x)))}
                 />
                 <Input
                   type="password"
-                  placeholder={u.existing ? 'sin cambios' : 'contraseña'}
+                  placeholder={u.existing ? t`unchanged` : t`password`}
                   value={u.password}
                   onChange={(e) => setUsers(users.map((x, j) => (j === i ? { ...x, password: e.target.value } : x)))}
                   autoComplete="new-password"
@@ -162,11 +180,13 @@ function AccessListDialog({ list, onClose, onSaved }: { list?: AccessList; onClo
               </div>
             ))}
             <Button type="button" variant="outline" size="sm" onClick={() => setUsers([...users, { username: '', password: '', existing: false }])}>
-              <Plus /> Añadir usuario
+              <Plus /> <Trans>Add user</Trans>
             </Button>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="acl-ips">IPs permitidas</Label>
+            <Label htmlFor="acl-ips">
+              <Trans>Allowed IPs</Trans>
+            </Label>
             <textarea
               id="acl-ips"
               className="min-h-20 w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-sm outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
@@ -174,7 +194,9 @@ function AccessListDialog({ list, onClose, onSaved }: { list?: AccessList; onClo
               onChange={(e) => setIps(e.target.value)}
               placeholder={'203.0.113.7\n192.168.1.0/24'}
             />
-            <p className="text-xs text-muted-foreground">Una por línea. Vacío = cualquier IP.</p>
+            <p className="text-xs text-muted-foreground">
+              <Trans>One per line. Empty = any IP.</Trans>
+            </p>
           </div>
           {error && (
             <Alert variant="destructive">
@@ -184,11 +206,11 @@ function AccessListDialog({ list, onClose, onSaved }: { list?: AccessList; onClo
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" disabled={busy}>
               {busy && <Loader2 className="animate-spin" />}
-              Guardar
+              <Trans>Save</Trans>
             </Button>
           </DialogFooter>
         </form>

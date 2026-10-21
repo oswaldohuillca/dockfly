@@ -1,3 +1,5 @@
+import { ph } from '@lingui/core/macro';
+import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import { useCallback, useEffect, useState } from 'react';
 import { Copy, KeyRound, Loader2, Plus, Server, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -14,6 +16,7 @@ import { timeAgo } from '@/lib/format';
 
 /** Servidores remotos, cada uno con su agente. */
 export function Servers() {
+  const { t } = useLingui();
   const [servers, setServers] = useState<RemoteServer[]>([]);
   const [adding, setAdding] = useState(false);
   const [join, setJoin] = useState<{ name: string; command: string } | null>(null);
@@ -43,7 +46,7 @@ export function Servers() {
   async function remove(s: RemoteServer) {
     try {
       await api.deleteServer(s.id);
-      toast.success(`${s.name} eliminado`);
+      toast.success(t`${ph({ name: s.name })} deleted`);
       load();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -53,14 +56,18 @@ export function Servers() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Servidores</CardTitle>
+        <CardTitle className="text-lg">
+          <Trans>Servers</Trans>
+        </CardTitle>
         <CardDescription>
-          Despliega apps en otras máquinas. Cada servidor ejecuta un agente de Dockfly con su propio Traefik: el agente
-          se conecta a este panel (no hace falta abrir puertos) y, si el panel se cae, sus apps siguen funcionando.
+          <Trans>
+            Deploy apps to other machines. Each server runs a Dockfly agent with its own Traefik: the agent connects to
+            this panel (no open ports needed) and, if the panel goes down, its apps keep running.
+          </Trans>
         </CardDescription>
         <CardAction>
           <Button onClick={() => setAdding(true)}>
-            <Plus /> Añadir servidor
+            <Plus /> <Trans>Add server</Trans>
           </Button>
         </CardAction>
       </CardHeader>
@@ -69,11 +76,15 @@ export function Servers() {
           <li className="flex flex-wrap items-center gap-3 px-6 py-3">
             <Server className="size-4 text-muted-foreground" />
             <div className="min-w-0 flex-1">
-              <div className="font-medium">Este servidor</div>
-              <div className="text-xs text-muted-foreground">El del panel. Proxy hosts, sitios y apps de Compose.</div>
+              <div className="font-medium">
+                <Trans>This server</Trans>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                <Trans>The panel's own server. Proxy hosts, sites and Compose apps.</Trans>
+              </div>
             </div>
             <Badge variant="secondary" className="text-emerald-600 dark:text-emerald-400">
-              Conectado
+              <Trans>Connected</Trans>
             </Badge>
           </li>
           {servers.map((s) => (
@@ -83,29 +94,31 @@ export function Servers() {
                 <div className="font-medium">{s.name}</div>
                 <div className="text-xs text-muted-foreground">
                   {s.last_seen_at
-                    ? `${s.last_addr} · Dockfly ${s.version || '?'} · ${s.online ? 'conectado' : `visto ${timeAgo(s.last_seen_at)}`}`
-                    : 'Esperando a que se conecte su agente…'}
+                    ? `${s.last_addr} · Dockfly ${s.version || '?'} · ${s.online ? t`connected` : t`seen ${ph({ ago: timeAgo(s.last_seen_at) })}`}`
+                    : t`Waiting for its agent to connect…`}
                   {' · '}
-                  {s.apps === 1 ? '1 app' : `${s.apps} apps`}
+                  <Plural value={s.apps} one="# app" other="# apps" />
                 </div>
               </div>
               {s.online ? (
                 <Badge variant="secondary" className="text-emerald-600 dark:text-emerald-400">
-                  Conectado
+                  <Trans>Connected</Trans>
                 </Badge>
               ) : s.last_seen_at ? (
-                <Badge variant="destructive">Desconectado</Badge>
+                <Badge variant="destructive">
+                  <Trans>Disconnected</Trans>
+                </Badge>
               ) : (
                 <Badge variant="outline">
-                  <Loader2 className="animate-spin" /> Pendiente
+                  <Loader2 className="animate-spin" /> <Trans>Pending</Trans>
                 </Badge>
               )}
               <Button
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => rotate(s)}
-                title="Nuevo comando de instalación (invalida el anterior)"
-                aria-label={`Nuevo token para ${s.name}`}
+                title={t`New install command (invalidates the previous one)`}
+                aria-label={t`New token for ${ph({ name: s.name })}`}
               >
                 <KeyRound />
               </Button>
@@ -114,7 +127,7 @@ export function Servers() {
                 size="icon-sm"
                 className="text-destructive hover:text-destructive"
                 onClick={() => remove(s)}
-                aria-label={`Eliminar ${s.name}`}
+                aria-label={t`Delete ${ph({ name: s.name })}`}
               >
                 <Trash2 />
               </Button>
@@ -161,11 +174,17 @@ function AddServerDialog({ onClose, onCreated }: { onClose: () => void; onCreate
       <DialogContent className="sm:max-w-md">
         <form onSubmit={save} className="contents">
           <DialogHeader>
-            <DialogTitle>Añadir servidor</DialogTitle>
-            <DialogDescription>Solo necesita Docker. Después ejecutarás un comando en él.</DialogDescription>
+            <DialogTitle>
+              <Trans>Add server</Trans>
+            </DialogTitle>
+            <DialogDescription>
+              <Trans>It only needs Docker. You'll run a command on it next.</Trans>
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="server-name">Nombre</Label>
+            <Label htmlFor="server-name">
+              <Trans>Name</Trans>
+            </Label>
             <Input
               id="server-name"
               value={name}
@@ -182,11 +201,11 @@ function AddServerDialog({ onClose, onCreated }: { onClose: () => void; onCreate
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" disabled={busy}>
               {busy && <Loader2 className="animate-spin" />}
-              Continuar
+              <Trans>Continue</Trans>
             </Button>
           </DialogFooter>
         </form>
@@ -196,29 +215,38 @@ function AddServerDialog({ onClose, onCreated }: { onClose: () => void; onCreate
 }
 
 function JoinDialog({ name, command, onClose }: { name: string; command: string; onClose: () => void }) {
+  const { t } = useLingui();
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Conecta {name}</DialogTitle>
+          <DialogTitle>
+            <Trans context="server">Connect {name}</Trans>
+          </DialogTitle>
           <DialogDescription>
-            Ejecuta esto en el servidor (con Docker instalado). El agente se conecta a este panel y aparecerá como
-            conectado en unos segundos. El comando lleva el token del servidor: no lo compartas.
+            <Trans>
+              Run this on the server (with Docker installed). The agent connects to this panel and will show as
+              connected within a few seconds. The command contains the server's token: don't share it.
+            </Trans>
           </DialogDescription>
         </DialogHeader>
         <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs">{command}</pre>
         <p className="text-xs text-muted-foreground">
-          Usa los puertos 80 y 443 del servidor para sus apps. El panel debe ser accesible desde él: configura su URL
-          pública en Integraciones.
+          <Trans>
+            It uses the server's ports 80 and 443 for its apps. The panel must be reachable from it: set its public URL
+            in Integrations.
+          </Trans>
         </p>
         <DialogFooter>
           <Button
             variant="outline"
-            onClick={() => navigator.clipboard.writeText(command).then(() => toast.success('Comando copiado'))}
+            onClick={() => navigator.clipboard.writeText(command).then(() => toast.success(t`Command copied`))}
           >
-            <Copy /> Copiar
+            <Copy /> <Trans>Copy</Trans>
           </Button>
-          <Button onClick={onClose}>Hecho</Button>
+          <Button onClick={onClose}>
+            <Trans>Done</Trans>
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

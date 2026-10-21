@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import { ChevronDown, Loader2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { EnvEditor, envToRows, rowsToEnv, type EnvRow } from '@/components/env-editor';
 import { RepoPicker } from '@/components/repo-picker';
@@ -23,6 +24,7 @@ interface Props {
 
 
 export function GitDialog({ site, onClose, onSaved }: Props) {
+  const { t, i18n } = useLingui();
   const linked = site.repo !== '';
   const [connections, setConnections] = useState<GitConnection[] | null>(null);
   const [form, setForm] = useState<Omit<SiteGitInput, 'env'>>(() => ({
@@ -64,7 +66,7 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
   async function clearCache() {
     try {
       await api.clearBuildCache(site.id);
-      toast.success('Caché vaciada: el próximo build descargará las dependencias de nuevo');
+      toast.success(t`Cache cleared: the next build will download dependencies again`);
     } catch (e) {
       toast.error(errorMessage(e));
     }
@@ -82,7 +84,8 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
     try {
       const envMap = rowsToEnv(env);
       const res = await api.putSiteGit(site.id, { ...form, env: envTouched || !linked ? envMap : null });
-      toast.success(linked ? 'Configuración guardada' : `${form.repo} conectado`);
+      const repo = form.repo;
+      toast.success(linked ? t`Settings saved` : t`${repo} connected`);
       onSaved(res.webhook_error);
     } catch (err) {
       setError(errorMessage(err));
@@ -96,17 +99,21 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
       <Dialog open onOpenChange={(open) => !open && onClose()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Primero vincula una cuenta</DialogTitle>
+            <DialogTitle>
+              <Trans>Connect an account first</Trans>
+            </DialogTitle>
             <DialogDescription>
-              Para construir desde un repositorio necesitas vincular tu cuenta de GitHub o GitLab.
+              <Trans>To build from a repository, connect your GitHub or GitLab account.</Trans>
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button asChild>
-              <Link to="/integrations">Ir a Integraciones</Link>
+              <Link to="/integrations">
+                <Trans>Go to Integrations</Trans>
+              </Link>
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -119,9 +126,11 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-2xl">
         <form onSubmit={save} className="contents">
           <DialogHeader>
-            <DialogTitle>{linked ? 'Configurar el build' : 'Conectar un repositorio'}</DialogTitle>
+            <DialogTitle>{linked ? <Trans>Build settings</Trans> : <Trans>Connect a repository</Trans>}</DialogTitle>
             <DialogDescription>
-              Cada push a la rama elegida construye el sitio en un contenedor aislado y publica el resultado.
+              <Trans>
+                Every push to the selected branch builds the site in an isolated container and publishes the result.
+              </Trans>
             </DialogDescription>
           </DialogHeader>
 
@@ -135,7 +144,9 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
           )}
 
           <div className="space-y-2">
-            <Label>Framework</Label>
+            <Label>
+              <Trans>Framework</Trans>
+            </Label>
             <Select value={preset?.id ?? 'custom'} onValueChange={applyPreset}>
               <SelectTrigger className="w-full">
                 <SelectValue />
@@ -143,24 +154,24 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
               <SelectContent>
                 {presets.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
-                    {p.label}
+                    {typeof p.label === 'string' ? p.label : i18n._(p.label)}
                   </SelectItem>
                 ))}
                 <SelectItem value="custom" disabled>
-                  Personalizado
+                  <Trans>Custom</Trans>
                 </SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="grid gap-4 sm:grid-cols-3">
-            <Field label="Instalar" value={form.install_command} onChange={(v) => set('install_command', v)} placeholder="bun install" mono />
-            <Field label="Build" value={form.build_command} onChange={(v) => set('build_command', v)} placeholder="bun run build" mono />
-            <Field label="Directorio de salida" value={form.output_dir} onChange={(v) => set('output_dir', v)} placeholder="dist" mono />
+            <Field label={t`Install`} value={form.install_command} onChange={(v) => set('install_command', v)} placeholder="bun install" mono />
+            <Field label={t`Build`} value={form.build_command} onChange={(v) => set('build_command', v)} placeholder="bun run build" mono />
+            <Field label={t`Output directory`} value={form.output_dir} onChange={(v) => set('output_dir', v)} placeholder="dist" mono />
           </div>
           {!form.install_command && !form.build_command && (
             <p className="-mt-2 text-xs text-muted-foreground">
-              Sin comandos se publican directamente los archivos del repositorio (o de su directorio de salida).
+              <Trans>Without commands, the repository files (or its output directory) are published as is.</Trans>
             </p>
           )}
 
@@ -169,43 +180,47 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
             onClick={() => setAdvanced((a) => !a)}
             className="flex w-fit items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
           >
-            <ChevronDown className={cn('size-4 transition-transform', advanced && 'rotate-180')} /> Opciones avanzadas
+            <ChevronDown className={cn('size-4 transition-transform', advanced && 'rotate-180')} /> <Trans>Advanced options</Trans>
           </button>
           {advanced && linked && (
             <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm">
               <span className="text-muted-foreground">
-                Las dependencias se guardan en caché entre builds. Vacíala si ves errores extraños al instalar.
+                <Trans>Dependencies are cached between builds. Clear the cache if you see odd install errors.</Trans>
               </span>
               <Button type="button" variant="outline" size="sm" onClick={clearCache}>
-                Vaciar la caché
+                <Trans>Clear cache</Trans>
               </Button>
             </div>
           )}
           {advanced && (
             <div className="grid gap-4 sm:grid-cols-2">
               <Field
-                label="Directorio raíz"
+                label={t`Root directory`}
                 value={form.root_dir}
                 onChange={(v) => set('root_dir', v)}
-                placeholder="(raíz del repo)"
-                hint="Para monorepos, p. ej. apps/web."
+                placeholder={t`(repo root)`}
+                hint={t`For monorepos, e.g. apps/web.`}
                 mono
               />
               <Field
-                label="Imagen de build"
+                label={t`Build image`}
                 value={form.build_image}
                 onChange={(v) => set('build_image', v)}
                 placeholder={DEFAULT_IMAGE}
-                hint="Usa node:22 con npm ci / npm run build si tu proyecto no funciona con Bun."
+                hint={t`Use node:22 with npm ci / npm run build if your project doesn't work with Bun.`}
                 mono
               />
             </div>
           )}
 
           <div className="space-y-2">
-            <Label>Variables de entorno del build</Label>
+            <Label>
+              <Trans>Build environment variables</Trans>
+            </Label>
             <p className="text-xs text-muted-foreground">
-              Disponibles durante el build (p. ej. <code className="font-mono">VITE_API_URL</code>). Se guardan cifradas.
+              <Trans>
+                Available during the build (e.g. <code className="font-mono">VITE_API_URL</code>). Stored encrypted.
+              </Trans>
             </p>
             <EnvEditor rows={env} onChange={editEnv} />
           </div>
@@ -219,11 +234,11 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" disabled={busy || !form.repo || !form.branch}>
               {busy && <Loader2 className="animate-spin" />}
-              {linked ? 'Guardar' : 'Conectar'}
+              {linked ? <Trans>Save</Trans> : <Trans>Connect</Trans>}
             </Button>
           </DialogFooter>
         </form>

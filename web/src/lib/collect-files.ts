@@ -1,5 +1,6 @@
+import { plural, t } from '@lingui/core/macro';
+
 import type { UploadPayload } from '@/lib/api';
-import { plural } from '@/lib/format';
 
 export interface Selection {
   payload: UploadPayload;
@@ -20,11 +21,12 @@ function fromFiles(files: { path: string; file: File }[]): Selection | null {
   const root = files[0].path.includes('/') ? files[0].path.split('/')[0] + '/' : '';
   const sameRoot = root && files.every((f) => f.path.startsWith(root));
   const n = files.length;
+  const count = t`${plural(n, { one: '# file', other: '# files' })}`;
   return {
     payload: { files },
     fileCount: n,
     totalBytes: files.reduce((sum, f) => sum + f.file.size, 0),
-    label: `${sameRoot ? root + ' · ' : ''}${plural(n, 'archivo', 'archivos')}`,
+    label: `${sameRoot ? root + ' · ' : ''}${count}`,
   };
 }
 

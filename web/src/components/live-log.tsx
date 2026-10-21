@@ -1,3 +1,4 @@
+import { useLingui } from '@lingui/react/macro';
 import { useEffect, useRef, useState } from 'react';
 
 const ansi = /\x1b\[[0-9;?]*[A-Za-z]/g;
@@ -15,7 +16,8 @@ interface Props {
  * Log en vivo por SSE. Si la conexión se corta, vuelve a conectar desde cero
  * (el servidor reenvía el log completo), para no duplicar líneas.
  */
-export function LiveLog({ url, onStatus, onEnd, emptyText = 'Cargando…', className }: Props) {
+export function LiveLog({ url, onStatus, onEnd, emptyText, className }: Props) {
+  const { t } = useLingui();
   const [text, setText] = useState('');
   const pre = useRef<HTMLPreElement>(null);
   const stick = useRef(true);
@@ -65,7 +67,7 @@ export function LiveLog({ url, onStatus, onEnd, emptyText = 'Cargando…', class
         'min-h-72 flex-1 overflow-auto rounded-md bg-zinc-950 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-zinc-100'
       }
     >
-      {text || emptyText}
+      {text || (emptyText ?? t`Loading…`)}
     </pre>
   );
 }

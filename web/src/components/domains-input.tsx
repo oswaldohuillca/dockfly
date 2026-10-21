@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 interface Props {
   id?: string;
@@ -13,6 +14,7 @@ interface Props {
  * Guardar sin haber pulsado Enter).
  */
 export function DomainsInput({ id, value, onChange }: Props) {
+  const { t } = useLingui();
   const [draft, setDraft] = useState('');
 
   function commit() {
@@ -44,7 +46,7 @@ export function DomainsInput({ id, value, onChange }: Props) {
               type="button"
               className="rounded p-0.5 text-muted-foreground hover:text-foreground"
               onClick={() => onChange(value.filter((x) => x !== d))}
-              aria-label={`Quitar ${d}`}
+              aria-label={t`Remove ${d}`}
             >
               <X className="size-3" />
             </button>
@@ -53,14 +55,16 @@ export function DomainsInput({ id, value, onChange }: Props) {
         <input
           id={id}
           className="min-w-40 flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          placeholder={value.length ? '' : 'app.midominio.com'}
+          placeholder={value.length ? '' : 'app.mydomain.com'}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={onKeyDown}
           onBlur={commit}
         />
       </div>
-      <p className="text-xs text-muted-foreground">Pulsa Enter o coma para añadir varios.</p>
+      <p className="text-xs text-muted-foreground">
+        <Trans>Press Enter or comma to add more.</Trans>
+      </p>
     </div>
   );
 }

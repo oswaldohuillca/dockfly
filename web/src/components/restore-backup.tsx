@@ -1,6 +1,8 @@
 import { useRef, useState } from 'react';
 import { Loader2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
+import { t as coreT } from '@lingui/core/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -11,12 +13,14 @@ import { errorMessage, restoreBackup } from '@/lib/api';
  * vuelve a responder, se recarga el panel (la sesión de la copia es otra).
  */
 export function RestoreBackup({ variant = 'outline' }: { variant?: 'outline' | 'link' }) {
+  const { t } = useLingui();
   const input = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [restarting, setRestarting] = useState(false);
 
   async function restore(file: File) {
-    if (!confirm(`¿Restaurar ${file.name}? Se reemplazarán todos los datos actuales (se guardan aparte por si acaso).`)) {
+    const fileName = file.name;
+    if (!confirm(t`Restore ${fileName}? All current data will be replaced (it's kept aside just in case).`)) {
       return;
     }
     setProgress(0);
@@ -27,7 +31,7 @@ export function RestoreBackup({ variant = 'outline' }: { variant?: 'outline' | '
       await waitForRestart();
       window.location.href = '/login';
     } catch (e) {
-      toast.error('No se pudo restaurar', { description: errorMessage(e) });
+      toast.error(t`Couldn't restore`, { description: errorMessage(e) });
       setProgress(null);
     }
   }
@@ -35,22 +39,25 @@ export function RestoreBackup({ variant = 'outline' }: { variant?: 'outline' | '
   if (restarting) {
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <Loader2 className="size-4 animate-spin" /> Reiniciando Dockfly con la copia restaurada…
+        <Loader2 className="size-4 animate-spin" /> <Trans>Restarting Dockfly with the restored backup…</Trans>
       </p>
     );
   }
   if (progress !== null) {
+    const percent = Math.round(progress * 100);
     return (
       <div className="space-y-1">
         <Progress value={progress * 100} className="max-w-xs" />
-        <p className="text-xs text-muted-foreground">Subiendo la copia… {Math.round(progress * 100)}%</p>
+        <p className="text-xs text-muted-foreground">
+          <Trans>Uploading backup… {percent}%</Trans>
+        </p>
       </div>
     );
   }
   return (
     <>
       <Button type="button" variant={variant} size="sm" onClick={() => input.current?.click()}>
-        <Upload /> Restaurar una copia
+        <Upload /> <Trans>Restore a backup</Trans>
       </Button>
       <input
         ref={input}
@@ -82,5 +89,7 @@ async function waitForRestart() {
       wentDown = true;
     }
   }
-  throw new Error('Dockfly no volvió a arrancar. Si no tiene política de reinicio, arráncalo a mano (docker start dockfly).');
+  throw new Error(
+    coreT`Dockfly didn't start again. If it has no restart policy, start it manually (docker start dockfly).`,
+  );
 }

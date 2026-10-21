@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { createFileRoute, Link, useRouter } from '@tanstack/react-router';
 import { Loader2 } from 'lucide-react';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
 
 import { Logo } from '@/components/logo';
@@ -19,6 +20,7 @@ export const Route = createFileRoute('/invite/$token')({
 });
 
 function Invite() {
+  const { t } = useLingui();
   const data = Route.useLoaderData();
   const { token } = Route.useParams();
   const router = useRouter();
@@ -31,7 +33,7 @@ function Invite() {
     e.preventDefault();
     setError('');
     if (password !== confirm) {
-      setError('Las contraseñas no coinciden');
+      setError(t`Passwords don't match`);
       return;
     }
     setBusy(true);
@@ -39,7 +41,7 @@ function Invite() {
       const res = await api.acceptInvite(token, password);
       if ('two_factor' in res) {
         // Con verificación en dos pasos, el código se pide al iniciar sesión.
-        toast.success('Contraseña guardada: inicia sesión con ella');
+        toast.success(t`Password saved: log in with it`);
         router.history.push('/login');
         return;
       }
@@ -59,29 +61,35 @@ function Invite() {
         <Card>
           {'error' in data ? (
             <CardHeader>
-              <CardTitle>Enlace no válido</CardTitle>
+              <CardTitle>
+                <Trans>Invalid link</Trans>
+              </CardTitle>
               <CardDescription>{data.error}</CardDescription>
               <Button variant="link" className="justify-start px-0" asChild>
                 <Link to="/login" search={{}}>
-                  Ir al inicio de sesión
+                  <Trans>Go to login</Trans>
                 </Link>
               </Button>
             </CardHeader>
           ) : (
             <>
               <CardHeader>
-                <CardTitle>{data.new ? `Hola, ${data.name}` : 'Nueva contraseña'}</CardTitle>
+                <CardTitle>{data.new ? <Trans>Hi, {data.name}</Trans> : <Trans>New password</Trans>}</CardTitle>
                 <CardDescription>
-                  {data.new
-                    ? `Te han invitado a Dockfly. Elige una contraseña para ${data.email}.`
-                    : `Elige una contraseña nueva para ${data.email}.`}
+                  {data.new ? (
+                    <Trans>You've been invited to Dockfly. Choose a password for {data.email}.</Trans>
+                  ) : (
+                    <Trans>Choose a new password for {data.email}.</Trans>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <form onSubmit={submit} className="space-y-4">
                   <input type="email" value={data.email} autoComplete="username" readOnly hidden />
                   <div className="space-y-2">
-                    <Label htmlFor="password">Contraseña</Label>
+                    <Label htmlFor="password">
+                      <Trans>Password</Trans>
+                    </Label>
                     <Input
                       id="password"
                       type="password"
@@ -94,7 +102,9 @@ function Invite() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="confirm">Repite la contraseña</Label>
+                    <Label htmlFor="confirm">
+                      <Trans>Confirm password</Trans>
+                    </Label>
                     <Input
                       id="confirm"
                       type="password"
@@ -112,7 +122,7 @@ function Invite() {
                   )}
                   <Button type="submit" className="w-full" disabled={busy}>
                     {busy && <Loader2 className="animate-spin" />}
-                    {data.new ? 'Crear mi cuenta' : 'Guardar y entrar'}
+                    {data.new ? <Trans>Create my account</Trans> : <Trans>Save and log in</Trans>}
                   </Button>
                 </form>
               </CardContent>

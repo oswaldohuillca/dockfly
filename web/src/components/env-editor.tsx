@@ -1,3 +1,4 @@
+import { Trans, useLingui } from '@lingui/react/macro';
 import { Plus, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -13,13 +14,14 @@ export const rowsToEnv = (rows: EnvRow[]): Record<string, string> =>
 
 /** Editor de variables de entorno (NOMBRE = valor). */
 export function EnvEditor({ rows, onChange }: { rows: EnvRow[]; onChange: (rows: EnvRow[]) => void }) {
+  const { t } = useLingui();
   return (
     <div className="space-y-2">
       {rows.map((row, i) => (
         <div key={i} className="flex gap-2">
           <Input
             className="font-mono"
-            placeholder="NOMBRE"
+            placeholder={t`NAME`}
             value={row.key}
             onChange={(e) =>
               onChange(rows.map((r, j) => (j === i ? { ...r, key: e.target.value.replace(/[^A-Za-z0-9_]/g, '_') } : r)))
@@ -27,7 +29,7 @@ export function EnvEditor({ rows, onChange }: { rows: EnvRow[]; onChange: (rows:
           />
           <Input
             className="font-mono"
-            placeholder="valor"
+            placeholder={t`value`}
             value={row.value}
             onChange={(e) => onChange(rows.map((r, j) => (j === i ? { ...r, value: e.target.value } : r)))}
           />
@@ -37,7 +39,7 @@ export function EnvEditor({ rows, onChange }: { rows: EnvRow[]; onChange: (rows:
         </div>
       ))}
       <Button type="button" variant="outline" size="sm" onClick={() => onChange([...rows, { key: '', value: '' }])}>
-        <Plus /> Añadir variable
+        <Plus /> <Trans>Add variable</Trans>
       </Button>
     </div>
   );

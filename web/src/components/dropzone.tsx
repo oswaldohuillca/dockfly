@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { FileArchive, FolderUp, UploadCloud } from 'lucide-react';
+import { Trans } from '@lingui/react/macro';
 
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
@@ -39,7 +40,7 @@ export function Dropzone({ onSelect, progress, uploading }: Props) {
       <div className="space-y-3 rounded-lg border border-dashed p-8 text-center">
         <UploadCloud className="mx-auto size-8 animate-pulse text-primary" />
         <p className="text-sm font-medium">
-          {progress < 1 ? `Subiendo ${uploading}…` : 'Publicando…'}
+          {progress < 1 ? <Trans>Uploading {uploading}…</Trans> : <Trans>Publishing…</Trans>}
         </p>
         <Progress value={progress * 100} className="mx-auto max-w-sm" />
         <p className="text-xs text-muted-foreground">{Math.round(progress * 100)}%</p>
@@ -62,18 +63,22 @@ export function Dropzone({ onSelect, progress, uploading }: Props) {
     >
       <UploadCloud className="size-8 text-muted-foreground" />
       <div>
-        <p className="text-sm font-medium">Arrastra aquí la carpeta de tu build o un .zip</p>
+        <p className="text-sm font-medium">
+          <Trans>Drop your build folder or a .zip here</Trans>
+        </p>
         <p className="text-xs text-muted-foreground">
-          Por ejemplo <code className="font-mono">dist/</code> o <code className="font-mono">build/</code>. Se publica en
-          cuanto termina la subida.
+          <Trans>
+            For example <code className="font-mono">dist/</code> or <code className="font-mono">build/</code>. It goes
+            live as soon as the upload finishes.
+          </Trans>
         </p>
       </div>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={() => folderInput.current?.click()}>
-          <FolderUp /> Elegir carpeta
+          <FolderUp /> <Trans>Choose folder</Trans>
         </Button>
         <Button variant="outline" size="sm" onClick={() => zipInput.current?.click()}>
-          <FileArchive /> Elegir .zip
+          <FileArchive /> <Trans>Choose .zip</Trans>
         </Button>
       </div>
       <input

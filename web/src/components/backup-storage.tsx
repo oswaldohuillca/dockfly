@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -12,8 +13,12 @@ import { api, errorMessage, type BackupStorage } from '@/lib/api';
 
 const empty: BackupStorage = { type: 'local', endpoint: '', region: '', bucket: '', prefix: 'dockfly', access_key: '', secret_key: '' };
 
+// Formato del endpoint de Cloudflare R2.
+const r2Endpoint = 'https://<account>.r2.cloudflarestorage.com';
+
 /** Dónde se guardan las copias de las bases de datos. */
 export function BackupStorageSettings() {
+  const { t } = useLingui();
   const [form, setForm] = useState<BackupStorage | null>(null);
   const [location, setLocation] = useState('');
   const [error, setError] = useState('');
@@ -41,7 +46,8 @@ export function BackupStorageSettings() {
       const res = await api.putBackupStorage(form);
       setLocation(res.location);
       setForm({ ...form, secret_key: res.config.secret_key });
-      toast.success('Almacenamiento guardado', { description: `Las copias se guardan en ${res.location}` });
+      const location = res.location;
+      toast.success(t`Storage saved`, { description: t`Backups are stored in ${location}` });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -52,10 +58,14 @@ export function BackupStorageSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Copias de las bases de datos</CardTitle>
+        <CardTitle className="text-lg">
+          <Trans>Database backups</Trans>
+        </CardTitle>
         <CardDescription>
-          Dónde se guardan las copias de las apps de PostgreSQL, MySQL y Redis (se programan en cada app). Con un bucket
-          S3, las copias sobreviven aunque se pierda el servidor. Ahora: <code className="font-mono">{location}</code>
+          <Trans>
+            Where backups of PostgreSQL, MySQL and Redis apps are stored (they are scheduled in each app). With an S3
+            bucket, backups survive even if the server is lost. Currently: <code className="font-mono">{location}</code>
+          </Trans>
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -66,8 +76,12 @@ export function BackupStorageSettings() {
             value={form.type}
             onValueChange={(v) => v && set('type', v as BackupStorage['type'])}
           >
-            <ToggleGroupItem value="local">En este servidor</ToggleGroupItem>
-            <ToggleGroupItem value="s3">Bucket S3</ToggleGroupItem>
+            <ToggleGroupItem value="local">
+              <Trans>On this server</Trans>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="s3">
+              <Trans>S3 bucket</Trans>
+            </ToggleGroupItem>
           </ToggleGroup>
           {form.type === 's3' && (
             <div className="grid gap-4 sm:grid-cols-2">
@@ -81,8 +95,10 @@ export function BackupStorageSettings() {
                   required
                 />
                 <p className="text-xs text-muted-foreground">
-                  AWS, Cloudflare R2 (<code className="font-mono">https://&lt;cuenta&gt;.r2.cloudflarestorage.com</code>
-                  ), Backblaze B2, MinIO… cualquier almacenamiento compatible con S3.
+                  <Trans>
+                    AWS, Cloudflare R2 (<code className="font-mono">{r2Endpoint}</code>
+                    ), Backblaze B2, MinIO… any S3-compatible storage.
+                  </Trans>
                 </p>
               </div>
               <div className="space-y-2">
@@ -90,12 +106,14 @@ export function BackupStorageSettings() {
                 <Input id="s3-bucket" value={form.bucket} onChange={(e) => set('bucket', e.target.value)} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="s3-region">Región</Label>
+                <Label htmlFor="s3-region">
+                  <Trans>Region</Trans>
+                </Label>
                 <Input
                   id="s3-region"
                   value={form.region}
                   onChange={(e) => set('region', e.target.value)}
-                  placeholder="eu-west-1 (en R2: auto)"
+                  placeholder={t`eu-west-1 (on R2: auto)`}
                 />
               </div>
               <div className="space-y-2">
@@ -114,7 +132,9 @@ export function BackupStorageSettings() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="s3-prefix">Carpeta</Label>
+                <Label htmlFor="s3-prefix">
+                  <Trans>Folder</Trans>
+                </Label>
                 <Input id="s3-prefix" value={form.prefix} onChange={(e) => set('prefix', e.target.value)} placeholder="dockfly" />
               </div>
             </div>
@@ -126,7 +146,7 @@ export function BackupStorageSettings() {
           )}
           <Button type="submit" size="sm" disabled={busy}>
             {busy && <Loader2 className="animate-spin" />}
-            {form.type === 's3' ? 'Probar y guardar' : 'Guardar'}
+            {form.type === 's3' ? <Trans>Test and save</Trans> : <Trans>Save</Trans>}
           </Button>
         </form>
       </CardContent>

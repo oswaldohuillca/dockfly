@@ -1,9 +1,13 @@
 // Comandos de build habituales. Bun lee los package-lock.json y yarn.lock
 // existentes, así que sirve también para proyectos creados con npm o yarn.
 
+import type { MessageDescriptor } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+
 export interface Preset {
   id: string;
-  label: string;
+  /** Nombre del framework, o un mensaje traducible si no es un nombre propio. */
+  label: string | MessageDescriptor;
   install: string;
   build: string;
   output: string;
@@ -19,7 +23,7 @@ export const presets: Preset[] = [
   { id: 'nuxt', label: 'Nuxt (generate)', install: 'bun install', build: 'bun run generate', output: '.output/public' },
   { id: 'cra', label: 'Create React App', ...bun, output: 'build' },
   { id: 'docusaurus', label: 'Docusaurus', ...bun, output: 'build' },
-  { id: 'html', label: 'HTML plano (sin build)', install: '', build: '', output: '' },
+  { id: 'html', label: msg`Plain HTML (no build)`, install: '', build: '', output: '' },
 ];
 
 export const DEFAULT_IMAGE = 'oven/bun:1';

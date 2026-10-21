@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Box, Globe, Info, Loader2, Server, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import { i18n } from '@lingui/core';
+import { msg } from '@lingui/core/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { AccessSelect } from '@/components/access-select';
 import { CheckField } from '@/components/check-field';
@@ -33,7 +36,9 @@ const segmentClass = 'flex-1 data-[state=on]:bg-primary data-[state=on]:text-pri
  * versión (p. ej. tras un pull) o se borró: lo acortamos.
  */
 function imageLabel(image: string) {
-  return image.startsWith('sha256:') ? `imagen sin etiqueta (${image.slice(7, 14)})` : image;
+  if (!image.startsWith('sha256:')) return image;
+  const digest = image.slice(7, 14);
+  return i18n._(msg`untagged image (${digest})`);
 }
 
 interface Props {
@@ -62,6 +67,7 @@ function initialForm(h: Partial<ProxyHost>, dockerAvailable: boolean): ProxyHost
 }
 
 export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Props) {
+  const { t } = useLingui();
   const isNew = host.id === undefined;
   // El componente se monta en cada apertura, así que el estado inicial basta.
   const [form, setForm] = useState(() => initialForm(host, dockerAvailable));
@@ -124,7 +130,7 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
       if (res.warnings?.length) {
         setWarnings(res.warnings);
       } else {
-        toast.success(isNew ? 'Proxy host creado' : 'Cambios guardados');
+        toast.success(isNew ? t`Proxy host created` : t`Changes saved`);
         onSaved();
       }
     } catch (err) {
@@ -139,24 +145,34 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
       <DialogContent className="sm:max-w-xl">
         <form onSubmit={save} className="contents">
           <DialogHeader>
-            <DialogTitle>{isNew ? 'Nuevo proxy host' : 'Editar proxy host'}</DialogTitle>
-            <DialogDescription>Traefik aplica los cambios al instante, sin reinicios.</DialogDescription>
+            <DialogTitle>{isNew ? <Trans>New proxy host</Trans> : <Trans>Edit proxy host</Trans>}</DialogTitle>
+            <DialogDescription>
+              <Trans>Traefik applies changes instantly, with no restarts.</Trans>
+            </DialogDescription>
           </DialogHeader>
 
           <Tabs defaultValue="details">
             <TabsList className="w-full">
-              <TabsTrigger value="details">Detalles</TabsTrigger>
-              <TabsTrigger value="ssl">SSL y acceso</TabsTrigger>
+              <TabsTrigger value="details">
+                <Trans>Details</Trans>
+              </TabsTrigger>
+              <TabsTrigger value="ssl">
+                <Trans>SSL & access</Trans>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="details" className="space-y-5 pt-3">
               <div className="space-y-2">
-                <Label htmlFor="domain-input">Dominios</Label>
+                <Label htmlFor="domain-input">
+                  <Trans>Domains</Trans>
+                </Label>
                 <DomainsInput id="domain-input" value={form.domains} onChange={(d) => set('domains', d)} />
               </div>
 
               <div className="space-y-2">
-                <Label>Destino</Label>
+                <Label>
+                  <Trans>Target</Trans>
+                </Label>
                 <ToggleGroup
                   type="single"
                   variant="outline"
@@ -166,20 +182,22 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
                   onValueChange={(v) => v && setTarget(v as TargetType)}
                 >
                   <ToggleGroupItem value="docker" className={segmentClass}>
-                    <Box /> Contenedor
+                    <Box /> <Trans>Container</Trans>
                   </ToggleGroupItem>
                   <ToggleGroupItem value="host" className={segmentClass}>
-                    <Server /> Este servidor
+                    <Server /> <Trans>This server</Trans>
                   </ToggleGroupItem>
                   <ToggleGroupItem value="external" className={segmentClass}>
-                    <Globe /> Externo
+                    <Globe /> <Trans>External</Trans>
                   </ToggleGroupItem>
                 </ToggleGroup>
               </div>
 
               <div className="grid grid-cols-[6.5rem_1fr_6.5rem] gap-3 max-sm:grid-cols-1">
                 <div className="space-y-2">
-                  <Label>Esquema</Label>
+                  <Label>
+                    <Trans>Scheme</Trans>
+                  </Label>
                   <Select value={form.forward_scheme} onValueChange={(v) => set('forward_scheme', v as Scheme)}>
                     <SelectTrigger className="w-full">
                       <SelectValue />
@@ -194,10 +212,12 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
                 <div className="min-w-0 space-y-2">
                   {form.target_type === 'docker' && dockerAvailable ? (
                     <>
-                      <Label>Contenedor</Label>
+                      <Label>
+                        <Trans>Container</Trans>
+                      </Label>
                       <Select value={form.forward_host} onValueChange={pickContainer}>
                         <SelectTrigger className="w-full">
-                          <SelectValue placeholder={containersLoaded ? 'Elige un contenedor…' : 'Cargando…'} />
+                          <SelectValue placeholder={containersLoaded ? t`Choose a container…` : t`Loading…`} />
                         </SelectTrigger>
                         {/* popper + ancho máximo: el desplegable no se sale del diálogo. */}
                         <SelectContent position="popper" className="max-w-[min(30rem,calc(100vw-2rem))]">
@@ -206,7 +226,7 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
                               <span className="shrink-0">{c.name}</span>
                               {c.self && (
                                 <Badge variant="secondary" className="shrink-0">
-                                  este panel
+                                  <Trans>this panel</Trans>
                                 </Badge>
                               )}
                               <span className="min-w-0 truncate text-xs text-muted-foreground">
@@ -216,7 +236,9 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
                             </SelectItem>
                           ))}
                           {form.forward_host && !selected && containersLoaded && (
-                            <SelectItem value={form.forward_host}>{form.forward_host} (no encontrado)</SelectItem>
+                            <SelectItem value={form.forward_host}>
+                              <Trans>{form.forward_host} (not found)</Trans>
+                            </SelectItem>
                           )}
                         </SelectContent>
                       </Select>
@@ -224,13 +246,19 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
                   ) : (
                     <>
                       <Label htmlFor="forward-host">
-                        {form.target_type === 'docker' ? 'Contenedor' : form.target_type === 'host' ? 'Host' : 'IP o dominio'}
+                        {form.target_type === 'docker' ? (
+                          <Trans>Container</Trans>
+                        ) : form.target_type === 'host' ? (
+                          'Host'
+                        ) : (
+                          <Trans>IP or domain</Trans>
+                        )}
                       </Label>
                       <Input
                         id="forward-host"
                         value={form.forward_host}
                         onChange={(e) => set('forward_host', e.target.value)}
-                        placeholder={form.target_type === 'docker' ? 'nombre-del-contenedor' : '192.168.1.50 o api.otro.com'}
+                        placeholder={form.target_type === 'docker' ? t`container-name` : t`192.168.1.50 or api.other.com`}
                         required
                       />
                     </>
@@ -238,7 +266,9 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="forward-port">Puerto</Label>
+                  <Label htmlFor="forward-port">
+                    <Trans>Port</Trans>
+                  </Label>
                   <Input
                     id="forward-port"
                     type="number"
@@ -263,16 +293,20 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
                 <Alert>
                   <Info />
                   <AlertDescription>
-                    Este contenedor no está en la red de Dockfly. Al guardar se conectará automáticamente para que
-                    Traefik pueda alcanzarlo.
+                    <Trans>
+                      This container isn't on the Dockfly network. Saving will connect it automatically so Traefik can
+                      reach it.
+                    </Trans>
                   </AlertDescription>
                 </Alert>
               )}
               {form.target_type === 'host' && (
                 <p className="text-xs leading-relaxed text-muted-foreground">
-                  <code className="font-mono">host.docker.internal</code> apunta al servidor donde corre Dockfly. Útil
-                  para apps fuera de Docker (systemd, PM2…). La app debe escuchar en una IP accesible desde Docker, no
-                  solo en <code className="font-mono">127.0.0.1</code>.
+                  <Trans>
+                    <code className="font-mono">host.docker.internal</code> points to the server Dockfly runs on. Useful
+                    for apps outside Docker (systemd, PM2…). The app must listen on an IP reachable from Docker, not
+                    just on <code className="font-mono">127.0.0.1</code>.
+                  </Trans>
                 </p>
               )}
 
@@ -282,18 +316,18 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
                     id="skip-tls"
                     checked={form.skip_tls_verify}
                     onChange={(v) => set('skip_tls_verify', v)}
-                    label="No verificar el certificado del destino"
-                    hint="Para destinos con certificados autofirmados."
+                    label={t`Don't verify the target's certificate`}
+                    hint={t`For targets with self-signed certificates.`}
                   />
                 )}
                 <CheckField
                   id="preserve-host"
                   checked={form.preserve_host}
                   onChange={(v) => set('preserve_host', v)}
-                  label="Conservar el Host original"
-                  hint="Desactívalo si el destino es un sitio externo que exige su propio dominio."
+                  label={t`Preserve the original Host`}
+                  hint={t`Turn it off if the target is an external site that requires its own domain.`}
                 />
-                <CheckField id="enabled" checked={form.enabled} onChange={(v) => set('enabled', v)} label="Activo" />
+                <CheckField id="enabled" checked={form.enabled} onChange={(v) => set('enabled', v)} label={t`Enabled`} />
               </div>
             </TabsContent>
 
@@ -312,7 +346,9 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
           {warnings.length > 0 && (
             <Alert>
               <TriangleAlert className="text-amber-500" />
-              <AlertTitle>Guardado, con avisos</AlertTitle>
+              <AlertTitle>
+                <Trans>Saved, with warnings</Trans>
+              </AlertTitle>
               <AlertDescription>
                 <ul className="list-disc pl-4">
                   {warnings.map((w) => (
@@ -326,16 +362,16 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
           <DialogFooter>
             {warnings.length > 0 ? (
               <Button type="button" onClick={onSaved}>
-                Entendido
+                <Trans>Got it</Trans>
               </Button>
             ) : (
               <>
                 <Button type="button" variant="outline" onClick={onClose}>
-                  Cancelar
+                  <Trans>Cancel</Trans>
                 </Button>
                 <Button type="submit" disabled={busy}>
                   {busy && <Loader2 className="animate-spin" />}
-                  Guardar
+                  <Trans>Save</Trans>
                 </Button>
               </>
             )}

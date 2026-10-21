@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 import { Download, Terminal } from 'lucide-react';
+import { Trans } from '@lingui/react/macro';
 
 import { AccessLists } from '@/components/access-lists';
 import { BackupStorageSettings } from '@/components/backup-storage';
@@ -11,6 +12,9 @@ import { Users } from '@/components/users';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { can } from '@/lib/roles';
+
+// Ruta donde se conservan los datos anteriores a una restauración.
+const beforeRestoreDir = '/data/before-restore-<date>';
 
 export const Route = createFileRoute('/_app/settings')({
   // Solo administradores (la API también lo exige).
@@ -31,29 +35,36 @@ function Settings() {
       <BackupStorageSettings />
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Copias de seguridad</CardTitle>
+          <CardTitle className="text-lg">
+            <Trans>Backups</Trans>
+          </CardTitle>
           <CardDescription>
-            Una copia incluye la base de datos, las claves (sesiones y cifrado de tokens), los sitios publicados y los
-            certificados de Let&apos;s Encrypt. Guárdala en un lugar seguro: con ella se pueden leer los tokens de tus
-            cuentas de Git.
+            <Trans>
+              A backup includes the database, the keys (sessions and token encryption), the published sites and the
+              Let&apos;s Encrypt certificates. Keep it somewhere safe: it can be used to read the tokens of your Git
+              accounts.
+            </Trans>
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" asChild>
               <a href="/api/backup" download>
-                <Download /> Descargar copia
+                <Download /> <Trans>Download backup</Trans>
               </a>
             </Button>
             <RestoreBackup />
           </div>
           <p className="text-xs text-muted-foreground">
-            Al restaurar, Dockfly se reinicia y aplica la copia; los datos que había se conservan en{' '}
-            <code className="font-mono">/data/before-restore-&lt;fecha&gt;</code>.
+            <Trans>
+              When restoring, Dockfly restarts and applies the backup; the previous data is kept in{' '}
+              <code className="font-mono">{beforeRestoreDir}</code>.
+            </Trans>
           </p>
           <details className="text-xs text-muted-foreground">
             <summary className="flex cursor-pointer items-center gap-1">
-              <Terminal className="size-3.5" /> Desde la terminal (p. ej. con un cron, o si el panel no arranca)
+              <Terminal className="size-3.5" />{' '}
+              <Trans>From the terminal (e.g. with a cron job, or if the dashboard won&apos;t start)</Trans>
             </summary>
             <pre className="mt-2 overflow-x-auto rounded bg-muted p-3 font-mono">
               {`docker exec dockfly dockfly backup /data/copia.tar.gz

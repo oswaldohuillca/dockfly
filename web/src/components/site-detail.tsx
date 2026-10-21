@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ArrowLeft, ExternalLink, Lock, Pencil, RotateCcw, Trash2 } from 'lucide-react';
+import { plural } from '@lingui/core/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
 
 import { ProviderIcon } from '@/components/brand-icons';
@@ -27,10 +29,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { api, ApiError, errorMessage, type Deployment, type Site } from '@/lib/api';
 import type { Selection } from '@/lib/collect-files';
-import { formatBytes, formatDate, plural, timeAgo } from '@/lib/format';
+import { formatBytes, formatDate, timeAgo } from '@/lib/format';
 import { useCertificates } from '@/lib/use-certificates';
 
 export function SiteDetail({ id }: { id: number }) {
+  const { t } = useLingui();
   const navigate = useNavigate();
   const [site, setSite] = useState<Site | null>(null);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
@@ -61,12 +64,15 @@ export function SiteDetail({ id }: { id: number }) {
     setProgress(0);
     try {
       const dep = await api.uploadDeployment(id, sel.payload, setProgress);
-      toast.success(`Despliegue #${dep.id} publicado`, {
-        description: `${plural(dep.file_count, 'archivo', 'archivos')} · ${formatBytes(dep.total_bytes)}`,
+      const depId = dep.id;
+      const fileCount = dep.file_count;
+      const size = formatBytes(dep.total_bytes);
+      toast.success(t`Deployment #${depId} published`, {
+        description: t`${plural(fileCount, { one: '# file', other: '# files' })} · ${size}`,
       });
       await load();
     } catch (e) {
-      toast.error('No se pudo publicar', { description: errorMessage(e) });
+      toast.error(t`Couldn't publish`, { description: errorMessage(e) });
     } finally {
       setProgress(null);
     }
@@ -75,7 +81,8 @@ export function SiteDetail({ id }: { id: number }) {
   async function activate(dep: Deployment) {
     try {
       await api.activateDeployment(id, dep.id);
-      toast.success(`Despliegue #${dep.id} publicado de nuevo`);
+      const depId = dep.id;
+      toast.success(t`Deployment #${depId} published again`);
       await load();
     } catch (e) {
       toast.error(errorMessage(e));
@@ -94,7 +101,8 @@ export function SiteDetail({ id }: { id: number }) {
   async function removeSite() {
     try {
       await api.deleteSite(id);
-      toast.success(`${site?.name} eliminado`);
+      const name = site?.name;
+      toast.success(t`${name} deleted`);
       navigate({ to: '/sites' });
     } catch (e) {
       toast.error(errorMessage(e));
@@ -104,14 +112,23 @@ export function SiteDetail({ id }: { id: number }) {
   if (notFound) {
     return (
       <div className="py-20 text-center">
-        <p className="font-medium">Este sitio no existe</p>
+        <p className="font-medium">
+          <Trans>This site doesn't exist</Trans>
+        </p>
         <Button variant="link" asChild>
-          <Link to="/sites">Volver a los sitios</Link>
+          <Link to="/sites">
+            <Trans>Back to sites</Trans>
+          </Link>
         </Button>
       </div>
     );
   }
-  if (!site) return <p className="py-20 text-center text-sm text-muted-foreground">Cargando…</p>;
+  if (!site)
+    return (
+      <p className="py-20 text-center text-sm text-muted-foreground">
+        <Trans>Loading…</Trans>
+      </p>
+    );
 
   const url = (d: string) => `${site.ssl ? 'https' : 'http'}://${d}`;
 
@@ -119,7 +136,7 @@ export function SiteDetail({ id }: { id: number }) {
     <div className="space-y-4">
       <Button variant="ghost" size="sm" className="-ml-2" asChild>
         <Link to="/sites">
-          <ArrowLeft /> Sitios
+          <ArrowLeft /> <Trans>Sites</Trans>
         </Link>
       </Button>
 
@@ -149,7 +166,7 @@ export function SiteDetail({ id }: { id: number }) {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              <Pencil /> Editar
+              <Pencil /> <Trans>Edit</Trans>
             </Button>
             <Button
               variant="outline"
@@ -157,7 +174,7 @@ export function SiteDetail({ id }: { id: number }) {
               className="text-destructive hover:text-destructive"
               onClick={() => setConfirmDelete(true)}
             >
-              <Trash2 /> Eliminar
+              <Trash2 /> <Trans>Delete</Trans>
             </Button>
           </div>
         </CardHeader>
@@ -173,22 +190,34 @@ export function SiteDetail({ id }: { id: number }) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Despliegues</CardTitle>
-          <CardDescription>Se conservan los 10 más recientes. Publica cualquiera para hacer rollback.</CardDescription>
+          <CardTitle>
+            <Trans>Deployments</Trans>
+          </CardTitle>
+          <CardDescription>
+            <Trans>The 10 most recent are kept. Publish any of them to roll back.</Trans>
+          </CardDescription>
         </CardHeader>
         <CardContent className="px-0">
           {deployments.length === 0 ? (
             <p className="px-6 py-6 text-center text-sm text-muted-foreground">
-              Aún no hay despliegues. Sube tu primera versión arriba.
+              <Trans>No deployments yet. Upload your first version above.</Trans>
             </p>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="pl-6">Despliegue</TableHead>
-                  <TableHead>Fecha</TableHead>
-                  <TableHead>Archivos</TableHead>
-                  <TableHead>Tamaño</TableHead>
+                  <TableHead className="pl-6">
+                    <Trans>Deployment</Trans>
+                  </TableHead>
+                  <TableHead>
+                    <Trans>Date</Trans>
+                  </TableHead>
+                  <TableHead>
+                    <Trans>Files</Trans>
+                  </TableHead>
+                  <TableHead>
+                    <Trans>Size</Trans>
+                  </TableHead>
                   <TableHead className="pr-6" />
                 </TableRow>
               </TableHeader>
@@ -202,12 +231,14 @@ export function SiteDetail({ id }: { id: number }) {
                           <span className="font-mono text-sm">#{dep.id}</span>
                           {active && (
                             <Badge variant="secondary" className="text-emerald-600 dark:text-emerald-400">
-                              Publicado
+                              <Trans context="deployment">Live</Trans>
                             </Badge>
                           )}
                         </div>
                         {dep.source === 'upload' ? (
-                          <div className="mt-0.5 text-xs text-muted-foreground">Subida manual</div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">
+                            <Trans>Manual upload</Trans>
+                          </div>
                         ) : (
                           <div className="mt-0.5 flex max-w-80 items-center gap-1.5 text-xs text-muted-foreground">
                             <ProviderIcon provider={dep.source} className="size-3" />
@@ -228,14 +259,14 @@ export function SiteDetail({ id }: { id: number }) {
                         {!active && (
                           <>
                             <Button variant="ghost" size="sm" onClick={() => activate(dep)}>
-                              <RotateCcw /> Publicar
+                              <RotateCcw /> <Trans>Publish</Trans>
                             </Button>
                             <Button
                               variant="ghost"
                               size="icon-sm"
                               className="text-destructive hover:text-destructive"
                               onClick={() => removeDeployment(dep)}
-                              aria-label={`Eliminar despliegue ${dep.id}`}
+                              aria-label={t`Delete deployment ${dep.id}`}
                             >
                               <Trash2 />
                             </Button>
@@ -265,15 +296,21 @@ export function SiteDetail({ id }: { id: number }) {
       <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar {site.name}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              <Trans>Delete {site.name}?</Trans>
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Sus dominios dejarán de responder y se borrarán todos sus despliegues. No se puede deshacer.
+              <Trans>
+                Its domains will stop responding and all its deployments will be deleted. This can't be undone.
+              </Trans>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>
+              <Trans>Cancel</Trans>
+            </AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={removeSite}>
-              Eliminar
+              <Trans>Delete</Trans>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
 
 import { Logo } from '@/components/logo';
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function AuthForm({ setup, onAuthenticated }: Props) {
+  const { t } = useLingui();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,8 +42,9 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
       if (ticket) {
         const res = await api.login2FA({ ticket, code });
         if (res.used_recovery_code) {
-          toast.warning(`Has usado un código de recuperación: te quedan ${res.recovery_codes_left}`, {
-            description: 'Genera códigos nuevos en Mi cuenta si te quedan pocos.',
+          const left = res.recovery_codes_left;
+          toast.warning(t`You used a recovery code: ${left} left`, {
+            description: t`Generate new codes in My account if you're running low.`,
             duration: 15000,
           });
         }
@@ -70,17 +73,21 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
           <Logo className="justify-center text-2xl" />
           <Card>
             <CardHeader>
-              <CardTitle>Verificación en dos pasos</CardTitle>
+              <CardTitle>
+                <Trans>Two-step verification</Trans>
+              </CardTitle>
               <CardDescription>
-                {useRecovery
-                  ? 'Escribe uno de tus códigos de recuperación. Cada código solo sirve una vez.'
-                  : 'Escribe el código de 6 dígitos de tu app de autenticación.'}
+                {useRecovery ? (
+                  <Trans>Enter one of your recovery codes. Each code can only be used once.</Trans>
+                ) : (
+                  <Trans>Enter the 6-digit code from your authenticator app.</Trans>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <form onSubmit={submit} className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="code">{useRecovery ? 'Código de recuperación' : 'Código'}</Label>
+                  <Label htmlFor="code">{useRecovery ? <Trans>Recovery code</Trans> : <Trans>Code</Trans>}</Label>
                   <Input
                     id="code"
                     value={code}
@@ -100,7 +107,7 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
                 )}
                 <Button type="submit" className="w-full" disabled={busy}>
                   {busy && <Loader2 className="animate-spin" />}
-                  Verificar
+                  <Trans>Verify</Trans>
                 </Button>
               </form>
               <div className="mt-4 flex justify-between border-t pt-3">
@@ -114,7 +121,7 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
                     setError('');
                   }}
                 >
-                  {useRecovery ? 'Usar la app' : 'Usar un código de recuperación'}
+                  {useRecovery ? <Trans>Use the app</Trans> : <Trans>Use a recovery code</Trans>}
                 </Button>
                 <Button
                   variant="link"
@@ -126,7 +133,7 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
                     setError('');
                   }}
                 >
-                  Volver
+                  <Trans>Back</Trans>
                 </Button>
               </div>
             </CardContent>
@@ -142,21 +149,29 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
         <Logo className="justify-center text-2xl" />
         <Card>
           <CardHeader>
-            <CardTitle>{setup ? 'Bienvenido a Dockfly' : 'Iniciar sesión'}</CardTitle>
+            <CardTitle>{setup ? <Trans>Welcome to Dockfly</Trans> : <Trans>Log in</Trans>}</CardTitle>
             <CardDescription>
-              {setup ? 'Primera instalación: crea la cuenta de administrador.' : 'Accede al panel de administración.'}
+              {setup ? (
+                <Trans>First-time setup: create the administrator account.</Trans>
+              ) : (
+                <Trans>Sign in to the admin dashboard.</Trans>
+              )}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={submit} className="space-y-4">
               {setup && (
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nombre</Label>
+                  <Label htmlFor="name">
+                    <Trans>Name</Trans>
+                  </Label>
                   <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" />
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">
+                  <Trans>Email</Trans>
+                </Label>
                 <Input
                   id="email"
                   type="email"
@@ -167,7 +182,9 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Contraseña</Label>
+                <Label htmlFor="password">
+                  <Trans>Password</Trans>
+                </Label>
                 <Input
                   id="password"
                   type="password"
@@ -185,12 +202,14 @@ export function AuthForm({ setup, onAuthenticated }: Props) {
               )}
               <Button type="submit" className="w-full" disabled={busy}>
                 {busy && <Loader2 className="animate-spin" />}
-                {setup ? 'Crear administrador' : 'Entrar'}
+                {setup ? <Trans>Create administrator</Trans> : <Trans>Sign in</Trans>}
               </Button>
             </form>
             {setup && (
               <div className="mt-4 flex flex-col items-center gap-1 border-t pt-4 text-center">
-                <p className="text-xs text-muted-foreground">¿Vienes de otro servidor?</p>
+                <p className="text-xs text-muted-foreground">
+                  <Trans>Coming from another server?</Trans>
+                </p>
                 <RestoreBackup variant="link" />
               </div>
             )}

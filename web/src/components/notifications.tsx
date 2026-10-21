@@ -1,6 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Bell, Loader2, Mail, Pencil, Plus, Send, Trash2, TriangleAlert, Webhook } from 'lucide-react';
 import { toast } from 'sonner';
+import { msg } from '@lingui/core/macro';
+import type { MessageDescriptor } from '@lingui/core';
+import { useLingui } from '@lingui/react';
+import { Trans, useLingui as useLinguiMacro } from '@lingui/react/macro';
 
 import { CheckField } from '@/components/check-field';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -23,16 +27,16 @@ import {
 } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 
-const eventLabels: Record<NotificationEvent, string> = {
-  build_failed: 'Build fallido',
-  build_succeeded: 'Sitio publicado',
-  cert_error: 'Error al obtener un certificado SSL',
-  cert_expiring: 'Certificado SSL a punto de caducar',
-  container_down: 'Contenedor caído',
-  container_recovered: 'Contenedor recuperado',
-  backup_failed: 'Copia de una base de datos fallida',
-  server_down: 'Servidor desconectado',
-  server_up: 'Servidor conectado de nuevo',
+const eventLabels: Record<NotificationEvent, MessageDescriptor> = {
+  build_failed: msg`Build failed`,
+  build_succeeded: msg`Site published`,
+  cert_error: msg`Error obtaining an SSL certificate`,
+  cert_expiring: msg`SSL certificate about to expire`,
+  container_down: msg`Container down`,
+  container_recovered: msg`Container recovered`,
+  backup_failed: msg`Database backup failed`,
+  server_down: msg`Server disconnected`,
+  server_up: msg`Server reconnected`,
 };
 
 const typeLabels: Record<ChannelType, string> = {
@@ -43,55 +47,60 @@ const typeLabels: Record<ChannelType, string> = {
   webhook: 'Webhook',
 };
 
-type FieldDef = { key: string; label: string; placeholder?: string; secret?: boolean; type?: string; hint?: string; optional?: boolean };
+type FieldDef = { key: string; label: MessageDescriptor | string; placeholder?: MessageDescriptor | string; secret?: boolean; type?: string; hint?: MessageDescriptor; optional?: boolean };
 
 const fields: Record<ChannelType, FieldDef[]> = {
   discord: [
     {
       key: 'webhook_url',
-      label: 'URL del webhook',
+      label: msg`Webhook URL`,
       placeholder: 'https://discord.com/api/webhooks/…',
       secret: true,
-      hint: 'En Discord: Ajustes del canal → Integraciones → Webhooks → Nuevo webhook → Copiar URL.',
+      hint: msg`In Discord: Channel settings → Integrations → Webhooks → New webhook → Copy webhook URL.`,
     },
   ],
   slack: [
     {
       key: 'webhook_url',
-      label: 'URL del webhook',
+      label: msg`Webhook URL`,
       placeholder: 'https://hooks.slack.com/services/…',
       secret: true,
-      hint: 'Crea una app en api.slack.com con «Incoming Webhooks» y añade un webhook al canal.',
+      hint: msg`Create an app at api.slack.com with "Incoming Webhooks" and add a webhook to the channel.`,
     },
   ],
   telegram: [
-    { key: 'bot_token', label: 'Token del bot', placeholder: '123456:ABC-DEF…', secret: true, hint: 'Créalo hablando con @BotFather.' },
+    { key: 'bot_token', label: msg`Bot token`, placeholder: '123456:ABC-DEF…', secret: true, hint: msg`Create it by talking to @BotFather.` },
     {
       key: 'chat_id',
       label: 'Chat ID',
-      placeholder: '123456789 o -100…',
-      hint: 'Escríbele al bot y obtén tu ID con @userinfobot; para un grupo, añade el bot y usa el ID del grupo (empieza por -100).',
+      placeholder: msg`123456789 or -100…`,
+      hint: msg`Message the bot and get your ID with @userinfobot; for a group, add the bot and use the group ID (it starts with -100).`,
     },
   ],
   webhook: [
-    { key: 'url', label: 'URL', placeholder: 'https://mi-servicio.com/dockfly' },
+    { key: 'url', label: 'URL', placeholder: msg`https://my-service.com/dockfly` },
     {
       key: 'secret',
-      label: 'Secreto',
+      label: msg`Secret`,
       secret: true,
       optional: true,
-      hint: 'Opcional: Dockfly firmará el cuerpo con HMAC-SHA256 en la cabecera X-Dockfly-Signature.',
+      hint: msg`Optional: Dockfly will sign the body with HMAC-SHA256 in the X-Dockfly-Signature header.`,
     },
   ],
   email: [
-    { key: 'host', label: 'Servidor SMTP', placeholder: 'smtp.gmail.com' },
-    { key: 'port', label: 'Puerto', placeholder: '587', type: 'number' },
-    { key: 'username', label: 'Usuario', optional: true },
-    { key: 'password', label: 'Contraseña', secret: true, optional: true, hint: 'En Gmail, usa una contraseña de aplicación.' },
-    { key: 'from', label: 'Remitente', placeholder: 'dockfly@midominio.com' },
-    { key: 'to', label: 'Destinatarios', placeholder: 'yo@midominio.com, equipo@midominio.com' },
+    { key: 'host', label: msg`SMTP server`, placeholder: 'smtp.gmail.com' },
+    { key: 'port', label: msg`Port`, placeholder: '587', type: 'number' },
+    { key: 'username', label: msg`Username`, optional: true },
+    { key: 'password', label: msg`Password`, secret: true, optional: true, hint: msg`For Gmail, use an app password.` },
+    { key: 'from', label: msg`Sender`, placeholder: msg`dockfly@mydomain.com` },
+    { key: 'to', label: msg`Recipients`, placeholder: msg`me@mydomain.com, team@mydomain.com` },
   ],
 };
+
+// Etiquetas de los campos: algunas son literales (URL, Chat ID) y otras se traducen.
+function fieldText(i18n: ReturnType<typeof useLingui>['i18n'], v: MessageDescriptor | string) {
+  return typeof v === 'string' ? v : i18n._(v);
+}
 
 function ChannelIcon({ type }: { type: ChannelType }) {
   if (type === 'email') return <Mail className="size-4" />;
@@ -101,6 +110,8 @@ function ChannelIcon({ type }: { type: ChannelType }) {
 }
 
 export function Notifications() {
+  const { i18n } = useLingui();
+  const { t } = useLinguiMacro();
   const [channels, setChannels] = useState<NotificationChannel[] | null>(null);
   const [editing, setEditing] = useState<NotificationChannel | 'new' | null>(null);
   const [testing, setTesting] = useState<number | null>(null);
@@ -114,9 +125,11 @@ export function Notifications() {
     setTesting(c.id);
     try {
       await api.testChannel(c.id);
-      toast.success(`Aviso de prueba enviado a ${c.name}`);
+      const name = c.name;
+      toast.success(t`Test notification sent to ${name}`);
     } catch (e) {
-      toast.error(`${c.name} no funciona`, { description: errorMessage(e), duration: 10_000 });
+      const name = c.name;
+      toast.error(t`${name} isn't working`, { description: errorMessage(e), duration: 10_000 });
     } finally {
       setTesting(null);
       load();
@@ -144,20 +157,26 @@ export function Notifications() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Notificaciones</CardTitle>
+        <CardTitle className="text-lg">
+          <Trans>Notifications</Trans>
+        </CardTitle>
         <CardDescription>
-          Avisos cuando falla un build, un certificado SSL da problemas o cae un contenedor. Cada aviso se envía una sola
-          vez, no en bucle.
+          <Trans>
+            Alerts when a build fails, an SSL certificate has problems or a container goes down. Each alert is sent only
+            once, not repeatedly.
+          </Trans>
         </CardDescription>
         <CardAction>
           <Button size="sm" onClick={() => setEditing('new')}>
-            <Plus /> Añadir canal
+            <Plus /> <Trans>Add channel</Trans>
           </Button>
         </CardAction>
       </CardHeader>
       <CardContent>
         {channels && channels.length === 0 && (
-          <p className="py-4 text-center text-sm text-muted-foreground">Todavía no hay canales de notificación.</p>
+          <p className="py-4 text-center text-sm text-muted-foreground">
+            <Trans>No notification channels yet.</Trans>
+          </p>
         )}
         {channels && channels.length > 0 && (
           <ul className="divide-y rounded-lg border">
@@ -172,23 +191,27 @@ export function Notifications() {
                   <div className="mt-1 flex flex-wrap gap-1">
                     {c.events.map((e) => (
                       <Badge key={e} variant="outline" className="font-normal">
-                        {eventLabels[e]}
+                        {i18n._(eventLabels[e])}
                       </Badge>
                     ))}
                   </div>
                   {c.last_error ? (
                     <p className="mt-1 flex items-center gap-1 text-xs text-destructive">
-                      <TriangleAlert className="size-3" /> Último envío fallido: {c.last_error}
+                      <TriangleAlert className="size-3" /> <Trans>Last delivery failed: {c.last_error}</Trans>
                     </p>
                   ) : (
-                    c.last_sent_at && <p className="mt-1 text-xs text-muted-foreground">Último aviso {timeAgo(c.last_sent_at)}</p>
+                    c.last_sent_at && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        <Trans>Last alert {timeAgo(c.last_sent_at)}</Trans>
+                      </p>
+                    )
                   )}
                 </div>
                 <Button variant="outline" size="sm" onClick={() => test(c)} disabled={testing === c.id}>
-                  {testing === c.id ? <Loader2 className="animate-spin" /> : <Send />} Probar
+                  {testing === c.id ? <Loader2 className="animate-spin" /> : <Send />} <Trans>Test</Trans>
                 </Button>
-                <Switch checked={c.enabled} onCheckedChange={() => toggle(c)} aria-label="Activo" />
-                <Button variant="ghost" size="icon-sm" onClick={() => setEditing(c)} aria-label="Editar">
+                <Switch checked={c.enabled} onCheckedChange={() => toggle(c)} aria-label={t`Active`} />
+                <Button variant="ghost" size="icon-sm" onClick={() => setEditing(c)} aria-label={t`Edit`}>
                   <Pencil />
                 </Button>
                 <Button
@@ -196,7 +219,7 @@ export function Notifications() {
                   size="icon-sm"
                   className="text-destructive hover:text-destructive"
                   onClick={() => remove(c)}
-                  aria-label="Eliminar"
+                  aria-label={t`Delete`}
                 >
                   <Trash2 />
                 </Button>
@@ -220,6 +243,8 @@ export function Notifications() {
 }
 
 function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationChannel; onClose: () => void; onSaved: () => void }) {
+  const { i18n } = useLingui();
+  const { t } = useLinguiMacro();
   const [type, setType] = useState<ChannelType>(channel?.type ?? 'discord');
   const [name, setName] = useState(channel?.name ?? '');
   const [events, setEvents] = useState<NotificationEvent[]>(
@@ -234,6 +259,7 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationCh
   });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const channelName = channel?.name;
 
   function changeType(t: ChannelType) {
     setType(t);
@@ -253,7 +279,7 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationCh
     try {
       if (channel) await api.updateChannel(channel.id, input);
       else await api.createChannel(input);
-      toast.success(channel ? 'Canal guardado' : 'Canal creado: pulsa «Probar» para comprobarlo');
+      toast.success(channel ? t`Channel saved` : t`Channel created: click "Test" to check it`);
       onSaved();
     } catch (err) {
       setError(errorMessage(err));
@@ -267,13 +293,17 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationCh
       <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
         <form onSubmit={save} className="contents">
           <DialogHeader>
-            <DialogTitle>{channel ? `Editar ${channel.name}` : 'Nuevo canal de notificación'}</DialogTitle>
-            <DialogDescription>Los datos se guardan cifrados; los campos secretos no se vuelven a mostrar.</DialogDescription>
+            <DialogTitle>{channel ? t`Edit ${channelName}` : t`New notification channel`}</DialogTitle>
+            <DialogDescription>
+              <Trans>Data is stored encrypted; secret fields are never shown again.</Trans>
+            </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label>Tipo</Label>
+              <Label>
+                <Trans>Type</Trans>
+              </Label>
               <Select value={type} onValueChange={(v) => changeType(v as ChannelType)} disabled={!!channel}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -288,22 +318,32 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationCh
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ch-name">Nombre</Label>
-              <Input id="ch-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Equipo" required />
+              <Label htmlFor="ch-name">
+                <Trans>Name</Trans>
+              </Label>
+              <Input id="ch-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t`Team`} required />
             </div>
           </div>
 
           {type === 'email' && (
             <div className="space-y-2">
-              <Label>Seguridad</Label>
+              <Label>
+                <Trans>Security</Trans>
+              </Label>
               <Select value={config.security ?? 'starttls'} onValueChange={(v) => setConfig((c) => ({ ...c, security: v }))}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="starttls">STARTTLS (puerto 587)</SelectItem>
-                  <SelectItem value="tls">TLS (puerto 465)</SelectItem>
-                  <SelectItem value="none">Sin cifrar (solo servidores locales)</SelectItem>
+                  <SelectItem value="starttls">
+                    <Trans>STARTTLS (port 587)</Trans>
+                  </SelectItem>
+                  <SelectItem value="tls">
+                    <Trans>TLS (port 465)</Trans>
+                  </SelectItem>
+                  <SelectItem value="none">
+                    <Trans>Unencrypted (local servers only)</Trans>
+                  </SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -313,8 +353,13 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationCh
             {fields[type].map((f) => (
               <div key={f.key} className={f.hint || f.key.endsWith('url') || f.key === 'to' ? 'space-y-2 sm:col-span-2' : 'space-y-2'}>
                 <Label htmlFor={`ch-${f.key}`}>
-                  {f.label}
-                  {f.optional && <span className="font-normal text-muted-foreground"> (opcional)</span>}
+                  {fieldText(i18n, f.label)}
+                  {f.optional && (
+                    <span className="font-normal text-muted-foreground">
+                      {' '}
+                      <Trans>(optional)</Trans>
+                    </span>
+                  )}
                 </Label>
                 <Input
                   id={`ch-${f.key}`}
@@ -322,17 +367,19 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationCh
                   value={config[f.key] ?? ''}
                   onChange={(e) => setConfig((c) => ({ ...c, [f.key]: e.target.value }))}
                   onFocus={(e) => f.secret && e.target.value === SECRET_MASK && setConfig((c) => ({ ...c, [f.key]: '' }))}
-                  placeholder={f.placeholder}
+                  placeholder={f.placeholder && fieldText(i18n, f.placeholder)}
                   required={!f.optional}
                   autoComplete="off"
                 />
-                {f.hint && <p className="text-xs text-muted-foreground">{f.hint}</p>}
+                {f.hint && <p className="text-xs text-muted-foreground">{i18n._(f.hint)}</p>}
               </div>
             ))}
           </div>
 
           <div className="space-y-2">
-            <Label>Avisar de</Label>
+            <Label>
+              <Trans>Notify about</Trans>
+            </Label>
             <div className="grid gap-2 sm:grid-cols-2">
               {(Object.keys(eventLabels) as NotificationEvent[]).map((ev) => (
                 <CheckField
@@ -340,7 +387,7 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationCh
                   id={`ev-${ev}`}
                   checked={events.includes(ev)}
                   onChange={(v) => setEvents((list) => (v ? [...list, ev] : list.filter((x) => x !== ev)))}
-                  label={eventLabels[ev]}
+                  label={i18n._(eventLabels[ev])}
                 />
               ))}
             </div>
@@ -354,11 +401,11 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationCh
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" disabled={busy || events.length === 0}>
               {busy && <Loader2 className="animate-spin" />}
-              Guardar
+              <Trans>Save</Trans>
             </Button>
           </DialogFooter>
         </form>

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { GitCommitHorizontal, Square } from 'lucide-react';
 import { toast } from 'sonner';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { BuildStatusBadge } from '@/components/build-status';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ interface Props {
 }
 
 export function BuildLog({ build: initial, onClose, onChange }: Props) {
+  const { t } = useLingui();
   const [build, setBuild] = useState(initial);
   const [text, setText] = useState('');
   const pre = useRef<HTMLPreElement>(null);
@@ -74,7 +76,7 @@ export function BuildLog({ build: initial, onClose, onChange }: Props) {
       <DialogContent className="flex max-h-[90svh] flex-col sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
-            Build #{build.id} <BuildStatusBadge status={build.status} />
+            <Trans>Build #{build.id}</Trans> <BuildStatusBadge status={build.status} />
           </DialogTitle>
           <DialogDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
             {build.commit_sha && (
@@ -85,7 +87,7 @@ export function BuildLog({ build: initial, onClose, onChange }: Props) {
               </span>
             )}
             <span>
-              {build.branch} · {build.trigger === 'push' ? 'push' : 'manual'} · {formatDate(build.created_at)}
+              {build.branch} · {build.trigger === 'push' ? t`push` : t`manual`} · {formatDate(build.created_at)}
             </span>
           </DialogDescription>
         </DialogHeader>
@@ -98,14 +100,14 @@ export function BuildLog({ build: initial, onClose, onChange }: Props) {
           }}
           className="min-h-72 flex-1 overflow-auto rounded-md bg-zinc-950 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-zinc-100"
         >
-          {text || (build.status === 'queued' ? 'Esperando turno en la cola…' : 'Cargando…')}
+          {text || (build.status === 'queued' ? t`Waiting in queue…` : t`Loading…`)}
         </pre>
 
         {build.error && build.status === 'failed' && <p className="text-sm text-destructive">{build.error}</p>}
         {!buildFinished(build) && (
           <div className="flex justify-end">
             <Button variant="outline" onClick={cancel}>
-              <Square /> Cancelar build
+              <Square /> <Trans>Cancel build</Trans>
             </Button>
           </div>
         )}

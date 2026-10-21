@@ -1,3 +1,5 @@
+import { msg, ph } from '@lingui/core/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import {
@@ -43,9 +45,10 @@ import { formatDate, timeAgo } from '@/lib/format';
 import { useCertificates } from '@/lib/use-certificates';
 import { useServerNames } from '@/lib/use-servers';
 
-const triggerLabel = { manual: 'Manual', push: 'Push', rollback: 'Vuelta atrás' };
+const triggerLabel = { manual: msg`Manual`, push: msg`Push`, rollback: msg`Rollback` };
 
 export function AppDetail({ id }: { id: number }) {
+  const { t, i18n } = useLingui();
   const servers = useServerNames();
   const navigate = useNavigate();
   const certs = useCertificates();
@@ -112,7 +115,12 @@ export function AppDetail({ id }: { id: number }) {
   async function remove() {
     try {
       await api.deleteApp(id, removeData);
-      toast.success(`${app?.name} eliminada${removeData ? ' junto con sus datos' : ''}`);
+      const name = app?.name;
+      toast.success(
+        removeData
+          ? t({ context: 'app', message: `${name} and its data deleted` })
+          : t({ context: 'app', message: `${name} deleted` }),
+      );
       navigate({ to: '/apps' });
     } catch (e) {
       toast.error(errorMessage(e));
@@ -122,16 +130,26 @@ export function AppDetail({ id }: { id: number }) {
   if (notFound) {
     return (
       <div className="py-20 text-center">
-        <p className="font-medium">Esta app no existe</p>
+        <p className="font-medium">
+          <Trans>This app doesn't exist</Trans>
+        </p>
         <Button variant="link" asChild>
-          <Link to="/apps">Volver a las apps</Link>
+          <Link to="/apps">
+            <Trans>Back to apps</Trans>
+          </Link>
         </Button>
       </div>
     );
   }
-  if (!app) return <p className="py-20 text-center text-sm text-muted-foreground">Cargando…</p>;
+  if (!app)
+    return (
+      <p className="py-20 text-center text-sm text-muted-foreground">
+        <Trans>Loading…</Trans>
+      </p>
+    );
 
   const deployed = !!app.current;
+  const volumeNames = app.volumes.map((v) => v.name).join(', ');
   const url = (d: string) => `${app.ssl ? 'https' : 'http'}://${d}`;
 
   return (
@@ -153,7 +171,7 @@ export function AppDetail({ id }: { id: number }) {
             <CardDescription className="space-y-1">
               {app.server_id && (
                 <div className="flex items-center gap-1 text-xs">
-                  <Server className="size-3.5" /> En el servidor {servers[app.server_id] ?? `#${app.server_id}`}
+                  <Server className="size-3.5" /> {t`On server ${ph({ server: servers[app.server_id] ?? `#${app.server_id}` })}`}
                 </div>
               )}
               <div className="flex items-center gap-1 font-mono text-xs">
@@ -174,33 +192,34 @@ export function AppDetail({ id }: { id: number }) {
                   </a>
                 ))}
                 <span>
-                  En la red interna: <code className="font-mono">{app.name}{app.port ? `:${app.port}` : ''}</code>
+                  <Trans>On the internal network:</Trans>{' '}
+                  <code className="font-mono">{app.name}{app.port ? `:${app.port}` : ''}</code>
                 </span>
               </div>
             </CardDescription>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" onClick={deploy} disabled={active}>
-              <Play /> {deployed ? 'Desplegar' : 'Desplegar por primera vez'}
+              <Play /> {deployed ? <Trans>Deploy</Trans> : <Trans>Deploy for the first time</Trans>}
             </Button>
             {deployed && (
               <>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => run('Reiniciada', () => api.appAction(id, 'restart'))}>
-                  <RotateCw /> Reiniciar
+                <Button size="sm" variant="outline" disabled={busy} onClick={() => run(t`Restarted`, () => api.appAction(id, 'restart'))}>
+                  <RotateCw /> <Trans>Restart</Trans>
                 </Button>
                 {app.stopped ? (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => run('En marcha', () => api.appAction(id, 'start'))}>
-                    <Play /> Iniciar
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => run(t`Started`, () => api.appAction(id, 'start'))}>
+                    <Play /> <Trans>Start</Trans>
                   </Button>
                 ) : (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => run('Detenida', () => api.appAction(id, 'stop'))}>
-                    <Square /> Detener
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => run(t`Stopped`, () => api.appAction(id, 'stop'))}>
+                    <Square /> <Trans>Stop</Trans>
                   </Button>
                 )}
               </>
             )}
             <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-              <Pencil /> Configurar
+              <Pencil /> <Trans>Configure</Trans>
             </Button>
             <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleting(true)}>
               <Trash2 />
@@ -211,27 +230,47 @@ export function AppDetail({ id }: { id: number }) {
 
       <Tabs defaultValue="deployments">
         <TabsList>
-          <TabsTrigger value="deployments">Despliegues</TabsTrigger>
-          <TabsTrigger value="logs" disabled={!deployed}>
-            Logs
+          <TabsTrigger value="deployments">
+            <Trans>Deployments</Trans>
           </TabsTrigger>
-          {app.domains.length > 0 && app.port > 0 && <TabsTrigger value="traffic">Tráfico</TabsTrigger>}
-          {backups && <TabsTrigger value="backups">Copias</TabsTrigger>}
+          <TabsTrigger value="logs" disabled={!deployed}>
+            <Trans>Logs</Trans>
+          </TabsTrigger>
+          {app.domains.length > 0 && app.port > 0 && (
+            <TabsTrigger value="traffic">
+              <Trans>Traffic</Trans>
+            </TabsTrigger>
+          )}
+          {backups && (
+            <TabsTrigger value="backups">
+              <Trans context="tab">Backups</Trans>
+            </TabsTrigger>
+          )}
         </TabsList>
 
         <TabsContent value="deployments">
           <Card>
             <CardContent className="px-0">
               {deployments.length === 0 ? (
-                <p className="px-6 py-6 text-center text-sm text-muted-foreground">Todavía no hay despliegues.</p>
+                <p className="px-6 py-6 text-center text-sm text-muted-foreground">
+                  <Trans>No deployments yet.</Trans>
+                </p>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="pl-6">Despliegue</TableHead>
-                      <TableHead>Versión</TableHead>
-                      <TableHead>Origen</TableHead>
-                      <TableHead>Fecha</TableHead>
+                      <TableHead className="pl-6">
+                        <Trans>Deployment</Trans>
+                      </TableHead>
+                      <TableHead>
+                        <Trans>Version</Trans>
+                      </TableHead>
+                      <TableHead>
+                        <Trans>Trigger</Trans>
+                      </TableHead>
+                      <TableHead>
+                        <Trans>Date</Trans>
+                      </TableHead>
                       <TableHead className="pr-6" />
                     </TableRow>
                   </TableHeader>
@@ -256,7 +295,7 @@ export function AppDetail({ id }: { id: number }) {
                           )}
                           {d.status === 'failed' && <div className="truncate text-xs text-destructive">{d.error}</div>}
                         </TableCell>
-                        <TableCell className="text-muted-foreground">{triggerLabel[d.trigger]}</TableCell>
+                        <TableCell className="text-muted-foreground">{i18n._(triggerLabel[d.trigger])}</TableCell>
                         <TableCell className="text-muted-foreground" title={formatDate(d.created_at)}>
                           {timeAgo(d.created_at)}
                         </TableCell>
@@ -275,7 +314,7 @@ export function AppDetail({ id }: { id: number }) {
                                 }
                               }}
                             >
-                              <RotateCcw /> Volver a esta versión
+                              <RotateCcw /> <Trans>Roll back to this version</Trans>
                             </Button>
                           )}
                         </TableCell>
@@ -305,7 +344,7 @@ export function AppDetail({ id }: { id: number }) {
             <LiveLog
               key={app.current!.container}
               url={api.appLogsURL(id)}
-              emptyText="Sin salida todavía…"
+              emptyText={t`No output yet…`}
               className="h-[60svh] overflow-auto rounded-md bg-zinc-950 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-zinc-100"
             />
           )}
@@ -327,9 +366,9 @@ export function AppDetail({ id }: { id: number }) {
       <AlertDialog open={deleting} onOpenChange={setDeleting}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Eliminar {app.name}?</AlertDialogTitle>
+            <AlertDialogTitle>{t`Delete ${ph({ name: app.name })}?`}</AlertDialogTitle>
             <AlertDialogDescription>
-              Se detiene y se borra su contenedor. Sus dominios dejarán de responder.
+              <Trans>Its container is stopped and deleted. Its domains will stop responding.</Trans>
             </AlertDialogDescription>
           </AlertDialogHeader>
           {app.volumes.length > 0 && (
@@ -337,14 +376,16 @@ export function AppDetail({ id }: { id: number }) {
               id="remove-data"
               checked={removeData}
               onChange={setRemoveData}
-              label="Borrar también sus datos (volúmenes)"
-              hint={`${app.volumes.map((v) => v.name).join(', ')}: no se puede deshacer.`}
+              label={t`Also delete its data (volumes)`}
+              hint={t`${volumeNames}: this can't be undone.`}
             />
           )}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>
+              <Trans>Cancel</Trans>
+            </AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={remove}>
-              Eliminar
+              <Trans>Delete</Trans>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -354,13 +395,14 @@ export function AppDetail({ id }: { id: number }) {
 }
 
 function DeploymentLog({ deployment, onClose, onChange }: { deployment: AppDeployment; onClose: () => void; onChange: () => void }) {
+  const { t } = useLingui();
   const [d, setD] = useState(deployment);
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="flex max-h-[90svh] flex-col sm:max-w-4xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
-            Despliegue #{d.id} <DeployStatusBadge status={d.status} />
+            {t`Deployment #${ph({ id: d.id })}`} <DeployStatusBadge status={d.status} />
           </DialogTitle>
           <DialogDescription>
             {d.commit_sha ? `${d.commit_sha.slice(0, 7)} ${d.commit_message}` : d.image} · {formatDate(d.created_at)}
@@ -368,7 +410,7 @@ function DeploymentLog({ deployment, onClose, onChange }: { deployment: AppDeplo
         </DialogHeader>
         <LiveLog
           url={api.appDeploymentLogsURL(d.id)}
-          emptyText={d.status === 'queued' ? 'Esperando turno en la cola…' : 'Cargando…'}
+          emptyText={d.status === 'queued' ? t`Waiting in the queue…` : t`Loading…`}
           onStatus={(x) => setD(x as AppDeployment)}
           onEnd={(x) => {
             setD(x as AppDeployment);
@@ -381,7 +423,7 @@ function DeploymentLog({ deployment, onClose, onChange }: { deployment: AppDeplo
               variant="outline"
               onClick={() => api.cancelAppDeployment(d.id).catch((e) => toast.error(errorMessage(e)))}
             >
-              <Square /> Cancelar despliegue
+              <Square /> <Trans>Cancel deploy</Trans>
             </Button>
           </div>
         )}

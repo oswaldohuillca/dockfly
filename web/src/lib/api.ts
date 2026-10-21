@@ -1,6 +1,8 @@
 // Cliente mínimo de la API de Dockfly. Los tipos reflejan los structs de Go
 // (internal/store, internal/docker, internal/traefik).
 
+import { t } from '@lingui/core/macro';
+
 export type TargetType = 'docker' | 'host' | 'external';
 export type Scheme = 'http' | 'https';
 
@@ -746,7 +748,7 @@ function upload<T>(url: string, form: FormData, onProgress?: (p: number) => void
       if (xhr.status >= 200 && xhr.status < 300) resolve(xhr.response as T);
       else reject(new ApiError(xhr.status, xhr.response?.error || xhr.statusText));
     };
-    xhr.onerror = () => reject(new ApiError(0, 'error de red durante la subida'));
+    xhr.onerror = () => reject(new ApiError(0, t`network error during upload`));
     xhr.send(form);
   });
 }

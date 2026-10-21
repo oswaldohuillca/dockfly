@@ -1,3 +1,5 @@
+import { ph } from '@lingui/core/macro';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Boxes, GitBranch, Lock, Plus } from 'lucide-react';
@@ -13,6 +15,7 @@ import { useCan } from '@/lib/roles';
 import { useServerNames } from '@/lib/use-servers';
 
 export function Apps() {
+  const { t } = useLingui();
   const servers = useServerNames();
   const canEdit = useCan('deployer');
   const navigate = useNavigate();
@@ -35,12 +38,14 @@ export function Apps() {
         <CardHeader>
           <CardTitle className="text-lg">Apps</CardTitle>
           <CardDescription>
-            Contenedores que Dockfly despliega y gestiona: APIs, bases de datos, servicios… desde una imagen o un Dockerfile.
+            <Trans>
+              Containers that Dockfly deploys and manages: APIs, databases, services… from an image or a Dockerfile.
+            </Trans>
           </CardDescription>
           <CardAction>
             {canEdit && (
               <Button onClick={() => setCreating(true)} disabled={status !== null && !status.docker_available}>
-                <Plus /> Nueva app
+                <Plus /> <Trans>New app</Trans>
               </Button>
             )}
           </CardAction>
@@ -48,20 +53,28 @@ export function Apps() {
         <CardContent>
           {status && !status.docker_available && (
             <p className="mb-4 text-sm text-destructive">
-              Docker no está disponible: monta <code className="font-mono">/var/run/docker.sock</code> en el contenedor de
-              Dockfly para usar apps.
+              <Trans>
+                Docker is unavailable: mount <code className="font-mono">/var/run/docker.sock</code> into the Dockfly
+                container to use apps.
+              </Trans>
             </p>
           )}
           {apps === null ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">Cargando…</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              <Trans>Loading…</Trans>
+            </p>
           ) : apps.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-14 text-center">
               <div className="grid size-12 place-items-center rounded-full bg-muted">
                 <Boxes className="size-6 text-muted-foreground" />
               </div>
               <div>
-                <p className="font-medium">Todavía no hay apps</p>
-                <p className="text-sm text-muted-foreground">Empieza con una plantilla: PostgreSQL, Redis, n8n…</p>
+                <p className="font-medium">
+                  <Trans>No apps yet</Trans>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  <Trans>Start from a template: PostgreSQL, Redis, n8n…</Trans>
+                </p>
               </div>
             </div>
           ) : (
@@ -78,7 +91,7 @@ export function Apps() {
                       {a.name}
                       {a.server_id && (
                         <span className="ml-1.5 text-xs font-normal text-muted-foreground">
-                          en {servers[a.server_id] ?? 'otro servidor'}
+                          {t`on ${ph({ server: servers[a.server_id] ?? t`another server` })}`}
                         </span>
                       )}
                     </span>
@@ -101,7 +114,8 @@ export function Apps() {
                       </span>
                     ) : (
                       <span>
-                        Interna: <code className="font-mono text-xs">{a.name}{a.port ? `:${a.port}` : ''}</code>
+                        <Trans>Internal:</Trans>{' '}
+                        <code className="font-mono text-xs">{a.name}{a.port ? `:${a.port}` : ''}</code>
                       </span>
                     )}
                   </div>

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Copy, Download, Loader2, ShieldCheck, ShieldOff } from 'lucide-react';
+import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -32,27 +33,31 @@ export function TwoFactor() {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-lg">
-          Verificación en dos pasos
+          <Trans>Two-step verification</Trans>
           {status.enabled ? (
             <Badge variant="secondary" className="text-emerald-600 dark:text-emerald-400">
-              Activada
+              <Trans context="2fa">Enabled</Trans>
             </Badge>
           ) : (
-            <Badge variant="outline">Desactivada</Badge>
+            <Badge variant="outline">
+              <Trans>Disabled</Trans>
+            </Badge>
           )}
         </CardTitle>
         <CardDescription>
-          Además de la contraseña, el panel pedirá un código de tu app de autenticación (Google Authenticator, 1Password,
-          Bitwarden, Authy…). Quien robe tu contraseña no podrá entrar sin tu móvil.
+          <Trans>
+            Besides your password, the dashboard will ask for a code from your authenticator app (Google Authenticator,
+            1Password, Bitwarden, Authy…). Anyone who steals your password won't be able to sign in without your phone.
+          </Trans>
         </CardDescription>
         <CardAction>
           {status.enabled ? (
             <Button variant="outline" size="sm" onClick={() => setFlow('disable')}>
-              <ShieldOff /> Desactivar
+              <ShieldOff /> <Trans>Disable</Trans>
             </Button>
           ) : (
             <Button size="sm" onClick={() => setFlow('enable')}>
-              <ShieldCheck /> Activar
+              <ShieldCheck /> <Trans>Enable</Trans>
             </Button>
           )}
         </CardAction>
@@ -60,10 +65,14 @@ export function TwoFactor() {
       {status.enabled && (
         <CardContent className="flex flex-wrap items-center justify-between gap-2 text-sm">
           <span className={status.recovery_codes_left <= 2 ? 'text-destructive' : 'text-muted-foreground'}>
-            Te quedan {status.recovery_codes_left} códigos de recuperación.
+            <Plural
+              value={status.recovery_codes_left}
+              one="You have # recovery code left."
+              other="You have # recovery codes left."
+            />
           </span>
           <Button variant="ghost" size="sm" onClick={() => setFlow('regenerate')}>
-            Generar códigos nuevos
+            <Trans>Generate new codes</Trans>
           </Button>
         </CardContent>
       )}
@@ -81,6 +90,7 @@ export function TwoFactor() {
 }
 
 function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose: () => void }) {
+  const { t } = useLingui();
   const [password, setPassword] = useState('');
   const [setup, setSetup] = useState<TwoFactorSetup | null>(null);
   const [code, setCode] = useState('');
@@ -95,7 +105,7 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
     try {
       if (flow === 'disable') {
         await api.disable2FA(password);
-        toast.success('Verificación en dos pasos desactivada');
+        toast.success(t`Two-step verification disabled`);
         onClose();
       } else if (flow === 'regenerate') {
         setCodes((await api.regenerateRecoveryCodes(password)).recovery_codes);
@@ -103,7 +113,7 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
         setSetup(await api.setup2FA(password));
       } else {
         setCodes((await api.enable2FA(code)).recovery_codes);
-        toast.success('Verificación en dos pasos activada');
+        toast.success(t`Two-step verification enabled`);
       }
     } catch (err) {
       setError(errorMessage(err));
@@ -113,9 +123,9 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
   }
 
   const title = {
-    enable: 'Activar la verificación en dos pasos',
-    disable: 'Desactivar la verificación en dos pasos',
-    regenerate: 'Códigos de recuperación nuevos',
+    enable: t`Enable two-step verification`,
+    disable: t`Disable two-step verification`,
+    regenerate: t`New recovery codes`,
   }[flow];
 
   if (codes) {
@@ -124,10 +134,20 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
       <Dialog open onOpenChange={(open) => !open && onClose()}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Guarda tus códigos de recuperación</DialogTitle>
+            <DialogTitle>
+              <Trans>Save your recovery codes</Trans>
+            </DialogTitle>
             <DialogDescription>
-              Si pierdes el móvil, cada código te deja entrar una vez. Guárdalos en un lugar seguro (un gestor de
-              contraseñas): no se volverán a mostrar.{flow === 'regenerate' && ' Los códigos anteriores ya no sirven.'}
+              <Trans>
+                If you lose your phone, each code lets you sign in once. Keep them somewhere safe (a password manager):
+                they won't be shown again.
+              </Trans>
+              {flow === 'regenerate' && (
+                <>
+                  {' '}
+                  <Trans>Your previous codes no longer work.</Trans>
+                </>
+              )}
             </DialogDescription>
           </DialogHeader>
           <ul className="grid grid-cols-2 gap-2 rounded-lg border bg-muted/40 p-4 font-mono text-sm">
@@ -140,18 +160,18 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigator.clipboard.writeText(text).then(() => toast.success('Códigos copiados'))}
+                onClick={() => navigator.clipboard.writeText(text).then(() => toast.success(t`Codes copied`))}
               >
-                <Copy /> Copiar
+                <Copy /> <Trans>Copy</Trans>
               </Button>
               <Button variant="outline" size="sm" asChild>
                 <a href={`data:text/plain;charset=utf-8,${encodeURIComponent(text + '\n')}`} download="dockfly-recovery-codes.txt">
-                  <Download /> Descargar
+                  <Download /> <Trans>Download</Trans>
                 </a>
               </Button>
             </div>
             <Button size="sm" onClick={onClose}>
-              Ya los he guardado
+              <Trans>I've saved them</Trans>
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -166,9 +186,11 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>
-              {setup
-                ? 'Escanea el código con tu app de autenticación y escribe el código de 6 dígitos que aparece.'
-                : 'Por seguridad, confirma tu contraseña.'}
+              {setup ? (
+                <Trans>Scan the code with your authenticator app and enter the 6-digit code it shows.</Trans>
+              ) : (
+                <Trans>For security, confirm your password.</Trans>
+              )}
             </DialogDescription>
           </DialogHeader>
 
@@ -180,13 +202,17 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
                 dangerouslySetInnerHTML={{ __html: setup.qr_svg }}
               />
               <details className="text-xs text-muted-foreground">
-                <summary className="cursor-pointer">¿No puedes escanearlo? Escribe la clave a mano</summary>
+                <summary className="cursor-pointer">
+                  <Trans>Can't scan it? Enter the key manually</Trans>
+                </summary>
                 <code className="mt-2 block break-all rounded bg-muted p-2 font-mono text-foreground">
                   {setup.secret.match(/.{1,4}/g)?.join(' ')}
                 </code>
               </details>
               <div className="space-y-2">
-                <Label htmlFor="totp-code">Código</Label>
+                <Label htmlFor="totp-code">
+                  <Trans>Code</Trans>
+                </Label>
                 <Input
                   id="totp-code"
                   value={code}
@@ -202,7 +228,9 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
             </div>
           ) : (
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Contraseña</Label>
+              <Label htmlFor="confirm-password">
+                <Trans>Password</Trans>
+              </Label>
               <Input
                 id="confirm-password"
                 type="password"
@@ -222,11 +250,11 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
           )}
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" variant={flow === 'disable' ? 'destructive' : 'default'} disabled={busy}>
               {busy && <Loader2 className="animate-spin" />}
-              {flow === 'disable' ? 'Desactivar' : setup ? 'Activar' : 'Continuar'}
+              {flow === 'disable' ? <Trans>Disable</Trans> : setup ? <Trans>Enable</Trans> : <Trans>Continue</Trans>}
             </Button>
           </DialogFooter>
         </form>

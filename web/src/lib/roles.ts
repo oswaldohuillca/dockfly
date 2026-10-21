@@ -1,20 +1,31 @@
+import { t } from '@lingui/core/macro';
 import { createContext, useContext } from 'react';
 
 import type { Role, User } from '@/lib/api';
 
 const rank: Record<Role, number> = { viewer: 1, deployer: 2, admin: 3 };
 
-export const roleLabel: Record<Role, string> = {
-  admin: 'Administrador',
-  deployer: 'Despliegues',
-  viewer: 'Solo lectura',
-};
+export function roleLabel(role: Role): string {
+  switch (role) {
+    case 'admin':
+      return t`Administrator`;
+    case 'deployer':
+      return t`Deployer`;
+    case 'viewer':
+      return t`Read-only`;
+  }
+}
 
-export const roleHint: Record<Role, string> = {
-  admin: 'Todo: proxy hosts, certificados, integraciones, ajustes y usuarios.',
-  deployer: 'Sitios, apps, builds y despliegues (incluidas sus variables de entorno).',
-  viewer: 'Ver el panel y los logs, sin cambiar nada ni ver secretos.',
-};
+export function roleHint(role: Role): string {
+  switch (role) {
+    case 'admin':
+      return t`Everything: proxy hosts, certificates, integrations, settings and users.`;
+    case 'deployer':
+      return t`Sites, apps, builds and deployments (including their environment variables).`;
+    case 'viewer':
+      return t`View the dashboard and logs, without changing anything or seeing secrets.`;
+  }
+}
 
 /** Usuario de la sesión, para las páginas del panel. */
 export const UserContext = createContext<User | null>(null);

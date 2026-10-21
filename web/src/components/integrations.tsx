@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Check, ChevronDown, Copy, ExternalLink, Loader2, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { ProviderIcon, providerName } from '@/components/brand-icons';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -15,6 +16,7 @@ import { cn } from '@/lib/utils';
 import { timeAgo } from '@/lib/format';
 
 export function Integrations() {
+  const { t } = useLingui();
   const [connections, setConnections] = useState<GitConnection[]>([]);
   const [apps, setApps] = useState<{ github: GitHubApp[]; gitlab: GitLabApp[] } | null>(null);
   const [publicURL, setPublicURL] = useState('');
@@ -37,14 +39,17 @@ export function Integrations() {
   async function remove(c: GitConnection) {
     try {
       await api.deleteConnection(c.id);
-      toast.success(`${c.username} desconectado de Dockfly`);
+      const username = c.username;
+      toast.success(t`${username} disconnected from Dockfly`);
       load();
     } catch (e) {
       toast.error(errorMessage(e));
     }
   }
 
-  if (!apps) return <p className="py-20 text-center text-sm text-muted-foreground">Cargando…</p>;
+  if (!apps) return <p className="py-20 text-center text-sm text-muted-foreground">
+        <Trans>Loading…</Trans>
+      </p>;
 
   return (
     <div className="space-y-4">
@@ -58,37 +63,42 @@ export function Integrations() {
 
 /** Lista de cuentas conectadas. */
 function ConnectionList({ items, onRemove }: { items: GitConnection[]; onRemove: (c: GitConnection) => void }) {
+  const { t } = useLingui();
   if (items.length === 0) return null;
   return (
     <ul className="divide-y rounded-lg border">
-      {items.map((c) => (
-        <li key={c.id} className="flex items-center gap-3 px-4 py-3">
-          <ProviderIcon provider={c.provider} className="size-5" />
-          <div className="min-w-0 flex-1">
-            <div className="font-medium">{c.username}</div>
-            <div className="truncate text-xs text-muted-foreground">
-              {c.account_type === 'Organization' ? 'Organización' : 'Cuenta'} · {new URL(c.base_url).host} · conectada{' '}
-              {timeAgo(c.created_at)}
+      {items.map((c) => {
+        const username = c.username;
+        const connectedAgo = timeAgo(c.created_at);
+        return (
+          <li key={c.id} className="flex items-center gap-3 px-4 py-3">
+            <ProviderIcon provider={c.provider} className="size-5" />
+            <div className="min-w-0 flex-1">
+              <div className="font-medium">{c.username}</div>
+              <div className="truncate text-xs text-muted-foreground">
+                {c.account_type === 'Organization' ? t`Organization` : t`Account`} · {new URL(c.base_url).host} ·{' '}
+                <Trans>connected {connectedAgo}</Trans>
+              </div>
             </div>
-          </div>
-          {c.settings_url && c.auth_type === 'github_app' && (
-            <Button variant="ghost" size="sm" asChild>
-              <a href={c.settings_url} target="_blank" rel="noreferrer">
-                Elegir repositorios <ExternalLink />
-              </a>
+            {c.settings_url && c.auth_type === 'github_app' && (
+              <Button variant="ghost" size="sm" asChild>
+                <a href={c.settings_url} target="_blank" rel="noreferrer">
+                  <Trans>Choose repositories</Trans> <ExternalLink />
+                </a>
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-destructive hover:text-destructive"
+              onClick={() => onRemove(c)}
+              aria-label={t`Disconnect ${username}`}
+            >
+              <Trash2 />
             </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="text-destructive hover:text-destructive"
-            onClick={() => onRemove(c)}
-            aria-label={`Desconectar ${c.username}`}
-          >
-            <Trash2 />
-          </Button>
-        </li>
-      ))}
+          </li>
+        );
+      })}
     </ul>
   );
 }
@@ -110,6 +120,7 @@ interface GitHubCardProps {
 }
 
 function GitHubCard({ apps, connections, hasPublicURL, onChange, onRemove }: GitHubCardProps) {
+  const { t } = useLingui();
   const [options, setOptions] = useState(false);
   const [org, setOrg] = useState('');
   const [enterprise, setEnterprise] = useState('');
@@ -140,9 +151,10 @@ function GitHubCard({ apps, connections, hasPublicURL, onChange, onRemove }: Git
   async function removeApp(app: GitHubApp) {
     try {
       await api.deleteGitHubApp(app.id);
-      toast.success(`App ${app.name} quitada de Dockfly`, {
-        description: 'Para borrarla del todo, elimínala también en GitHub.',
-        action: { label: 'Abrir GitHub', onClick: () => window.open(app.html_url, '_blank') },
+      const name = app.name;
+      toast.success(t`App ${name} removed from Dockfly`, {
+        description: t`To delete it completely, remove it on GitHub too.`,
+        action: { label: t`Open GitHub`, onClick: () => window.open(app.html_url, '_blank') },
       });
       onChange();
     } catch (e) {
@@ -157,25 +169,31 @@ function GitHubCard({ apps, connections, hasPublicURL, onChange, onRemove }: Git
           <ProviderIcon provider="github" className="size-5" /> GitHub
         </CardTitle>
         <CardDescription>
-          Autoriza Dockfly en tu cuenta u organización y elige a qué repositorios puede acceder (solo lectura).
+          <Trans>
+            Authorize Dockfly on your account or organization and choose which repositories it can access (read-only).
+          </Trans>
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {apps.length === 0 ? (
           <div className="space-y-3">
             <Button onClick={connect}>
-              <ProviderIcon provider="github" /> Conectar con GitHub
+              <ProviderIcon provider="github" /> <Trans>Connect with GitHub</Trans>
             </Button>
             <p className="text-xs text-muted-foreground">
-              GitHub te pedirá crear la aplicación «Dockfly» (ya configurada: solo confirmas) y después elegir la cuenta u
-              organización y los repositorios.
+              <Trans>
+                GitHub will ask you to create the “Dockfly” app (already configured: just confirm) and then choose the
+                account or organization and the repositories.
+              </Trans>
             </p>
             {!hasPublicURL && (
               <Alert>
                 <TriangleAlert />
                 <AlertDescription>
-                  Aún no hay URL pública: la app se creará sin webhook y los sitios solo se desplegarán con «Desplegar
-                  ahora». Puedes configurarla después y Dockfly activará el webhook.
+                  <Trans>
+                    No public URL yet: the app will be created without a webhook and sites will only deploy with Deploy
+                    now. You can set it later and Dockfly will enable the webhook.
+                  </Trans>
                 </AlertDescription>
               </Alert>
             )}
@@ -185,21 +203,25 @@ function GitHubCard({ apps, connections, hasPublicURL, onChange, onRemove }: Git
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
             >
               <ChevronDown className={cn('size-3.5 transition-transform', options && 'rotate-180')} />
-              Crear la app en una organización o en GitHub Enterprise
+              <Trans>Create the app in an organization or on GitHub Enterprise</Trans>
             </button>
             {options && (
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="gh-org">Organización (opcional)</Label>
-                  <Input id="gh-org" value={org} onChange={(e) => setOrg(e.target.value)} placeholder="mi-empresa" />
+                  <Label htmlFor="gh-org">
+                    <Trans>Organization (optional)</Trans>
+                  </Label>
+                  <Input id="gh-org" value={org} onChange={(e) => setOrg(e.target.value)} placeholder={t`my-company`} />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="gh-enterprise">GitHub Enterprise (opcional)</Label>
+                  <Label htmlFor="gh-enterprise">
+                    <Trans>GitHub Enterprise (optional)</Trans>
+                  </Label>
                   <Input
                     id="gh-enterprise"
                     value={enterprise}
                     onChange={(e) => setEnterprise(e.target.value)}
-                    placeholder="https://github.miempresa.com"
+                    placeholder="https://github.mycompany.com"
                   />
                 </div>
               </div>
@@ -211,18 +233,20 @@ function GitHubCard({ apps, connections, hasPublicURL, onChange, onRemove }: Git
               <ConnectionList items={connections.filter((c) => c.github_app_id === app.id)} onRemove={onRemove} />
               <div className="flex flex-wrap items-center gap-2">
                 <Button variant="outline" size="sm" onClick={() => addAccount(app)}>
-                  <Plus /> Añadir cuenta u organización
+                  <Plus /> <Trans>Add account or organization</Trans>
                 </Button>
                 <Button variant="ghost" size="sm" asChild>
                   <a href={app.html_url} target="_blank" rel="noreferrer">
-                    App {app.name} <ExternalLink />
+                    <Trans>App {app.name}</Trans> <ExternalLink />
                   </a>
                 </Button>
                 {!app.webhook_active && (
-                  <span className="text-xs text-amber-600">Sin webhook: configura la URL pública para desplegar en cada push.</span>
+                  <span className="text-xs text-amber-600">
+                    <Trans>No webhook: set the public URL to deploy on every push.</Trans>
+                  </span>
                 )}
                 <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => removeApp(app)}>
-                  Quitar la app
+                  <Trans>Remove app</Trans>
                 </Button>
               </div>
             </div>
@@ -269,17 +293,21 @@ function GitLabCard({ apps, connections, onChange, onRemove }: GitLabCardProps) 
         <CardTitle className="flex items-center gap-2 text-lg">
           <ProviderIcon provider="gitlab" className="size-5" /> GitLab
         </CardTitle>
-        <CardDescription>gitlab.com o tu propia instancia de GitLab.</CardDescription>
+        <CardDescription>
+          <Trans>gitlab.com or your own GitLab instance.</Trans>
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {apps.length === 0 && !setup && (
           <div className="space-y-2">
             <Button onClick={() => setSetup(true)}>
-              <ProviderIcon provider="gitlab" /> Configurar GitLab
+              <ProviderIcon provider="gitlab" /> <Trans>Set up GitLab</Trans>
             </Button>
             <p className="text-xs text-muted-foreground">
-              GitLab no permite crear la aplicación automáticamente: hay que registrarla una vez (un minuto). Después,
-              conectar una cuenta es solo pulsar «Autorizar».
+              <Trans>
+                GitLab doesn't allow creating the app automatically: you need to register it once (takes a minute).
+                After that, connecting an account is just a click on Connect.
+              </Trans>
             </p>
           </div>
         )}
@@ -292,26 +320,29 @@ function GitLabCard({ apps, connections, onChange, onRemove }: GitLabCardProps) 
             }}
           />
         )}
-        {apps.map((app) => (
-          <div key={app.id} className="space-y-3">
-            <ConnectionList items={connections.filter((c) => c.gitlab_app_id === app.id)} onRemove={onRemove} />
-            <div className="flex flex-wrap items-center gap-2">
-              <Button size="sm" onClick={() => authorize(app)}>
-                <ProviderIcon provider="gitlab" /> Conectar con {new URL(app.web_url).host}
-              </Button>
-              <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => removeApp(app)}>
-                Quitar la aplicación
-              </Button>
+        {apps.map((app) => {
+          const host = new URL(app.web_url).host;
+          return (
+            <div key={app.id} className="space-y-3">
+              <ConnectionList items={connections.filter((c) => c.gitlab_app_id === app.id)} onRemove={onRemove} />
+              <div className="flex flex-wrap items-center gap-2">
+                <Button size="sm" onClick={() => authorize(app)}>
+                  <ProviderIcon provider="gitlab" /> <Trans>Connect with {host}</Trans>
+                </Button>
+                <Button variant="ghost" size="sm" className="ml-auto text-muted-foreground" onClick={() => removeApp(app)}>
+                  <Trans>Remove app</Trans>
+                </Button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {apps.length > 0 && !setup && (
           <button
             type="button"
             onClick={() => setSetup(true)}
             className="text-xs text-muted-foreground underline-offset-2 hover:underline"
           >
-            Añadir otra instancia de GitLab
+            <Trans>Add another GitLab instance</Trans>
           </button>
         )}
       </CardContent>
@@ -320,6 +351,7 @@ function GitLabCard({ apps, connections, onChange, onRemove }: GitLabCardProps) 
 }
 
 function GitLabSetup({ onCancel, onSaved }: { onCancel: () => void; onSaved: () => void }) {
+  const { t } = useLingui();
   const [webURL, setWebURL] = useState('https://gitlab.com');
   const [clientID, setClientID] = useState('');
   const [secret, setSecret] = useState('');
@@ -334,7 +366,7 @@ function GitLabSetup({ onCancel, onSaved }: { onCancel: () => void; onSaved: () 
     setBusy(true);
     try {
       await api.putGitLabApp({ web_url: webURL, client_id: clientID, client_secret: secret });
-      toast.success('GitLab configurado: ya puedes conectar tu cuenta');
+      toast.success(t`GitLab is set up: you can now connect your account`);
       onSaved();
     } catch (err) {
       setError(errorMessage(err));
@@ -346,28 +378,36 @@ function GitLabSetup({ onCancel, onSaved }: { onCancel: () => void; onSaved: () 
   return (
     <form onSubmit={save} className="space-y-4 rounded-lg border p-4">
       <div className="space-y-2">
-        <Label htmlFor="gl-url">Instancia de GitLab</Label>
+        <Label htmlFor="gl-url">
+          <Trans>GitLab instance</Trans>
+        </Label>
         <Input id="gl-url" value={webURL} onChange={(e) => setWebURL(e.target.value)} placeholder="https://gitlab.com" />
       </div>
       <ol className="list-decimal space-y-2 pl-5 text-sm">
         <li>
-          Abre{' '}
-          <a
-            href={`${base}/-/user_settings/applications`}
-            target="_blank"
-            rel="noreferrer"
-            className="font-medium text-primary hover:underline"
-          >
-            Aplicaciones en GitLab <ExternalLink className="inline size-3" />
-          </a>{' '}
-          y pulsa «Add new application».
+          <Trans>
+            Open{' '}
+            <a
+              href={`${base}/-/user_settings/applications`}
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-primary hover:underline"
+            >
+              Applications in GitLab <ExternalLink className="inline size-3" />
+            </a>{' '}
+            and click “Add new application”.
+          </Trans>
         </li>
         <li>
-          Nombre <strong>Dockfly</strong>, marca <strong>Confidential</strong> y el scope <strong>api</strong>. Como
-          Redirect URI pega:
+          <Trans>
+            Name it <strong>Dockfly</strong>, check <strong>Confidential</strong> and the <strong>api</strong> scope.
+            Paste this as the Redirect URI:
+          </Trans>
           <CopyField value={redirectURI} />
         </li>
-        <li>Guarda y copia aquí el Application ID y el Secret:</li>
+        <li>
+          <Trans>Save, then copy the Application ID and Secret here:</Trans>
+        </li>
       </ol>
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="space-y-2">
@@ -395,11 +435,11 @@ function GitLabSetup({ onCancel, onSaved }: { onCancel: () => void; onSaved: () 
       )}
       <div className="flex justify-end gap-2">
         <Button type="button" variant="outline" onClick={onCancel}>
-          Cancelar
+          <Trans>Cancel</Trans>
         </Button>
         <Button type="submit" disabled={busy}>
           {busy && <Loader2 className="animate-spin" />}
-          Guardar
+          <Trans>Save</Trans>
         </Button>
       </div>
     </form>
@@ -421,7 +461,7 @@ function CopyField({ value }: { value: string }) {
           setTimeout(() => setCopied(false), 1500);
         }}
       >
-        {copied ? <Check /> : <Copy />} {copied ? 'Copiado' : 'Copiar'}
+        {copied ? <Check /> : <Copy />} {copied ? <Trans>Copied</Trans> : <Trans>Copy</Trans>}
       </Button>
     </div>
   );
@@ -437,20 +477,24 @@ function TokenCard({ connections, onChange, onRemove }: { connections: GitConnec
       <CardHeader>
         <button type="button" onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 text-left">
           <ChevronDown className={cn('size-4 text-muted-foreground transition-transform', open && 'rotate-180')} />
-          <CardTitle className="text-base">Avanzado: tokens de acceso personal</CardTitle>
+          <CardTitle className="text-base">
+            <Trans>Advanced: personal access tokens</Trans>
+          </CardTitle>
         </button>
         {open && (
           <CardDescription>
-            Para casos en los que no se puede usar la autorización (p. ej. sin navegador). El token se guarda cifrado.
+            <Trans>
+              For cases where authorization can't be used (e.g. without a browser). The token is stored encrypted.
+            </Trans>
           </CardDescription>
         )}
         {open && (
           <CardAction className="flex gap-2">
             <Button variant="outline" size="sm" onClick={() => setAdding('github')}>
-              <ProviderIcon provider="github" /> Token de GitHub
+              <ProviderIcon provider="github" /> <Trans>GitHub token</Trans>
             </Button>
             <Button variant="outline" size="sm" onClick={() => setAdding('gitlab')}>
-              <ProviderIcon provider="gitlab" /> Token de GitLab
+              <ProviderIcon provider="gitlab" /> <Trans>GitLab token</Trans>
             </Button>
           </CardAction>
         )}
@@ -475,6 +519,7 @@ function TokenCard({ connections, onChange, onRemove }: { connections: GitConnec
 }
 
 function PublicURLCard({ value: initial, onSaved }: { value: string; onSaved: () => void }) {
+  const { t } = useLingui();
   const [value, setValue] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -486,8 +531,8 @@ function PublicURLCard({ value: initial, onSaved }: { value: string; onSaved: ()
       const res = await api.putSettings({ public_url: value });
       setValue(res.settings.public_url);
       setSaved(res.settings.public_url);
-      toast.success('URL pública guardada');
-      for (const w of res.warnings ?? []) toast.warning('Webhook de GitHub', { description: w, duration: 15000 });
+      toast.success(t`Public URL saved`);
+      for (const w of res.warnings ?? []) toast.warning(t`GitHub webhook`, { description: w, duration: 15000 });
       onSaved();
     } catch (err) {
       toast.error(errorMessage(err));
@@ -499,11 +544,15 @@ function PublicURLCard({ value: initial, onSaved }: { value: string; onSaved: ()
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">URL pública de Dockfly</CardTitle>
+        <CardTitle className="text-lg">
+          <Trans>Dockfly public URL</Trans>
+        </CardTitle>
         <CardDescription>
-          GitHub y GitLab avisan de cada push a esta dirección. Publica el panel con un proxy host (por ejemplo,
-          <code className="mx-1 font-mono">dockfly.midominio.com</code> → <code className="font-mono">127.0.0.1:81</code>{' '}
-          con SSL) y escríbela aquí. Sin ella, los sitios solo se despliegan con el botón «Desplegar ahora».
+          <Trans>
+            GitHub and GitLab notify this address on every push. Expose the panel with a proxy host (for example,
+            <code className="mx-1 font-mono">dockfly.mydomain.com</code> → <code className="font-mono">127.0.0.1:81</code>{' '}
+            with SSL) and enter it here. Without it, sites only deploy with the Deploy now button.
+          </Trans>
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -511,12 +560,12 @@ function PublicURLCard({ value: initial, onSaved }: { value: string; onSaved: ()
           <Input
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            placeholder="https://dockfly.midominio.com"
+            placeholder="https://dockfly.mydomain.com"
             className="max-w-md"
           />
           <Button type="submit" disabled={busy || value === saved}>
             {busy && <Loader2 className="animate-spin" />}
-            Guardar
+            <Trans>Save</Trans>
           </Button>
         </form>
       </CardContent>
@@ -529,9 +578,11 @@ const tokenHelp: Record<GitProvider, { url: string; text: React.ReactNode }> = {
     url: 'https://github.com/settings/personal-access-tokens/new',
     text: (
       <>
-        Crea un <strong>fine-grained token</strong> con acceso a los repositorios que quieras desplegar y estos
-        permisos: <strong>Contents</strong> (lectura), <strong>Metadata</strong> (lectura) y <strong>Webhooks</strong>{' '}
-        (lectura y escritura).
+        <Trans>
+          Create a <strong>fine-grained token</strong> with access to the repositories you want to deploy and these
+          permissions: <strong>Contents</strong> (read), <strong>Metadata</strong> (read) and <strong>Webhooks</strong>{' '}
+          (read and write).
+        </Trans>
       </>
     ),
   },
@@ -539,13 +590,16 @@ const tokenHelp: Record<GitProvider, { url: string; text: React.ReactNode }> = {
     url: 'https://gitlab.com/-/user_settings/personal_access_tokens',
     text: (
       <>
-        Crea un token de acceso personal con el scope <strong>api</strong> (necesario para registrar el webhook de push).
+        <Trans>
+          Create a personal access token with the <strong>api</strong> scope (required to register the push webhook).
+        </Trans>
       </>
     ),
   },
 };
 
 function ConnectionDialog({ provider, onClose, onSaved }: { provider: GitProvider; onClose: () => void; onSaved: () => void }) {
+  const { t } = useLingui();
   const [token, setToken] = useState('');
   const [baseURL, setBaseURL] = useState('');
   const [selfHosted, setSelfHosted] = useState(false);
@@ -560,7 +614,8 @@ function ConnectionDialog({ provider, onClose, onSaved }: { provider: GitProvide
     setBusy(true);
     try {
       const conn = await api.createConnection({ provider, base_url: selfHosted ? baseURL : '', token });
-      toast.success(`${name} vinculado como ${conn.username}`);
+      const username = conn.username;
+      toast.success(t`${name} connected as ${username}`);
       onSaved();
     } catch (err) {
       setError(errorMessage(err));
@@ -577,7 +632,7 @@ function ConnectionDialog({ provider, onClose, onSaved }: { provider: GitProvide
         <form onSubmit={save} className="contents">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <ProviderIcon provider={provider} className="size-5" /> Vincular {name}
+              <ProviderIcon provider={provider} className="size-5" /> <Trans>Connect {name}</Trans>
             </DialogTitle>
             <DialogDescription>{help.text}</DialogDescription>
           </DialogHeader>
@@ -589,7 +644,7 @@ function ConnectionDialog({ provider, onClose, onSaved }: { provider: GitProvide
               rel="noreferrer"
               className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
             >
-              Crear el token en {name} <ExternalLink className="size-3.5" />
+              <Trans>Create the token on {name}</Trans> <ExternalLink className="size-3.5" />
             </a>
           )}
 
@@ -606,18 +661,18 @@ function ConnectionDialog({ provider, onClose, onSaved }: { provider: GitProvide
               autoFocus
             />
             <p className="text-xs text-muted-foreground">
-              Se guarda cifrado y nunca llega a los contenedores de build.
+              <Trans>Stored encrypted and never exposed to build containers.</Trans>
             </p>
           </div>
 
           {selfHosted ? (
             <div className="space-y-2">
-              <Label htmlFor="base-url">{provider === 'github' ? 'URL de GitHub Enterprise' : 'URL de tu GitLab'}</Label>
+              <Label htmlFor="base-url">{provider === 'github' ? <Trans>GitHub Enterprise URL</Trans> : <Trans>Your GitLab URL</Trans>}</Label>
               <Input
                 id="base-url"
                 value={baseURL}
                 onChange={(e) => setBaseURL(e.target.value)}
-                placeholder={provider === 'github' ? 'https://github.miempresa.com' : 'https://gitlab.miempresa.com'}
+                placeholder={provider === 'github' ? 'https://github.mycompany.com' : 'https://gitlab.mycompany.com'}
                 required
               />
             </div>
@@ -627,7 +682,7 @@ function ConnectionDialog({ provider, onClose, onSaved }: { provider: GitProvide
               className="w-fit text-xs text-muted-foreground underline-offset-2 hover:underline"
               onClick={() => setSelfHosted(true)}
             >
-              {provider === 'github' ? '¿Usas GitHub Enterprise?' : '¿Usas tu propio GitLab?'}
+              {provider === 'github' ? <Trans>Using GitHub Enterprise?</Trans> : <Trans>Using your own GitLab?</Trans>}
             </button>
           )}
 
@@ -640,11 +695,11 @@ function ConnectionDialog({ provider, onClose, onSaved }: { provider: GitProvide
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" disabled={busy}>
               {busy ? <Loader2 className="animate-spin" /> : <Plus />}
-              Vincular
+              <Trans>Connect</Trans>
             </Button>
           </DialogFooter>
         </form>

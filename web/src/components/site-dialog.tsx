@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Loader2, TriangleAlert } from 'lucide-react';
+import { Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
 
 import { AccessSelect } from '@/components/access-select';
@@ -22,6 +23,7 @@ interface Props {
 }
 
 export function SiteDialog({ site, onClose, onSaved }: Props) {
+  const { t } = useLingui();
   const isNew = site === undefined;
   const [form, setForm] = useState<SiteInput>(() => ({
     name: site?.name ?? '',
@@ -44,7 +46,7 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
     setBusy(true);
     try {
       const saved = isNew ? await api.createSite(form) : await api.updateSite(site.id, form);
-      toast.success(isNew ? 'Sitio creado' : 'Cambios guardados');
+      toast.success(isNew ? t`Site created` : t`Changes saved`);
       onSaved(saved);
     } catch (err) {
       setError(errorMessage(err));
@@ -58,48 +60,62 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
       <DialogContent className="sm:max-w-lg">
         <form onSubmit={save} className="contents">
           <DialogHeader>
-            <DialogTitle>{isNew ? 'Nuevo sitio' : `Editar ${site.name}`}</DialogTitle>
+            <DialogTitle>{isNew ? <Trans>New site</Trans> : <Trans>Edit {site.name}</Trans>}</DialogTitle>
             <DialogDescription>
-              {isNew ? 'Después podrás subir los archivos de tu build.' : 'Los cambios se aplican al instante.'}
+              {isNew ? (
+                <Trans>You can upload your build files afterwards.</Trans>
+              ) : (
+                <Trans>Changes apply instantly.</Trans>
+              )}
             </DialogDescription>
           </DialogHeader>
 
           <Tabs defaultValue="details">
             <TabsList className="w-full">
-              <TabsTrigger value="details">Detalles</TabsTrigger>
-              <TabsTrigger value="ssl">SSL y acceso</TabsTrigger>
+              <TabsTrigger value="details">
+                <Trans>Details</Trans>
+              </TabsTrigger>
+              <TabsTrigger value="ssl">
+                <Trans>SSL and access</Trans>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="details" className="space-y-5 pt-3">
               <div className="space-y-2">
-                <Label htmlFor="site-name">Nombre</Label>
+                <Label htmlFor="site-name">
+                  <Trans>Name</Trans>
+                </Label>
                 <Input
                   id="site-name"
                   value={form.name}
                   onChange={(e) => set('name', e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-                  placeholder="mi-web"
+                  placeholder={t`my-site`}
                   required
                   autoFocus={isNew}
                 />
-                <p className="text-xs text-muted-foreground">Minúsculas, números y guiones.</p>
+                <p className="text-xs text-muted-foreground">
+                  <Trans>Lowercase letters, numbers and hyphens.</Trans>
+                </p>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="site-domains">Dominios</Label>
+                <Label htmlFor="site-domains">
+                  <Trans>Domains</Trans>
+                </Label>
                 <DomainsInput id="site-domains" value={form.domains} onChange={(d) => set('domains', d)} />
               </div>
               <CheckField
                 id="spa"
                 checked={form.spa}
                 onChange={(v) => set('spa', v)}
-                label="Aplicación de una sola página (SPA)"
-                hint="Sirve index.html en cualquier ruta que no exista. Actívalo para React Router, Vue Router, etc."
+                label={t`Single-page application (SPA)`}
+                hint={t`Serves index.html for any path that doesn't exist. Turn it on for React Router, Vue Router, etc.`}
               />
               <CheckField
                 id="previews"
                 checked={form.previews}
                 onChange={(v) => set('previews', v)}
-                label="Previews por rama"
-                hint="Cada push a otra rama se publica en su propia URL (rama--sitio.dominio-de-previews). Configura el dominio en Ajustes."
+                label={t`Branch previews`}
+                hint={t`Every push to another branch is published at its own URL (branch--site.previews-domain). Set the domain in Settings.`}
               />
             </TabsContent>
 
@@ -118,11 +134,11 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
-              Cancelar
+              <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" disabled={busy}>
               {busy && <Loader2 className="animate-spin" />}
-              {isNew ? 'Crear sitio' : 'Guardar'}
+              {isNew ? <Trans>Create site</Trans> : <Trans>Save</Trans>}
             </Button>
           </DialogFooter>
         </form>

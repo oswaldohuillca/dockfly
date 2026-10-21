@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { GitBranch, Play, Settings2, Unplug, Webhook } from 'lucide-react';
 import { toast } from 'sonner';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { ProviderIcon } from '@/components/brand-icons';
 import { BuildLog } from '@/components/build-log';
@@ -32,6 +33,7 @@ interface Props {
 
 /** Tarjeta del repositorio enlazado y sus builds. */
 export function SiteGit({ site, onChange }: Props) {
+  const { t } = useLingui();
   const [configuring, setConfiguring] = useState(false);
   const [confirmUnlink, setConfirmUnlink] = useState(false);
   const [builds, setBuilds] = useState<Build[]>([]);
@@ -85,7 +87,7 @@ export function SiteGit({ site, onChange }: Props) {
   async function unlink() {
     try {
       await api.deleteSiteGit(site.id);
-      toast.success('Repositorio desconectado');
+      toast.success(t`Repository disconnected`);
       setBuilds([]);
       onChange();
     } catch (e) {
@@ -102,7 +104,9 @@ export function SiteGit({ site, onChange }: Props) {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Repositorio</CardTitle>
+          <CardTitle>
+            <Trans>Repository</Trans>
+          </CardTitle>
           {linked ? (
             <CardDescription className="flex flex-wrap items-center gap-x-3 gap-y-1">
               <span className="flex items-center gap-1.5 font-medium text-foreground">
@@ -114,43 +118,45 @@ export function SiteGit({ site, onChange }: Props) {
               </span>
               {site.webhook_id ? (
                 <Badge variant="secondary" className="gap-1">
-                  <Webhook /> Despliegue en cada push
+                  <Webhook /> <Trans>Deploys on every push</Trans>
                 </Badge>
               ) : (
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Badge variant="outline" className="gap-1 text-muted-foreground">
-                      <Webhook /> Solo manual
+                      <Webhook /> <Trans>Manual only</Trans>
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent className="max-w-xs">
-                    Configura la URL pública de Dockfly en Integraciones y vuelve a guardar la configuración para
-                    desplegar en cada push.
+                    <Trans>
+                      Set Dockfly's public URL in Integrations and save the build settings again to deploy on every
+                      push.
+                    </Trans>
                   </TooltipContent>
                 </Tooltip>
               )}
             </CardDescription>
           ) : (
             <CardDescription>
-              Conecta un repositorio de GitHub o GitLab para construir y publicar el sitio en cada push.
+              <Trans>Connect a GitHub or GitLab repository to build and publish the site on every push.</Trans>
             </CardDescription>
           )}
           <CardAction className="flex gap-2">
             {linked ? (
               <>
                 <Button size="sm" onClick={deploy}>
-                  <Play /> Desplegar ahora
+                  <Play /> <Trans>Deploy now</Trans>
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setConfiguring(true)} aria-label="Configurar">
+                <Button size="sm" variant="outline" onClick={() => setConfiguring(true)} aria-label={t`Configure`}>
                   <Settings2 />
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setConfirmUnlink(true)} aria-label="Desconectar">
+                <Button size="sm" variant="outline" onClick={() => setConfirmUnlink(true)} aria-label={t`Disconnect`}>
                   <Unplug />
                 </Button>
               </>
             ) : (
               <Button size="sm" variant="outline" onClick={() => setConfiguring(true)}>
-                Conectar repositorio
+                <Trans>Connect repository</Trans>
               </Button>
             )}
           </CardAction>
@@ -160,16 +166,24 @@ export function SiteGit({ site, onChange }: Props) {
           <CardContent className="px-0">
             {builds.length === 0 ? (
               <p className="px-6 py-4 text-center text-sm text-muted-foreground">
-                Todavía no hay builds. Haz un push a {site.branch} o pulsa «Desplegar ahora».
+                <Trans>No builds yet. Push to {site.branch} or click Deploy now.</Trans>
               </p>
             ) : (
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="pl-6">Build</TableHead>
-                    <TableHead>Commit</TableHead>
-                    <TableHead>Origen</TableHead>
-                    <TableHead className="pr-6">Fecha</TableHead>
+                    <TableHead className="pl-6">
+                      <Trans>Build</Trans>
+                    </TableHead>
+                    <TableHead>
+                      <Trans>Commit</Trans>
+                    </TableHead>
+                    <TableHead>
+                      <Trans>Trigger</Trans>
+                    </TableHead>
+                    <TableHead className="pr-6">
+                      <Trans>Date</Trans>
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -180,7 +194,7 @@ export function SiteGit({ site, onChange }: Props) {
                           <span className="font-mono text-sm">#{b.id}</span>
                           <BuildStatusBadge status={b.status} />
                         </div>
-                        {b.preview && <div className="mt-0.5 text-xs text-muted-foreground">Preview · {b.branch}</div>}
+                        {b.preview && <div className="mt-0.5 text-xs text-muted-foreground"><Trans>Preview · {b.branch}</Trans></div>}
                       </TableCell>
                       <TableCell className="max-w-72">
                         {b.commit_sha ? (
@@ -189,13 +203,15 @@ export function SiteGit({ site, onChange }: Props) {
                             <span className="truncate">{b.commit_message}</span>
                           </div>
                         ) : (
-                          <span className="text-muted-foreground">último commit de {b.branch}</span>
+                          <span className="text-muted-foreground">
+                            <Trans>latest commit on {b.branch}</Trans>
+                          </span>
                         )}
                         {b.status === 'failed' && b.error && (
                           <div className="truncate text-xs text-destructive">{b.error}</div>
                         )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{b.trigger === 'push' ? 'Push' : 'Manual'}</TableCell>
+                      <TableCell className="text-muted-foreground">{b.trigger === 'push' ? t`Push` : t`Manual`}</TableCell>
                       <TableCell className="pr-6 text-muted-foreground">{timeAgo(b.created_at)}</TableCell>
                     </TableRow>
                   ))}
@@ -212,7 +228,7 @@ export function SiteGit({ site, onChange }: Props) {
           onClose={() => setConfiguring(false)}
           onSaved={(webhookError) => {
             setConfiguring(false);
-            if (webhookError) toast.warning('Sin despliegue automático', { description: webhookError });
+            if (webhookError) toast.warning(t`No automatic deploys`, { description: webhookError });
             onChange();
           }}
         />
@@ -222,15 +238,21 @@ export function SiteGit({ site, onChange }: Props) {
       <AlertDialog open={confirmUnlink} onOpenChange={setConfirmUnlink}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Desconectar {site.repo}?</AlertDialogTitle>
+            <AlertDialogTitle>
+              <Trans>Disconnect {site.repo}?</Trans>
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Se borra el webhook y los pushes dejarán de desplegar. El sitio y sus despliegues se conservan.
+              <Trans>
+                The webhook is deleted and pushes will no longer deploy. The site and its deployments are kept.
+              </Trans>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel>
+              <Trans>Cancel</Trans>
+            </AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={unlink}>
-              Desconectar
+              <Trans>Disconnect</Trans>
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

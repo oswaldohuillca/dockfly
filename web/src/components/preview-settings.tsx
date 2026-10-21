@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Lock, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
+import { Trans, useLingui } from '@lingui/react/macro';
 
 import { AccessSelect } from '@/components/access-select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -12,6 +13,7 @@ import { api, errorMessage, type Settings } from '@/lib/api';
 
 /** Dominio bajo el que se publican las previews de las ramas. */
 export function PreviewSettings() {
+  const { t } = useLingui();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [domain, setDomain] = useState('');
   const [accessList, setAccessList] = useState<number | null>(null);
@@ -35,7 +37,7 @@ export function PreviewSettings() {
       const res = await api.putSettings({ preview_domain: domain, preview_access_list_id: accessList ?? 0 });
       setSettings(res.settings);
       setDomain(res.settings.preview_domain);
-      toast.success('Previews guardadas');
+      toast.success(t`Previews saved`);
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -45,27 +47,33 @@ export function PreviewSettings() {
 
   if (!settings) return null;
   const dirty = domain !== settings.preview_domain || accessList !== settings.preview_access_list_id;
-  const example = domain || 'previews.midominio.com';
+  const example = domain || t`previews.mydomain.com`;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Previews por rama</CardTitle>
+        <CardTitle className="text-lg">
+          <Trans>Branch previews</Trans>
+        </CardTitle>
         <CardDescription>
-          Los sitios con previews activadas publican cada push a otra rama en{' '}
-          <code className="font-mono">rama--sitio.{example}</code>, y la borran cuando se borra la rama. Apunta{' '}
-          <code className="font-mono">*.{example}</code> a este servidor en tu DNS.
+          <Trans>
+            Sites with previews enabled publish every push to another branch at{' '}
+            <code className="font-mono">branch--site.{example}</code>, and remove it when the branch is deleted. Point{' '}
+            <code className="font-mono">*.{example}</code> to this server in your DNS.
+          </Trans>
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={save} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="preview-domain">Dominio de previews</Label>
+            <Label htmlFor="preview-domain">
+              <Trans>Preview domain</Trans>
+            </Label>
             <Input
               id="preview-domain"
               value={domain}
               onChange={(e) => setDomain(e.target.value.trim())}
-              placeholder="previews.midominio.com"
+              placeholder={t`previews.mydomain.com`}
               className="font-mono"
             />
           </div>
@@ -74,14 +82,14 @@ export function PreviewSettings() {
               {settings.preview_ssl ? <Lock /> : <TriangleAlert />}
               <AlertDescription>
                 {settings.preview_ssl
-                  ? `Las previews usan HTTPS con un certificado comodín para *.${domain}.`
-                  : `Sin zona DNS ni certificado propio para *.${domain}, las previews solo responden por HTTP. Añade la zona en Certificados para usar HTTPS.`}
+                  ? t`Previews use HTTPS with a wildcard certificate for *.${domain}.`
+                  : t`Without a DNS zone or custom certificate for *.${domain}, previews only respond over HTTP. Add the zone under Certificates to use HTTPS.`}
               </AlertDescription>
             </Alert>
           )}
           <AccessSelect value={accessList} onChange={setAccessList} />
           <Button type="submit" size="sm" disabled={busy || !dirty}>
-            Guardar
+            <Trans>Save</Trans>
           </Button>
         </form>
       </CardContent>
