@@ -263,7 +263,12 @@ func run(log *slog.Logger) error {
 		Addr:              env("DOCKFLY_LISTEN", ":81"),
 		Handler:           srv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
-		BaseContext:       func(net.Listener) context.Context { return ctx },
+		// Cierra las conexiones keep-alive inactivas. Sin plazo de lectura ni
+		// de escritura globales: el panel tiene SSE (logs) y el túnel de los
+		// agentes, ambos de larga duración; los plazos de las rutas sin sesión
+		// (login, webhooks) los pone cada handler.
+		IdleTimeout: 2 * time.Minute,
+		BaseContext: func(net.Listener) context.Context { return ctx },
 	}
 	staticSrv := &http.Server{
 		Addr:              staticAddr,

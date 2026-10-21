@@ -461,8 +461,18 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 	writeJSON(w, http.StatusAccepted, map[string]any{"status": "en cola", "build_ids": builds})
 }
 
+// maxWebhookBytes limita el cuerpo de un webhook (un push de GitHub/GitLab es
+// de unos KB). Antes se aceptaban 25 MB sin autenticar.
+const maxWebhookBytes = 5 << 20
+
+// readWebhookBody lee el cuerpo de un webhook con un tope de tamaño y un
+// plazo de lectura, para que una petición lenta sin autenticar no retenga la
+// conexión ni la memoria.
 func readWebhookBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 25<<20))
+	if rc := http.NewResponseController(w); rc != nil {
+		_ = rc.SetReadDeadline(time.Now().Add(15 * time.Second))
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxWebhookBytes))
 	if err != nil {
 		writeError(w, http.StatusRequestEntityTooLarge, errWebhookBodyTooLarge)
 	}

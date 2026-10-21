@@ -669,9 +669,8 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 25<<20))
+	body, err := readWebhookBody(w, r)
 	if err != nil {
-		writeError(w, http.StatusRequestEntityTooLarge, errWebhookBodyTooLarge)
 		return
 	}
 	if site.WebhookSecret == "" || site.GitConnectionID == nil {

@@ -47,6 +47,12 @@ func (s *Server) Handler() http.Handler {
 				}))
 		}
 		authLimit, mfaLimit, accountLimit := limiter(), limiter(), limiter()
+		// Los webhooks sin autenticar llevan su propio límite, más holgado
+		// (un repo activo puede empujar varias veces por minuto).
+		hookLimit := httprate.LimitBy(120, time.Minute, keyByClientIP,
+			httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
+				writeError(w, http.StatusTooManyRequests, errTooManyAttempts)
+			}))
 		r.Get("/setup", s.handleSetupStatus)
 		r.With(authLimit).Post("/setup", s.handleSetup)
 		r.With(authLimit).Post("/auth/login", s.handleLogin)
@@ -55,9 +61,9 @@ func (s *Server) Handler() http.Handler {
 		// Sin sesión solo en una instalación nueva (lo comprueba el handler).
 		r.With(authLimit).Post("/backup/restore", s.handleRestoreBackup)
 		// Webhooks de GitHub/GitLab: sin sesión, autenticados por su firma.
-		r.Post("/hooks/github-app", s.handleGitHubAppWebhook)
-		r.Post("/hooks/{provider}/apps/{id}", s.handleAppWebhook)
-		r.Post("/hooks/{provider}/{id}", s.handleWebhook)
+		r.With(hookLimit).Post("/hooks/github-app", s.handleGitHubAppWebhook)
+		r.With(hookLimit).Post("/hooks/{provider}/apps/{id}", s.handleAppWebhook)
+		r.With(hookLimit).Post("/hooks/{provider}/{id}", s.handleWebhook)
 		// Retornos de GitHub/GitLab: los autentica el parámetro state.
 		r.Get("/git/github/manifest", s.handleGitHubManifestCallback)
 		r.Get("/git/github/setup", s.handleGitHubSetup)
