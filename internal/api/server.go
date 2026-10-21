@@ -117,8 +117,28 @@ func (s *Server) Apply(ctx context.Context) error {
 
 	var routes []traefik.Route
 	for _, h := range hosts {
-		if rt, ok := traefik.ProxyHostRoute(h); ok {
-			routes = append(routes, withACL(rt, h.AccessListID))
+		rt, ok := traefik.ProxyHostRoute(h)
+		if !ok {
+			continue
+		}
+		routes = append(routes, withACL(rt, h.AccessListID))
+		// Cada ubicación es una ruta más del mismo dominio, limitada a su
+		// prefijo, con su destino y su acceso.
+		for i, l := range h.Locations {
+			loc := rt
+			loc.Name = fmt.Sprintf("%s-loc%d", rt.Name, i)
+			loc.PathPrefix, loc.StripPrefix = l.Path, l.StripPrefix
+			loc.URL = traefik.LocationURL(l)
+			loc.SkipTLSVerify = l.ForwardScheme == "https" && h.SkipTLSVerify
+			switch l.Access {
+			case store.LocationAccessPublic:
+				loc.Middlewares = nil
+			case store.LocationAccessList:
+				loc = withACL(loc, l.AccessListID)
+			default:
+				loc = withACL(loc, h.AccessListID)
+			}
+			routes = append(routes, loc)
 		}
 	}
 	// Apps desplegadas, en marcha y con puerto y dominios: Traefik envía el

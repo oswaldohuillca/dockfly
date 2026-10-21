@@ -82,6 +82,12 @@ código: `docker compose up -d --build`.
 - **IP / URL externa**: cualquier IP o dominio. Desactiva *Conservar el Host original* si el
   destino exige su propio dominio (CDN, SaaS).
 
+**Ubicaciones personalizadas** (*Custom locations*): una parte del dominio va a otro destino,
+como en Nginx Proxy Manager. Por ejemplo, `app.midominio.com` al frontend y
+`app.midominio.com/api` al contenedor de la API. Cada ubicación tiene su destino, su lista de
+acceso (la del proxy host, pública u otra) y, si el servicio no espera el prefijo, la opción de
+quitarlo (`/api/users` llega como `/users`). Gana la ubicación más larga: `/api/v2` antes que `/api`.
+
 ### Sitios estáticos
 
 Al estilo de Cloudflare Pages: creas un sitio con sus dominios y subes la carpeta de tu build

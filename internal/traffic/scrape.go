@@ -35,7 +35,12 @@ func Owner(router string) string {
 	if provider != "file" {
 		return ""
 	}
-	return strings.TrimSuffix(name, "-secure")
+	name = strings.TrimSuffix(name, "-secure")
+	// Las ubicaciones personalizadas (ph-3-loc0) cuentan como su proxy host.
+	if i := strings.LastIndex(name, "-loc"); i > 0 && strings.HasPrefix(name, "ph-") {
+		name = name[:i]
+	}
+	return name
 }
 
 // Parse lee la salida de /metrics de Traefik y suma los contadores de cada

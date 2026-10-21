@@ -54,21 +54,43 @@ type User struct {
 type ProxyHost struct {
 	bun.BaseModel `bun:"table:proxy_hosts"`
 
-	ID            int64     `bun:",pk,autoincrement" json:"id"`
-	Domains       []string  `json:"domains"` // Bun guarda los slices como JSON
-	TargetType    string    `json:"target_type"`
-	ForwardScheme string    `json:"forward_scheme"`
-	ForwardHost   string    `json:"forward_host"`
-	ForwardPort   int       `json:"forward_port"`
-	SSL           bool      `bun:"ssl" json:"ssl"`
-	ForceHTTPS    bool      `bun:"force_https" json:"force_https"`
-	HSTS          bool      `bun:"hsts" json:"hsts"`
-	SkipTLSVerify bool      `bun:"skip_tls_verify" json:"skip_tls_verify"`
-	PreserveHost  bool      `json:"preserve_host"`
-	Enabled       bool      `json:"enabled"`
-	AccessListID  *int64    `json:"access_list_id"`
-	CreatedAt     time.Time `json:"created_at"`
-	UpdatedAt     time.Time `json:"updated_at"`
+	ID            int64    `bun:",pk,autoincrement" json:"id"`
+	Domains       []string `json:"domains"` // Bun guarda los slices como JSON
+	TargetType    string   `json:"target_type"`
+	ForwardScheme string   `json:"forward_scheme"`
+	ForwardHost   string   `json:"forward_host"`
+	ForwardPort   int      `json:"forward_port"`
+	SSL           bool     `bun:"ssl" json:"ssl"`
+	ForceHTTPS    bool     `bun:"force_https" json:"force_https"`
+	HSTS          bool     `bun:"hsts" json:"hsts"`
+	SkipTLSVerify bool     `bun:"skip_tls_verify" json:"skip_tls_verify"`
+	PreserveHost  bool     `json:"preserve_host"`
+	Enabled       bool     `json:"enabled"`
+	AccessListID  *int64   `json:"access_list_id"`
+	// Locations envían una parte del dominio (/api…) a otro destino.
+	Locations []ProxyLocation `json:"locations"`
+	CreatedAt time.Time       `json:"created_at"`
+	UpdatedAt time.Time       `json:"updated_at"`
+}
+
+// Acceso de una ubicación: el del proxy host, sin restricciones o una lista.
+const (
+	LocationAccessInherit = "inherit"
+	LocationAccessPublic  = "public"
+	LocationAccessList    = "list"
+)
+
+// ProxyLocation es una ubicación personalizada de un proxy host.
+type ProxyLocation struct {
+	Path          string `json:"path"` // "/api"
+	TargetType    string `json:"target_type"`
+	ForwardScheme string `json:"forward_scheme"`
+	ForwardHost   string `json:"forward_host"`
+	ForwardPort   int    `json:"forward_port"`
+	// StripPrefix quita Path antes de reenviar (/api/users → /users).
+	StripPrefix  bool   `json:"strip_prefix"`
+	Access       string `json:"access"`
+	AccessListID *int64 `json:"access_list_id"`
 }
 
 // El driver de SQLite devuelve las fechas con una zona fija "+0000" en vez de
@@ -85,6 +107,9 @@ func (u *User) AfterScanRow(context.Context) error {
 
 func (h *ProxyHost) AfterScanRow(context.Context) error {
 	h.CreatedAt, h.UpdatedAt = h.CreatedAt.UTC(), h.UpdatedAt.UTC()
+	if h.Locations == nil {
+		h.Locations = []ProxyLocation{}
+	}
 	return nil
 }
 

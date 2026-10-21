@@ -176,6 +176,10 @@ type Route struct {
 	Compress      bool
 	// Middlewares extra (p. ej. los de una lista de acceso), en orden.
 	Middlewares []string
+	// PathPrefix limita la ruta a una parte del dominio (ubicación
+	// personalizada: "/api"); StripPrefix lo quita antes de reenviar.
+	PathPrefix  string
+	StripPrefix bool
 	// Redirect convierte la ruta en una redirección (sin backend).
 	Redirect *Redirect
 	// Resolver ACME del certificado: "" = Let's Encrypt por HTTP, NoResolver
@@ -302,6 +306,24 @@ func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 
 	for _, rt := range routes {
 		rule := hostRule(rt.Domains)
+		if rt.PathPrefix != "" {
+			rule = fmt.Sprintf("(%s) && PathPrefix(`%s`)", rule, rt.PathPrefix)
+			if rt.StripPrefix {
+				mw := rt.Name + "-strip"
+				middlewares[mw] = map[string]any{"stripPrefix": map[string]any{"prefixes": []string{rt.PathPrefix}}}
+				rt.Middlewares = append(slices.Clone(rt.Middlewares), mw)
+			}
+		}
+		// Prioridad: Traefik da por defecto más a la regla más larga, así que
+		// una ubicación gana a su host y /api/v2 a /api. Con comodines se fija
+		// a mano para no pasar por delante de los hosts concretos del dominio.
+		priority := 0
+		if hasWildcard(rt.Domains) {
+			priority = 1
+			if rt.PathPrefix != "" {
+				priority = 2 + len(rt.PathPrefix)
+			}
+		}
 
 		service := rt.Name
 		if rt.Redirect != nil {
@@ -370,8 +392,8 @@ func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 				"service":     service,
 				"tls":         tls,
 			}
-			if hasWildcard(rt.Domains) {
-				secure["priority"] = 1
+			if priority > 0 {
+				secure["priority"] = priority
 			}
 			if len(secureMW) > 0 {
 				secure["middlewares"] = secureMW
@@ -386,10 +408,10 @@ func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 		if len(httpMW) > 0 {
 			httpRouter["middlewares"] = httpMW
 		}
-		if hasWildcard(rt.Domains) {
+		if priority > 0 {
 			// HostRegexp es una regla larga: sin esto tendría más prioridad
 			// que los hosts concretos del mismo dominio y se los tragaría.
-			httpRouter["priority"] = 1
+			httpRouter["priority"] = priority
 		}
 		routers[rt.Name] = httpRouter
 	}
@@ -416,6 +438,12 @@ func BackendURL(h *store.ProxyHost) string {
 		Scheme: h.ForwardScheme,
 		Host:   net.JoinHostPort(h.ForwardHost, strconv.Itoa(h.ForwardPort)),
 	}
+	return u.String()
+}
+
+// LocationURL es el destino de una ubicación personalizada.
+func LocationURL(l store.ProxyLocation) string {
+	u := url.URL{Scheme: l.ForwardScheme, Host: net.JoinHostPort(l.ForwardHost, strconv.Itoa(l.ForwardPort))}
 	return u.String()
 }
 

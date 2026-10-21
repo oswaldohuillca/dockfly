@@ -129,8 +129,24 @@ export interface ProxyHost {
   preserve_host: boolean;
   enabled: boolean;
   access_list_id: number | null;
+  /** Ubicaciones personalizadas: una parte del dominio (/api) va a otro destino. */
+  locations: ProxyLocation[];
   created_at: string;
   updated_at: string;
+}
+
+export type LocationAccess = 'inherit' | 'public' | 'list';
+
+export interface ProxyLocation {
+  path: string;
+  target_type: TargetType;
+  forward_scheme: Scheme;
+  forward_host: string;
+  forward_port: number;
+  /** Quita la ruta antes de reenviar (/api/users → /users). */
+  strip_prefix: boolean;
+  access: LocationAccess;
+  access_list_id: number | null;
 }
 
 /** Campos editables de un proxy host (lo que acepta la API al crear/editar). */

@@ -47,7 +47,7 @@ msgid "{0, plural, one {You have # recovery code left.} other {You have # recove
 msgstr "{0, plural, one {Te queda # código de recuperación.} other {Te quedan # códigos de recuperación.}}"
 
 #. placeholder {0}: form.forward_host
-#: src/components/proxy-host-dialog.tsx:240
+#: src/components/proxy-host-dialog.tsx:252
 msgid "{0} (not found)"
 msgstr "{0} (no encontrado)"
 
@@ -56,7 +56,7 @@ msgctxt "api:access_list_in_use"
 msgid "{count} hosts, sites or apps use it: remove it from them first"
 msgstr "La usan {count} hosts, sitios o apps: quítasela primero"
 
-#: src/lib/api-errors.gen.ts:167
+#: src/lib/api-errors.gen.ts:172
 msgctxt "api:unexpected_error"
 msgid "{detail}"
 msgstr "{detail}"
@@ -130,7 +130,7 @@ msgstr "{volumeNames}: no se puede deshacer."
 msgid "/var/lib/data"
 msgstr "/var/lib/datos"
 
-#: src/components/proxy-host-dialog.tsx:305
+#: src/components/proxy-host-dialog.tsx:317
 msgid "<0>host.docker.internal</0> points to the server Dockfly runs on. Useful for apps outside Docker (systemd, PM2…). The app must listen on an IP reachable from Docker, not just on <1>127.0.0.1</1>."
 msgstr "<0>host.docker.internal</0> apunta al servidor donde corre Dockfly. Útil para apps fuera de Docker (systemd, PM2…). La app debe escuchar en una IP accesible desde Docker, no solo en <1>127.0.0.1</1>."
 
@@ -138,7 +138,8 @@ msgstr "<0>host.docker.internal</0> apunta al servidor donde corre Dockfly. Úti
 msgid "123456789 or -100…"
 msgstr "123456789 o -100…"
 
-#: src/components/proxy-host-dialog.tsx:261
+#: src/components/proxy-host-dialog.tsx:273
+#: src/components/proxy-locations.tsx:207
 msgid "192.168.1.50 or api.other.com"
 msgstr "192.168.1.50 o api.otro.com"
 
@@ -167,22 +168,22 @@ msgstr "Un contenedor que Dockfly gestiona de principio a fin: despliegues sin c
 msgid "A deploy receives no traffic until this path responds. Without it, the port just has to accept connections."
 msgstr "Un despliegue no recibe tráfico hasta que esta ruta responde. Sin ella, basta con que el puerto acepte conexiones."
 
-#: src/lib/api-errors.gen.ts:141
+#: src/lib/api-errors.gen.ts:146
 msgctxt "api:server_name_taken"
 msgid "A server with that name already exists"
 msgstr "Ya hay un servidor con ese nombre"
 
-#: src/lib/api-errors.gen.ts:144
+#: src/lib/api-errors.gen.ts:149
 msgctxt "api:site_name_taken"
 msgid "A site with that name already exists"
 msgstr "Ya existe un sitio con ese nombre"
 
-#: src/lib/api-errors.gen.ts:157
+#: src/lib/api-errors.gen.ts:162
 msgctxt "api:token_role_too_high"
 msgid "A token can't have more permissions than your user"
 msgstr "Un token no puede tener más permisos que tu usuario"
 
-#: src/lib/api-errors.gen.ts:171
+#: src/lib/api-errors.gen.ts:176
 msgctxt "api:user_email_taken"
 msgid "A user with that email already exists"
 msgstr "Ya hay un usuario con ese email"
@@ -190,6 +191,10 @@ msgstr "Ya hay un usuario con ese email"
 #: src/components/access-select.tsx:18
 msgid "Access"
 msgstr "Acceso"
+
+#: src/components/proxy-locations.tsx:237
+msgid "Access list"
+msgstr "Lista de acceso"
 
 #: src/components/access-lists.tsx:37
 msgid "Access lists"
@@ -231,6 +236,10 @@ msgstr "Añade al menos un usuario o una IP permitida"
 #: src/components/notifications.tsx:171
 msgid "Add channel"
 msgstr "Añadir canal"
+
+#: src/components/proxy-locations.tsx:64
+msgid "Add location"
+msgstr "Añadir ubicación"
 
 #: src/components/certificates-settings.tsx:66
 msgid "Add provider"
@@ -295,7 +304,7 @@ msgstr "otro servidor"
 msgid "API tokens"
 msgstr "Tokens de API"
 
-#: src/lib/api.ts:779
+#: src/lib/api.ts:795
 msgctxt "domain owner"
 msgid "app"
 msgstr "otra app"
@@ -412,7 +421,7 @@ msgstr "Las copias se guardan en {location}"
 msgid "Besides your password, the dashboard will ask for a code from your authenticator app (Google Authenticator, 1Password, Bitwarden, Authy…). Anyone who steals your password won't be able to sign in without your phone."
 msgstr "Además de la contraseña, el panel pedirá un código de tu app de autenticación (Google Authenticator, 1Password, Bitwarden, Authy…). Quien robe tu contraseña no podrá entrar sin tu móvil."
 
-#: src/lib/api-errors.gen.ts:175
+#: src/lib/api-errors.gen.ts:180
 msgctxt "api:webhook_body_too_large"
 msgid "Body too large"
 msgstr "Cuerpo demasiado grande"
@@ -505,7 +514,7 @@ msgstr "¿No puedes escanearlo? Escribe la clave a mano"
 #: src/components/integrations.tsx:438
 #: src/components/integrations.tsx:698
 #: src/components/notifications.tsx:404
-#: src/components/proxy-host-dialog.tsx:370
+#: src/components/proxy-host-dialog.tsx:390
 #: src/components/proxy-hosts.tsx:267
 #: src/components/redirects.tsx:225
 #: src/components/servers.tsx:204
@@ -557,7 +566,7 @@ msgid "Changes apply instantly."
 msgstr "Los cambios se aplican al instante."
 
 #: src/components/app-dialog.tsx:105
-#: src/components/proxy-host-dialog.tsx:133
+#: src/components/proxy-host-dialog.tsx:137
 #: src/components/site-dialog.tsx:49
 #: src/components/users.tsx:175
 msgid "Changes saved"
@@ -584,7 +593,7 @@ msgstr "Canal guardado"
 msgid "Choose .zip"
 msgstr "Elegir .zip"
 
-#: src/components/proxy-host-dialog.tsx:220
+#: src/components/proxy-host-dialog.tsx:232
 msgid "Choose a container…"
 msgstr "Elige un contenedor…"
 
@@ -735,10 +744,12 @@ msgstr "Conectado"
 msgid "connected {connectedAgo}"
 msgstr "conectada {connectedAgo}"
 
-#: src/components/proxy-host-dialog.tsx:185
-#: src/components/proxy-host-dialog.tsx:216
-#: src/components/proxy-host-dialog.tsx:250
+#: src/components/proxy-host-dialog.tsx:197
+#: src/components/proxy-host-dialog.tsx:228
+#: src/components/proxy-host-dialog.tsx:262
 #: src/components/proxy-hosts.tsx:34
+#: src/components/proxy-locations.tsx:171
+#: src/components/proxy-locations.tsx:201
 msgid "Container"
 msgstr "Contenedor"
 
@@ -754,7 +765,8 @@ msgstr "Contenedor no encontrado"
 msgid "Container recovered"
 msgstr "Contenedor recuperado"
 
-#: src/components/proxy-host-dialog.tsx:261
+#: src/components/proxy-host-dialog.tsx:273
+#: src/components/proxy-locations.tsx:207
 msgid "container-name"
 msgstr "nombre-del-contenedor"
 
@@ -906,6 +918,10 @@ msgstr "Personalizado"
 #: src/components/certificates-settings.tsx:109
 msgid "Custom certificates"
 msgstr "Certificados propios"
+
+#: src/components/proxy-host-dialog.tsx:164
+msgid "Custom locations"
+msgstr "Ubicaciones personalizadas"
 
 #: src/components/header.tsx:109
 msgid "Dark"
@@ -1065,7 +1081,7 @@ msgstr "Despliegues"
 msgid "Deploys on every push"
 msgstr "Despliegue en cada push"
 
-#: src/components/proxy-host-dialog.tsx:157
+#: src/components/proxy-host-dialog.tsx:161
 #: src/components/site-dialog.tsx:76
 msgid "Details"
 msgstr "Detalles"
@@ -1156,7 +1172,7 @@ msgid "Domain & SSL"
 msgstr "Dominio y SSL"
 
 #: src/components/app-dialog.tsx:469
-#: src/components/proxy-host-dialog.tsx:167
+#: src/components/proxy-host-dialog.tsx:179
 #: src/components/proxy-hosts.tsx:140
 #: src/components/redirects.tsx:79
 #: src/components/site-dialog.tsx:102
@@ -1171,7 +1187,7 @@ msgstr "Los dominios ya están aplicados; el resto se aplica en el próximo desp
 msgid "Domains must point to this server (DNS A/AAAA record) and ports 80 and 443 must be open. Traefik issues and renews the certificate automatically."
 msgstr "Los dominios deben apuntar a este servidor (registro DNS A/AAAA) y los puertos 80 y 443 deben estar abiertos. Traefik obtiene y renueva el certificado automáticamente."
 
-#: src/components/proxy-host-dialog.tsx:319
+#: src/components/proxy-host-dialog.tsx:331
 msgid "Don't verify the target's certificate"
 msgstr "No verificar el certificado del destino"
 
@@ -1236,7 +1252,7 @@ msgstr "Editar a {userName}"
 msgid "Edit DNS provider"
 msgstr "Editar proveedor DNS"
 
-#: src/components/proxy-host-dialog.tsx:148
+#: src/components/proxy-host-dialog.tsx:152
 msgid "Edit proxy host"
 msgstr "Editar proxy host"
 
@@ -1266,7 +1282,7 @@ msgstr "Activar HSTS"
 msgid "Enable two-step verification"
 msgstr "Activar la verificación en dos pasos"
 
-#: src/components/proxy-host-dialog.tsx:330
+#: src/components/proxy-host-dialog.tsx:342
 #: src/components/proxy-hosts.tsx:150
 #: src/components/streams.tsx:97
 #: src/components/streams.tsx:141
@@ -1284,7 +1300,7 @@ msgctxt "redirect"
 msgid "Enabled"
 msgstr "Activa"
 
-#: src/lib/api-errors.gen.ts:122
+#: src/lib/api-errors.gen.ts:127
 msgctxt "api:no_domains"
 msgid "Enter at least one domain"
 msgstr "Indica al menos un dominio"
@@ -1307,12 +1323,12 @@ msgctxt "api:dns_env_required"
 msgid "Enter the provider's environment variables (see the lego documentation)"
 msgstr "Indica las variables de entorno del proveedor (consulta la documentación de lego)"
 
-#: src/lib/api-errors.gen.ts:127
+#: src/lib/api-errors.gen.ts:132
 msgctxt "api:proxy_forward_host_required"
 msgid "Enter the target host"
 msgstr "Indica el host de destino"
 
-#: src/lib/api-errors.gen.ts:148
+#: src/lib/api-errors.gen.ts:153
 msgctxt "api:stream_forward_host_invalid"
 msgid "Enter the target host (a container, an app or an IP)"
 msgstr "Indica el host de destino (un contenedor, una app o una IP)"
@@ -1387,13 +1403,14 @@ msgstr "caduca el {0}"
 msgid "expires on {expires}"
 msgstr "caduca el {expires}"
 
-#: src/lib/api-errors.gen.ts:154
+#: src/lib/api-errors.gen.ts:159
 msgctxt "api:token_expiry_out_of_range"
 msgid "Expiry must be between 0 (never) and {max} days"
 msgstr "La caducidad debe estar entre 0 (nunca) y {max} días"
 
-#: src/components/proxy-host-dialog.tsx:191
+#: src/components/proxy-host-dialog.tsx:203
 #: src/components/proxy-hosts.tsx:36
+#: src/components/proxy-locations.tsx:177
 msgid "External"
 msgstr "Externo"
 
@@ -1423,7 +1440,7 @@ msgstr "Primera instalación: crea la cuenta de administrador."
 msgid "Folder"
 msgstr "Carpeta"
 
-#: src/lib/api-errors.gen.ts:176
+#: src/lib/api-errors.gen.ts:181
 msgctxt "api:wildcard_ssl_needs_dns"
 msgid "For a wildcard domain with SSL, set up its DNS zone in Settings → Certificates (Let's Encrypt only issues wildcards via DNS) or upload your own certificate"
 msgstr "Para un dominio comodín con SSL, configura su zona DNS en Ajustes → Certificados (Let's Encrypt solo emite comodines por DNS) o sube un certificado propio"
@@ -1452,7 +1469,7 @@ msgstr "Para monorepos, p. ej. apps/web."
 msgid "For security, confirm your password."
 msgstr "Por seguridad, confirma tu contraseña."
 
-#: src/components/proxy-host-dialog.tsx:320
+#: src/components/proxy-host-dialog.tsx:332
 msgid "For targets with self-signed certificates."
 msgstr "Para destinos con certificados autofirmados."
 
@@ -1463,6 +1480,10 @@ msgstr "Forzar HTTPS"
 #: src/components/streams.tsx:69
 msgid "Forward a port to a non-web service: databases, game servers, MQTT… Adding or removing a port restarts Traefik (~1 s outage)."
 msgstr "Reenvía un puerto a un servicio que no es web: bases de datos, servidores de juegos, MQTT… Añadir o quitar un puerto reinicia Traefik (corte de ~1 s)."
+
+#: src/components/proxy-locations.tsx:201
+msgid "Forward hostname / IP"
+msgstr "Host / IP de reenvío"
 
 #: src/components/git-dialog.tsx:148
 msgid "Framework"
@@ -1492,7 +1513,7 @@ msgstr "Generar códigos nuevos"
 msgid "Generate new codes in My account if you're running low."
 msgstr "Genera códigos nuevos en Mi cuenta si te quedan pocos."
 
-#: src/lib/api-errors.gen.ts:164
+#: src/lib/api-errors.gen.ts:169
 msgctxt "api:two_factor_setup_required"
 msgid "Generate the QR code first"
 msgstr "Primero genera el código QR"
@@ -1545,7 +1566,7 @@ msgstr "Token de GitLab"
 msgid "gitlab.com or your own GitLab instance."
 msgstr "gitlab.com o tu propia instancia de GitLab."
 
-#: src/lib/api-errors.gen.ts:155
+#: src/lib/api-errors.gen.ts:160
 msgctxt "api:token_name_required"
 msgid "Give it a name (e.g. \"GitHub Actions\")"
 msgstr "Ponle un nombre (p. ej. «GitHub Actions»)"
@@ -1572,7 +1593,7 @@ msgstr "Ir a Integraciones"
 msgid "Go to login"
 msgstr "Ir al inicio de sesión"
 
-#: src/components/proxy-host-dialog.tsx:365
+#: src/components/proxy-host-dialog.tsx:385
 msgid "Got it"
 msgstr "Entendido"
 
@@ -1621,6 +1642,10 @@ msgstr "En Discord: Ajustes del canal → Integraciones → Webhooks → Nuevo w
 msgid "In PEM format. Include the intermediate chain after the certificate."
 msgstr "En formato PEM. Incluye la cadena intermedia después del certificado."
 
+#: src/components/proxy-locations.tsx:252
+msgid "Inherit from proxy host"
+msgstr "Heredar del proxy host"
+
 #: src/components/git-dialog.tsx:168
 msgid "Install"
 msgstr "Instalar"
@@ -1637,6 +1662,11 @@ msgstr "Error interno"
 #: src/components/apps.tsx:117
 msgid "Internal:"
 msgstr "Interna:"
+
+#: src/lib/api-errors.gen.ts:118
+msgctxt "api:location_access_invalid"
+msgid "Invalid access for the location {path}"
+msgstr "Acceso inválido para la ubicación {path}"
 
 #: src/lib/api-errors.gen.ts:68
 msgctxt "api:db_backup_invalid_id"
@@ -1712,6 +1742,11 @@ msgstr "JSON inválido: {detail}"
 msgid "Invalid link"
 msgstr "Enlace no válido"
 
+#: src/lib/api-errors.gen.ts:121
+msgctxt "api:location_path_invalid"
+msgid "Invalid location \"{path}\": it must start with / and have no spaces, ? or #"
+msgstr "Ubicación inválida «{path}»: debe empezar por / y no tener espacios, ? ni #"
+
 #: src/lib/api-errors.gen.ts:15
 msgctxt "api:access_list_user_invalid"
 msgid "Invalid or duplicate user: \"{username}\""
@@ -1722,7 +1757,7 @@ msgctxt "api:app_volume_name_invalid"
 msgid "Invalid or duplicate volume name: {name}"
 msgstr "Nombre de volumen inválido o repetido: {name}"
 
-#: src/lib/api-errors.gen.ts:160
+#: src/lib/api-errors.gen.ts:165
 msgctxt "api:traffic_invalid_owner"
 msgid "Invalid owner"
 msgstr "Dueño inválido"
@@ -1732,7 +1767,7 @@ msgctxt "api:invalid_panel_url"
 msgid "Invalid panel address"
 msgstr "Dirección del panel inválida"
 
-#: src/lib/api-errors.gen.ts:173
+#: src/lib/api-errors.gen.ts:178
 msgctxt "api:webhook_bad_payload"
 msgid "Invalid payload"
 msgstr "Payload inválido"
@@ -1752,7 +1787,7 @@ msgctxt "api:git_invalid_provider"
 msgid "Invalid provider: use github or gitlab"
 msgstr "Proveedor inválido: usa github o gitlab"
 
-#: src/lib/api-errors.gen.ts:161
+#: src/lib/api-errors.gen.ts:166
 msgctxt "api:traffic_invalid_range"
 msgid "Invalid range: use 1h, 24h or 7d"
 msgstr "Rango inválido: usa 1h, 24h o 7d"
@@ -1762,17 +1797,17 @@ msgctxt "api:agent_token_invalid"
 msgid "Invalid server token: generate a new one in the panel"
 msgstr "Token del servidor inválido: genera otro en el panel"
 
-#: src/lib/api-errors.gen.ts:174
+#: src/lib/api-errors.gen.ts:179
 msgctxt "api:webhook_bad_signature"
 msgid "Invalid signature"
 msgstr "Firma inválida"
 
-#: src/lib/api-errors.gen.ts:126
+#: src/lib/api-errors.gen.ts:131
 msgctxt "api:proxy_forward_host_invalid"
 msgid "Invalid target host: \"{host}\" (no http:// or paths)"
 msgstr "Host de destino inválido: \"{host}\" (sin http:// ni rutas)"
 
-#: src/lib/api-errors.gen.ts:131
+#: src/lib/api-errors.gen.ts:136
 msgctxt "api:proxy_target_type_invalid"
 msgid "Invalid target type"
 msgstr "Tipo de destino inválido"
@@ -1813,7 +1848,7 @@ msgstr "Invitar a alguien"
 msgid "Invite your team with a link. Everyone signs in with their own email and password (and their own two-factor authentication)."
 msgstr "Invita a tu equipo con un enlace. Cada uno entra con su email y contraseña (y su propia verificación en dos pasos)."
 
-#: src/components/proxy-host-dialog.tsx:254
+#: src/components/proxy-host-dialog.tsx:266
 msgid "IP or domain"
 msgstr "IP o dominio"
 
@@ -1922,12 +1957,21 @@ msgstr "Cargando repositorios…"
 #: src/components/build-log.tsx:103
 #: src/components/integrations.tsx:51
 #: src/components/live-log.tsx:70
-#: src/components/proxy-host-dialog.tsx:220
+#: src/components/proxy-host-dialog.tsx:232
 #: src/components/proxy-hosts.tsx:131
 #: src/components/site-detail.tsx:129
 #: src/components/sites.tsx:57
 msgid "Loading…"
 msgstr "Cargando…"
+
+#: src/components/proxy-locations.tsx:150
+msgid "Location"
+msgstr "Ubicación"
+
+#: src/lib/api-errors.gen.ts:119
+msgctxt "api:location_invalid"
+msgid "Location {path}: {detail}"
+msgstr "Ubicación {path}: {detail}"
 
 #: src/components/auth-form.tsx:152
 msgid "Log in"
@@ -1979,12 +2023,12 @@ msgstr "Memoria (MB)"
 msgid "Message the bot and get your ID with @userinfobot; for a group, add the bot and use the group ID (it starts with -100)."
 msgstr "Escríbele al bot y obtén tu ID con @userinfobot; para un grupo, añade el bot y usa el ID del grupo (empieza por -100)."
 
-#: src/lib/api-errors.gen.ts:119
+#: src/lib/api-errors.gen.ts:124
 msgctxt "api:method_not_allowed"
 msgid "Method not allowed"
 msgstr "Método no permitido"
 
-#: src/lib/api-errors.gen.ts:120
+#: src/lib/api-errors.gen.ts:125
 msgctxt "api:multipart_expected"
 msgid "multipart/form-data was expected"
 msgstr "Se esperaba multipart/form-data"
@@ -2021,7 +2065,7 @@ msgstr "Nombre"
 msgid "NAME"
 msgstr "NOMBRE"
 
-#: src/lib/api-errors.gen.ts:121
+#: src/lib/api-errors.gen.ts:126
 msgctxt "api:name_required"
 msgid "Name is required"
 msgstr "El nombre es obligatorio"
@@ -2030,7 +2074,7 @@ msgstr "El nombre es obligatorio"
 msgid "Name it <0>Dockfly</0>, check <1>Confidential</1> and the <2>api</2> scope. Paste this as the Redirect URI:"
 msgstr "Nombre <0>Dockfly</0>, marca <1>Confidential</1> y el scope <2>api</2>. Como Redirect URI pega:"
 
-#: src/lib/api.ts:766
+#: src/lib/api.ts:782
 msgid "network error during upload"
 msgstr "error de red durante la subida"
 
@@ -2080,7 +2124,7 @@ msgstr "Nuevo canal de notificación"
 msgid "New password"
 msgstr "Nueva contraseña"
 
-#: src/components/proxy-host-dialog.tsx:148
+#: src/components/proxy-host-dialog.tsx:152
 msgid "New proxy host"
 msgstr "Nuevo proxy host"
 
@@ -2140,6 +2184,10 @@ msgstr "Todavía no hay copias."
 msgid "No builds yet. Push to {0} or click Deploy now."
 msgstr "Todavía no hay builds. Haz un push a {0} o pulsa «Desplegar ahora»."
 
+#: src/components/proxy-locations.tsx:70
+msgid "No custom locations."
+msgstr "Sin ubicaciones personalizadas."
+
 #: src/components/app-detail.tsx:256
 msgid "No deployments yet."
 msgstr "Todavía no hay despliegues."
@@ -2193,6 +2241,10 @@ msgstr "Sin peticiones en este periodo. Los datos se recogen cada minuto."
 msgid "No sites yet"
 msgstr "Todavía no hay sitios"
 
+#: src/components/proxy-locations.tsx:112
+msgid "no target yet"
+msgstr "sin destino todavía"
+
 #: src/components/integrations.tsx:245
 msgid "No webhook: set the public URL to deploy on every push."
 msgstr "Sin webhook: configura la URL pública para desplegar en cada push."
@@ -2205,7 +2257,7 @@ msgstr "Ninguna: todos los certificados se validan por HTTP."
 msgid "None. If you upload one, it will be used automatically for the domains it covers."
 msgstr "Ninguno. Si subes uno, se usará automáticamente para los dominios que cubre."
 
-#: src/lib/api-errors.gen.ts:166
+#: src/lib/api-errors.gen.ts:171
 msgctxt "api:unauthenticated"
 msgid "Not authenticated or session expired"
 msgstr "No autenticado o sesión expirada"
@@ -2350,18 +2402,19 @@ msgstr "HTML plano (sin build)"
 
 #: src/components/app-dialog.tsx:225
 #: src/components/notifications.tsx:92
-#: src/components/proxy-host-dialog.tsx:270
+#: src/components/proxy-host-dialog.tsx:282
+#: src/components/proxy-locations.tsx:221
 #: src/components/streams.tsx:88
 #: src/components/streams.tsx:227
 msgid "Port"
 msgstr "Puerto"
 
-#: src/lib/api-errors.gen.ts:150
+#: src/lib/api-errors.gen.ts:155
 msgctxt "api:stream_port_reserved"
 msgid "Port {port} is used by Dockfly ({addr})"
 msgstr "El puerto {port} lo usa Dockfly ({addr})"
 
-#: src/lib/api-errors.gen.ts:152
+#: src/lib/api-errors.gen.ts:157
 msgctxt "api:stream_ports_invalid"
 msgid "Ports must be between 1 and 65535"
 msgstr "Los puertos deben estar entre 1 y 65535"
@@ -2370,7 +2423,7 @@ msgstr "Los puertos deben estar entre 1 y 65535"
 msgid "Preserve path"
 msgstr "Conservar la ruta"
 
-#: src/components/proxy-host-dialog.tsx:327
+#: src/components/proxy-host-dialog.tsx:339
 msgid "Preserve the original Host"
 msgstr "Conservar el Host original"
 
@@ -2437,21 +2490,22 @@ msgctxt "api:dns_provider_not_found"
 msgid "Provider not found"
 msgstr "Proveedor no encontrado"
 
-#: src/lib/api.ts:777
+#: src/lib/api.ts:793
 msgctxt "domain owner"
 msgid "proxy host"
 msgstr "otro proxy host"
 
-#: src/components/proxy-host-dialog.tsx:133
+#: src/components/proxy-host-dialog.tsx:137
 msgid "Proxy host created"
 msgstr "Proxy host creado"
 
-#: src/lib/api-errors.gen.ts:128
+#: src/lib/api-errors.gen.ts:133
 msgctxt "api:proxy_host_not_found"
 msgid "Proxy host not found"
 msgstr "Proxy host no encontrado"
 
 #: src/components/access-select.tsx:26
+#: src/components/proxy-locations.tsx:255
 msgid "Public"
 msgstr "Público"
 
@@ -2506,12 +2560,12 @@ msgstr "Destinatarios"
 msgid "Recovery code"
 msgstr "Código de recuperación"
 
-#: src/lib/api.ts:780
+#: src/lib/api.ts:796
 msgctxt "domain owner"
 msgid "redirect"
 msgstr "otra redirección"
 
-#: src/lib/api-errors.gen.ts:134
+#: src/lib/api-errors.gen.ts:139
 msgctxt "api:redirect_not_found"
 msgid "Redirect not found"
 msgstr "Redirección no encontrada"
@@ -2553,6 +2607,11 @@ msgstr "Quitar el acceso a {name}"
 #: src/components/integrations.tsx:333
 msgid "Remove app"
 msgstr "Quitar la app"
+
+#. placeholder {0}: l.path
+#: src/components/proxy-locations.tsx:138
+msgid "Remove location {0}"
+msgstr "Quitar la ubicación {0}"
 
 #: src/components/app-status.tsx:14
 msgid "Replaced"
@@ -2654,7 +2713,7 @@ msgstr "Vuelta atrás"
 msgid "Root directory"
 msgstr "Directorio raíz"
 
-#: src/lib/api-errors.gen.ts:138
+#: src/lib/api-errors.gen.ts:143
 msgctxt "api:route_not_found"
 msgid "Route not found"
 msgstr "Ruta no encontrada"
@@ -2681,7 +2740,7 @@ msgstr "Bucket S3"
 #: src/components/integrations.tsx:568
 #: src/components/notifications.tsx:408
 #: src/components/preview-settings.tsx:92
-#: src/components/proxy-host-dialog.tsx:374
+#: src/components/proxy-host-dialog.tsx:394
 #: src/components/redirects.tsx:229
 #: src/components/site-dialog.tsx:141
 #: src/components/streams.tsx:252
@@ -2701,7 +2760,7 @@ msgstr "Guarda tus códigos de recuperación"
 msgid "Save, then copy the Application ID and Secret here:"
 msgstr "Guarda y copia aquí el Application ID y el Secret:"
 
-#: src/components/proxy-host-dialog.tsx:350
+#: src/components/proxy-host-dialog.tsx:370
 msgid "Saved, with warnings"
 msgstr "Guardado, con avisos"
 
@@ -2713,7 +2772,8 @@ msgstr "Escanea el código con tu app de autenticación y escribe el código de 
 msgid "Scheduled"
 msgstr "Programada"
 
-#: src/components/proxy-host-dialog.tsx:199
+#: src/components/proxy-host-dialog.tsx:211
+#: src/components/proxy-locations.tsx:187
 msgid "Scheme"
 msgstr "Esquema"
 
@@ -2742,6 +2802,10 @@ msgstr "visto {ago}"
 msgid "Send a domain to another URL: www → apex, an old domain to a new one…"
 msgstr "Envía un dominio a otra URL: www → raíz, un dominio antiguo al nuevo…"
 
+#: src/components/proxy-locations.tsx:58
+msgid "Send part of the domain to another target: for example <0>/api</0> to your API container. The rest of the domain keeps going to the main target."
+msgstr "Envía una parte del dominio a otro destino: por ejemplo <0>/api</0> al contenedor de tu API. El resto del dominio sigue yendo al destino principal."
+
 #: src/components/users.tsx:263
 msgid "Send them this link to choose their password. It can only be used once and expires on {expires}."
 msgstr "Envíale este enlace. Con él elegirá su contraseña; sirve una sola vez y caduca el {expires}."
@@ -2758,7 +2822,7 @@ msgstr "Servidor"
 msgid "Server disconnected"
 msgstr "Servidor desconectado"
 
-#: src/lib/api-errors.gen.ts:142
+#: src/lib/api-errors.gen.ts:147
 msgctxt "api:server_not_found"
 msgid "Server not found"
 msgstr "Servidor no encontrado"
@@ -2821,7 +2885,7 @@ msgstr "desde {since}"
 msgid "Single-page application (SPA)"
 msgstr "Aplicación de una sola página (SPA)"
 
-#: src/lib/api.ts:778
+#: src/lib/api.ts:794
 msgctxt "domain owner"
 msgid "site"
 msgstr "otro sitio"
@@ -2830,7 +2894,7 @@ msgstr "otro sitio"
 msgid "Site created"
 msgstr "Sitio creado"
 
-#: src/lib/api-errors.gen.ts:145
+#: src/lib/api-errors.gen.ts:150
 msgctxt "api:site_not_found"
 msgid "Site not found"
 msgstr "Sitio no encontrado"
@@ -2875,7 +2939,7 @@ msgctxt "api:app_compose_service_required"
 msgid "Specify which docker-compose.yml service receives the web traffic"
 msgstr "Indica qué servicio del docker-compose.yml recibe el tráfico web"
 
-#: src/components/proxy-host-dialog.tsx:160
+#: src/components/proxy-host-dialog.tsx:172
 msgid "SSL & access"
 msgstr "SSL y acceso"
 
@@ -2940,7 +3004,7 @@ msgstr "Se guardan cifradas y se aplican en el próximo despliegue."
 msgid "Stored encrypted and never exposed to build containers."
 msgstr "Se guarda cifrado y nunca llega a los contenedores de build."
 
-#: src/lib/api-errors.gen.ts:149
+#: src/lib/api-errors.gen.ts:154
 msgctxt "api:stream_not_found"
 msgid "Stream not found"
 msgstr "Stream no encontrado"
@@ -2949,12 +3013,17 @@ msgstr "Stream no encontrado"
 msgid "Stream saved"
 msgstr "Stream guardado"
 
+#: src/components/proxy-locations.tsx:270
+msgid "Strip the location from the path"
+msgstr "Quitar la ubicación de la ruta"
+
 #: src/components/header.tsx:112
 msgid "System"
 msgstr "Sistema"
 
-#: src/components/proxy-host-dialog.tsx:174
+#: src/components/proxy-host-dialog.tsx:186
 #: src/components/proxy-hosts.tsx:143
+#: src/components/proxy-locations.tsx:163
 #: src/components/redirects.tsx:82
 #: src/components/redirects.tsx:192
 #: src/components/streams.tsx:91
@@ -2997,7 +3066,7 @@ msgctxt "api:app_image_gone"
 msgid "That deployment's image no longer exists; deploy again"
 msgstr "La imagen de ese despliegue ya no existe; despliega de nuevo"
 
-#: src/lib/api-errors.gen.ts:169
+#: src/lib/api-errors.gen.ts:174
 msgctxt "api:upload_header_missing"
 msgid "The {header} header is missing"
 msgstr "Falta la cabecera {header}"
@@ -3102,7 +3171,17 @@ msgctxt "api:invite_link_invalid"
 msgid "The link is invalid or has expired; ask an administrator for a new one"
 msgstr "El enlace no es válido o ya ha caducado; pide otro a un administrador"
 
-#: src/lib/api-errors.gen.ts:140
+#: src/lib/api-errors.gen.ts:120
+msgctxt "api:location_path_duplicate"
+msgid "The location {path} is repeated"
+msgstr "La ubicación {path} está repetida"
+
+#: src/lib/api-errors.gen.ts:122
+msgctxt "api:location_path_root"
+msgid "The location / is the proxy host itself: set its target in Details"
+msgstr "La ubicación / es el propio proxy host: configura su destino en Detalles"
+
+#: src/lib/api-errors.gen.ts:145
 msgctxt "api:server_invalid_name"
 msgid "The name can only contain lowercase letters, numbers and hyphens"
 msgstr "El nombre solo puede tener minúsculas, números y guiones"
@@ -3112,7 +3191,7 @@ msgctxt "api:app_name_invalid"
 msgid "The name can only contain lowercase letters, numbers and hyphens (max. 42)"
 msgstr "El nombre solo puede tener minúsculas, números y guiones (máx. 42)"
 
-#: src/lib/api-errors.gen.ts:143
+#: src/lib/api-errors.gen.ts:148
 msgctxt "api:site_name_invalid"
 msgid "The name can only contain lowercase letters, numbers and hyphens (max. 63)"
 msgstr "El nombre solo puede tener minúsculas, números y guiones (máx. 63)"
@@ -3144,7 +3223,7 @@ msgctxt "api:access_list_password_too_short"
 msgid "The password for {username} must be at least {min} characters long"
 msgstr "La contraseña de {username} debe tener al menos {min} caracteres"
 
-#: src/lib/api-errors.gen.ts:124
+#: src/lib/api-errors.gen.ts:129
 msgctxt "api:password_too_short"
 msgid "The password must be at least {min} characters long"
 msgstr "La contraseña debe tener al menos {min} caracteres"
@@ -3154,22 +3233,22 @@ msgctxt "api:app_volume_path_not_absolute"
 msgid "The path of volume {name} must be absolute (e.g. /data)"
 msgstr "La ruta del volumen {name} debe ser absoluta (p. ej. /data)"
 
-#: src/lib/api-errors.gen.ts:129
+#: src/lib/api-errors.gen.ts:134
 msgctxt "api:proxy_port_invalid"
 msgid "The port must be between 1 and 65535"
 msgstr "El puerto debe estar entre 1 y 65535"
 
-#: src/lib/api-errors.gen.ts:125
+#: src/lib/api-errors.gen.ts:130
 msgctxt "api:preview_domain_invalid"
 msgid "The previews domain must look like previews.mydomain.com (without *.)"
 msgstr "El dominio de previews debe ser del tipo previews.midominio.com (sin *.)"
 
-#: src/lib/api-errors.gen.ts:153
+#: src/lib/api-errors.gen.ts:158
 msgctxt "api:stream_protocol_invalid"
 msgid "The protocol must be tcp or udp"
 msgstr "El protocolo debe ser tcp o udp"
 
-#: src/lib/api-errors.gen.ts:132
+#: src/lib/api-errors.gen.ts:137
 msgctxt "api:public_url_invalid"
 msgid "The public URL must look like https://dockfly.mydomain.com"
 msgstr "La URL pública debe ser del tipo https://dockfly.midominio.com"
@@ -3189,7 +3268,7 @@ msgctxt "api:git_root_dir_dotdot"
 msgid "The root directory can't contain \"..\""
 msgstr "El directorio raíz no puede contener «..»"
 
-#: src/lib/api-errors.gen.ts:130
+#: src/lib/api-errors.gen.ts:135
 msgctxt "api:proxy_scheme_invalid"
 msgid "The scheme must be http or https"
 msgstr "El esquema debe ser http o https"
@@ -3204,7 +3283,7 @@ msgctxt "api:app_server_not_found"
 msgid "The server doesn't exist"
 msgstr "El servidor no existe"
 
-#: src/lib/api-errors.gen.ts:139
+#: src/lib/api-errors.gen.ts:144
 msgctxt "api:server_has_apps"
 msgid "The server has {count} apps: delete them first"
 msgstr "El servidor tiene {count} apps: bórralas antes"
@@ -3214,7 +3293,7 @@ msgctxt "api:agent_token_missing"
 msgid "The server token is missing"
 msgstr "Falta el token del servidor"
 
-#: src/lib/api-errors.gen.ts:146
+#: src/lib/api-errors.gen.ts:151
 msgctxt "api:site_not_linked"
 msgid "The site isn't linked to any repository"
 msgstr "El sitio no está enlazado a ningún repositorio"
@@ -3228,27 +3307,36 @@ msgstr "El origen debe ser una imagen o un repositorio"
 msgid "The target can be a Dockfly app by name (e.g. postgres), a container or an IP."
 msgstr "El destino puede ser una app de Dockfly por su nombre (p. ej. postgres), un contenedor o una IP."
 
-#: src/lib/api-errors.gen.ts:133
+#: src/lib/api-errors.gen.ts:138
 msgctxt "api:redirect_loop"
 msgid "The target can't be the domain itself: it would be a redirect loop"
 msgstr "El destino no puede ser el propio dominio: sería un bucle de redirecciones"
 
-#: src/lib/api-errors.gen.ts:135
+#: src/lib/api-errors.gen.ts:140
 msgctxt "api:redirect_target_dollar"
 msgid "The target can't contain \"$\""
 msgstr "El destino no puede contener «$»"
 
-#: src/lib/api-errors.gen.ts:136
+#: src/lib/api-errors.gen.ts:141
 msgctxt "api:redirect_target_invalid"
 msgid "The target must be a full URL, e.g. https://new.com"
 msgstr "El destino debe ser una URL completa, p. ej. https://nuevo.com"
+
+#. placeholder {0}: l.path
+#: src/components/proxy-locations.tsx:273
+msgid "The target receives {0}/users as /users. Leave it off if the target expects the full path."
+msgstr "El destino recibe {0}/users como /users. Déjalo desactivado si el destino espera la ruta completa."
+
+#: src/components/proxy-locations.tsx:274
+msgid "The target receives the path without the location. Leave it off if the target expects the full path."
+msgstr "El destino recibe la ruta sin la ubicación. Déjalo desactivado si el destino espera la ruta completa."
 
 #: src/lib/api-errors.gen.ts:103
 msgctxt "api:git_token_required"
 msgid "The token is required"
 msgstr "El token es obligatorio"
 
-#: src/lib/api-errors.gen.ts:170
+#: src/lib/api-errors.gen.ts:175
 msgctxt "api:upload_too_large"
 msgid "The upload exceeds {max_mb} MiB"
 msgstr "La subida supera {max_mb} MiB"
@@ -3274,7 +3362,7 @@ msgstr "Tema"
 msgid "There may have been an outage of ~1 s."
 msgstr "Puede haber habido un corte de ~1 s."
 
-#: src/lib/api-errors.gen.ts:151
+#: src/lib/api-errors.gen.ts:156
 msgctxt "api:stream_port_taken"
 msgid "There's already a {protocol} stream on port {port}"
 msgstr "Ya hay un stream {protocol} en el puerto {port}"
@@ -3293,12 +3381,12 @@ msgctxt "api:app_webhook_inactive"
 msgid "This app has no active webhooks"
 msgstr "Esta app no tiene webhooks activos"
 
-#: src/lib/api-errors.gen.ts:123
+#: src/lib/api-errors.gen.ts:128
 msgctxt "api:panel_only"
 msgid "This can only be done from the panel, not with an API token"
 msgstr "Esto solo se puede hacer desde el panel, no con un token de API"
 
-#: src/components/proxy-host-dialog.tsx:296
+#: src/components/proxy-host-dialog.tsx:308
 msgid "This container isn't on the Dockfly network. Saving will connect it automatically so Traefik can reach it."
 msgstr "Este contenedor no está en la red de Dockfly. Al guardar se conectará automáticamente para que Traefik pueda alcanzarlo."
 
@@ -3316,12 +3404,13 @@ msgstr "Es el único administrador: nombra antes a otro"
 msgid "This page doesn't exist."
 msgstr "Esta página no existe."
 
-#: src/components/proxy-host-dialog.tsx:229
+#: src/components/proxy-host-dialog.tsx:241
 msgid "this panel"
 msgstr "este panel"
 
-#: src/components/proxy-host-dialog.tsx:188
+#: src/components/proxy-host-dialog.tsx:200
 #: src/components/proxy-hosts.tsx:35
+#: src/components/proxy-locations.tsx:174
 #: src/components/servers.tsx:80
 msgid "This server"
 msgstr "Este servidor"
@@ -3334,7 +3423,7 @@ msgstr "Este servidor (el del panel)"
 msgid "This site doesn't exist"
 msgstr "Este sitio no existe"
 
-#: src/lib/api-errors.gen.ts:147
+#: src/lib/api-errors.gen.ts:152
 msgctxt "api:site_webhooks_inactive"
 msgid "This site has no active webhooks"
 msgstr "Este sitio no tiene webhooks activos"
@@ -3364,22 +3453,22 @@ msgstr "Token «{name}» revocado"
 msgid "Token copied"
 msgstr "Token copiado"
 
-#: src/lib/api-errors.gen.ts:156
+#: src/lib/api-errors.gen.ts:161
 msgctxt "api:token_not_found"
 msgid "Token not found"
 msgstr "Token no encontrado"
 
-#: src/lib/api-errors.gen.ts:158
+#: src/lib/api-errors.gen.ts:163
 msgctxt "api:too_many_attempts"
 msgid "Too many attempts, wait a minute"
 msgstr "Demasiados intentos, espera un minuto"
 
-#: src/lib/api-errors.gen.ts:159
+#: src/lib/api-errors.gen.ts:164
 msgctxt "api:too_many_wrong_codes"
 msgid "Too many wrong codes; wait a few minutes"
 msgstr "Demasiados códigos incorrectos; espera unos minutos"
 
-#: src/components/proxy-host-dialog.tsx:150
+#: src/components/proxy-host-dialog.tsx:154
 msgid "Traefik applies changes instantly, with no restarts."
 msgstr "Traefik aplica los cambios al instante, sin reinicios."
 
@@ -3418,7 +3507,7 @@ msgstr "Tráfico (24 h)"
 msgid "Trigger"
 msgstr "Origen"
 
-#: src/components/proxy-host-dialog.tsx:328
+#: src/components/proxy-host-dialog.tsx:340
 msgid "Turn it off if the target is an external site that requires its own domain."
 msgstr "Desactívalo si el destino es un sitio externo que exige su propio dominio."
 
@@ -3435,12 +3524,12 @@ msgstr "Verificación en dos pasos desactivada"
 msgid "Two-step verification enabled"
 msgstr "Verificación en dos pasos activada"
 
-#: src/lib/api-errors.gen.ts:162
+#: src/lib/api-errors.gen.ts:167
 msgctxt "api:two_factor_already_enabled"
 msgid "Two-step verification is already enabled"
 msgstr "La verificación en dos pasos ya está activada"
 
-#: src/lib/api-errors.gen.ts:163
+#: src/lib/api-errors.gen.ts:168
 msgctxt "api:two_factor_not_enabled"
 msgid "Two-step verification isn't enabled"
 msgstr "La verificación en dos pasos no está activada"
@@ -3480,7 +3569,7 @@ msgctxt "api:app_webhook_unknown_provider"
 msgid "Unknown provider"
 msgstr "Proveedor desconocido"
 
-#: src/lib/api-errors.gen.ts:168
+#: src/lib/api-errors.gen.ts:173
 msgctxt "api:unknown_role"
 msgid "Unknown role: use admin, deployer or viewer"
 msgstr "Rol desconocido: usa admin, deployer o viewer"
@@ -3495,7 +3584,7 @@ msgctxt "api:cert_unreadable"
 msgid "Unreadable certificate"
 msgstr "Certificado ilegible"
 
-#: src/components/proxy-host-dialog.tsx:41
+#: src/components/proxy-host-dialog.tsx:42
 msgid "untagged image ({digest})"
 msgstr "imagen sin etiqueta ({digest})"
 
@@ -3537,7 +3626,7 @@ msgstr "Usar la app"
 msgid "Used {0}"
 msgstr "Usado {0}"
 
-#: src/lib/api-errors.gen.ts:172
+#: src/lib/api-errors.gen.ts:177
 msgctxt "api:user_not_found"
 msgid "User not found"
 msgstr "Usuario no encontrado"
@@ -3650,12 +3739,12 @@ msgstr "Sin comandos se publican directamente los archivos del repositorio (o de
 msgid "Workflow automation."
 msgstr "Automatización de flujos de trabajo."
 
-#: src/lib/api-errors.gen.ts:177
+#: src/lib/api-errors.gen.ts:182
 msgctxt "api:wrong_2fa_code"
 msgid "Wrong code"
 msgstr "Código incorrecto"
 
-#: src/lib/api-errors.gen.ts:165
+#: src/lib/api-errors.gen.ts:170
 msgctxt "api:two_factor_wrong_setup_code"
 msgid "Wrong code: check that your phone's clock is correct"
 msgstr "Código incorrecto: revisa que la hora del móvil sea correcta"
@@ -3665,7 +3754,7 @@ msgctxt "api:bad_credentials"
 msgid "Wrong email or password"
 msgstr "Email o contraseña incorrectos"
 
-#: src/lib/api-errors.gen.ts:178
+#: src/lib/api-errors.gen.ts:183
 msgctxt "api:wrong_password"
 msgid "Wrong password"
 msgstr "Contraseña incorrecta"
@@ -3708,7 +3797,7 @@ msgstr "URL de tu GitLab"
 msgid "Your previous codes no longer work."
 msgstr "Los códigos anteriores ya no sirven."
 
-#: src/lib/api-errors.gen.ts:137
+#: src/lib/api-errors.gen.ts:142
 msgctxt "api:role_forbidden"
 msgid "Your role doesn't allow this; ask an administrator"
 msgstr "Tu rol no permite hacer esto; pídeselo a un administrador"
@@ -3717,7 +3806,7 @@ msgstr "Tu rol no permite hacer esto; pídeselo a un administrador"
 msgid "Your sessions on other devices have been signed out."
 msgstr "Se han cerrado tus sesiones en otros dispositivos."
 
-#: src/lib/api-errors.gen.ts:118
+#: src/lib/api-errors.gen.ts:123
 msgctxt "api:login_expired"
 msgid "Your sign-in has expired; enter your password again"
 msgstr "El inicio de sesión ha caducado; vuelve a escribir tu contraseña"

@@ -15,6 +15,7 @@ traefik_router_requests_total{code="200",method="GET",protocol="http",router="ph
 traefik_router_requests_total{code="404",method="GET",protocol="http",router="ph-1-secure@file",service="ph-1@file"} 6
 traefik_router_requests_total{code="502",method="POST",protocol="http",router="ph-1@file",service="ph-1@file"} 4
 traefik_router_requests_total{code="200",method="GET",protocol="http",router="site-2@file",service="site-2@file"} 10
+traefik_router_requests_total{code="200",method="GET",protocol="http",router="ph-1-loc0-secure@file",service="ph-1-loc0@file"} 7
 traefik_router_requests_total{code="200",method="GET",protocol="http",router="api@internal",service="api@internal"} 99
 traefik_router_request_duration_seconds_bucket{code="200",method="GET",protocol="http",router="ph-1-secure@file",service="ph-1@file",le="0.1"} 50
 traefik_router_request_duration_seconds_bucket{code="200",method="GET",protocol="http",router="ph-1-secure@file",service="ph-1@file",le="0.5"} 90
@@ -36,8 +37,8 @@ func TestParse(t *testing.T) {
 		t.Fatalf("dueños: %v", got)
 	}
 	ph := got["ph-1"]
-	if ph.Requests != 100 || ph.S4xx != 6 || ph.S5xx != 4 || ph.Sum != 12.5 {
-		t.Errorf("ph-1 (HTTP y HTTPS juntos): %+v", ph)
+	if ph.Requests != 107 || ph.S4xx != 6 || ph.S5xx != 4 || ph.Sum != 12.5 {
+		t.Errorf("ph-1 (HTTP, HTTPS y sus ubicaciones juntos): %+v", ph)
 	}
 	if want := []float64{50, 90, 100}; !equal(ph.Buckets, want) {
 		t.Errorf("buckets: %v, quería %v", ph.Buckets, want)

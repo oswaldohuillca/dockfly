@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -30,6 +31,8 @@ type proxyHostInput struct {
 	PreserveHost  *bool    `json:"preserve_host"`
 	AccessListID  *int64   `json:"access_list_id"`
 	Enabled       *bool    `json:"enabled"`
+	// Locations: ubicaciones personalizadas (/api → otro destino).
+	Locations []store.ProxyLocation `json:"locations"`
 }
 
 var (
@@ -39,7 +42,17 @@ var (
 	errProxyHostInvalid       = newError("proxy_forward_host_invalid", "Invalid target host: \"{host}\" (no http:// or paths)")
 	errProxyPortInvalid       = newError("proxy_port_invalid", "The port must be between 1 and 65535")
 	errProxyHostNotFound      = newError("proxy_host_not_found", "Proxy host not found")
+
+	errLocationPathInvalid   = newError("location_path_invalid", "Invalid location \"{path}\": it must start with / and have no spaces, ? or #")
+	errLocationPathRoot      = newError("location_path_root", "The location / is the proxy host itself: set its target in Details")
+	errLocationPathDuplicate = newError("location_path_duplicate", "The location {path} is repeated")
+	errLocationAccessInvalid = newError("location_access_invalid", "Invalid access for the location {path}")
+	// errLocation envuelve un error del destino de una ubicación.
+	errLocation = newError("location_invalid", "Location {path}: {detail}")
 )
+
+// maxLocations limita las ubicaciones de un proxy host.
+const maxLocations = 50
 
 func (in *proxyHostInput) normalize() (*store.ProxyHost, error) {
 	h := &store.ProxyHost{
@@ -61,29 +74,93 @@ func (in *proxyHostInput) normalize() (*store.ProxyHost, error) {
 	}
 	h.Domains = domains
 
-	switch h.TargetType {
+	scheme, err := checkTarget(h.TargetType, h.ForwardScheme, h.ForwardHost, h.ForwardPort)
+	if err != nil {
+		return nil, err
+	}
+	h.ForwardScheme = scheme
+	h.SkipTLSVerify = h.ForwardScheme == "https" && in.SkipTLSVerify
+	locations, err := normalizeLocations(in.Locations)
+	if err != nil {
+		return nil, err
+	}
+	h.Locations = locations
+	return h, nil
+}
+
+// checkTarget valida un destino (el del proxy host o el de una ubicación).
+// Devuelve el esquema normalizado.
+func checkTarget(targetType, scheme, host string, port int) (string, error) {
+	switch targetType {
 	case store.TargetDocker, store.TargetHost, store.TargetExternal:
 	default:
-		return nil, errProxyTargetTypeInvalid
+		return "", errProxyTargetTypeInvalid
 	}
-	if h.ForwardScheme == "" {
-		h.ForwardScheme = "http"
+	if scheme == "" {
+		scheme = "http"
 	}
-	if h.ForwardScheme != "http" && h.ForwardScheme != "https" {
-		return nil, errProxySchemeInvalid
+	if scheme != "http" && scheme != "https" {
+		return "", errProxySchemeInvalid
 	}
-	h.SkipTLSVerify = h.ForwardScheme == "https" && in.SkipTLSVerify
+	if host == "" {
+		return "", errProxyHostRequired
+	}
+	if net.ParseIP(host) == nil && !hostnameRe.MatchString(host) {
+		return "", errProxyHostInvalid.With("host", host)
+	}
+	if port < 1 || port > 65535 {
+		return "", errProxyPortInvalid
+	}
+	return scheme, nil
+}
 
-	if h.ForwardHost == "" {
-		return nil, errProxyHostRequired
+// normalizeLocations valida las ubicaciones y las ordena de la más larga a
+// la más corta (como las elige Traefik).
+func normalizeLocations(in []store.ProxyLocation) ([]store.ProxyLocation, error) {
+	out := make([]store.ProxyLocation, 0, len(in))
+	seen := map[string]bool{}
+	for _, l := range in[:min(len(in), maxLocations)] {
+		path := strings.TrimSpace(l.Path)
+		if len(path) > 1 {
+			path = strings.TrimRight(path, "/")
+		}
+		switch {
+		case path == "/" || path == "":
+			return nil, errLocationPathRoot
+		case !strings.HasPrefix(path, "/") || strings.ContainsAny(path, " \t?#`") || len(path) > 200:
+			return nil, errLocationPathInvalid.With("path", path)
+		case seen[path]:
+			return nil, errLocationPathDuplicate.With("path", path)
+		}
+		seen[path] = true
+		l.Path = path
+		l.ForwardScheme = strings.ToLower(strings.TrimSpace(l.ForwardScheme))
+		l.ForwardHost = strings.TrimSpace(l.ForwardHost)
+		scheme, err := checkTarget(l.TargetType, l.ForwardScheme, l.ForwardHost, l.ForwardPort)
+		if err != nil {
+			var e apiError
+			if errors.As(err, &e) {
+				return nil, errLocation.With("path", path, "detail", e.Error())
+			}
+			return nil, err
+		}
+		l.ForwardScheme = scheme
+		switch l.Access {
+		case "", store.LocationAccessInherit:
+			l.Access, l.AccessListID = store.LocationAccessInherit, nil
+		case store.LocationAccessPublic:
+			l.AccessListID = nil
+		case store.LocationAccessList:
+			if l.AccessListID == nil {
+				return nil, errLocationAccessInvalid.With("path", path)
+			}
+		default:
+			return nil, errLocationAccessInvalid.With("path", path)
+		}
+		out = append(out, l)
 	}
-	if net.ParseIP(h.ForwardHost) == nil && !hostnameRe.MatchString(h.ForwardHost) {
-		return nil, errProxyHostInvalid.With("host", h.ForwardHost)
-	}
-	if h.ForwardPort < 1 || h.ForwardPort > 65535 {
-		return nil, errProxyPortInvalid
-	}
-	return h, nil
+	sort.SliceStable(out, func(i, j int) bool { return len(out[i].Path) > len(out[j].Path) })
+	return out, nil
 }
 
 func (s *Server) handleListProxyHosts(w http.ResponseWriter, r *http.Request) {
@@ -168,6 +245,11 @@ func (s *Server) readProxyHost(w http.ResponseWriter, r *http.Request, selfID in
 		!s.checkSSL(w, r, h.Domains, h.SSL) {
 		return nil, false
 	}
+	for _, l := range h.Locations {
+		if !s.checkAccessList(w, r, l.AccessListID) {
+			return nil, false
+		}
+	}
 	return h, true
 }
 
@@ -178,6 +260,13 @@ func (s *Server) afterChange(w http.ResponseWriter, r *http.Request, h *store.Pr
 	if h.TargetType == store.TargetDocker {
 		if err := s.ensureReachable(r, h.ForwardHost); err != nil {
 			warnings = append(warnings, err.Error())
+		}
+	}
+	for _, l := range h.Locations {
+		if l.TargetType == store.TargetDocker && l.ForwardHost != h.ForwardHost {
+			if err := s.ensureReachable(r, l.ForwardHost); err != nil {
+				warnings = append(warnings, l.Path+": "+err.Error())
+			}
 		}
 	}
 	if err := s.Apply(r.Context()); err != nil {

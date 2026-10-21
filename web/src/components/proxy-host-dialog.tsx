@@ -8,6 +8,7 @@ import { Trans, useLingui } from '@lingui/react/macro';
 import { AccessSelect } from '@/components/access-select';
 import { CheckField } from '@/components/check-field';
 import { DomainsInput } from '@/components/domains-input';
+import { ProxyLocations } from '@/components/proxy-locations';
 import { SSLFields } from '@/components/ssl-fields';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -63,6 +64,7 @@ function initialForm(h: Partial<ProxyHost>, dockerAvailable: boolean): ProxyHost
     preserve_host: h.preserve_host ?? true,
     enabled: h.enabled ?? true,
     access_list_id: h.access_list_id ?? null,
+    locations: (h.locations ?? []).map((l) => ({ ...l })),
   };
 }
 
@@ -82,8 +84,10 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
   const set = <K extends keyof ProxyHostInput>(key: K, value: ProxyHostInput[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
+  // Los contenedores se cargan si los necesita el destino o alguna ubicación.
+  const wantsContainers = form.target_type === 'docker' || form.locations.some((l) => l.target_type === 'docker');
   useEffect(() => {
-    if (form.target_type !== 'docker' || containersLoaded || !dockerAvailable) return;
+    if (!wantsContainers || containersLoaded || !dockerAvailable) return;
     api
       .listContainers()
       .then((res) => {
@@ -92,7 +96,7 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
       })
       .catch((e) => setError(errorMessage(e)))
       .finally(() => setContainersLoaded(true));
-  }, [form.target_type, containersLoaded, dockerAvailable]);
+  }, [wantsContainers, containersLoaded, dockerAvailable]);
 
   const selected = containers.find((c) => c.name === form.forward_host);
   const needsNetwork =
@@ -155,6 +159,14 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
             <TabsList className="w-full">
               <TabsTrigger value="details">
                 <Trans>Details</Trans>
+              </TabsTrigger>
+              <TabsTrigger value="locations">
+                <Trans>Custom locations</Trans>
+                {form.locations.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 px-1.5">
+                    {form.locations.length}
+                  </Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger value="ssl">
                 <Trans>SSL & access</Trans>
@@ -329,6 +341,14 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
                 />
                 <CheckField id="enabled" checked={form.enabled} onChange={(v) => set('enabled', v)} label={t`Enabled`} />
               </div>
+            </TabsContent>
+
+            <TabsContent value="locations" className="pt-3">
+              <ProxyLocations
+                value={form.locations}
+                onChange={(l) => set('locations', l)}
+                containers={containers.map((c) => c.name)}
+              />
             </TabsContent>
 
             <TabsContent value="ssl" className="space-y-6 pt-3">
