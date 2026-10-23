@@ -310,6 +310,8 @@ export interface Site extends SiteGit {
   spa: boolean;
   previews: boolean;
   access_list_id: number | null;
+  /** Ubicaciones personalizadas: /api → un contenedor; el resto lo sirve el sitio. */
+  locations: ProxyLocation[];
   active_deployment_id: number | null;
   active_deployment?: Deployment;
   created_at: string;
@@ -318,7 +320,7 @@ export interface Site extends SiteGit {
 
 export type SiteInput = Pick<
   Site,
-  'name' | 'domains' | 'ssl' | 'force_https' | 'hsts' | 'spa' | 'previews' | 'access_list_id'
+  'name' | 'domains' | 'ssl' | 'force_https' | 'hsts' | 'spa' | 'previews' | 'access_list_id' | 'locations'
 >;
 
 /** Lo que se sube: un .zip, o los archivos de una carpeta con su ruta relativa. */

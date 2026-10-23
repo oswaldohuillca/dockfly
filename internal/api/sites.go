@@ -51,6 +51,8 @@ type siteInput struct {
 	SPA        bool     `json:"spa"`
 	Previews   bool     `json:"previews"`
 	AccessList *int64   `json:"access_list_id"`
+	// Locations: ubicaciones personalizadas (/api → un contenedor).
+	Locations []store.ProxyLocation `json:"locations"`
 }
 
 func (in *siteInput) normalize() (*store.Site, error) {
@@ -59,6 +61,10 @@ func (in *siteInput) normalize() (*store.Site, error) {
 		return nil, errSiteNameInvalid
 	}
 	domains, err := normalizeDomains(in.Domains)
+	if err != nil {
+		return nil, err
+	}
+	locations, err := normalizeLocations(in.Locations)
 	if err != nil {
 		return nil, err
 	}
@@ -72,6 +78,7 @@ func (in *siteInput) normalize() (*store.Site, error) {
 		Previews:   in.Previews,
 
 		AccessListID: in.AccessList,
+		Locations:    locations,
 	}, nil
 }
 
@@ -110,6 +117,7 @@ func (s *Server) handleCreateSite(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
+	s.connectLocations(r, site)
 	s.applyAndRespond(w, r, http.StatusCreated, site)
 }
 
@@ -132,6 +140,7 @@ func (s *Server) handleUpdateSite(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
+	s.connectLocations(r, site)
 	s.applyAndRespond(w, r, http.StatusOK, site)
 }
 
@@ -366,7 +375,26 @@ func (s *Server) readSite(w http.ResponseWriter, r *http.Request, selfID int64) 
 		!s.checkSSL(w, r, site.Domains, site.SSL) {
 		return nil, false
 	}
+	for _, l := range site.Locations {
+		if !s.checkAccessList(w, r, l.AccessListID) {
+			return nil, false
+		}
+	}
 	return site, true
+}
+
+// connectLocations se asegura de que Traefik alcance por red los contenedores
+// de las ubicaciones del sitio. Un fallo no impide guardar (el contenedor
+// puede no existir todavía): solo se avisa en el log.
+func (s *Server) connectLocations(r *http.Request, site *store.Site) {
+	for _, l := range site.Locations {
+		if l.TargetType != store.TargetDocker {
+			continue
+		}
+		if err := s.ensureReachable(r, l.ForwardHost); err != nil {
+			s.Log.Warn("ubicación de sitio sin red", "site", site.Name, "path", l.Path, "error", err)
+		}
+	}
 }
 
 func (s *Server) loadSite(w http.ResponseWriter, r *http.Request) (*store.Site, bool) {

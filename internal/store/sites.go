@@ -20,11 +20,14 @@ type Site struct {
 	// SPA sirve index.html para cualquier ruta que no exista (React Router, Vue Router…).
 	SPA bool `bun:"spa" json:"spa"`
 	// Previews construye las ramas que no son la de producción en su propia URL.
-	Previews           bool      `json:"previews"`
-	AccessListID       *int64    `json:"access_list_id"`
-	ActiveDeploymentID *int64    `json:"active_deployment_id"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	Previews     bool   `json:"previews"`
+	AccessListID *int64 `json:"access_list_id"`
+	// Locations envían una parte del dominio (/api…) a otro destino; el resto
+	// lo sirve el sitio.
+	Locations          []ProxyLocation `json:"locations"`
+	ActiveDeploymentID *int64          `json:"active_deployment_id"`
+	CreatedAt          time.Time       `json:"created_at"`
+	UpdatedAt          time.Time       `json:"updated_at"`
 
 	SiteGit
 
@@ -72,6 +75,9 @@ type Deployment struct {
 
 func (s *Site) AfterScanRow(context.Context) error {
 	s.CreatedAt, s.UpdatedAt = s.CreatedAt.UTC(), s.UpdatedAt.UTC()
+	if s.Locations == nil {
+		s.Locations = []ProxyLocation{}
+	}
 	return nil
 }
 

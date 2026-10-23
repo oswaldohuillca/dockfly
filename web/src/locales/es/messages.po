@@ -139,7 +139,7 @@ msgid "123456789 or -100…"
 msgstr "123456789 o -100…"
 
 #: src/components/proxy-host-dialog.tsx:273
-#: src/components/proxy-locations.tsx:207
+#: src/components/proxy-locations.tsx:222
 msgid "192.168.1.50 or api.other.com"
 msgstr "192.168.1.50 o api.otro.com"
 
@@ -192,7 +192,7 @@ msgstr "Ya hay un usuario con ese email"
 msgid "Access"
 msgstr "Acceso"
 
-#: src/components/proxy-locations.tsx:237
+#: src/components/proxy-locations.tsx:252
 msgid "Access list"
 msgstr "Lista de acceso"
 
@@ -237,7 +237,7 @@ msgstr "Añade al menos un usuario o una IP permitida"
 msgid "Add channel"
 msgstr "Añadir canal"
 
-#: src/components/proxy-locations.tsx:64
+#: src/components/proxy-locations.tsx:76
 msgid "Add location"
 msgstr "Añadir ubicación"
 
@@ -308,7 +308,7 @@ msgstr "otro servidor"
 msgid "API tokens"
 msgstr "Tokens de API"
 
-#: src/lib/api.ts:807
+#: src/lib/api.ts:809
 msgctxt "domain owner"
 msgid "app"
 msgstr "otra app"
@@ -439,7 +439,7 @@ msgid "Branch"
 msgstr "Rama"
 
 #: src/components/preview-settings.tsx:56
-#: src/components/site-dialog.tsx:117
+#: src/components/site-dialog.tsx:140
 msgid "Branch previews"
 msgstr "Previews por rama"
 
@@ -524,7 +524,7 @@ msgstr "¿No puedes escanearlo? Escribe la clave a mano"
 #: src/components/restore-backup.tsx:138
 #: src/components/servers.tsx:217
 #: src/components/site-detail.tsx:310
-#: src/components/site-dialog.tsx:137
+#: src/components/site-dialog.tsx:169
 #: src/components/site-git.tsx:252
 #: src/components/streams.tsx:248
 #: src/components/two-factor.tsx:253
@@ -566,13 +566,13 @@ msgstr "Certificados"
 msgid "Change password"
 msgstr "Cambiar contraseña"
 
-#: src/components/site-dialog.tsx:68
+#: src/components/site-dialog.tsx:83
 msgid "Changes apply instantly."
 msgstr "Los cambios se aplican al instante."
 
 #: src/components/app-dialog.tsx:105
 #: src/components/proxy-host-dialog.tsx:137
-#: src/components/site-dialog.tsx:49
+#: src/components/site-dialog.tsx:64
 #: src/components/users.tsx:175
 msgid "Changes saved"
 msgstr "Cambios guardados"
@@ -757,8 +757,8 @@ msgstr "conectada {connectedAgo}"
 #: src/components/proxy-host-dialog.tsx:228
 #: src/components/proxy-host-dialog.tsx:262
 #: src/components/proxy-hosts.tsx:34
-#: src/components/proxy-locations.tsx:171
-#: src/components/proxy-locations.tsx:201
+#: src/components/proxy-locations.tsx:186
+#: src/components/proxy-locations.tsx:216
 msgid "Container"
 msgstr "Contenedor"
 
@@ -775,7 +775,7 @@ msgid "Container recovered"
 msgstr "Contenedor recuperado"
 
 #: src/components/proxy-host-dialog.tsx:273
-#: src/components/proxy-locations.tsx:207
+#: src/components/proxy-locations.tsx:222
 msgid "container-name"
 msgstr "nombre-del-contenedor"
 
@@ -895,7 +895,7 @@ msgstr "Crea uno y sube tu <0>dist/</0>: se publica al instante, con SSL y rollb
 msgid "Create one to publish a container, an app on this server or an external service."
 msgstr "Crea uno para publicar un contenedor, una app de este servidor o un servicio externo."
 
-#: src/components/site-dialog.tsx:141
+#: src/components/site-dialog.tsx:173
 msgid "Create site"
 msgstr "Crear sitio"
 
@@ -929,6 +929,7 @@ msgid "Custom certificates"
 msgstr "Certificados propios"
 
 #: src/components/proxy-host-dialog.tsx:164
+#: src/components/site-dialog.tsx:94
 msgid "Custom locations"
 msgstr "Ubicaciones personalizadas"
 
@@ -1091,7 +1092,7 @@ msgid "Deploys on every push"
 msgstr "Despliegue en cada push"
 
 #: src/components/proxy-host-dialog.tsx:161
-#: src/components/site-dialog.tsx:76
+#: src/components/site-dialog.tsx:91
 msgid "Details"
 msgstr "Detalles"
 
@@ -1184,7 +1185,7 @@ msgstr "Dominio y SSL"
 #: src/components/proxy-host-dialog.tsx:179
 #: src/components/proxy-hosts.tsx:140
 #: src/components/redirects.tsx:79
-#: src/components/site-dialog.tsx:102
+#: src/components/site-dialog.tsx:125
 msgid "Domains"
 msgstr "Dominios"
 
@@ -1245,7 +1246,7 @@ msgstr "Editar"
 #. placeholder {0}: list.name
 #. placeholder {0}: site.name
 #: src/components/access-lists.tsx:148
-#: src/components/site-dialog.tsx:63
+#: src/components/site-dialog.tsx:78
 msgid "Edit {0}"
 msgstr "Editar {0}"
 
@@ -1374,7 +1375,7 @@ msgstr "Cada hora"
 msgid "Every push to a branch other than <0>{productionBranch}</0> is published at its own URL. Previews are removed automatically when the branch is deleted."
 msgstr "Cada push a una rama distinta de <0>{productionBranch}</0> se publica en su propia URL. Se borran solas al borrar la rama."
 
-#: src/components/site-dialog.tsx:118
+#: src/components/site-dialog.tsx:141
 msgid "Every push to another branch is published at its own URL (branch--site.previews-domain). Set the domain in Settings."
 msgstr "Cada push a otra rama se publica en su propia URL (rama--sitio.dominio-de-previews). Configura el dominio en Ajustes."
 
@@ -1419,7 +1420,7 @@ msgstr "La caducidad debe estar entre 0 (nunca) y {max} días"
 
 #: src/components/proxy-host-dialog.tsx:203
 #: src/components/proxy-hosts.tsx:36
-#: src/components/proxy-locations.tsx:177
+#: src/components/proxy-locations.tsx:192
 msgid "External"
 msgstr "Externo"
 
@@ -1490,7 +1491,7 @@ msgstr "Forzar HTTPS"
 msgid "Forward a port to a non-web service: databases, game servers, MQTT… Adding or removing a port restarts Traefik (~1 s outage)."
 msgstr "Reenvía un puerto a un servicio que no es web: bases de datos, servidores de juegos, MQTT… Añadir o quitar un puerto reinicia Traefik (corte de ~1 s)."
 
-#: src/components/proxy-locations.tsx:201
+#: src/components/proxy-locations.tsx:216
 msgid "Forward hostname / IP"
 msgstr "Host / IP de reenvío"
 
@@ -1651,9 +1652,13 @@ msgstr "En Discord: Ajustes del canal → Integraciones → Webhooks → Nuevo w
 msgid "In PEM format. Include the intermediate chain after the certificate."
 msgstr "En formato PEM. Incluye la cadena intermedia después del certificado."
 
-#: src/components/proxy-locations.tsx:252
+#: src/components/proxy-locations.tsx:267
 msgid "Inherit from proxy host"
 msgstr "Heredar del proxy host"
+
+#: src/components/proxy-locations.tsx:267
+msgid "Inherit from site"
+msgstr "Heredar del sitio"
 
 #: src/components/git-dialog.tsx:168
 msgid "Install"
@@ -1973,7 +1978,7 @@ msgstr "Cargando repositorios…"
 msgid "Loading…"
 msgstr "Cargando…"
 
-#: src/components/proxy-locations.tsx:150
+#: src/components/proxy-locations.tsx:165
 msgid "Location"
 msgstr "Ubicación"
 
@@ -1994,7 +1999,7 @@ msgstr "Cerrar sesión"
 msgid "Logs"
 msgstr "Logs"
 
-#: src/components/site-dialog.tsx:97
+#: src/components/site-dialog.tsx:120
 msgid "Lowercase letters, numbers and hyphens."
 msgstr "Minúsculas, números y guiones."
 
@@ -2054,7 +2059,7 @@ msgstr "mi-api"
 msgid "my-company"
 msgstr "mi-empresa"
 
-#: src/components/site-dialog.tsx:92
+#: src/components/site-dialog.tsx:115
 msgid "my-site"
 msgstr "mi-web"
 
@@ -2065,7 +2070,7 @@ msgstr "mi-web"
 #: src/components/certificates-settings.tsx:360
 #: src/components/notifications.tsx:322
 #: src/components/servers.tsx:199
-#: src/components/site-dialog.tsx:86
+#: src/components/site-dialog.tsx:109
 #: src/components/users.tsx:199
 msgid "Name"
 msgstr "Nombre"
@@ -2083,7 +2088,7 @@ msgstr "El nombre es obligatorio"
 msgid "Name it <0>Dockfly</0>, check <1>Confidential</1> and the <2>api</2> scope. Paste this as the Redirect URI:"
 msgstr "Nombre <0>Dockfly</0>, marca <1>Confidential</1> y el scope <2>api</2>. Como Redirect URI pega:"
 
-#: src/lib/api.ts:794
+#: src/lib/api.ts:796
 msgid "network error during upload"
 msgstr "error de red durante la subida"
 
@@ -2145,7 +2150,7 @@ msgstr "Códigos de recuperación nuevos"
 msgid "New redirect"
 msgstr "Nueva redirección"
 
-#: src/components/site-dialog.tsx:63
+#: src/components/site-dialog.tsx:78
 #: src/components/sites.tsx:49
 #: src/components/sites.tsx:77
 msgid "New site"
@@ -2193,7 +2198,7 @@ msgstr "Todavía no hay copias."
 msgid "No builds yet. Push to {0} or click Deploy now."
 msgstr "Todavía no hay builds. Haz un push a {0} o pulsa «Desplegar ahora»."
 
-#: src/components/proxy-locations.tsx:70
+#: src/components/proxy-locations.tsx:82
 msgid "No custom locations."
 msgstr "Sin ubicaciones personalizadas."
 
@@ -2250,7 +2255,7 @@ msgstr "Sin peticiones en este periodo. Los datos se recogen cada minuto."
 msgid "No sites yet"
 msgstr "Todavía no hay sitios"
 
-#: src/components/proxy-locations.tsx:112
+#: src/components/proxy-locations.tsx:127
 msgid "no target yet"
 msgstr "sin destino todavía"
 
@@ -2417,7 +2422,7 @@ msgstr "HTML plano (sin build)"
 #: src/components/app-dialog.tsx:225
 #: src/components/notifications.tsx:92
 #: src/components/proxy-host-dialog.tsx:282
-#: src/components/proxy-locations.tsx:221
+#: src/components/proxy-locations.tsx:236
 #: src/components/streams.tsx:88
 #: src/components/streams.tsx:227
 msgid "Port"
@@ -2504,7 +2509,7 @@ msgctxt "api:dns_provider_not_found"
 msgid "Provider not found"
 msgstr "Proveedor no encontrado"
 
-#: src/lib/api.ts:805
+#: src/lib/api.ts:807
 msgctxt "domain owner"
 msgid "proxy host"
 msgstr "otro proxy host"
@@ -2519,7 +2524,7 @@ msgid "Proxy host not found"
 msgstr "Proxy host no encontrado"
 
 #: src/components/access-select.tsx:26
-#: src/components/proxy-locations.tsx:255
+#: src/components/proxy-locations.tsx:270
 msgid "Public"
 msgstr "Público"
 
@@ -2574,7 +2579,7 @@ msgstr "Destinatarios"
 msgid "Recovery code"
 msgstr "Código de recuperación"
 
-#: src/lib/api.ts:808
+#: src/lib/api.ts:810
 msgctxt "domain owner"
 msgid "redirect"
 msgstr "otra redirección"
@@ -2623,7 +2628,7 @@ msgid "Remove app"
 msgstr "Quitar la app"
 
 #. placeholder {0}: l.path
-#: src/components/proxy-locations.tsx:138
+#: src/components/proxy-locations.tsx:153
 msgid "Remove location {0}"
 msgstr "Quitar la ubicación {0}"
 
@@ -2758,7 +2763,7 @@ msgstr "Bucket S3"
 #: src/components/preview-settings.tsx:92
 #: src/components/proxy-host-dialog.tsx:394
 #: src/components/redirects.tsx:229
-#: src/components/site-dialog.tsx:141
+#: src/components/site-dialog.tsx:173
 #: src/components/streams.tsx:252
 #: src/components/users.tsx:238
 msgid "Save"
@@ -2789,7 +2794,7 @@ msgid "Scheduled"
 msgstr "Programada"
 
 #: src/components/proxy-host-dialog.tsx:211
-#: src/components/proxy-locations.tsx:187
+#: src/components/proxy-locations.tsx:202
 msgid "Scheme"
 msgstr "Esquema"
 
@@ -2818,9 +2823,13 @@ msgstr "visto {ago}"
 msgid "Send a domain to another URL: www → apex, an old domain to a new one…"
 msgstr "Envía un dominio a otra URL: www → raíz, un dominio antiguo al nuevo…"
 
-#: src/components/proxy-locations.tsx:58
+#: src/components/proxy-locations.tsx:69
 msgid "Send part of the domain to another target: for example <0>/api</0> to your API container. The rest of the domain keeps going to the main target."
 msgstr "Envía una parte del dominio a otro destino: por ejemplo <0>/api</0> al contenedor de tu API. El resto del dominio sigue yendo al destino principal."
+
+#: src/components/proxy-locations.tsx:64
+msgid "Send part of the domain to another target: for example <0>/api</0> to your API container. The site keeps serving the rest of the domain."
+msgstr "Envía una parte del dominio a otro destino: por ejemplo <0>/api</0> al contenedor de tu API. El resto del dominio lo sigue sirviendo el sitio."
 
 #: src/components/users.tsx:263
 msgid "Send them this link to choose their password. It can only be used once and expires on {expires}."
@@ -2856,7 +2865,7 @@ msgstr "Servidor conectado de nuevo"
 msgid "Servers"
 msgstr "Servidores"
 
-#: src/components/site-dialog.tsx:111
+#: src/components/site-dialog.tsx:134
 msgid "Serves index.html for any path that doesn't exist. Turn it on for React Router, Vue Router, etc."
 msgstr "Sirve index.html en cualquier ruta que no exista. Actívalo para React Router, Vue Router, etc."
 
@@ -2901,16 +2910,16 @@ msgstr "Accede al panel de administración."
 msgid "since {since}"
 msgstr "desde {since}"
 
-#: src/components/site-dialog.tsx:110
+#: src/components/site-dialog.tsx:133
 msgid "Single-page application (SPA)"
 msgstr "Aplicación de una sola página (SPA)"
 
-#: src/lib/api.ts:806
+#: src/lib/api.ts:808
 msgctxt "domain owner"
 msgid "site"
 msgstr "otro sitio"
 
-#: src/components/site-dialog.tsx:49
+#: src/components/site-dialog.tsx:64
 msgid "Site created"
 msgstr "Sitio creado"
 
@@ -2967,7 +2976,7 @@ msgstr "Indica qué servicio del docker-compose.yml recibe el tráfico web"
 msgid "SSL & access"
 msgstr "SSL y acceso"
 
-#: src/components/site-dialog.tsx:79
+#: src/components/site-dialog.tsx:102
 msgid "SSL and access"
 msgstr "SSL y acceso"
 
@@ -3037,7 +3046,7 @@ msgstr "Stream no encontrado"
 msgid "Stream saved"
 msgstr "Stream guardado"
 
-#: src/components/proxy-locations.tsx:270
+#: src/components/proxy-locations.tsx:285
 msgid "Strip the location from the path"
 msgstr "Quitar la ubicación de la ruta"
 
@@ -3047,7 +3056,7 @@ msgstr "Sistema"
 
 #: src/components/proxy-host-dialog.tsx:186
 #: src/components/proxy-hosts.tsx:143
-#: src/components/proxy-locations.tsx:163
+#: src/components/proxy-locations.tsx:178
 #: src/components/redirects.tsx:82
 #: src/components/redirects.tsx:192
 #: src/components/streams.tsx:91
@@ -3202,8 +3211,8 @@ msgstr "La ubicación {path} está repetida"
 
 #: src/lib/api-errors.gen.ts:122
 msgctxt "api:location_path_root"
-msgid "The location / is the proxy host itself: set its target in Details"
-msgstr "La ubicación / es el propio proxy host: configura su destino en Detalles"
+msgid "The location / is the whole domain: use a more specific path, such as /api"
+msgstr "La ubicación / es el dominio entero: usa una ruta más concreta, como /api"
 
 #: src/lib/api-errors.gen.ts:146
 msgctxt "api:server_invalid_name"
@@ -3347,11 +3356,11 @@ msgid "The target must be a full URL, e.g. https://new.com"
 msgstr "El destino debe ser una URL completa, p. ej. https://nuevo.com"
 
 #. placeholder {0}: l.path
-#: src/components/proxy-locations.tsx:273
+#: src/components/proxy-locations.tsx:288
 msgid "The target receives {0}/users as /users. Leave it off if the target expects the full path."
 msgstr "El destino recibe {0}/users como /users. Déjalo desactivado si el destino espera la ruta completa."
 
-#: src/components/proxy-locations.tsx:274
+#: src/components/proxy-locations.tsx:289
 msgid "The target receives the path without the location. Leave it off if the target expects the full path."
 msgstr "El destino recibe la ruta sin la ubicación. Déjalo desactivado si el destino espera la ruta completa."
 
@@ -3434,7 +3443,7 @@ msgstr "este panel"
 
 #: src/components/proxy-host-dialog.tsx:200
 #: src/components/proxy-hosts.tsx:35
-#: src/components/proxy-locations.tsx:174
+#: src/components/proxy-locations.tsx:189
 #: src/components/servers.tsx:87
 msgid "This server"
 msgstr "Este servidor"
@@ -3792,7 +3801,7 @@ msgstr "Código de instalación incorrecto: está en los logs de Dockfly (docker
 msgid "Yes"
 msgstr "Sí"
 
-#: src/components/site-dialog.tsx:66
+#: src/components/site-dialog.tsx:81
 msgid "You can upload your build files afterwards."
 msgstr "Después podrás subir los archivos de tu build."
 

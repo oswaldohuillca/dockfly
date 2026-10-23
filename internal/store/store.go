@@ -73,14 +73,14 @@ type ProxyHost struct {
 	UpdatedAt time.Time       `json:"updated_at"`
 }
 
-// Acceso de una ubicación: el del proxy host, sin restricciones o una lista.
+// Acceso de una ubicación: el de su proxy host o sitio, sin restricciones o una lista.
 const (
 	LocationAccessInherit = "inherit"
 	LocationAccessPublic  = "public"
 	LocationAccessList    = "list"
 )
 
-// ProxyLocation es una ubicación personalizada de un proxy host.
+// ProxyLocation es una ubicación personalizada de un proxy host o de un sitio.
 type ProxyLocation struct {
 	Path          string `json:"path"` // "/api"
 	TargetType    string `json:"target_type"`

@@ -44,7 +44,7 @@ var (
 	errProxyHostNotFound      = newError("proxy_host_not_found", "Proxy host not found")
 
 	errLocationPathInvalid   = newError("location_path_invalid", "Invalid location \"{path}\": it must start with / and have no spaces, ? or #")
-	errLocationPathRoot      = newError("location_path_root", "The location / is the proxy host itself: set its target in Details")
+	errLocationPathRoot      = newError("location_path_root", "The location / is the whole domain: use a more specific path, such as /api")
 	errLocationPathDuplicate = newError("location_path_duplicate", "The location {path} is repeated")
 	errLocationAccessInvalid = newError("location_access_invalid", "Invalid access for the location {path}")
 	// errLocation envuelve un error del destino de una ubicación.

@@ -114,6 +114,10 @@ Se conservan los 10 más recientes por sitio.
   ```
   Las redirecciones se aplican antes que los archivos; las reescrituras (200), solo si el
   archivo pedido no existe.
+- **Ubicaciones personalizadas**, como en los proxy hosts: una parte del dominio (`/api`)
+  va a un contenedor u otro destino y el resto lo sirve el sitio. Así un frontend y su API
+  comparten host (y cookies) sin CORS. El destino recibe el `Host` original y no pasa por
+  la compresión del sitio; las previews de ramas no las llevan.
 
 Los archivos los sirve un servidor interno de Dockfly (`127.0.0.1:8099`) al que Traefik reenvía
 los dominios de cada sitio; no hace falta ningún contenedor extra.

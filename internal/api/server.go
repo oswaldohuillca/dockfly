@@ -134,24 +134,7 @@ func (s *Server) Apply(ctx context.Context) error {
 			continue
 		}
 		routes = append(routes, withACL(rt, h.AccessListID))
-		// Cada ubicación es una ruta más del mismo dominio, limitada a su
-		// prefijo, con su destino y su acceso.
-		for i, l := range h.Locations {
-			loc := rt
-			loc.Name = fmt.Sprintf("%s-loc%d", rt.Name, i)
-			loc.PathPrefix, loc.StripPrefix = l.Path, l.StripPrefix
-			loc.URL = traefik.LocationURL(l)
-			loc.SkipTLSVerify = l.ForwardScheme == "https" && h.SkipTLSVerify
-			switch l.Access {
-			case store.LocationAccessPublic:
-				loc.Middlewares = nil
-			case store.LocationAccessList:
-				loc = withACL(loc, l.AccessListID)
-			default:
-				loc = withACL(loc, h.AccessListID)
-			}
-			routes = append(routes, loc)
-		}
+		routes = append(routes, locationRoutes(rt, h.Locations, h.AccessListID, h.SkipTLSVerify, withACL)...)
 	}
 	// Apps desplegadas, en marcha y con puerto y dominios: Traefik envía el
 	// tráfico a su contenedor actual (cambia en cada despliegue).
@@ -199,6 +182,10 @@ func (s *Server) Apply(ctx context.Context) error {
 	for _, site := range sites {
 		if rt, ok := traefik.SiteRoute(site, s.StaticURL); ok {
 			routes = append(routes, withACL(rt, site.AccessListID))
+			// El destino de una ubicación es un backend, no el servidor
+			// estático: comprime él si quiere (y no se toca un text/event-stream).
+			rt.Compress = false
+			routes = append(routes, locationRoutes(rt, site.Locations, site.AccessListID, false, withACL)...)
 		}
 		var pr pages.Route
 		if id := site.ActiveDeploymentID; id != nil {
@@ -253,6 +240,33 @@ func (s *Server) Apply(ctx context.Context) error {
 		certFiles = append(certFiles, traefik.CertFile{Cert: base + ".crt", Key: base + ".key"})
 	}
 	return traefik.WriteDynamic(s.Traefik, traefik.Dynamic{Routes: routes, Middlewares: extra, Streams: streams, Certificates: certFiles})
+}
+
+// locationRoutes traduce las ubicaciones de un proxy host o de un sitio
+// (parent, ya con su nombre y sus dominios). Cada una es una ruta más del
+// mismo dominio, limitada a su prefijo, con su destino y su acceso; Traefik
+// la prefiere a la de su dominio porque su regla es más larga (o, con
+// comodines, por la prioridad que le da traefik.BuildDynamic).
+func locationRoutes(parent traefik.Route, locations []store.ProxyLocation, parentACL *int64, skipTLSVerify bool,
+	withACL func(traefik.Route, *int64) traefik.Route) []traefik.Route {
+	routes := make([]traefik.Route, 0, len(locations))
+	for i, l := range locations {
+		loc := parent
+		loc.Name = fmt.Sprintf("%s-loc%d", parent.Name, i)
+		loc.PathPrefix, loc.StripPrefix = l.Path, l.StripPrefix
+		loc.URL = traefik.LocationURL(l)
+		loc.SkipTLSVerify = l.ForwardScheme == "https" && skipTLSVerify
+		loc.Middlewares = nil
+		switch l.Access {
+		case store.LocationAccessPublic:
+		case store.LocationAccessList:
+			loc = withACL(loc, l.AccessListID)
+		default:
+			loc = withACL(loc, parentACL)
+		}
+		routes = append(routes, loc)
+	}
+	return routes
 }
 
 // Errores del alta y el login (y del resto de la gestión de cuentas).

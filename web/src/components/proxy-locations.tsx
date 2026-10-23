@@ -22,16 +22,21 @@ function newLocation(): ProxyLocation {
   };
 }
 
-/** Ubicaciones personalizadas de un proxy host (como en Nginx Proxy Manager). */
+/** De quién son las ubicaciones: cambia cómo se explican. */
+type LocationsOwner = 'proxy-host' | 'site';
+
+/** Ubicaciones personalizadas de un proxy host o de un sitio (como en Nginx Proxy Manager). */
 export function ProxyLocations({
   value,
   onChange,
   containers,
+  owner = 'proxy-host',
 }: {
   value: ProxyLocation[];
   onChange: (locations: ProxyLocation[]) => void;
   /** Nombres de los contenedores, para sugerirlos. */
   containers: string[];
+  owner?: LocationsOwner;
 }) {
   // La ubicación desplegada (una a la vez); las nuevas se abren solas.
   const [open, setOpen] = useState<number | null>(null);
@@ -55,10 +60,17 @@ export function ProxyLocations({
     <div className="space-y-3">
       <div className="flex items-start justify-between gap-3">
         <p className="text-sm text-muted-foreground">
-          <Trans>
-            Send part of the domain to another target: for example <code className="font-mono">/api</code> to your API
-            container. The rest of the domain keeps going to the main target.
-          </Trans>
+          {owner === 'site' ? (
+            <Trans>
+              Send part of the domain to another target: for example <code className="font-mono">/api</code> to your API
+              container. The site keeps serving the rest of the domain.
+            </Trans>
+          ) : (
+            <Trans>
+              Send part of the domain to another target: for example <code className="font-mono">/api</code> to your API
+              container. The rest of the domain keeps going to the main target.
+            </Trans>
+          )}
         </p>
         <Button type="button" variant="outline" size="sm" onClick={add} className="shrink-0">
           <Plus /> <Trans>Add location</Trans>
@@ -82,6 +94,7 @@ export function ProxyLocations({
           onRemove={() => onChange(value.filter((_, j) => j !== i))}
           lists={lists}
           containers={containers}
+          owner={owner}
         />
       ))}
     </div>
@@ -97,6 +110,7 @@ function LocationCard({
   onRemove,
   lists,
   containers,
+  owner,
 }: {
   location: ProxyLocation;
   index: number;
@@ -106,6 +120,7 @@ function LocationCard({
   onRemove: () => void;
   lists: AccessList[];
   containers: string[];
+  owner: LocationsOwner;
 }) {
   const { t } = useLingui();
   const id = `loc-${index}`;
@@ -249,7 +264,7 @@ function LocationCard({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="inherit">
-                  <Trans>Inherit from proxy host</Trans>
+                  {owner === 'site' ? <Trans>Inherit from site</Trans> : <Trans>Inherit from proxy host</Trans>}
                 </SelectItem>
                 <SelectItem value="public">
                   <Trans>Public</Trans>

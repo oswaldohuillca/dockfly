@@ -119,7 +119,7 @@ export const apiErrors: Record<string, MessageDescriptor> = {
   location_invalid: msg({ context: "api:location_invalid", message: "Location {path}: {detail}" }),
   location_path_duplicate: msg({ context: "api:location_path_duplicate", message: "The location {path} is repeated" }),
   location_path_invalid: msg({ context: "api:location_path_invalid", message: "Invalid location \"{path}\": it must start with / and have no spaces, ? or #" }),
-  location_path_root: msg({ context: "api:location_path_root", message: "The location / is the proxy host itself: set its target in Details" }),
+  location_path_root: msg({ context: "api:location_path_root", message: "The location / is the whole domain: use a more specific path, such as /api" }),
   login_expired: msg({ context: "api:login_expired", message: "Your sign-in has expired; enter your password again" }),
   method_not_allowed: msg({ context: "api:method_not_allowed", message: "Method not allowed" }),
   multipart_expected: msg({ context: "api:multipart_expected", message: "multipart/form-data was expected" }),

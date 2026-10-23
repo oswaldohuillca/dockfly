@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Loader2, TriangleAlert } from 'lucide-react';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
@@ -6,8 +6,10 @@ import { toast } from 'sonner';
 import { AccessSelect } from '@/components/access-select';
 import { CheckField } from '@/components/check-field';
 import { DomainsInput } from '@/components/domains-input';
+import { ProxyLocations } from '@/components/proxy-locations';
 import { SSLFields } from '@/components/ssl-fields';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -34,9 +36,22 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
     spa: site?.spa ?? false,
     previews: site?.previews ?? false,
     access_list_id: site?.access_list_id ?? null,
+    locations: (site?.locations ?? []).map((l) => ({ ...l })),
   }));
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  // Los contenedores, para sugerirlos, solo si alguna ubicación va a uno. Sin
+  // Docker la lista queda vacía y el nombre se escribe a mano.
+  const [containers, setContainers] = useState<string[] | null>(null);
+  const wantsContainers = form.locations.some((l) => l.target_type === 'docker');
+  useEffect(() => {
+    if (!wantsContainers || containers !== null) return;
+    api
+      .listContainers()
+      .then((res) => setContainers(res.containers.map((c) => c.name)))
+      .catch(() => setContainers([]));
+  }, [wantsContainers, containers]);
 
   const set = <K extends keyof SiteInput>(key: K, value: SiteInput[K]) => setForm((f) => ({ ...f, [key]: value }));
 
@@ -57,7 +72,7 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-xl">
         <form onSubmit={save} className="contents">
           <DialogHeader>
             <DialogTitle>{isNew ? <Trans>New site</Trans> : <Trans>Edit {site.name}</Trans>}</DialogTitle>
@@ -74,6 +89,14 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
             <TabsList className="w-full">
               <TabsTrigger value="details">
                 <Trans>Details</Trans>
+              </TabsTrigger>
+              <TabsTrigger value="locations">
+                <Trans>Custom locations</Trans>
+                {form.locations.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 px-1.5">
+                    {form.locations.length}
+                  </Badge>
+                )}
               </TabsTrigger>
               <TabsTrigger value="ssl">
                 <Trans>SSL and access</Trans>
@@ -116,6 +139,15 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
                 onChange={(v) => set('previews', v)}
                 label={t`Branch previews`}
                 hint={t`Every push to another branch is published at its own URL (branch--site.previews-domain). Set the domain in Settings.`}
+              />
+            </TabsContent>
+
+            <TabsContent value="locations" className="pt-3">
+              <ProxyLocations
+                value={form.locations}
+                onChange={(l) => set('locations', l)}
+                containers={containers ?? []}
+                owner="site"
               />
             </TabsContent>
 
