@@ -78,10 +78,11 @@ type Server struct {
 	// SetupToken es el código de instalación mientras no hay usuarios.
 	SetupToken string
 
-	applyMu  sync.Mutex
-	mfa      mfaFailures
-	csrf     *http.CrossOriginProtection
-	csrfOnce sync.Once
+	applyMu   sync.Mutex
+	mfa       mfaFailures
+	csrf      *http.CrossOriginProtection
+	csrfOnce  sync.Once
+	loginFail loginFailures
 }
 
 // Apply publica el estado actual: regenera la configuración de Traefik y la
@@ -358,21 +359,28 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
+	if s.loginFail.blocked(in.Email) {
+		writeError(w, http.StatusTooManyRequests, errTooManyAttempts)
+		return
+	}
 	u, err := s.Store.UserByEmail(r.Context(), strings.ToLower(strings.TrimSpace(in.Email)))
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		s.internalError(w, err)
 		return
 	}
-	// Si el usuario no existe comparamos igualmente contra un hash ficticio:
-	// así la respuesta tarda lo mismo y no revela qué emails están registrados.
+	// Si el usuario no existe (o aún no aceptó la invitación) comparamos
+	// igualmente contra un hash ficticio: así la respuesta tarda lo mismo y
+	// no revela qué emails están registrados o pendientes.
 	hash := auth.DummyHash()
-	if u != nil {
+	if u != nil && u.PasswordHash != "" {
 		hash = u.PasswordHash
 	}
-	if !auth.CheckPassword(hash, in.Password) || u == nil {
+	if !auth.CheckPassword(hash, in.Password) || u == nil || u.PasswordHash == "" {
+		s.loginFail.fail(in.Email)
 		writeError(w, http.StatusUnauthorized, errBadCredentials)
 		return
 	}
+	s.loginFail.reset(in.Email)
 	if u.TOTPEnabled {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"two_factor": true, "ticket": s.Signer.IssueTicket(mfaTicketPurpose, u.ID, mfaTicketTTL),

@@ -47,6 +47,10 @@ type Options struct {
 	// DNSProviders son los proveedores (códigos de lego) con desafío DNS-01;
 	// cada uno es un resolver "dns-<proveedor>".
 	DNSProviders []string
+	// TrustedProxies son los rangos (CIDR o IP) de los proxies delante de
+	// Traefik (Cloudflare, un balanceador…): solo de ellos se aceptan las
+	// cabeceras X-Forwarded-*, así las listas de acceso ven la IP real.
+	TrustedProxies []string
 }
 
 // DNSResolver es el nombre del resolver ACME de un proveedor DNS.
@@ -134,9 +138,9 @@ var LatencyBuckets = []float64{0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5,
 
 func entryPoints(o Options) map[string]any {
 	eps := map[string]any{
-		"web":             entryPoint(o.HTTPAddr),
-		"websecure":       entryPoint(o.HTTPSAddr),
-		metricsEntryPoint: entryPoint(MetricsAddr),
+		"web":             entryPoint(o.HTTPAddr, o.TrustedProxies),
+		"websecure":       entryPoint(o.HTTPSAddr, o.TrustedProxies),
+		metricsEntryPoint: entryPoint(MetricsAddr, nil),
 	}
 	for _, p := range o.Streams {
 		addr := ":" + strconv.Itoa(p.Port)
@@ -150,12 +154,17 @@ func entryPoints(o Options) map[string]any {
 
 // entryPoint descarta las cabeceras que se hacen pasar por otras
 // (X_Forwarded_For por X-Forwarded-For), evitando que un cliente falsifique
-// las cabeceras que gestiona Traefik en backends PHP, CGI o WSGI.
-func entryPoint(addr string) map[string]any {
-	return map[string]any{
+// las cabeceras que gestiona Traefik en backends PHP, CGI o WSGI. Con
+// trustedIPs, Traefik respeta el X-Forwarded-For que llega de esos proxies.
+func entryPoint(addr string, trustedIPs []string) map[string]any {
+	ep := map[string]any{
 		"address": addr,
 		"http":    map[string]any{"aliasHeadersStrategy": "delete"},
 	}
+	if len(trustedIPs) > 0 {
+		ep["forwardedHeaders"] = map[string]any{"trustedIPs": trustedIPs}
+	}
+	return ep
 }
 
 // Route es una entrada de enrutado: un conjunto de dominios que Traefik

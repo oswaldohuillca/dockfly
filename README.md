@@ -336,7 +336,7 @@ puede escribir en él.
 | `DOCKFLY_DOCKER_SOCKET` | `/var/run/docker.sock` | Socket de Docker, o `tcp://host:puerto` detrás de un proxy del socket |
 | `DOCKFLY_COMPOSE_PROXY` | `1` | `0` desactiva el proxy con permisos mínimos de las apps de Compose (no recomendado) |
 | `DOCKFLY_TRAEFIK` | `on` | `off` para no lanzar Traefik (desarrollo) |
-| `DOCKFLY_TRUSTED_PROXIES` | — | Rangos CIDR (separados por comas) de los proxies que tienen delante el panel. Solo de ellos se acepta `X-Forwarded-For`. Vacío = panel expuesto directamente |
+| `DOCKFLY_TRUSTED_PROXIES` | — | Rangos CIDR (separados por comas) de los proxies que tienen delante el panel y Traefik (p. ej. los de Cloudflare). Solo de ellos se acepta `X-Forwarded-For`, así el límite de intentos y las listas de acceso ven la IP real. Vacío = expuesto directamente |
 | `DOCKFLY_BUILD_TIMEOUT_MIN` | `15` | Tiempo máximo de un build |
 | `DOCKFLY_BUILD_MEMORY_MB` / `DOCKFLY_BUILD_CPUS` | `2048` / `2` | Recursos de cada build |
 | `DOCKFLY_BUILD_CONCURRENCY` | `1` | Builds simultáneos |

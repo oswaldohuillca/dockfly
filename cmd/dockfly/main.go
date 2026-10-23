@@ -110,14 +110,19 @@ func run(log *slog.Logger) error {
 		socket = ""
 	}
 
+	trusted, err := trustedProxies(os.Getenv("DOCKFLY_TRUSTED_PROXIES"))
+	if err != nil {
+		return err
+	}
 	opts := traefik.Options{
-		DataDir:     dataDir,
-		HTTPAddr:    env("DOCKFLY_HTTP_ADDR", ":80"),
-		HTTPSAddr:   env("DOCKFLY_HTTPS_ADDR", ":443"),
-		ACMEEmail:   os.Getenv("DOCKFLY_ACME_EMAIL"),
-		ACMEStaging: os.Getenv("DOCKFLY_ACME_STAGING") == "true",
-		DockerNet:   env("DOCKFLY_NETWORK", "dockfly"),
-		LogLevel:    strings.ToUpper(env("DOCKFLY_TRAEFIK_LOG_LEVEL", "warn")),
+		DataDir:        dataDir,
+		HTTPAddr:       env("DOCKFLY_HTTP_ADDR", ":80"),
+		HTTPSAddr:      env("DOCKFLY_HTTPS_ADDR", ":443"),
+		ACMEEmail:      os.Getenv("DOCKFLY_ACME_EMAIL"),
+		ACMEStaging:    os.Getenv("DOCKFLY_ACME_STAGING") == "true",
+		DockerNet:      env("DOCKFLY_NETWORK", "dockfly"),
+		TrustedProxies: trusted,
+		LogLevel:       strings.ToUpper(env("DOCKFLY_TRAEFIK_LOG_LEVEL", "warn")),
 	}
 	// Los puertos de los streams y los proveedores DNS son configuración
 	// estática de Traefik.
@@ -131,11 +136,6 @@ func run(log *slog.Logger) error {
 	}
 	if err := traefik.WriteStatic(opts); err != nil {
 		return fmt.Errorf("escribiendo configuración estática de Traefik: %w", err)
-	}
-
-	trusted, err := trustedProxies(os.Getenv("DOCKFLY_TRUSTED_PROXIES"))
-	if err != nil {
-		return err
 	}
 
 	// Sitios estáticos: los archivos viven en /data/sites y los sirve un

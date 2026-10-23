@@ -173,3 +173,21 @@ func TestStaticWithoutDockerProvider(t *testing.T) {
 		t.Errorf("la configuración estática no debe tener el proveedor Docker:\n%s", raw)
 	}
 }
+
+// Tras Cloudflare o un balanceador, Traefik solo acepta X-Forwarded-For de
+// los proxies de confianza (y no en el entrypoint de métricas).
+func TestEntryPointsTrustedProxies(t *testing.T) {
+	eps := entryPoints(Options{HTTPAddr: ":80", HTTPSAddr: ":443", TrustedProxies: []string{"173.245.48.0/20"}})
+	for _, name := range []string{"web", "websecure"} {
+		fh, _ := eps[name].(map[string]any)["forwardedHeaders"].(map[string]any)
+		if ips, _ := fh["trustedIPs"].([]string); !slices.Equal(ips, []string{"173.245.48.0/20"}) {
+			t.Errorf("%s: trustedIPs = %v", name, fh)
+		}
+	}
+	if _, ok := eps[metricsEntryPoint].(map[string]any)["forwardedHeaders"]; ok {
+		t.Error("el entrypoint de métricas no debe confiar en proxies")
+	}
+	if _, ok := entryPoints(Options{})["web"].(map[string]any)["forwardedHeaders"]; ok {
+		t.Error("sin proxies de confianza no debe haber forwardedHeaders")
+	}
+}
