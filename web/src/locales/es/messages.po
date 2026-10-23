@@ -32,7 +32,7 @@ msgid "(you)"
 msgstr "(tú)"
 
 #. placeholder {0}: s.apps
-#: src/components/servers.tsx:100
+#: src/components/servers.tsx:107
 msgid "{0, plural, one {# app} other {# apps}}"
 msgstr "{0, plural, one {# app} other {# apps}}"
 
@@ -56,7 +56,7 @@ msgctxt "api:access_list_in_use"
 msgid "{count} hosts, sites or apps use it: remove it from them first"
 msgstr "La usan {count} hosts, sitios o apps: quítasela primero"
 
-#: src/lib/api-errors.gen.ts:173
+#: src/lib/api-errors.gen.ts:174
 msgctxt "api:unexpected_error"
 msgid "{detail}"
 msgstr "{detail}"
@@ -96,7 +96,7 @@ msgctxt "app"
 msgid "{name} created"
 msgstr "{name} creada"
 
-#: src/components/servers.tsx:49
+#: src/components/servers.tsx:56
 #: src/components/site-detail.tsx:105
 msgid "{name} deleted"
 msgstr "{name} eliminado"
@@ -168,22 +168,22 @@ msgstr "Un contenedor que Dockfly gestiona de principio a fin: despliegues sin c
 msgid "A deploy receives no traffic until this path responds. Without it, the port just has to accept connections."
 msgstr "Un despliegue no recibe tráfico hasta que esta ruta responde. Sin ella, basta con que el puerto acepte conexiones."
 
-#: src/lib/api-errors.gen.ts:146
+#: src/lib/api-errors.gen.ts:147
 msgctxt "api:server_name_taken"
 msgid "A server with that name already exists"
 msgstr "Ya hay un servidor con ese nombre"
 
-#: src/lib/api-errors.gen.ts:150
+#: src/lib/api-errors.gen.ts:151
 msgctxt "api:site_name_taken"
 msgid "A site with that name already exists"
 msgstr "Ya existe un sitio con ese nombre"
 
-#: src/lib/api-errors.gen.ts:163
+#: src/lib/api-errors.gen.ts:164
 msgctxt "api:token_role_too_high"
 msgid "A token can't have more permissions than your user"
 msgstr "Un token no puede tener más permisos que tu usuario"
 
-#: src/lib/api-errors.gen.ts:177
+#: src/lib/api-errors.gen.ts:178
 msgctxt "api:user_email_taken"
 msgid "A user with that email already exists"
 msgstr "Ya hay un usuario con ese email"
@@ -249,8 +249,8 @@ msgstr "Añadir proveedor"
 msgid "Add proxy host"
 msgstr "Añadir proxy host"
 
-#: src/components/servers.tsx:70
-#: src/components/servers.tsx:178
+#: src/components/servers.tsx:77
+#: src/components/servers.tsx:191
 msgid "Add server"
 msgstr "Añadir servidor"
 
@@ -308,7 +308,7 @@ msgstr "otro servidor"
 msgid "API tokens"
 msgstr "Tokens de API"
 
-#: src/lib/api.ts:806
+#: src/lib/api.ts:807
 msgctxt "domain owner"
 msgid "app"
 msgstr "otra app"
@@ -425,7 +425,7 @@ msgstr "Las copias se guardan en {location}"
 msgid "Besides your password, the dashboard will ask for a code from your authenticator app (Google Authenticator, 1Password, Bitwarden, Authy…). Anyone who steals your password won't be able to sign in without your phone."
 msgstr "Además de la contraseña, el panel pedirá un código de tu app de autenticación (Google Authenticator, 1Password, Bitwarden, Authy…). Quien robe tu contraseña no podrá entrar sin tu móvil."
 
-#: src/lib/api-errors.gen.ts:181
+#: src/lib/api-errors.gen.ts:182
 msgctxt "api:webhook_body_too_large"
 msgid "Body too large"
 msgstr "Cuerpo demasiado grande"
@@ -522,7 +522,7 @@ msgstr "¿No puedes escanearlo? Escribe la clave a mano"
 #: src/components/proxy-hosts.tsx:267
 #: src/components/redirects.tsx:225
 #: src/components/restore-backup.tsx:138
-#: src/components/servers.tsx:204
+#: src/components/servers.tsx:217
 #: src/components/site-detail.tsx:310
 #: src/components/site-dialog.tsx:137
 #: src/components/site-git.tsx:252
@@ -664,7 +664,7 @@ msgstr "¿Vienes de otro servidor?"
 msgid "Command"
 msgstr "Comando"
 
-#: src/components/servers.tsx:243
+#: src/components/servers.tsx:274
 msgid "Command copied"
 msgstr "Comando copiado"
 
@@ -711,7 +711,7 @@ msgstr "Conectar"
 msgid "Connect {name}"
 msgstr "Vincular {name}"
 
-#: src/components/servers.tsx:224
+#: src/components/servers.tsx:247
 msgctxt "server"
 msgid "Connect {name}"
 msgstr "Conecta {name}"
@@ -740,12 +740,12 @@ msgstr "Conectar con {host}"
 msgid "Connect with GitHub"
 msgstr "Conectar con GitHub"
 
-#: src/components/servers.tsx:97
+#: src/components/servers.tsx:104
 msgid "connected"
 msgstr "conectado"
 
-#: src/components/servers.tsx:87
-#: src/components/servers.tsx:105
+#: src/components/servers.tsx:94
+#: src/components/servers.tsx:112
 msgid "Connected"
 msgstr "Conectado"
 
@@ -783,7 +783,7 @@ msgstr "nombre-del-contenedor"
 msgid "Containers that Dockfly deploys and manages: APIs, databases, services… from an image or a Dockerfile."
 msgstr "Contenedores que Dockfly despliega y gestiona: APIs, bases de datos, servicios… desde una imagen o un Dockerfile."
 
-#: src/components/servers.tsx:208
+#: src/components/servers.tsx:221
 #: src/components/two-factor.tsx:257
 msgid "Continue"
 msgstr "Continuar"
@@ -794,7 +794,7 @@ msgstr "Copiado"
 
 #: src/components/api-tokens.tsx:261
 #: src/components/integrations.tsx:464
-#: src/components/servers.tsx:245
+#: src/components/servers.tsx:276
 #: src/components/two-factor.tsx:165
 #: src/components/users.tsx:275
 msgid "Copy"
@@ -991,7 +991,7 @@ msgstr "Eliminar"
 msgid "Delete {0}?"
 msgstr "¿Eliminar {0}?"
 
-#: src/components/servers.tsx:130
+#: src/components/servers.tsx:137
 msgid "Delete {name}"
 msgstr "Eliminar {name}"
 
@@ -1025,7 +1025,7 @@ msgstr "Desplegar"
 msgid "Deploy a folder"
 msgstr "Desplegar una carpeta"
 
-#: src/components/servers.tsx:63
+#: src/components/servers.tsx:70
 msgid "Deploy apps to other machines. Each server runs a Dockfly agent with its own Traefik: the agent connects to this panel (no open ports needed) and, if the panel goes down, its apps keep running."
 msgstr "Despliega apps en otras máquinas. Cada servidor ejecuta un agente de Dockfly con su propio Traefik: el agente se conecta a este panel (no hace falta abrir puertos) y, si el panel se cae, sus apps siguen funcionando."
 
@@ -1127,7 +1127,7 @@ msgstr "¿Desconectar {0}?"
 msgid "Disconnect {username}"
 msgstr "Desconectar {username}"
 
-#: src/components/servers.tsx:109
+#: src/components/servers.tsx:116
 msgid "Disconnected"
 msgstr "Desconectado"
 
@@ -1201,7 +1201,7 @@ msgid "Don't verify the target's certificate"
 msgstr "No verificar el certificado del destino"
 
 #: src/components/api-tokens.tsx:278
-#: src/components/servers.tsx:248
+#: src/components/servers.tsx:279
 #: src/components/users.tsx:280
 msgid "Done"
 msgstr "Hecho"
@@ -1337,7 +1337,7 @@ msgctxt "api:proxy_forward_host_required"
 msgid "Enter the target host"
 msgstr "Indica el host de destino"
 
-#: src/lib/api-errors.gen.ts:154
+#: src/lib/api-errors.gen.ts:155
 msgctxt "api:stream_forward_host_invalid"
 msgid "Enter the target host (a container, an app or an IP)"
 msgstr "Indica el host de destino (un contenedor, una app o una IP)"
@@ -1412,7 +1412,7 @@ msgstr "caduca el {0}"
 msgid "expires on {expires}"
 msgstr "caduca el {expires}"
 
-#: src/lib/api-errors.gen.ts:160
+#: src/lib/api-errors.gen.ts:161
 msgctxt "api:token_expiry_out_of_range"
 msgid "Expiry must be between 0 (never) and {max} days"
 msgstr "La caducidad debe estar entre 0 (nunca) y {max} días"
@@ -1449,7 +1449,7 @@ msgstr "Primera instalación: crea la cuenta de administrador."
 msgid "Folder"
 msgstr "Carpeta"
 
-#: src/lib/api-errors.gen.ts:182
+#: src/lib/api-errors.gen.ts:183
 msgctxt "api:wildcard_ssl_needs_dns"
 msgid "For a wildcard domain with SSL, set up its DNS zone in Settings → Certificates (Let's Encrypt only issues wildcards via DNS) or upload your own certificate"
 msgstr "Para un dominio comodín con SSL, configura su zona DNS en Ajustes → Certificados (Let's Encrypt solo emite comodines por DNS) o sube un certificado propio"
@@ -1522,7 +1522,7 @@ msgstr "Generar códigos nuevos"
 msgid "Generate new codes in My account if you're running low."
 msgstr "Genera códigos nuevos en Mi cuenta si te quedan pocos."
 
-#: src/lib/api-errors.gen.ts:170
+#: src/lib/api-errors.gen.ts:171
 msgctxt "api:two_factor_setup_required"
 msgid "Generate the QR code first"
 msgstr "Primero genera el código QR"
@@ -1575,7 +1575,7 @@ msgstr "Token de GitLab"
 msgid "gitlab.com or your own GitLab instance."
 msgstr "gitlab.com o tu propia instancia de GitLab."
 
-#: src/lib/api-errors.gen.ts:161
+#: src/lib/api-errors.gen.ts:162
 msgctxt "api:token_name_required"
 msgid "Give it a name (e.g. \"GitHub Actions\")"
 msgstr "Ponle un nombre (p. ej. «GitHub Actions»)"
@@ -1766,7 +1766,7 @@ msgctxt "api:app_volume_name_invalid"
 msgid "Invalid or duplicate volume name: {name}"
 msgstr "Nombre de volumen inválido o repetido: {name}"
 
-#: src/lib/api-errors.gen.ts:166
+#: src/lib/api-errors.gen.ts:167
 msgctxt "api:traffic_invalid_owner"
 msgid "Invalid owner"
 msgstr "Dueño inválido"
@@ -1776,7 +1776,7 @@ msgctxt "api:invalid_panel_url"
 msgid "Invalid panel address"
 msgstr "Dirección del panel inválida"
 
-#: src/lib/api-errors.gen.ts:179
+#: src/lib/api-errors.gen.ts:180
 msgctxt "api:webhook_bad_payload"
 msgid "Invalid payload"
 msgstr "Payload inválido"
@@ -1796,7 +1796,7 @@ msgctxt "api:git_invalid_provider"
 msgid "Invalid provider: use github or gitlab"
 msgstr "Proveedor inválido: usa github o gitlab"
 
-#: src/lib/api-errors.gen.ts:167
+#: src/lib/api-errors.gen.ts:168
 msgctxt "api:traffic_invalid_range"
 msgid "Invalid range: use 1h, 24h or 7d"
 msgstr "Rango inválido: usa 1h, 24h o 7d"
@@ -1806,7 +1806,7 @@ msgctxt "api:agent_token_invalid"
 msgid "Invalid server token: generate a new one in the panel"
 msgstr "Token del servidor inválido: genera otro en el panel"
 
-#: src/lib/api-errors.gen.ts:180
+#: src/lib/api-errors.gen.ts:181
 msgctxt "api:webhook_bad_signature"
 msgid "Invalid signature"
 msgstr "Firma inválida"
@@ -1870,11 +1870,11 @@ msgstr "Emitido por {0}"
 msgid "Issuing certificate…"
 msgstr "Obteniendo certificado…"
 
-#: src/components/servers.tsx:181
+#: src/components/servers.tsx:194
 msgid "It only needs Docker. You'll run a command on it next."
 msgstr "Solo necesita Docker. Después ejecutarás un comando en él."
 
-#: src/components/servers.tsx:235
+#: src/components/servers.tsx:265
 msgid "It uses the server's ports 80 and 443 for its apps. The panel must be reachable from it: set its public URL in Integrations."
 msgstr "Usa los puertos 80 y 443 del servidor para sus apps. El panel debe ser accesible desde él: configura su URL pública en Integraciones."
 
@@ -2064,7 +2064,7 @@ msgstr "mi-web"
 #: src/components/auth-form.tsx:192
 #: src/components/certificates-settings.tsx:360
 #: src/components/notifications.tsx:322
-#: src/components/servers.tsx:186
+#: src/components/servers.tsx:199
 #: src/components/site-dialog.tsx:86
 #: src/components/users.tsx:199
 msgid "Name"
@@ -2083,7 +2083,7 @@ msgstr "El nombre es obligatorio"
 msgid "Name it <0>Dockfly</0>, check <1>Confidential</1> and the <2>api</2> scope. Paste this as the Redirect URI:"
 msgstr "Nombre <0>Dockfly</0>, marca <1>Confidential</1> y el scope <2>api</2>. Como Redirect URI pega:"
 
-#: src/lib/api.ts:793
+#: src/lib/api.ts:794
 msgid "network error during upload"
 msgstr "error de red durante la subida"
 
@@ -2108,7 +2108,7 @@ msgstr "Nueva lista de acceso"
 msgid "New app"
 msgstr "Nueva app"
 
-#: src/components/servers.tsx:120
+#: src/components/servers.tsx:127
 msgid "New install command (invalidates the previous one)"
 msgstr "Nuevo comando de instalación (invalida el anterior)"
 
@@ -2155,7 +2155,7 @@ msgstr "Nuevo sitio"
 msgid "New stream"
 msgstr "Nuevo stream"
 
-#: src/components/servers.tsx:121
+#: src/components/servers.tsx:128
 msgid "New token for {name}"
 msgstr "Nuevo token para {name}"
 
@@ -2266,7 +2266,7 @@ msgstr "Ninguna: todos los certificados se validan por HTTP."
 msgid "None. If you upload one, it will be used automatically for the domains it covers."
 msgstr "Ninguno. Si subes uno, se usará automáticamente para los dominios que cubre."
 
-#: src/lib/api-errors.gen.ts:172
+#: src/lib/api-errors.gen.ts:173
 msgctxt "api:unauthenticated"
 msgid "Not authenticated or session expired"
 msgstr "No autenticado o sesión expirada"
@@ -2307,6 +2307,11 @@ msgstr "En este servidor"
 #: src/components/access-lists.tsx:198
 msgid "One per line. Empty = any IP."
 msgstr "Una por línea. Vacío = cualquier IP."
+
+#: src/lib/api-errors.gen.ts:142
+msgctxt "api:repo_link_admin_only"
+msgid "Only an administrator can link a new repository"
+msgstr "Solo un administrador puede enlazar un repositorio nuevo"
 
 #: src/components/site-previews.tsx:73
 msgid "Open"
@@ -2389,7 +2394,7 @@ msgstr "Las contraseñas se guardan con bcrypt y no se vuelven a mostrar."
 msgid "Passwords don't match"
 msgstr "Las contraseñas no coinciden"
 
-#: src/components/servers.tsx:113
+#: src/components/servers.tsx:120
 msgid "Pending"
 msgstr "Pendiente"
 
@@ -2418,12 +2423,12 @@ msgstr "HTML plano (sin build)"
 msgid "Port"
 msgstr "Puerto"
 
-#: src/lib/api-errors.gen.ts:156
+#: src/lib/api-errors.gen.ts:157
 msgctxt "api:stream_port_reserved"
 msgid "Port {port} is used by Dockfly ({addr})"
 msgstr "El puerto {port} lo usa Dockfly ({addr})"
 
-#: src/lib/api-errors.gen.ts:158
+#: src/lib/api-errors.gen.ts:159
 msgctxt "api:stream_ports_invalid"
 msgid "Ports must be between 1 and 65535"
 msgstr "Los puertos deben estar entre 1 y 65535"
@@ -2499,7 +2504,7 @@ msgctxt "api:dns_provider_not_found"
 msgid "Provider not found"
 msgstr "Proveedor no encontrado"
 
-#: src/lib/api.ts:804
+#: src/lib/api.ts:805
 msgctxt "domain owner"
 msgid "proxy host"
 msgstr "otro proxy host"
@@ -2569,7 +2574,7 @@ msgstr "Destinatarios"
 msgid "Recovery code"
 msgstr "Código de recuperación"
 
-#: src/lib/api.ts:807
+#: src/lib/api.ts:808
 msgctxt "domain owner"
 msgid "redirect"
 msgstr "otra redirección"
@@ -2724,12 +2729,12 @@ msgstr "Vuelta atrás"
 msgid "Root directory"
 msgstr "Directorio raíz"
 
-#: src/lib/api-errors.gen.ts:143
+#: src/lib/api-errors.gen.ts:144
 msgctxt "api:route_not_found"
 msgid "Route not found"
 msgstr "Ruta no encontrada"
 
-#: src/components/servers.tsx:227
+#: src/components/servers.tsx:250
 msgid "Run this on the server (with Docker installed). The agent connects to this panel and will show as connected within a few seconds. The command contains the server's token: don't share it."
 msgstr "Ejecuta esto en el servidor (con Docker instalado). El agente se conecta a este panel y aparecerá como conectado en unos segundos. El comando lleva el token del servidor: no lo compartas."
 
@@ -2805,7 +2810,7 @@ msgstr "Secreto"
 msgid "Security"
 msgstr "Seguridad"
 
-#: src/components/servers.tsx:97
+#: src/components/servers.tsx:104
 msgid "seen {ago}"
 msgstr "visto {ago}"
 
@@ -2833,7 +2838,7 @@ msgstr "Servidor"
 msgid "Server disconnected"
 msgstr "Servidor desconectado"
 
-#: src/lib/api-errors.gen.ts:147
+#: src/lib/api-errors.gen.ts:148
 msgctxt "api:server_not_found"
 msgid "Server not found"
 msgstr "Servidor no encontrado"
@@ -2847,7 +2852,7 @@ msgid "Server reconnected"
 msgstr "Servidor conectado de nuevo"
 
 #: src/components/header.tsx:54
-#: src/components/servers.tsx:60
+#: src/components/servers.tsx:67
 msgid "Servers"
 msgstr "Servidores"
 
@@ -2900,7 +2905,7 @@ msgstr "desde {since}"
 msgid "Single-page application (SPA)"
 msgstr "Aplicación de una sola página (SPA)"
 
-#: src/lib/api.ts:805
+#: src/lib/api.ts:806
 msgctxt "domain owner"
 msgid "site"
 msgstr "otro sitio"
@@ -2909,7 +2914,7 @@ msgstr "otro sitio"
 msgid "Site created"
 msgstr "Sitio creado"
 
-#: src/lib/api-errors.gen.ts:151
+#: src/lib/api-errors.gen.ts:152
 msgctxt "api:site_not_found"
 msgid "Site not found"
 msgstr "Sitio no encontrado"
@@ -3023,7 +3028,7 @@ msgstr "Se guardan cifradas y se aplican en el próximo despliegue."
 msgid "Stored encrypted and never exposed to build containers."
 msgstr "Se guarda cifrado y nunca llega a los contenedores de build."
 
-#: src/lib/api-errors.gen.ts:155
+#: src/lib/api-errors.gen.ts:156
 msgctxt "api:stream_not_found"
 msgid "Stream not found"
 msgstr "Stream no encontrado"
@@ -3085,7 +3090,7 @@ msgctxt "api:app_image_gone"
 msgid "That deployment's image no longer exists; deploy again"
 msgstr "La imagen de ese despliegue ya no existe; despliega de nuevo"
 
-#: src/lib/api-errors.gen.ts:175
+#: src/lib/api-errors.gen.ts:176
 msgctxt "api:upload_header_missing"
 msgid "The {header} header is missing"
 msgstr "Falta la cabecera {header}"
@@ -3200,7 +3205,7 @@ msgctxt "api:location_path_root"
 msgid "The location / is the proxy host itself: set its target in Details"
 msgstr "La ubicación / es el propio proxy host: configura su destino en Detalles"
 
-#: src/lib/api-errors.gen.ts:145
+#: src/lib/api-errors.gen.ts:146
 msgctxt "api:server_invalid_name"
 msgid "The name can only contain lowercase letters, numbers and hyphens"
 msgstr "El nombre solo puede tener minúsculas, números y guiones"
@@ -3210,7 +3215,7 @@ msgctxt "api:app_name_invalid"
 msgid "The name can only contain lowercase letters, numbers and hyphens (max. 42)"
 msgstr "El nombre solo puede tener minúsculas, números y guiones (máx. 42)"
 
-#: src/lib/api-errors.gen.ts:149
+#: src/lib/api-errors.gen.ts:150
 msgctxt "api:site_name_invalid"
 msgid "The name can only contain lowercase letters, numbers and hyphens (max. 63)"
 msgstr "El nombre solo puede tener minúsculas, números y guiones (máx. 63)"
@@ -3228,7 +3233,7 @@ msgctxt "api:git_output_dir_dotdot"
 msgid "The output directory can't contain \"..\""
 msgstr "El directorio de salida no puede contener «..»"
 
-#: src/components/servers.tsx:83
+#: src/components/servers.tsx:90
 msgid "The panel's own server. Proxy hosts, sites and Compose apps."
 msgstr "El del panel. Proxy hosts, sitios y apps de Compose."
 
@@ -3262,7 +3267,7 @@ msgctxt "api:preview_domain_invalid"
 msgid "The previews domain must look like previews.mydomain.com (without *.)"
 msgstr "El dominio de previews debe ser del tipo previews.midominio.com (sin *.)"
 
-#: src/lib/api-errors.gen.ts:159
+#: src/lib/api-errors.gen.ts:160
 msgctxt "api:stream_protocol_invalid"
 msgid "The protocol must be tcp or udp"
 msgstr "El protocolo debe ser tcp o udp"
@@ -3302,7 +3307,7 @@ msgctxt "api:app_server_not_found"
 msgid "The server doesn't exist"
 msgstr "El servidor no existe"
 
-#: src/lib/api-errors.gen.ts:144
+#: src/lib/api-errors.gen.ts:145
 msgctxt "api:server_has_apps"
 msgid "The server has {count} apps: delete them first"
 msgstr "El servidor tiene {count} apps: bórralas antes"
@@ -3312,7 +3317,7 @@ msgctxt "api:agent_token_missing"
 msgid "The server token is missing"
 msgstr "Falta el token del servidor"
 
-#: src/lib/api-errors.gen.ts:152
+#: src/lib/api-errors.gen.ts:153
 msgctxt "api:site_not_linked"
 msgid "The site isn't linked to any repository"
 msgstr "El sitio no está enlazado a ningún repositorio"
@@ -3355,7 +3360,7 @@ msgctxt "api:git_token_required"
 msgid "The token is required"
 msgstr "El token es obligatorio"
 
-#: src/lib/api-errors.gen.ts:176
+#: src/lib/api-errors.gen.ts:177
 msgctxt "api:upload_too_large"
 msgid "The upload exceeds {max_mb} MiB"
 msgstr "La subida supera {max_mb} MiB"
@@ -3381,7 +3386,7 @@ msgstr "Tema"
 msgid "There may have been an outage of ~1 s."
 msgstr "Puede haber habido un corte de ~1 s."
 
-#: src/lib/api-errors.gen.ts:157
+#: src/lib/api-errors.gen.ts:158
 msgctxt "api:stream_port_taken"
 msgid "There's already a {protocol} stream on port {port}"
 msgstr "Ya hay un stream {protocol} en el puerto {port}"
@@ -3430,7 +3435,7 @@ msgstr "este panel"
 #: src/components/proxy-host-dialog.tsx:200
 #: src/components/proxy-hosts.tsx:35
 #: src/components/proxy-locations.tsx:174
-#: src/components/servers.tsx:80
+#: src/components/servers.tsx:87
 msgid "This server"
 msgstr "Este servidor"
 
@@ -3442,7 +3447,7 @@ msgstr "Este servidor (el del panel)"
 msgid "This site doesn't exist"
 msgstr "Este sitio no existe"
 
-#: src/lib/api-errors.gen.ts:153
+#: src/lib/api-errors.gen.ts:154
 msgctxt "api:site_webhooks_inactive"
 msgid "This site has no active webhooks"
 msgstr "Este sitio no tiene webhooks activos"
@@ -3472,17 +3477,17 @@ msgstr "Token «{name}» revocado"
 msgid "Token copied"
 msgstr "Token copiado"
 
-#: src/lib/api-errors.gen.ts:162
+#: src/lib/api-errors.gen.ts:163
 msgctxt "api:token_not_found"
 msgid "Token not found"
 msgstr "Token no encontrado"
 
-#: src/lib/api-errors.gen.ts:164
+#: src/lib/api-errors.gen.ts:165
 msgctxt "api:too_many_attempts"
 msgid "Too many attempts, wait a minute"
 msgstr "Demasiados intentos, espera un minuto"
 
-#: src/lib/api-errors.gen.ts:165
+#: src/lib/api-errors.gen.ts:166
 msgctxt "api:too_many_wrong_codes"
 msgid "Too many wrong codes; wait a few minutes"
 msgstr "Demasiados códigos incorrectos; espera unos minutos"
@@ -3543,12 +3548,12 @@ msgstr "Verificación en dos pasos desactivada"
 msgid "Two-step verification enabled"
 msgstr "Verificación en dos pasos activada"
 
-#: src/lib/api-errors.gen.ts:168
+#: src/lib/api-errors.gen.ts:169
 msgctxt "api:two_factor_already_enabled"
 msgid "Two-step verification is already enabled"
 msgstr "La verificación en dos pasos ya está activada"
 
-#: src/lib/api-errors.gen.ts:169
+#: src/lib/api-errors.gen.ts:170
 msgctxt "api:two_factor_not_enabled"
 msgid "Two-step verification isn't enabled"
 msgstr "La verificación en dos pasos no está activada"
@@ -3588,7 +3593,7 @@ msgctxt "api:app_webhook_unknown_provider"
 msgid "Unknown provider"
 msgstr "Proveedor desconocido"
 
-#: src/lib/api-errors.gen.ts:174
+#: src/lib/api-errors.gen.ts:175
 msgctxt "api:unknown_role"
 msgid "Unknown role: use admin, deployer or viewer"
 msgstr "Rol desconocido: usa admin, deployer o viewer"
@@ -3645,7 +3650,7 @@ msgstr "Usar la app"
 msgid "Used {0}"
 msgstr "Usado {0}"
 
-#: src/lib/api-errors.gen.ts:178
+#: src/lib/api-errors.gen.ts:179
 msgctxt "api:user_not_found"
 msgid "User not found"
 msgstr "Usuario no encontrado"
@@ -3700,7 +3705,7 @@ msgstr "Ver el panel y los logs, sin cambiar nada ni ver secretos."
 msgid "Volumes"
 msgstr "Volúmenes"
 
-#: src/components/servers.tsx:98
+#: src/components/servers.tsx:105
 msgid "Waiting for its agent to connect…"
 msgstr "Esperando a que se conecte su agente…"
 
@@ -3758,12 +3763,12 @@ msgstr "Sin comandos se publican directamente los archivos del repositorio (o de
 msgid "Workflow automation."
 msgstr "Automatización de flujos de trabajo."
 
-#: src/lib/api-errors.gen.ts:183
+#: src/lib/api-errors.gen.ts:184
 msgctxt "api:wrong_2fa_code"
 msgid "Wrong code"
 msgstr "Código incorrecto"
 
-#: src/lib/api-errors.gen.ts:171
+#: src/lib/api-errors.gen.ts:172
 msgctxt "api:two_factor_wrong_setup_code"
 msgid "Wrong code: check that your phone's clock is correct"
 msgstr "Código incorrecto: revisa que la hora del móvil sea correcta"
@@ -3773,12 +3778,12 @@ msgctxt "api:bad_credentials"
 msgid "Wrong email or password"
 msgstr "Email o contraseña incorrectos"
 
-#: src/lib/api-errors.gen.ts:184
+#: src/lib/api-errors.gen.ts:185
 msgctxt "api:wrong_password"
 msgid "Wrong password"
 msgstr "Contraseña incorrecta"
 
-#: src/lib/api-errors.gen.ts:148
+#: src/lib/api-errors.gen.ts:149
 msgctxt "api:setup_token_invalid"
 msgid "Wrong setup code: find it in Dockfly's logs (docker logs dockfly) or in /data/setup-token"
 msgstr "Código de instalación incorrecto: está en los logs de Dockfly (docker logs dockfly) o en /data/setup-token"
@@ -3821,7 +3826,7 @@ msgstr "URL de tu GitLab"
 msgid "Your previous codes no longer work."
 msgstr "Los códigos anteriores ya no sirven."
 
-#: src/lib/api-errors.gen.ts:142
+#: src/lib/api-errors.gen.ts:143
 msgctxt "api:role_forbidden"
 msgid "Your role doesn't allow this; ask an administrator"
 msgstr "Tu rol no permite hacer esto; pídeselo a un administrador"

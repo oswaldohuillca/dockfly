@@ -139,6 +139,7 @@ export const apiErrors: Record<string, MessageDescriptor> = {
   redirect_not_found: msg({ context: "api:redirect_not_found", message: "Redirect not found" }),
   redirect_target_dollar: msg({ context: "api:redirect_target_dollar", message: "The target can't contain \"$\"" }),
   redirect_target_invalid: msg({ context: "api:redirect_target_invalid", message: "The target must be a full URL, e.g. https://new.com" }),
+  repo_link_admin_only: msg({ context: "api:repo_link_admin_only", message: "Only an administrator can link a new repository" }),
   role_forbidden: msg({ context: "api:role_forbidden", message: "Your role doesn't allow this; ask an administrator" }),
   route_not_found: msg({ context: "api:route_not_found", message: "Route not found" }),
   server_has_apps: msg({ context: "api:server_has_apps", message: "The server has {count} apps: delete them first" }),

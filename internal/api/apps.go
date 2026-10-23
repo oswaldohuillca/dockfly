@@ -248,6 +248,10 @@ func (s *Server) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
+	if a.GitConnectionID != nil && !canLinkRepo(r) {
+		writeError(w, http.StatusForbidden, errRepoLinkAdmin)
+		return
+	}
 	if in.ServerID != nil && *in.ServerID != 0 {
 		if _, err := s.Store.GetServer(r.Context(), *in.ServerID); err != nil {
 			writeError(w, http.StatusBadRequest, errAppServerNotFound)
@@ -298,6 +302,11 @@ func (s *Server) handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 	a, err := in.toApp()
 	if err != nil {
 		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
+		return
+	}
+	if a.GitConnectionID != nil && (a.Repo != existing.Repo || !sameID(a.GitConnectionID, existing.GitConnectionID)) &&
+		!canLinkRepo(r) {
+		writeError(w, http.StatusForbidden, errRepoLinkAdmin)
 		return
 	}
 	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp, id: existing.ID}) || !s.checkAccessList(w, r, a.AccessListID) ||

@@ -26,7 +26,16 @@ var (
 	errUserNotFound      = newError("user_not_found", "User not found")
 	errLastAdmin         = newError("last_admin", "This is the only administrator: make someone else an administrator first")
 	errDeleteSelf        = newError("delete_own_account", "You can't delete your own account")
+	errRepoLinkAdmin     = newError("repo_link_admin_only", "Only an administrator can link a new repository")
 )
+
+// canLinkRepo: enlazar un repositorio nuevo (a un sitio o una app) es cosa
+// del admin. Las cuentas Git son suyas y ven todos sus repos privados: un
+// deployer podría publicar cualquiera de ellos. El deployer sí puede cambiar
+// la rama o el build de los ya enlazados.
+func canLinkRepo(r *http.Request) bool {
+	return store.RoleRank(effectiveRole(currentUser(r), currentToken(r))) >= store.RoleRank(store.RoleAdmin)
+}
 
 // --- Permisos ---
 
@@ -46,6 +55,11 @@ func requiredRole(method, path string) string {
 	// Las variables de entorno y las copias de las bases de datos llevan secretos.
 	secret := strings.HasSuffix(path, "/env") || strings.HasSuffix(path, "/download") ||
 		path == "/api/backup" || strings.HasPrefix(path, "/api/users")
+	// Los repositorios de una cuenta Git pueden ser privados.
+	if read && strings.HasPrefix(path, "/api/git/connections/") &&
+		(strings.HasSuffix(path, "/repos") || strings.HasSuffix(path, "/branches")) {
+		return store.RoleDeployer
+	}
 	deployScope := false
 	for _, p := range []string{"/api/sites", "/api/builds", "/api/apps", "/api/app-deployments"} {
 		if path == p || strings.HasPrefix(path, p+"/") {

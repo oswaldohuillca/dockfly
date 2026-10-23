@@ -397,6 +397,11 @@ func (s *Server) handlePutSiteGit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
+	if old := site.SiteGit; (old.Repo != in.Repo || old.GitConnectionID == nil || *old.GitConnectionID != in.ConnectionID) &&
+		!canLinkRepo(r) {
+		writeError(w, http.StatusForbidden, errRepoLinkAdmin)
+		return
+	}
 	conn, prov, err := s.connectionProvider(ctx, in.ConnectionID)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusBadRequest, errGitConnectionMissing)
