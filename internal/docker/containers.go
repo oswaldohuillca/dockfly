@@ -33,6 +33,12 @@ type ContainerSpec struct {
 	Binds []string
 	// Network, si no está vacío, es la red del contenedor (en vez de bridge).
 	Network string
+	// Restart es la política de reinicio ("" = no reiniciar).
+	Restart string
+	// ReadOnly monta el sistema de archivos raíz en solo lectura.
+	ReadOnly bool
+	// NoHealthcheck desactiva el healthcheck de la imagen.
+	NoHealthcheck bool
 }
 
 func (c *Client) raw(ctx context.Context, client *http.Client, method, path string, body io.Reader, contentType string) (*http.Response, error) {
@@ -140,6 +146,12 @@ func (c *Client) CreateContainer(ctx context.Context, spec ContainerSpec) (strin
 	if spec.Network != "" {
 		host["NetworkMode"] = spec.Network
 	}
+	if spec.Restart != "" {
+		host["RestartPolicy"] = map[string]string{"Name": spec.Restart}
+	}
+	if spec.ReadOnly {
+		host["ReadonlyRootfs"] = true
+	}
 	body := map[string]any{
 		"Image":      spec.Image,
 		"Cmd":        spec.Cmd,
@@ -152,6 +164,9 @@ func (c *Client) CreateContainer(ctx context.Context, spec ContainerSpec) (strin
 		// stderr con una cabecera de 8 bytes por trama).
 		"Tty":        false,
 		"HostConfig": host,
+	}
+	if spec.NoHealthcheck {
+		body["Healthcheck"] = map[string]any{"Test": []string{"NONE"}}
 	}
 	var out struct {
 		ID string `json:"Id"`

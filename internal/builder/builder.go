@@ -68,6 +68,11 @@ type Config struct {
 	// publicado si el build salió bien (depID != 0) o el panel si no.
 	StatusURL func(ctx context.Context, site *store.Site, b *store.Build, depID int64) string
 
+	// Network y EgressProxy, si no están vacíos, meten los builds en una red
+	// interna con salida solo por ese proxy (ver el paquete egress).
+	Network     string
+	EgressProxy string
+
 	Concurrency int
 	Timeout     time.Duration
 	MemoryMB    int64
@@ -430,6 +435,13 @@ func (m *Manager) buildInContainer(ctx context.Context, prov gitprovider.Provide
 	for k, v := range env {
 		envList = append(envList, k+"="+v)
 	}
+	if m.cfg.EgressProxy != "" {
+		// Las herramientas leen unas u otras: se ponen todas.
+		for _, k := range []string{"HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"} {
+			envList = append(envList, k+"="+m.cfg.EgressProxy)
+		}
+		envList = append(envList, "NO_PROXY=", "no_proxy=")
+	}
 
 	var volumes map[string]string
 	if m.ensureCache(ctx, site.ID, image, log) {
@@ -450,6 +462,7 @@ func (m *Manager) buildInContainer(ctx context.Context, prov gitprovider.Provide
 		CPUs:       m.cfg.CPUs,
 		PidsLimit:  1024,
 		Volumes:    volumes,
+		Network:    m.cfg.Network,
 	})
 	if err != nil {
 		return fmt.Errorf("creando el contenedor de build: %w", err)

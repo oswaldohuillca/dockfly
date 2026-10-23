@@ -29,6 +29,7 @@ import (
 	"github.com/dockfly/dockfly/internal/dbbackup"
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/dockerproxy"
+	"github.com/dockfly/dockfly/internal/egress"
 	"github.com/dockfly/dockfly/internal/gitauth"
 	"github.com/dockfly/dockfly/internal/notify"
 	"github.com/dockfly/dockfly/internal/pages"
@@ -56,6 +57,10 @@ func main() {
 			os.Exit(cli.Deploy(os.Args[2:], os.Stdout, os.Stderr))
 		case "agent":
 			os.Exit(agentCommand(os.Args[2:]))
+		case "egress":
+			log := slog.New(slog.NewTextHandler(os.Stderr, nil))
+			log.Error("proxy de salida", "error", egress.Serve(":"+egress.Port, log))
+			os.Exit(1)
 		}
 	}
 
@@ -195,6 +200,20 @@ func run(log *slog.Logger) error {
 	buildCfg.OnFinish = srv.OnBuildFinished
 	buildCfg.StatusURL = srv.StatusURL
 	certs.OnError = srv.OnCertError
+	// Los builds salen a internet solo por un proxy que no deja llegar a
+	// direcciones internas (metadata de la nube, host, red local).
+	if dc != nil && env("DOCKFLY_BUILD_EGRESS", "filtered") != "open" {
+		self, inDocker := dc.Self(ctx)
+		proxy, err := "", errors.New("Dockfly no corre en un contenedor")
+		if inDocker {
+			proxy, err = egress.Start(ctx, dc, self.Image)
+		}
+		if err != nil {
+			log.Warn("los builds tendrán salida libre a la red", "motivo", err)
+		} else {
+			buildCfg.Network, buildCfg.EgressProxy = egress.Network, proxy
+		}
+	}
 	srv.Builds = builder.New(buildCfg)
 	srv.Hub = &tunnel.Hub{OnConnect: srv.OnAgentConnect}
 	// Instalación nueva: el alta del administrador exige este código, que

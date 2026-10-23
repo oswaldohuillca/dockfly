@@ -340,6 +340,7 @@ puede escribir en él.
 | `DOCKFLY_BUILD_TIMEOUT_MIN` | `15` | Tiempo máximo de un build |
 | `DOCKFLY_BUILD_MEMORY_MB` / `DOCKFLY_BUILD_CPUS` | `2048` / `2` | Recursos de cada build |
 | `DOCKFLY_BUILD_CONCURRENCY` | `1` | Builds simultáneos |
+| `DOCKFLY_BUILD_EGRESS` | `filtered` | `filtered`: los builds salen a internet solo por un proxy HTTP(S) (contenedor `dockfly-egress`) que bloquea la red local, el host y la metadata de la nube; las conexiones que no son HTTP(S) por proxy (p. ej. `git+ssh`) fallan. `open`: salida libre, como antes |
 | `DOCKFLY_MAX_UPLOAD_MB` | `512` | Tamaño máximo de una subida de sitio estático |
 | `DOCKFLY_STATIC_ADDR` | `127.0.0.1:8099` | Dirección interna del servidor de sitios estáticos |
 | `DOCKFLY_LOG_LEVEL` / `DOCKFLY_TRAEFIK_LOG_LEVEL` | `info` / `warn` | Nivel de logs |
