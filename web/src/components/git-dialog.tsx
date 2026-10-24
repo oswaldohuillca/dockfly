@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { api, errorMessage, type GitConnection, type Site, type SiteGitInput } from '@/lib/api';
+import { api, errorMessage, problemMessage, type GitConnection, type Site, type SiteGitInput } from '@/lib/api';
 import { DEFAULT_IMAGE, matchPreset, presets } from '@/lib/presets';
 import { cn } from '@/lib/utils';
 
@@ -86,7 +86,7 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
       const res = await api.putSiteGit(site.id, { ...form, env: envTouched || !linked ? envMap : null });
       const repo = form.repo;
       toast.success(linked ? t`Settings saved` : t`${repo} connected`);
-      onSaved(res.webhook_error);
+      onSaved(problemMessage(res.webhook_warning));
     } catch (err) {
       setError(errorMessage(err));
     } finally {

@@ -41,8 +41,8 @@ func TestAppsAPI(t *testing.T) {
 		t.Errorf("la app debe normalizarse: %v", app)
 	}
 	// Sin Docker, desplegar no es posible: se avisa sin perder la app creada.
-	if !strings.Contains(res["warning"].(string), "Docker no está disponible") {
-		t.Errorf("aviso sin Docker: %v", res["warning"])
+	if !strings.Contains(res["deploy_error"].(string), "Docker no está disponible") {
+		t.Errorf("aviso sin Docker: %v", res["deploy_error"])
 	}
 	if _, env := c.do("GET", "/api/apps/1/env", ""); env["DATABASE_URL"] != "postgres://postgres:5432/db" {
 		t.Errorf("variables de entorno: %v", env)

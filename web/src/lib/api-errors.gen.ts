@@ -180,6 +180,8 @@ export const apiErrors: Record<string, MessageDescriptor> = {
   webhook_bad_payload: msg({ context: "api:webhook_bad_payload", message: "Invalid payload" }),
   webhook_bad_signature: msg({ context: "api:webhook_bad_signature", message: "Invalid signature" }),
   webhook_body_too_large: msg({ context: "api:webhook_body_too_large", message: "Body too large" }),
+  webhook_create_failed: msg({ context: "api:webhook_create_failed", message: "Couldn't create the webhook: {detail}" }),
+  webhook_public_url_missing: msg({ context: "api:webhook_public_url_missing", message: "Set Dockfly's public URL in Integrations to deploy on every push" }),
   wildcard_ssl_needs_dns: msg({ context: "api:wildcard_ssl_needs_dns", message: "For a wildcard domain with SSL, set up its DNS zone in Settings → Certificates (Let's Encrypt only issues wildcards via DNS) or upload your own certificate" }),
   wrong_2fa_code: msg({ context: "api:wrong_2fa_code", message: "Wrong code" }),
   wrong_password: msg({ context: "api:wrong_password", message: "Wrong password" }),

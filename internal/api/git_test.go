@@ -122,7 +122,7 @@ func TestGitIntegrationFlow(t *testing.T) {
 	c.do("POST", "/api/sites", `{"name":"web","domains":["web.test"]}`)
 	link := `{"connection_id":1,"repo":"oswa/web","branch":"main","output_dir":"site","env":{"API_URL":"https://x"}}`
 	code, body = c.do("PUT", "/api/sites/1/git", link)
-	if code != 200 || !strings.Contains(body["webhook_error"].(string), "URL pública") {
+	if code != 200 || problemCode(body["webhook_warning"]) != "webhook_public_url_missing" {
 		t.Fatalf("enlazar sin URL pública: %d %v", code, body)
 	}
 	if code, _ := c.do("PUT", "/api/sites/1/git", `{"connection_id":1,"repo":"oswa/web","branch":"no-existe"}`); code != 400 {
@@ -137,7 +137,7 @@ func TestGitIntegrationFlow(t *testing.T) {
 		t.Fatal("guardar URL pública")
 	}
 	code, body = c.do("PUT", "/api/sites/1/git", link)
-	if code != 200 || body["webhook_error"] != "" {
+	if code != 200 || body["webhook_warning"] != nil {
 		t.Fatalf("enlazar con URL pública: %d %v", code, body)
 	}
 	gh.mu.Lock()
@@ -259,4 +259,11 @@ func (c *client) doList(method, path string) (int, []any) {
 	var out []any
 	_ = json.NewDecoder(resp.Body).Decode(&out)
 	return resp.StatusCode, out
+}
+
+// problemCode es el código de un aviso con código (o "" si no hay aviso).
+func problemCode(v any) string {
+	m, _ := v.(map[string]any)
+	code, _ := m["code"].(string)
+	return code
 }

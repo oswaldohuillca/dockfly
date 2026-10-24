@@ -19,7 +19,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { api, errorMessage, type App, type AppInput, type AppSource, type GitConnection, type RemoteServer } from '@/lib/api';
+import { api, errorMessage, problemMessage, type App, type AppInput, type AppSource, type GitConnection, type RemoteServer } from '@/lib/api';
 import { appTemplates } from '@/lib/app-templates';
 import { cn } from '@/lib/utils';
 
@@ -97,7 +97,8 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
       if (isNew) {
         const res = await api.createApp(payload);
         const name = res.app.name;
-        if (res.warning) toast.warning(t`App created, with a warning`, { description: res.warning });
+        const warning = [res.deploy_error, problemMessage(res.webhook_warning)].filter(Boolean).join(' · ');
+        if (warning) toast.warning(t`App created, with a warning`, { description: warning });
         else toast.success(deploy ? t`Deploying ${name}…` : t({ context: 'app', message: `${name} created` }));
         onSaved(res.app);
       } else {
@@ -105,7 +106,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
         toast.success(t`Changes saved`, {
           description: t`Domains are already applied; everything else takes effect on the next deploy.`,
         });
-        if (res.warning) toast.warning(res.warning);
+        if (res.webhook_warning) toast.warning(problemMessage(res.webhook_warning));
         onSaved(res.app);
       }
     } catch (err) {

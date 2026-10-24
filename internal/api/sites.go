@@ -149,7 +149,7 @@ func (s *Server) handleDeleteSite(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s.deleteWebhook(r.Context(), site)
+	s.removeWebhook(r.Context(), siteHook(site))
 	// Primero se deja de servir y luego se borran los archivos.
 	if err := s.Store.DeleteSite(r.Context(), site.ID); err != nil {
 		s.internalError(w, err)

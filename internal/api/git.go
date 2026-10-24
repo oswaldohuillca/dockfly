@@ -320,10 +320,6 @@ func (s *Server) putPublicURL(w http.ResponseWriter, r *http.Request, raw string
 
 // --- Repositorio de un sitio ---
 
-// appWebhook marca los sitios que reciben los pushes por el webhook de la
-// GitHub App (en vez de uno propio en el repositorio).
-const appWebhook = "github-app"
-
 var (
 	imageRe   = regexp.MustCompile(`^[a-z0-9]+([._/:@-][a-zA-Z0-9]+)*$`)
 	envNameRe = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
@@ -420,7 +416,7 @@ func (s *Server) handlePutSiteGit(w http.ResponseWriter, r *http.Request) {
 	sameRepo := git.Repo == in.Repo && git.GitConnectionID != nil && *git.GitConnectionID == conn.ID
 	if !sameRepo {
 		// Otro repositorio: el webhook anterior ya no sirve.
-		s.deleteWebhook(ctx, site)
+		s.removeWebhook(ctx, siteHook(site))
 		git.WebhookID, git.WebhookSecret = "", ""
 	}
 	git.GitConnectionID = &conn.ID
@@ -433,38 +429,18 @@ func (s *Server) handlePutSiteGit(w http.ResponseWriter, r *http.Request) {
 		git.BuildEnvEnc = s.Secrets.Seal(raw)
 	}
 
-	var webhookErr string
-	if conn.AuthType == store.AuthGitHubApp {
-		// La GitHub App tiene un único webhook para todos sus repositorios.
-		git.WebhookID, git.WebhookSecret = "", ""
-		app, err := s.Store.GetGitHubApp(ctx, *conn.GitHubAppID)
-		if err == nil && app.WebhookActive {
-			git.WebhookID = appWebhook
-		} else {
-			webhookErr = "configura la URL pública de Dockfly en Integraciones para desplegar en cada push"
-		}
-	} else if git.WebhookID == "" || git.WebhookID == appWebhook {
-		publicURL, _ := s.Store.GetSetting(ctx, store.SettingPublicURL)
-		if publicURL == "" {
-			webhookErr = "configura la URL pública de Dockfly en Integraciones para desplegar en cada push"
-		} else {
-			secret := randomHex(32)
-			hookURL := fmt.Sprintf("%s/api/hooks/%s/%d", publicURL, conn.Provider, site.ID)
-			id, err := prov.CreateWebhook(ctx, in.Repo, hookURL, secret)
-			if err != nil {
-				webhookErr = "no se pudo crear el webhook: " + err.Error()
-			} else {
-				git.WebhookID, git.WebhookSecret = id, secret
-			}
-		}
-	}
+	hook, warn := s.ensureWebhook(ctx, hookTarget{
+		connectionID: &conn.ID, repo: in.Repo,
+		hook: hookState{git.WebhookID, git.WebhookSecret}, path: itoa(site.ID),
+	})
+	git.WebhookID, git.WebhookSecret = hook.ID, hook.Secret
 
 	if err := s.Store.UpdateSiteGit(ctx, site.ID, &git); err != nil {
 		s.internalError(w, err)
 		return
 	}
 	site.SiteGit = git
-	writeJSON(w, http.StatusOK, map[string]any{"site": site, "webhook_error": webhookErr})
+	writeJSON(w, http.StatusOK, map[string]any{"site": site, "webhook_warning": toProblem(warn)})
 }
 
 func (s *Server) handleDeleteSiteGit(w http.ResponseWriter, r *http.Request) {
@@ -472,7 +448,7 @@ func (s *Server) handleDeleteSiteGit(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	s.deleteWebhook(r.Context(), site)
+	s.removeWebhook(r.Context(), siteHook(site))
 	if err := s.Store.UpdateSiteGit(r.Context(), site.ID, &store.SiteGit{}); err != nil {
 		s.internalError(w, err)
 		return
@@ -491,21 +467,6 @@ func (s *Server) handleGetSiteEnv(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusOK, env)
-}
-
-// deleteWebhook intenta borrar el webhook del repositorio. Si falla (token
-// revocado, repo borrado…) solo se registra: no debe impedir desenlazar.
-func (s *Server) deleteWebhook(ctx context.Context, site *store.Site) {
-	if site.WebhookID == "" || site.WebhookID == appWebhook || site.GitConnectionID == nil {
-		return
-	}
-	_, p, err := s.connectionProvider(ctx, *site.GitConnectionID)
-	if err == nil {
-		err = p.DeleteWebhook(ctx, site.Repo, site.WebhookID)
-	}
-	if err != nil {
-		s.Log.Warn("no se pudo borrar el webhook", "site", site.ID, "repo", site.Repo, "error", err)
-	}
 }
 
 func randomHex(n int) string {

@@ -567,6 +567,13 @@ export class ApiError extends Error {
   }
 }
 
+/** Aviso con código que devuelve la API junto a una respuesta correcta (se traduce como un error). */
+export interface Problem {
+  error: string;
+  code: string;
+  params?: Record<string, unknown>;
+}
+
 /** Construye el ApiError a partir del cuerpo de una respuesta con error. */
 function apiError(status: number, data: { error?: string; code?: string; params?: Record<string, unknown> } | null, fallback: string) {
   return new ApiError(status, data?.error || fallback, data?.code ?? '', data?.params ?? {});
@@ -706,8 +713,13 @@ export const api = {
   listApps: () => request<App[]>('GET', '/apps'),
   getApp: (id: number) => request<{ app: App; deployments: AppDeployment[] }>('GET', `/apps/${id}`),
   createApp: (data: AppInput) =>
-    request<{ app: App; deployment: AppDeployment | null; warning: string }>('POST', '/apps', data),
-  updateApp: (id: number, data: AppInput) => request<{ app: App; warning: string }>('PUT', `/apps/${id}`, data),
+    request<{ app: App; deployment: AppDeployment | null; deploy_error: string; webhook_warning: Problem | null }>(
+      'POST',
+      '/apps',
+      data,
+    ),
+  updateApp: (id: number, data: AppInput) =>
+    request<{ app: App; webhook_warning: Problem | null }>('PUT', `/apps/${id}`, data),
   deleteApp: (id: number, removeData: boolean) => request<void>('DELETE', `/apps/${id}${removeData ? '?data=1' : ''}`),
   getAppEnv: (id: number) => request<Record<string, string>>('GET', `/apps/${id}/env`),
   deployApp: (id: number) => request<AppDeployment>('POST', `/apps/${id}/deploy`),
@@ -736,7 +748,7 @@ export const api = {
     request<{ url: string }>('POST', '/git/gitlab/authorize', { app_id: appId, panel_url: panelURL }),
 
   putSiteGit: (id: number, data: SiteGitInput) =>
-    request<{ site: Site; webhook_error: string }>('PUT', `/sites/${id}/git`, data),
+    request<{ site: Site; webhook_warning: Problem | null }>('PUT', `/sites/${id}/git`, data),
   deleteSiteGit: (id: number) => request<void>('DELETE', `/sites/${id}/git`),
   getSiteEnv: (id: number) => request<Record<string, string>>('GET', `/sites/${id}/git/env`),
   listBuilds: (id: number) => request<Build[]>('GET', `/sites/${id}/builds`),
@@ -822,4 +834,9 @@ export function errorMessage(e: unknown): string {
     return i18n._({ ...apiErrors[e.code], values });
   }
   return e instanceof Error ? e.message : String(e);
+}
+
+/** Texto traducido de un aviso de la API ("" si no hay aviso). */
+export function problemMessage(p: Problem | null | undefined): string {
+  return p ? errorMessage(new ApiError(0, p.error, p.code, p.params ?? {})) : '';
 }

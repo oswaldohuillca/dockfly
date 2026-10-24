@@ -279,14 +279,17 @@ func (s *Server) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
-	warning := s.setupAppWebhook(r.Context(), a)
+	warn := s.syncAppWebhook(r.Context(), a)
 	var dep *store.AppDeployment
+	var deployErr string
 	if in.Deploy {
 		if dep, err = s.Apps.Enqueue(r.Context(), a.ID, store.TriggerManual, gitprovider.Commit{}, ""); err != nil {
-			warning = err.Error()
+			deployErr = err.Error()
 		}
 	}
-	writeJSON(w, http.StatusCreated, map[string]any{"app": a, "deployment": dep, "warning": warning})
+	writeJSON(w, http.StatusCreated, map[string]any{
+		"app": a, "deployment": dep, "deploy_error": deployErr, "webhook_warning": toProblem(warn),
+	})
 }
 
 func (s *Server) handleUpdateApp(w http.ResponseWriter, r *http.Request) {
@@ -324,18 +327,18 @@ func (s *Server) handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 	}
 	updated, _ := s.Store.GetApp(r.Context(), a.ID)
 	if updated.Repo != existing.Repo || !sameID(updated.GitConnectionID, existing.GitConnectionID) {
-		s.deleteAppWebhook(r.Context(), existing)
+		s.removeWebhook(r.Context(), appHook(existing))
 		_ = s.Store.SetAppWebhook(r.Context(), a.ID, "", "")
-		updated.WebhookID = ""
+		updated.WebhookID, updated.WebhookSecret = "", ""
 	}
-	warning := s.setupAppWebhook(r.Context(), updated)
+	warn := s.syncAppWebhook(r.Context(), updated)
 	// Los dominios y el SSL se aplican ya; lo demás (imagen, variables,
 	// volúmenes…) en el próximo despliegue.
 	if err := s.Apply(r.Context()); err != nil {
 		s.internalError(w, err)
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"app": updated, "warning": warning})
+	writeJSON(w, http.StatusOK, map[string]any{"app": updated, "webhook_warning": toProblem(warn)})
 }
 
 func sameID(a, b *int64) bool { return (a == nil) == (b == nil) && (a == nil || *a == *b) }
@@ -350,7 +353,7 @@ func (s *Server) handleDeleteApp(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
-	s.deleteAppWebhook(r.Context(), a)
+	s.removeWebhook(r.Context(), appHook(a))
 	if err := s.Store.DeleteApp(r.Context(), a.ID); err != nil {
 		s.internalError(w, err)
 		return
@@ -590,43 +593,16 @@ func (w sseWriter) Write(p []byte) (int, error) {
 
 // --- Webhooks de apps desde Git ---
 
-func (s *Server) setupAppWebhook(ctx context.Context, a *store.App) string {
-	if a.Source == store.AppSourceImage || a.GitConnectionID == nil || a.WebhookID != "" {
-		return ""
+// syncAppWebhook deja el webhook de la app como debe estar (ver
+// ensureWebhook) y devuelve el aviso, si lo hay.
+func (s *Server) syncAppWebhook(ctx context.Context, a *store.App) *apiError {
+	t := appHook(a)
+	hook, warn := s.ensureWebhook(ctx, t)
+	if hook != t.hook {
+		_ = s.Store.SetAppWebhook(ctx, a.ID, hook.ID, hook.Secret)
+		a.WebhookID, a.WebhookSecret = hook.ID, hook.Secret
 	}
-	conn, prov, err := s.connectionProvider(ctx, *a.GitConnectionID)
-	if err != nil {
-		return err.Error()
-	}
-	if conn.AuthType == store.AuthGitHubApp {
-		app, err := s.Store.GetGitHubApp(ctx, *conn.GitHubAppID)
-		if err == nil && app.WebhookActive {
-			_ = s.Store.SetAppWebhook(ctx, a.ID, appWebhook, "")
-			return ""
-		}
-		return "configura la URL pública de Dockfly en Integraciones para desplegar en cada push"
-	}
-	publicURL, _ := s.Store.GetSetting(ctx, store.SettingPublicURL)
-	if publicURL == "" {
-		return "configura la URL pública de Dockfly en Integraciones para desplegar en cada push"
-	}
-	secret := randomHex(32)
-	hookURL := fmt.Sprintf("%s/api/hooks/%s/apps/%d", publicURL, conn.Provider, a.ID)
-	id, err := prov.CreateWebhook(ctx, a.Repo, hookURL, secret)
-	if err != nil {
-		return "no se pudo crear el webhook: " + err.Error()
-	}
-	_ = s.Store.SetAppWebhook(ctx, a.ID, id, secret)
-	return ""
-}
-
-func (s *Server) deleteAppWebhook(ctx context.Context, a *store.App) {
-	if a.WebhookID == "" || a.WebhookID == appWebhook || a.GitConnectionID == nil {
-		return
-	}
-	if _, p, err := s.connectionProvider(ctx, *a.GitConnectionID); err == nil {
-		_ = p.DeleteWebhook(ctx, a.Repo, a.WebhookID)
-	}
+	return warn
 }
 
 // handleAppWebhook recibe los pushes de un repo con webhook propio.

@@ -145,7 +145,7 @@ func TestGitHubAppFlow(t *testing.T) {
 	}
 	c.do("POST", "/api/sites", `{"name":"web","domains":["web.test"]}`)
 	code, body2 := c.do("PUT", "/api/sites/1/git", `{"connection_id":1,"repo":"mi-org/web","branch":"main"}`)
-	if code != 200 || body2["webhook_error"] != "" || body2["site"].(map[string]any)["webhook_id"] != "github-app" {
+	if code != 200 || body2["webhook_warning"] != nil || body2["site"].(map[string]any)["webhook_id"] != "github-app" {
 		t.Fatalf("enlazar con la app: %d %v", code, body2)
 	}
 
