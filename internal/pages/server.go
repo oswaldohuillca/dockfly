@@ -40,8 +40,17 @@ func (s *Server) lookup(host string) (Route, bool) {
 	if table == nil {
 		return Route{}, false
 	}
-	r, ok := (*table)[strings.ToLower(host)]
-	return r, ok
+	host = strings.ToLower(host)
+	if r, ok := (*table)[host]; ok {
+		return r, true
+	}
+	// Un dominio comodín (*.ejemplo.com) cubre un solo nivel, como en Traefik
+	// y en los certificados; el dominio exacto de otro sitio va antes.
+	if _, parent, ok := strings.Cut(host, "."); ok && strings.Contains(parent, ".") {
+		r, ok := (*table)["*."+parent]
+		return r, ok
+	}
+	return Route{}, false
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

@@ -261,6 +261,38 @@ func TestServerResolution(t *testing.T) {
 	}
 }
 
+// Un sitio con un dominio comodín sirve cualquier subdominio de un nivel,
+// como lo enruta Traefik; un dominio exacto de otro sitio le gana.
+func TestServerWildcardHosts(t *testing.T) {
+	app := deploy(t, map[string]string{"index.html": "app"})
+	admin := deploy(t, map[string]string{"index.html": "admin"})
+	srv := &Server{}
+	srv.SetRoutes(map[string]Route{
+		"app.test":       {Dir: app, DeploymentID: 1, SPA: true},
+		"*.app.test":     {Dir: app, DeploymentID: 1, SPA: true},
+		"admin.app.test": {Dir: admin, DeploymentID: 2},
+	})
+	cases := []struct {
+		host, path string
+		status     int
+		body       string
+	}{
+		{"app.test", "/", 200, "app"},
+		{"brasa.app.test", "/", 200, "app"},
+		{"Carbon.App.test:443", "/mesas/4", 200, "app"},
+		{"admin.app.test", "/", 200, "admin"},
+		// Un comodín cubre un solo nivel, como el certificado.
+		{"a.b.app.test", "/", 404, ""},
+		{"otro.test", "/", 404, ""},
+	}
+	for _, c := range cases {
+		rec := get(srv, c.host, c.path)
+		if rec.Code != c.status || !strings.Contains(rec.Body.String(), c.body) {
+			t.Errorf("%s%s: esperaba %d %q, obtuve %d %q", c.host, c.path, c.status, c.body, rec.Code, rec.Body.String())
+		}
+	}
+}
+
 func TestServerSwapIsAtomic(t *testing.T) {
 	v1 := deploy(t, map[string]string{"index.html": "v1"})
 	v2 := deploy(t, map[string]string{"index.html": "v2"})
