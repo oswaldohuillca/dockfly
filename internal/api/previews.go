@@ -9,9 +9,8 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/dockfly/dockfly/internal/gitprovider"
-	"github.com/dockfly/dockfly/internal/pages"
+	"github.com/dockfly/dockfly/internal/routing"
 	"github.com/dockfly/dockfly/internal/store"
-	"github.com/dockfly/dockfly/internal/traefik"
 )
 
 // Las previews publican cada rama (que no sea la de producción) de un sitio
@@ -20,9 +19,6 @@ import (
 
 // keepPreviewDeployments es cuántos despliegues se guardan por preview.
 const keepPreviewDeployments = 3
-
-// previewRouteName es la ruta de Traefik del comodín de previews.
-const previewRouteName = "previews"
 
 // previewSlug convierte el nombre de una rama en una etiqueta DNS:
 // "feature/Nuevo_Login" → "feature-nuevo-login".
@@ -45,23 +41,6 @@ func previewSlug(branch string) string {
 	return s
 }
 
-// previewLabel es la primera etiqueta del dominio de una preview, sin pasar
-// de los 63 caracteres que permite DNS.
-func previewLabel(preview, site string) string {
-	if room := 63 - len(site) - 2; len(preview) > room {
-		preview = strings.TrimRight(preview[:max(room, 1)], "-")
-	}
-	label := preview + "--" + site
-	if len(label) > 63 {
-		label = strings.TrimRight(label[:63], "-")
-	}
-	return label
-}
-
-func previewHost(domain, site, preview string) string {
-	return previewLabel(preview, site) + "." + domain
-}
-
 func (s *Server) previewDomain(ctx context.Context) (string, error) {
 	return s.Store.GetSetting(ctx, store.SettingPreviewDomain)
 }
@@ -76,7 +55,7 @@ func (s *Server) previewURL(ctx context.Context, site *store.Site, preview strin
 	if plan, err := s.loadCertPlan(ctx); err == nil && plan.resolver([]string{"*." + domain}) != "" {
 		scheme = "https"
 	}
-	return scheme + "://" + previewHost(domain, site.Name, preview)
+	return scheme + "://" + routing.PreviewHost(domain, site.Name, preview)
 }
 
 // handleSitePush decide qué hacer con un push a la rama de un sitio:
@@ -150,65 +129,30 @@ func (s *Server) prunePreview(ctx context.Context, siteID int64, preview string)
 	}
 }
 
-// previewRoutes añade a la tabla del servidor estático las previews de cada
-// sitio y devuelve la ruta de Traefik del comodín (ok=false si no hay
-// dominio de previews).
-func (s *Server) previewRoutes(ctx context.Context, sites []*store.Site, table map[string]pages.Route,
-	acl map[int64][]string) (wildcard traefik.Route, protectedPreviews []traefik.Route, ok bool, err error) {
+// previews reúne las previews publicadas de los sitios que las tienen.
+func (s *Server) previews(ctx context.Context, sites []*store.Site) (routing.Previews, error) {
+	var p routing.Previews
+	// La lista cuenta como usada aunque las previews estén desactivadas.
+	if raw, _ := s.Store.GetSetting(ctx, store.SettingPreviewAccessList); raw != "" {
+		var id int64
+		if _, err := fmt.Sscan(raw, &id); err == nil {
+			p.AccessListID = &id
+		}
+	}
 	domain, err := s.previewDomain(ctx)
 	if err != nil || domain == "" {
-		return traefik.Route{}, nil, false, err
+		return p, err
 	}
-	// Los previews de un sitio protegido llevan la lista de acceso del sitio
-	// en un router propio por host (gana al comodín por prioridad). Se
-	// devuelven como rutas extra.
+	p.Domain, p.BySite = domain, map[int64][]*store.Deployment{}
 	for _, site := range sites {
 		if !site.Previews {
 			continue
 		}
-		deps, err := s.Store.ListPreviews(ctx, site.ID)
-		if err != nil {
-			return traefik.Route{}, nil, false, err
-		}
-		for _, d := range deps {
-			host := previewHost(domain, site.Name, d.Preview)
-			if _, taken := table[host]; !taken {
-				table[host] = pages.Route{Dir: s.PagesStorage.DeploymentDir(site.ID, d.ID), DeploymentID: d.ID, SPA: site.SPA}
-			}
-			if site.AccessListID != nil {
-				protectedPreviews = append(protectedPreviews, previewSiteRoute(site, host, s.StaticURL))
-			}
+		if p.BySite[site.ID], err = s.Store.ListPreviews(ctx, site.ID); err != nil {
+			return routing.Previews{}, err
 		}
 	}
-	rt := traefik.Route{
-		Name: previewRouteName, Domains: []string{"*." + domain}, URL: s.StaticURL,
-		PreserveHost: true, Compress: true,
-	}
-	if raw, _ := s.Store.GetSetting(ctx, store.SettingPreviewAccessList); raw != "" {
-		var id int64
-		if _, err := fmt.Sscan(raw, &id); err == nil {
-			rt.Middlewares = acl[id]
-		}
-	}
-	// Con certificado comodín (zona DNS o propio), las previews van por HTTPS.
-	ssl := false
-	if plan, err := s.loadCertPlan(ctx); err == nil && plan.resolver(rt.Domains) != "" {
-		rt.SSL, rt.ForceHTTPS, ssl = true, true, true
-	}
-	for i := range protectedPreviews {
-		protectedPreviews[i].SSL, protectedPreviews[i].ForceHTTPS = ssl, ssl
-		protectedPreviews[i].Resolver = traefik.NoResolver // el comodín ya tiene el certificado
-	}
-	return rt, protectedPreviews, true, nil
-}
-
-// previewSiteRoute es el router de un host de preview concreto, con la lista
-// de acceso de su sitio.
-func previewSiteRoute(site *store.Site, host, staticURL string) traefik.Route {
-	return traefik.Route{
-		Name: fmt.Sprintf("preview-%d-%s", site.ID, host), Domains: []string{host},
-		URL: staticURL, PreserveHost: true, Compress: true,
-	}
+	return p, nil
 }
 
 type previewView struct {

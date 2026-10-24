@@ -5,10 +5,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io/fs"
 	"log/slog"
-	"net"
 	"net/http"
 	"path/filepath"
 	"strconv"
@@ -23,6 +21,7 @@ import (
 	"github.com/dockfly/dockfly/internal/gitauth"
 	"github.com/dockfly/dockfly/internal/notify"
 	"github.com/dockfly/dockfly/internal/pages"
+	"github.com/dockfly/dockfly/internal/routing"
 	"github.com/dockfly/dockfly/internal/secrets"
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
@@ -96,177 +95,57 @@ func (s *Server) Apply(ctx context.Context) error {
 	s.applyMu.Lock()
 	defer s.applyMu.Unlock()
 
-	hosts, err := s.Store.ListProxyHosts(ctx)
+	snap, err := s.snapshot(ctx)
 	if err != nil {
 		return err
 	}
-	sites, err := s.Store.ListSites(ctx)
-	if err != nil {
-		return err
+	plan := routing.Build(snap)
+	if s.Hub != nil {
+		defer s.pushServers(plan.Remote, plan.Dynamic.Middlewares)
 	}
+	// Primero el servidor estático y luego Traefik: así, cuando Traefik
+	// empiece a enrutar un dominio nuevo, el servidor ya sabe qué servir.
+	s.Pages.SetRoutes(plan.Static)
+	return traefik.WriteDynamic(s.Traefik, plan.Dynamic)
+}
 
-	extra := map[string]any{}
-	acl, err := s.accessMiddlewares(ctx, extra)
-	if err != nil {
-		return err
+// snapshot reúne todo lo que influye en el enrutado (ver routing.Build).
+func (s *Server) snapshot(ctx context.Context) (routing.Snapshot, error) {
+	var snap routing.Snapshot
+	var err error
+	if snap.Hosts, err = s.Store.ListProxyHosts(ctx); err != nil {
+		return snap, err
+	}
+	if snap.Sites, err = s.Store.ListSites(ctx); err != nil {
+		return snap, err
+	}
+	if snap.Apps, err = s.Store.ListApps(ctx); err != nil {
+		return snap, err
+	}
+	if snap.Redirects, err = s.Store.ListRedirects(ctx); err != nil {
+		return snap, err
+	}
+	if snap.Streams, err = s.Store.ListStreams(ctx); err != nil {
+		return snap, err
+	}
+	if snap.AccessLists, err = s.Store.ListAccessLists(ctx); err != nil {
+		return snap, err
 	}
 	plan, err := s.loadCertPlan(ctx)
 	if err != nil {
-		return err
+		return snap, err
 	}
-	// withACL aplica la lista de acceso id a una ruta. Si la lista ya no
-	// existe (se borró), deniega todo en vez de dejar la ruta pública.
-	withACL := func(rt traefik.Route, id *int64) traefik.Route {
-		if id != nil {
-			if mw, ok := acl[*id]; ok {
-				rt.Middlewares = mw
-			} else {
-				rt.Middlewares = []string{traefik.MwDeny}
-			}
-		}
-		return rt
-	}
-
-	var routes []traefik.Route
-	for _, h := range hosts {
-		rt, ok := traefik.ProxyHostRoute(h)
-		if !ok {
-			continue
-		}
-		routes = append(routes, withACL(rt, h.AccessListID))
-		routes = append(routes, locationRoutes(rt, h.Locations, h.AccessListID, h.SkipTLSVerify, withACL)...)
-	}
-	// Apps desplegadas, en marcha y con puerto y dominios: Traefik envía el
-	// tráfico a su contenedor actual (cambia en cada despliegue).
-	appList, err := s.Store.ListApps(ctx)
-	if err != nil {
-		return err
-	}
-	// Las apps de los servidores remotos van al Traefik de su servidor, que
-	// pide sus propios certificados por HTTP.
-	remote := map[int64][]traefik.Route{}
-	for _, a := range appList {
-		if a.Stopped || a.Port == 0 || len(a.Domains) == 0 || a.Current == nil || a.Current.Container == "" {
-			continue
-		}
-		rt := withACL(traefik.Route{
-			Name: "app-" + strconv.FormatInt(a.ID, 10), Domains: a.Domains,
-			URL:          fmt.Sprintf("http://%s:%d", a.Current.Container, a.Port),
-			PreserveHost: true, SSL: a.SSL, ForceHTTPS: a.ForceHTTPS, HSTS: a.HSTS,
-		}, a.AccessListID)
-		if a.ServerID != nil {
-			remote[*a.ServerID] = append(remote[*a.ServerID], rt)
-			continue
-		}
-		routes = append(routes, rt)
-	}
-	if s.Hub != nil {
-		defer s.pushServers(remote, extra)
-	}
-
-	redirects, err := s.Store.ListRedirects(ctx)
-	if err != nil {
-		return err
-	}
-	for _, rd := range redirects {
-		if !rd.Enabled {
-			continue
-		}
-		routes = append(routes, traefik.Route{
-			Name: redirectRouteName(rd.ID), Domains: rd.Domains, SSL: rd.SSL,
-			Redirect: &traefik.Redirect{Target: rd.Target, Permanent: rd.Permanent, PreservePath: rd.PreservePath},
-		})
-	}
-
-	table := map[string]pages.Route{}
-	for _, site := range sites {
-		if rt, ok := traefik.SiteRoute(site, s.StaticURL); ok {
-			routes = append(routes, withACL(rt, site.AccessListID))
-			// El destino de una ubicación es un backend, no el servidor
-			// estático: comprime él si quiere (y no se toca un text/event-stream).
-			rt.Compress = false
-			routes = append(routes, locationRoutes(rt, site.Locations, site.AccessListID, false, withACL)...)
-		}
-		var pr pages.Route
-		if id := site.ActiveDeploymentID; id != nil {
-			pr = pages.Route{Dir: s.PagesStorage.DeploymentDir(site.ID, *id), DeploymentID: *id, SPA: site.SPA}
-		}
-		for _, d := range site.Domains {
-			table[d] = pr
-		}
-	}
-	if rt, protectedPreviews, ok, err := s.previewRoutes(ctx, sites, table, acl); err != nil {
-		return err
-	} else if ok {
-		routes = append(routes, rt)
-		for _, pr := range protectedPreviews {
-			// La lista del sitio protege también sus previews.
-			for _, site := range sites {
-				if pr.Name == fmt.Sprintf("preview-%d-%s", site.ID, pr.Domains[0]) {
-					routes = append(routes, withACL(pr, site.AccessListID))
-					break
-				}
-			}
-		}
-	}
-
-	// Primero el servidor estático y luego Traefik: así, cuando Traefik
-	// empiece a enrutar un dominio nuevo, el servidor ya sabe qué servir.
-	s.Pages.SetRoutes(table)
-	streamList, err := s.Store.ListStreams(ctx)
-	if err != nil {
-		return err
-	}
-	var streams []traefik.Stream
-	for _, st := range streamList {
-		if st.Enabled {
-			streams = append(streams, traefik.Stream{
-				Name:    "st-" + strconv.FormatInt(st.ID, 10),
-				Port:    traefik.StreamPort{Protocol: st.Protocol, Port: st.ListenPort},
-				Address: net.JoinHostPort(st.ForwardHost, strconv.Itoa(st.ForwardPort)),
-			})
-		}
-	}
-	// Cada ruta con SSL usa el certificado que le corresponde: propio, por
-	// DNS (zonas configuradas) o por HTTP.
-	for i := range routes {
-		if routes[i].SSL {
-			routes[i].Resolver = plan.resolver(routes[i].Domains)
-		}
-	}
-	var certFiles []traefik.CertFile
+	snap.Resolver = plan.resolver
 	for _, c := range plan.custom {
 		base := filepath.Join(s.certDir(), strconv.FormatInt(c.ID, 10))
-		certFiles = append(certFiles, traefik.CertFile{Cert: base + ".crt", Key: base + ".key"})
+		snap.Certificates = append(snap.Certificates, traefik.CertFile{Cert: base + ".crt", Key: base + ".key"})
 	}
-	return traefik.WriteDynamic(s.Traefik, traefik.Dynamic{Routes: routes, Middlewares: extra, Streams: streams, Certificates: certFiles})
-}
-
-// locationRoutes traduce las ubicaciones de un proxy host o de un sitio
-// (parent, ya con su nombre y sus dominios). Cada una es una ruta más del
-// mismo dominio, limitada a su prefijo, con su destino y su acceso; Traefik
-// la prefiere a la de su dominio porque su regla es más larga (o, con
-// comodines, por la prioridad que le da traefik.BuildDynamic).
-func locationRoutes(parent traefik.Route, locations []store.ProxyLocation, parentACL *int64, skipTLSVerify bool,
-	withACL func(traefik.Route, *int64) traefik.Route) []traefik.Route {
-	routes := make([]traefik.Route, 0, len(locations))
-	for i, l := range locations {
-		loc := parent
-		loc.Name = fmt.Sprintf("%s-loc%d", parent.Name, i)
-		loc.PathPrefix, loc.StripPrefix = l.Path, l.StripPrefix
-		loc.URL = traefik.LocationURL(l)
-		loc.SkipTLSVerify = l.ForwardScheme == "https" && skipTLSVerify
-		loc.Middlewares = nil
-		switch l.Access {
-		case store.LocationAccessPublic:
-		case store.LocationAccessList:
-			loc = withACL(loc, l.AccessListID)
-		default:
-			loc = withACL(loc, parentACL)
-		}
-		routes = append(routes, loc)
+	snap.StaticURL = s.StaticURL
+	snap.SiteDir = s.PagesStorage.DeploymentDir
+	if snap.Previews, err = s.previews(ctx, snap.Sites); err != nil {
+		return snap, err
 	}
-	return routes
+	return snap, nil
 }
 
 // Errores del alta y el login (y del resto de la gestión de cuentas).

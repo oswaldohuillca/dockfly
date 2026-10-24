@@ -3,14 +3,13 @@ package api
 import (
 	"context"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/netip"
 	"strings"
 
 	"github.com/dockfly/dockfly/internal/auth"
+	"github.com/dockfly/dockfly/internal/routing"
 	"github.com/dockfly/dockfly/internal/store"
-	"github.com/dockfly/dockfly/internal/traefik"
 )
 
 type accessListView struct {
@@ -43,50 +42,13 @@ func (s *Server) handleListAccessLists(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// accessListUsage cuenta cuántos hosts, sitios y apps usan cada lista.
+// accessListUsage cuenta cuántas cosas usan cada lista (ver routing.AccessListUsage).
 func (s *Server) accessListUsage(ctx context.Context) (map[int64]int, error) {
-	used := map[int64]int{}
-	hosts, err := s.Store.ListProxyHosts(ctx)
+	snap, err := s.snapshot(ctx)
 	if err != nil {
 		return nil, err
 	}
-	for _, h := range hosts {
-		if h.AccessListID != nil {
-			used[*h.AccessListID]++
-		}
-		// Las ubicaciones personalizadas también pueden usar una lista.
-		for _, l := range h.Locations {
-			if l.AccessListID != nil {
-				used[*l.AccessListID]++
-			}
-		}
-	}
-	sites, err := s.Store.ListSites(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, st := range sites {
-		if st.AccessListID != nil {
-			used[*st.AccessListID]++
-		}
-	}
-	appList, err := s.Store.ListApps(ctx)
-	if err != nil {
-		return nil, err
-	}
-	for _, a := range appList {
-		if a.AccessListID != nil {
-			used[*a.AccessListID]++
-		}
-	}
-	// La lista global de previews.
-	if raw, _ := s.Store.GetSetting(ctx, store.SettingPreviewAccessList); raw != "" {
-		var id int64
-		if _, err := fmt.Sscan(raw, &id); err == nil {
-			used[id]++
-		}
-	}
-	return used, nil
+	return routing.AccessListUsage(snap), nil
 }
 
 type accessListInput struct {
@@ -248,22 +210,4 @@ func (s *Server) checkAccessList(w http.ResponseWriter, r *http.Request, id *int
 		return false
 	}
 	return true
-}
-
-// accessMiddlewares genera los middlewares de todas las listas y devuelve,
-// por lista, los nombres que deben usar sus rutas.
-func (s *Server) accessMiddlewares(ctx context.Context, into map[string]any) (map[int64][]string, error) {
-	lists, err := s.Store.ListAccessLists(ctx)
-	if err != nil {
-		return nil, err
-	}
-	out := map[int64][]string{}
-	for _, l := range lists {
-		users := map[string]string{}
-		for _, u := range l.Users {
-			users[u.Username] = u.PasswordHash
-		}
-		out[l.ID] = traefik.AccessListMiddlewares(l.ID, l.AllowIPs, users, into)
-	}
-	return out, nil
 }

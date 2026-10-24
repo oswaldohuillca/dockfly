@@ -4,7 +4,6 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/dockfly/dockfly/internal/store"
@@ -133,5 +132,3 @@ func (s *Server) handleDeleteRedirect(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
-
-func redirectRouteName(id int64) string { return "rd-" + strconv.FormatInt(id, 10) }

@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestPreviewSlugAndHost(t *testing.T) {
+func TestPreviewSlug(t *testing.T) {
 	for in, want := range map[string]string{
 		"feature/Nuevo_Login":                "feature-nuevo-login",
 		"--raro//rama--":                     "raro-rama",
@@ -18,13 +18,6 @@ func TestPreviewSlugAndHost(t *testing.T) {
 		if got := previewSlug(in); got != want {
 			t.Errorf("previewSlug(%q) = %q, quería %q", in, got, want)
 		}
-	}
-	if h := previewHost("previews.test", "web", "feature-x"); h != "feature-x--web.previews.test" {
-		t.Errorf("host: %s", h)
-	}
-	// La etiqueta nunca pasa de 63 caracteres, aunque el sitio tenga un nombre largo.
-	if l := previewLabel(strings.Repeat("b", 40), strings.Repeat("s", 60)); len(l) > 63 {
-		t.Errorf("etiqueta de %d caracteres: %s", len(l), l)
 	}
 }
 
