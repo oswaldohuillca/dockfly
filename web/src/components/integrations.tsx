@@ -1,58 +1,47 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Check, ChevronDown, Copy, ExternalLink, Loader2, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { Trans, useLingui } from '@lingui/react/macro';
 
 import { ProviderIcon, providerName } from '@/components/brand-icons';
+import { useConfirm } from '@/components/confirm';
+import { FormDialog } from '@/components/form-dialog';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, errorMessage, type GitConnection, type GitHubApp, type GitLabApp, type GitProvider } from '@/lib/api';
 import { goTo, openPopup, postTo, waitForPopup } from '@/lib/oauth-popup';
 import { cn } from '@/lib/utils';
 import { timeAgo } from '@/lib/format';
+import { useSubmit } from '@/lib/use-form';
+import { useAction, useResource } from '@/lib/use-resource';
 
 export function Integrations() {
   const { t } = useLingui();
-  const [connections, setConnections] = useState<GitConnection[]>([]);
-  const [apps, setApps] = useState<{ github: GitHubApp[]; gitlab: GitLabApp[] } | null>(null);
-  const [publicURL, setPublicURL] = useState('');
-
-  const load = useCallback(async () => {
-    try {
-      const [conns, a, settings] = await Promise.all([api.listConnections(), api.listGitApps(), api.getSettings()]);
-      setConnections(conns);
-      setApps(a);
-      setPublicURL(settings.public_url);
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const { data, reload: load } = useResource(async () => {
+    const [connections, apps, settings] = await Promise.all([api.listConnections(), api.listGitApps(), api.getSettings()]);
+    return { connections, apps, publicURL: settings.public_url };
+  });
+  const run = useAction();
+  const { confirm, dialog } = useConfirm();
 
   async function remove(c: GitConnection) {
-    try {
-      await api.deleteConnection(c.id);
-      const username = c.username;
-      toast.success(t`${username} disconnected from Dockfly`);
-      load();
-    } catch (e) {
-      toast.error(errorMessage(e));
+    const username = c.username;
+    if (await confirm({ title: t`Disconnect ${username}?`, action: t`Disconnect` })) {
+      await run(() => api.deleteConnection(c.id), { success: t`${username} disconnected from Dockfly`, then: load });
     }
   }
 
-  if (!apps) return <p className="py-20 text-center text-sm text-muted-foreground">
+  if (!data) return <p className="py-20 text-center text-sm text-muted-foreground">
         <Trans>Loading…</Trans>
       </p>;
 
+  const { connections, apps, publicURL } = data;
   return (
     <div className="space-y-4">
+      {dialog}
       <PublicURLCard value={publicURL} onSaved={load} />
       <GitHubCard apps={apps.github} connections={connections} hasPublicURL={!!publicURL} onChange={load} onRemove={remove} />
       <GitLabCard apps={apps.gitlab} connections={connections} onChange={load} onRemove={remove} />
@@ -122,6 +111,8 @@ interface GitHubCardProps {
 function GitHubCard({ apps, connections, hasPublicURL, onChange, onRemove }: GitHubCardProps) {
   const { t } = useLingui();
   const [options, setOptions] = useState(false);
+  const run = useAction();
+  const { confirm, dialog } = useConfirm();
   const [org, setOrg] = useState('');
   const [enterprise, setEnterprise] = useState('');
 
@@ -149,17 +140,17 @@ function GitHubCard({ apps, connections, hasPublicURL, onChange, onRemove }: Git
   }
 
   async function removeApp(app: GitHubApp) {
-    try {
-      await api.deleteGitHubApp(app.id);
-      const name = app.name;
-      toast.success(t`App ${name} removed from Dockfly`, {
-        description: t`To delete it completely, remove it on GitHub too.`,
-        action: { label: t`Open GitHub`, onClick: () => window.open(app.html_url, '_blank') },
-      });
-      onChange();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
+    const name = app.name;
+    if (!(await confirm({ title: t`Remove the app ${name} from Dockfly?`, action: t`Remove` }))) return;
+    await run(() => api.deleteGitHubApp(app.id), {
+      then: () => {
+        toast.success(t`App ${name} removed from Dockfly`, {
+          description: t`To delete it completely, remove it on GitHub too.`,
+          action: { label: t`Open GitHub`, onClick: () => window.open(app.html_url, '_blank') },
+        });
+        onChange();
+      },
+    });
   }
 
   return (
@@ -253,6 +244,7 @@ function GitHubCard({ apps, connections, hasPublicURL, onChange, onRemove }: Git
           ))
         )}
       </CardContent>
+      {dialog}
     </Card>
   );
 }
@@ -265,7 +257,10 @@ interface GitLabCardProps {
 }
 
 function GitLabCard({ apps, connections, onChange, onRemove }: GitLabCardProps) {
+  const { t } = useLingui();
   const [setup, setSetup] = useState(false);
+  const run = useAction();
+  const { confirm, dialog } = useConfirm();
 
   async function authorize(app: GitLabApp) {
     const popup = openPopup();
@@ -279,11 +274,9 @@ function GitLabCard({ apps, connections, onChange, onRemove }: GitLabCardProps) 
   }
 
   async function removeApp(app: GitLabApp) {
-    try {
-      await api.deleteGitLabApp(app.id);
-      onChange();
-    } catch (e) {
-      toast.error(errorMessage(e));
+    const instance = app.web_url;
+    if (await confirm({ title: t`Remove the GitLab instance ${instance} from Dockfly?`, action: t`Remove` })) {
+      await run(() => api.deleteGitLabApp(app.id), { then: onChange });
     }
   }
 
@@ -346,6 +339,7 @@ function GitLabCard({ apps, connections, onChange, onRemove }: GitLabCardProps) 
           </button>
         )}
       </CardContent>
+      {dialog}
     </Card>
   );
 }
@@ -355,25 +349,14 @@ function GitLabSetup({ onCancel, onSaved }: { onCancel: () => void; onSaved: () 
   const [webURL, setWebURL] = useState('https://gitlab.com');
   const [clientID, setClientID] = useState('');
   const [secret, setSecret] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
   const redirectURI = `${location.origin}/api/git/gitlab/callback`;
   const base = webURL.replace(/\/+$/, '') || 'https://gitlab.com';
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      await api.putGitLabApp({ web_url: webURL, client_id: clientID, client_secret: secret });
-      toast.success(t`GitLab is set up: you can now connect your account`);
-      onSaved();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { submit: save, busy, error } = useSubmit(async () => {
+    await api.putGitLabApp({ web_url: webURL, client_id: clientID, client_secret: secret });
+    toast.success(t`GitLab is set up: you can now connect your account`);
+    onSaved();
+  });
 
   return (
     <form onSubmit={save} className="space-y-4 rounded-lg border p-4">
@@ -603,107 +586,90 @@ function ConnectionDialog({ provider, onClose, onSaved }: { provider: GitProvide
   const [token, setToken] = useState('');
   const [baseURL, setBaseURL] = useState('');
   const [selfHosted, setSelfHosted] = useState(false);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
   const help = tokenHelp[provider];
   const name = providerName[provider];
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      const conn = await api.createConnection({ provider, base_url: selfHosted ? baseURL : '', token });
-      const username = conn.username;
-      toast.success(t`${name} connected as ${username}`);
-      onSaved();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { submit, busy, error } = useSubmit(async () => {
+    const conn = await api.createConnection({ provider, base_url: selfHosted ? baseURL : '', token });
+    const username = conn.username;
+    toast.success(t`${name} connected as ${username}`);
+    onSaved();
+  });
 
   const tokenPage = selfHosted && baseURL ? null : help.url;
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <form onSubmit={save} className="contents">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ProviderIcon provider={provider} className="size-5" /> <Trans>Connect {name}</Trans>
-            </DialogTitle>
-            <DialogDescription>{help.text}</DialogDescription>
-          </DialogHeader>
+    <FormDialog
+      title={
+        <span className="flex items-center gap-2">
+          <ProviderIcon provider={provider} className="size-5" /> <Trans>Connect {name}</Trans>
+        </span>
+      }
+      description={help.text}
+      className="sm:max-w-lg"
+      submitLabel={
+        busy ? (
+          <Trans>Connect</Trans>
+        ) : (
+          <>
+            <Plus />
+            <Trans>Connect</Trans>
+          </>
+        )
+      }
+      onClose={onClose}
+      onSubmit={submit}
+      busy={busy}
+      error={error}
+    >
+      {tokenPage && (
+        <a
+          href={tokenPage}
+          target="_blank"
+          rel="noreferrer"
+          className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+        >
+          <Trans>Create the token on {name}</Trans> <ExternalLink className="size-3.5" />
+        </a>
+      )}
 
-          {tokenPage && (
-            <a
-              href={tokenPage}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
-            >
-              <Trans>Create the token on {name}</Trans> <ExternalLink className="size-3.5" />
-            </a>
-          )}
+      <div className="space-y-2">
+        <Label htmlFor="token">Token</Label>
+        <Input
+          id="token"
+          type="password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          placeholder={provider === 'github' ? 'github_pat_…' : 'glpat-…'}
+          autoComplete="off"
+          required
+          autoFocus
+        />
+        <p className="text-xs text-muted-foreground">
+          <Trans>Stored encrypted and never exposed to build containers.</Trans>
+        </p>
+      </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="token">Token</Label>
-            <Input
-              id="token"
-              type="password"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              placeholder={provider === 'github' ? 'github_pat_…' : 'glpat-…'}
-              autoComplete="off"
-              required
-              autoFocus
-            />
-            <p className="text-xs text-muted-foreground">
-              <Trans>Stored encrypted and never exposed to build containers.</Trans>
-            </p>
-          </div>
-
-          {selfHosted ? (
-            <div className="space-y-2">
-              <Label htmlFor="base-url">{provider === 'github' ? <Trans>GitHub Enterprise URL</Trans> : <Trans>Your GitLab URL</Trans>}</Label>
-              <Input
-                id="base-url"
-                value={baseURL}
-                onChange={(e) => setBaseURL(e.target.value)}
-                placeholder={provider === 'github' ? 'https://github.mycompany.com' : 'https://gitlab.mycompany.com'}
-                required
-              />
-            </div>
-          ) : (
-            <button
-              type="button"
-              className="w-fit text-xs text-muted-foreground underline-offset-2 hover:underline"
-              onClick={() => setSelfHosted(true)}
-            >
-              {provider === 'github' ? <Trans>Using GitHub Enterprise?</Trans> : <Trans>Using your own GitLab?</Trans>}
-            </button>
-          )}
-
-          {error && (
-            <Alert variant="destructive">
-              <TriangleAlert />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              <Trans>Cancel</Trans>
-            </Button>
-            <Button type="submit" disabled={busy}>
-              {busy ? <Loader2 className="animate-spin" /> : <Plus />}
-              <Trans>Connect</Trans>
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      {selfHosted ? (
+        <div className="space-y-2">
+          <Label htmlFor="base-url">{provider === 'github' ? <Trans>GitHub Enterprise URL</Trans> : <Trans>Your GitLab URL</Trans>}</Label>
+          <Input
+            id="base-url"
+            value={baseURL}
+            onChange={(e) => setBaseURL(e.target.value)}
+            placeholder={provider === 'github' ? 'https://github.mycompany.com' : 'https://gitlab.mycompany.com'}
+            required
+          />
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="w-fit text-xs text-muted-foreground underline-offset-2 hover:underline"
+          onClick={() => setSelfHosted(true)}
+        >
+          {provider === 'github' ? <Trans>Using GitHub Enterprise?</Trans> : <Trans>Using your own GitLab?</Trans>}
+        </button>
+      )}
+    </FormDialog>
   );
 }

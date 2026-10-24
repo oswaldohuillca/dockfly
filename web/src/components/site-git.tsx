@@ -6,17 +6,8 @@ import { Trans, useLingui } from '@lingui/react/macro';
 import { ProviderIcon } from '@/components/brand-icons';
 import { BuildLog } from '@/components/build-log';
 import { BuildStatusBadge } from '@/components/build-status';
+import { useConfirm } from '@/components/confirm';
 import { GitDialog } from '@/components/git-dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { api, buildFinished, errorMessage, type Build, type GitConnection, type Site } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
+import { useAction } from '@/lib/use-resource';
 
 interface Props {
   site: Site;
@@ -35,11 +27,12 @@ interface Props {
 export function SiteGit({ site, onChange }: Props) {
   const { t } = useLingui();
   const [configuring, setConfiguring] = useState(false);
-  const [confirmUnlink, setConfirmUnlink] = useState(false);
   const [builds, setBuilds] = useState<Build[]>([]);
   const [viewing, setViewing] = useState<Build | null>(null);
   const [conn, setConn] = useState<GitConnection | null>(null);
   const linked = site.repo !== '';
+  const run = useAction();
+  const { confirm, dialog } = useConfirm();
 
   const loadBuilds = useCallback(async () => {
     if (!linked) return;
@@ -56,7 +49,10 @@ export function SiteGit({ site, onChange }: Props) {
 
   useEffect(() => {
     if (site.git_connection_id === null) return;
-    api.listConnections().then((list) => setConn(list.find((c) => c.id === site.git_connection_id) ?? null));
+    api
+      .listConnections()
+      .then((list) => setConn(list.find((c) => c.id === site.git_connection_id) ?? null))
+      .catch(() => {}); // solo es el icono del proveedor
   }, [site.git_connection_id]);
 
   // Refrescamos la lista periódicamente: los builds que dispara un push
@@ -74,25 +70,31 @@ export function SiteGit({ site, onChange }: Props) {
     return () => clearInterval(t);
   }, [linked, active, builds, site.id, onChange]);
 
-  async function deploy() {
-    try {
+  const deploy = () =>
+    run(async () => {
       const b = await api.triggerBuild(site.id);
       await loadBuilds();
       setViewing(b);
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
-  }
+    });
 
   async function unlink() {
-    try {
-      await api.deleteSiteGit(site.id);
-      toast.success(t`Repository disconnected`);
-      setBuilds([]);
-      onChange();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
+    const ok = await confirm({
+      title: <Trans>Disconnect {site.repo}?</Trans>,
+      description: (
+        <Trans>
+          The webhook is deleted and pushes will no longer deploy. The site and its deployments are kept.
+        </Trans>
+      ),
+      action: <Trans>Disconnect</Trans>,
+    });
+    if (!ok) return;
+    await run(() => api.deleteSiteGit(site.id), {
+      success: t`Repository disconnected`,
+      then: () => {
+        setBuilds([]);
+        onChange();
+      },
+    });
   }
 
   const onBuildChange = useCallback(() => {
@@ -150,7 +152,7 @@ export function SiteGit({ site, onChange }: Props) {
                 <Button size="sm" variant="outline" onClick={() => setConfiguring(true)} aria-label={t`Configure`}>
                   <Settings2 />
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setConfirmUnlink(true)} aria-label={t`Disconnect`}>
+                <Button size="sm" variant="outline" onClick={unlink} aria-label={t`Disconnect`}>
                   <Unplug />
                 </Button>
               </>
@@ -235,28 +237,7 @@ export function SiteGit({ site, onChange }: Props) {
       )}
       {viewing && <BuildLog build={viewing} onClose={() => setViewing(null)} onChange={onBuildChange} />}
 
-      <AlertDialog open={confirmUnlink} onOpenChange={setConfirmUnlink}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              <Trans>Disconnect {site.repo}?</Trans>
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              <Trans>
-                The webhook is deleted and pushes will no longer deploy. The site and its deployments are kept.
-              </Trans>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              <Trans>Cancel</Trans>
-            </AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={unlink}>
-              <Trans>Disconnect</Trans>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialog}
     </>
   );
 }

@@ -1,17 +1,17 @@
 import { ph } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { Boxes, GitBranch, Lock, Plus } from 'lucide-react';
-import { toast } from 'sonner';
 
 import { AppDialog } from '@/components/app-dialog';
 import { AppStateDot } from '@/components/app-status';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { api, errorMessage, type App } from '@/lib/api';
+import { api } from '@/lib/api';
 import { useStatus } from '@/lib/status';
 import { useCan } from '@/lib/roles';
+import { useResource } from '@/lib/use-resource';
 import { useServerNames } from '@/lib/use-servers';
 
 export function Apps() {
@@ -20,17 +20,8 @@ export function Apps() {
   const canEdit = useCan('deployer');
   const navigate = useNavigate();
   const status = useStatus();
-  const [apps, setApps] = useState<App[] | null>(null);
+  const { data: apps } = useResource(api.listApps, { interval: 10_000 });
   const [creating, setCreating] = useState(false);
-
-  const load = useCallback(() => {
-    api.listApps().then(setApps).catch((e) => toast.error(errorMessage(e)));
-  }, []);
-  useEffect(() => {
-    load();
-    const t = setInterval(load, 10_000);
-    return () => clearInterval(t);
-  }, [load]);
 
   return (
     <>
@@ -59,7 +50,7 @@ export function Apps() {
               </Trans>
             </p>
           )}
-          {apps === null ? (
+          {!apps ? (
             <p className="py-8 text-center text-sm text-muted-foreground">
               <Trans>Loading…</Trans>
             </p>

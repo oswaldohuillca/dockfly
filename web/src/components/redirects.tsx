@@ -1,55 +1,43 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Loader2, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowRight, Pencil, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Trans, useLingui } from '@lingui/react/macro';
 
 import { CertBadge } from '@/components/cert-badge';
 import { CheckField } from '@/components/check-field';
+import { useConfirm } from '@/components/confirm';
 import { DomainsInput } from '@/components/domains-input';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FormDialog } from '@/components/form-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { api, errorMessage, type RedirectHost, type RedirectInput } from '@/lib/api';
+import { api, type RedirectHost, type RedirectInput } from '@/lib/api';
 import { useCertificates } from '@/lib/use-certificates';
+import { useForm, useSubmit } from '@/lib/use-form';
+import { useAction, useResource } from '@/lib/use-resource';
 import { cn } from '@/lib/utils';
 import { useCan } from '@/lib/roles';
 
 export function Redirects() {
   const { t } = useLingui();
   const canEdit = useCan('admin');
-  const [list, setList] = useState<RedirectHost[]>([]);
+  const { data: list = [], reload } = useResource(api.listRedirects);
   const [editing, setEditing] = useState<RedirectHost | 'new' | null>(null);
   const certs = useCertificates();
-  const load = useCallback(() => {
-    api.listRedirects().then(setList).catch((e) => toast.error(errorMessage(e)));
-  }, []);
-  useEffect(load, [load]);
+  const run = useAction();
+  const { confirm, dialog } = useConfirm();
 
-  const input = (r: RedirectHost): RedirectInput => ({
-    domains: r.domains, target: r.target, permanent: r.permanent, preserve_path: r.preserve_path, ssl: r.ssl, enabled: r.enabled,
-  });
-
-  async function toggle(r: RedirectHost) {
-    try {
-      await api.updateRedirect(r.id, { ...input(r), enabled: !r.enabled });
-      load();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
-  }
+  const toggle = (r: RedirectHost) =>
+    run(() => api.updateRedirect(r.id, { ...redirectInput(r), enabled: !r.enabled }), { then: reload });
 
   async function remove(r: RedirectHost) {
-    try {
-      await api.deleteRedirect(r.id);
-      load();
-    } catch (e) {
-      toast.error(errorMessage(e));
+    const domains = r.domains.join(', ');
+    if (await confirm({ title: t`Delete the redirect for ${domains}?` })) {
+      await run(() => api.deleteRedirect(r.id), { then: reload });
     }
   }
 
@@ -136,101 +124,76 @@ export function Redirects() {
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
-            load();
+            reload();
           }}
         />
       )}
+      {dialog}
     </Card>
   );
 }
 
-function RedirectDialog({ redirect, onClose, onSaved }: { redirect?: RedirectHost; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<RedirectInput>(() => ({
-    domains: redirect?.domains ?? [], target: redirect?.target ?? '', permanent: redirect?.permanent ?? true,
-    preserve_path: redirect?.preserve_path ?? true, ssl: redirect?.ssl ?? true, enabled: redirect?.enabled ?? true,
-  }));
-  const { t } = useLingui();
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const set = <K extends keyof RedirectInput>(k: K, v: RedirectInput[K]) => setForm((f) => ({ ...f, [k]: v }));
+function redirectInput(r?: RedirectHost): RedirectInput {
+  return {
+    domains: r?.domains ?? [], target: r?.target ?? '', permanent: r?.permanent ?? true,
+    preserve_path: r?.preserve_path ?? true, ssl: r?.ssl ?? true, enabled: r?.enabled ?? true,
+  };
+}
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      if (redirect) await api.updateRedirect(redirect.id, form);
-      else await api.createRedirect(form);
-      toast.success(t`Redirect saved`);
-      onSaved();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+function RedirectDialog({ redirect, onClose, onSaved }: { redirect?: RedirectHost; onClose: () => void; onSaved: () => void }) {
+  const { t } = useLingui();
+  const { form, set } = useForm(() => redirectInput(redirect));
+  const { submit, busy, error } = useSubmit(async () => {
+    if (redirect) await api.updateRedirect(redirect.id, form);
+    else await api.createRedirect(form);
+    toast.success(t`Redirect saved`);
+    onSaved();
+  });
 
   const example = form.domains[0] ?? 'old.com';
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <form onSubmit={save} className="contents">
-          <DialogHeader>
-            <DialogTitle>{redirect ? <Trans>Edit redirect</Trans> : <Trans>New redirect</Trans>}</DialogTitle>
-            <DialogDescription>
-              <Trans>Traefik responds directly, with no server behind it.</Trans>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="rd-domains">
-              <Trans>Source domains</Trans>
-            </Label>
-            <DomainsInput id="rd-domains" value={form.domains} onChange={(d) => set('domains', d)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="rd-target">
-              <Trans>Target</Trans>
-            </Label>
-            <Input id="rd-target" className="font-mono" value={form.target} onChange={(e) => set('target', e.target.value)} placeholder="https://new.com" required />
-          </div>
-          <CheckField
-            id="rd-path"
-            checked={form.preserve_path}
-            onChange={(v) => set('preserve_path', v)}
-            label={t`Preserve path`}
-            hint={`${example}/blog/post → ${form.target || 'https://new.com'}/blog/post`}
-          />
-          <CheckField
-            id="rd-perm"
-            checked={form.permanent}
-            onChange={(v) => set('permanent', v)}
-            label={t`Permanent (301)`}
-            hint={t`Search engines and browsers remember the change. Turn it off (302) if the redirect is temporary.`}
-          />
-          <CheckField
-            id="rd-ssl"
-            checked={form.ssl}
-            onChange={(v) => set('ssl', v)}
-            label={t`SSL certificate for the source domain`}
-            hint={t`Required for https://source-domain to work before redirecting.`}
-          />
-          {error && (
-            <Alert variant="destructive">
-              <TriangleAlert />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              <Trans>Cancel</Trans>
-            </Button>
-            <Button type="submit" disabled={busy}>
-              {busy && <Loader2 className="animate-spin" />}
-              <Trans>Save</Trans>
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      className="sm:max-w-lg"
+      title={redirect ? <Trans>Edit redirect</Trans> : <Trans>New redirect</Trans>}
+      description={<Trans>Traefik responds directly, with no server behind it.</Trans>}
+      onClose={onClose}
+      onSubmit={submit}
+      busy={busy}
+      error={error}
+    >
+      <div className="space-y-2">
+        <Label htmlFor="rd-domains">
+          <Trans>Source domains</Trans>
+        </Label>
+        <DomainsInput id="rd-domains" value={form.domains} onChange={(d) => set('domains', d)} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="rd-target">
+          <Trans>Target</Trans>
+        </Label>
+        <Input id="rd-target" className="font-mono" value={form.target} onChange={(e) => set('target', e.target.value)} placeholder="https://new.com" required />
+      </div>
+      <CheckField
+        id="rd-path"
+        checked={form.preserve_path}
+        onChange={(v) => set('preserve_path', v)}
+        label={t`Preserve path`}
+        hint={`${example}/blog/post → ${form.target || 'https://new.com'}/blog/post`}
+      />
+      <CheckField
+        id="rd-perm"
+        checked={form.permanent}
+        onChange={(v) => set('permanent', v)}
+        label={t`Permanent (301)`}
+        hint={t`Search engines and browsers remember the change. Turn it off (302) if the redirect is temporary.`}
+      />
+      <CheckField
+        id="rd-ssl"
+        checked={form.ssl}
+        onChange={(v) => set('ssl', v)}
+        label={t`SSL certificate for the source domain`}
+        hint={t`Required for https://source-domain to work before redirecting.`}
+      />
+    </FormDialog>
   );
 }

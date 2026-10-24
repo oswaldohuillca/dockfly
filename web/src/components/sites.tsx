@@ -1,37 +1,22 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { FileCode2, Lock, Plus } from 'lucide-react';
 import { Trans } from '@lingui/react/macro';
-import { toast } from 'sonner';
 
 import { SiteDialog } from '@/components/site-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { api, errorMessage, type Site } from '@/lib/api';
+import { api } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { useCan } from '@/lib/roles';
+import { useResource } from '@/lib/use-resource';
 
 export function Sites() {
   const canEdit = useCan('deployer');
   const navigate = useNavigate();
-  const [sites, setSites] = useState<Site[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: sites = [], loading } = useResource(api.listSites);
   const [creating, setCreating] = useState(false);
-
-  const load = useCallback(async () => {
-    try {
-      setSites(await api.listSites());
-    } catch (e) {
-      toast.error(errorMessage(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
 
   return (
     <>

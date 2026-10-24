@@ -1,22 +1,24 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Loader2, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
+import { useState } from 'react';
+import { ArrowRight, Pencil, Plus, Trash2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 import { i18n } from '@lingui/core';
 import { msg } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
 
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useConfirm } from '@/components/confirm';
+import { FormDialog } from '@/components/form-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { api, errorMessage, type Stream, type StreamInput } from '@/lib/api';
+import { api, type Stream, type StreamInput } from '@/lib/api';
+import { useForm, useSubmit } from '@/lib/use-form';
+import { useAction, useResource } from '@/lib/use-resource';
 import { cn } from '@/lib/utils';
 import { useCan } from '@/lib/roles';
 
@@ -34,28 +36,18 @@ function restartedToast(res: { traefik_restarted: boolean }) {
 export function Streams() {
   const { t } = useLingui();
   const canEdit = useCan('admin');
-  const [list, setList] = useState<Stream[]>([]);
+  const { data: list = [], reload } = useResource(api.listStreams);
   const [editing, setEditing] = useState<Stream | 'new' | null>(null);
-  const load = useCallback(() => {
-    api.listStreams().then(setList).catch((e) => toast.error(errorMessage(e)));
-  }, []);
-  useEffect(load, [load]);
+  const run = useAction();
+  const { confirm, dialog } = useConfirm();
 
-  async function toggle(s: Stream) {
-    try {
-      restartedToast(await api.updateStream(s.id, { ...s, enabled: !s.enabled }));
-      load();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
-  }
+  const toggle = (s: Stream) =>
+    run(async () => restartedToast(await api.updateStream(s.id, { ...s, enabled: !s.enabled })), { then: reload });
 
   async function remove(s: Stream) {
-    try {
-      restartedToast(await api.deleteStream(s.id));
-      load();
-    } catch (e) {
-      toast.error(errorMessage(e));
+    const port = s.listen_port;
+    if (await confirm({ title: t`Delete the stream on port ${port}?` })) {
+      await run(async () => restartedToast(await api.deleteStream(s.id)), { then: reload });
     }
   }
 
@@ -160,100 +152,71 @@ export function Streams() {
           onClose={() => setEditing(null)}
           onSaved={() => {
             setEditing(null);
-            load();
+            reload();
           }}
         />
       )}
+      {dialog}
     </Card>
   );
 }
 
 function StreamDialog({ stream, onClose, onSaved }: { stream?: Stream; onClose: () => void; onSaved: () => void }) {
-  const [form, setForm] = useState<StreamInput>(() => ({
+  const { form, set } = useForm<StreamInput>(() => ({
     protocol: stream?.protocol ?? 'tcp', listen_port: stream?.listen_port ?? 0,
     forward_host: stream?.forward_host ?? '', forward_port: stream?.forward_port ?? 0, enabled: stream?.enabled ?? true,
   }));
   const { t } = useLingui();
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-  const set = <K extends keyof StreamInput>(k: K, v: StreamInput[K]) => setForm((f) => ({ ...f, [k]: v }));
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      const res = stream ? await api.updateStream(stream.id, form) : await api.createStream(form);
-      toast.success(t`Stream saved`);
-      restartedToast(res);
-      onSaved();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { submit, busy, error } = useSubmit(async () => {
+    const res = stream ? await api.updateStream(stream.id, form) : await api.createStream(form);
+    toast.success(t`Stream saved`);
+    restartedToast(res);
+    onSaved();
+  });
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={save} className="contents">
-          <DialogHeader>
-            <DialogTitle>{stream ? <Trans>Edit stream</Trans> : <Trans>New stream</Trans>}</DialogTitle>
-            <DialogDescription>
-              <Trans>The target can be a Dockfly app by name (e.g. postgres), a container or an IP.</Trans>
-            </DialogDescription>
-          </DialogHeader>
-          <ToggleGroup type="single" variant="outline" spacing={0} className="w-full" value={form.protocol}
-            onValueChange={(v) => v && set('protocol', v as 'tcp' | 'udp')}>
-            <ToggleGroupItem value="tcp" className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">TCP</ToggleGroupItem>
-            <ToggleGroupItem value="udp" className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">UDP</ToggleGroupItem>
-          </ToggleGroup>
-          <div className="space-y-2">
-            <Label htmlFor="st-port">
-              <Trans>Listen port</Trans>
-            </Label>
-            <Input id="st-port" type="number" min={1} max={65535} value={form.listen_port || ''} onChange={(e) => set('listen_port', Number(e.target.value))} placeholder="5432" required />
-          </div>
-          <div className="grid grid-cols-[1fr_7rem] gap-3">
-            <div className="space-y-2">
-              <Label htmlFor="st-host">
-                <Trans>Target</Trans>
-              </Label>
-              <Input id="st-host" className="font-mono" value={form.forward_host} onChange={(e) => set('forward_host', e.target.value)} placeholder="postgres" required />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="st-fport">
-                <Trans>Port</Trans>
-              </Label>
-              <Input id="st-fport" type="number" min={1} max={65535} value={form.forward_port || ''} onChange={(e) => set('forward_port', Number(e.target.value))} placeholder="5432" required />
-            </div>
-          </div>
-          {form.listen_port > 0 && (
-            <p className="text-xs text-muted-foreground">
-              <Trans>
-                Remember to publish the port on the Dockfly container: <code className="font-mono">{portLine(form)}</code>{' '}
-                in the ports section of its docker-compose.yml.
-              </Trans>
-            </p>
-          )}
-          {error && (
-            <Alert variant="destructive">
-              <TriangleAlert />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              <Trans>Cancel</Trans>
-            </Button>
-            <Button type="submit" disabled={busy}>
-              {busy && <Loader2 className="animate-spin" />}
-              <Trans>Save</Trans>
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      className="sm:max-w-md"
+      title={stream ? <Trans>Edit stream</Trans> : <Trans>New stream</Trans>}
+      description={<Trans>The target can be a Dockfly app by name (e.g. postgres), a container or an IP.</Trans>}
+      onClose={onClose}
+      onSubmit={submit}
+      busy={busy}
+      error={error}
+    >
+      <ToggleGroup type="single" variant="outline" spacing={0} className="w-full" value={form.protocol}
+        onValueChange={(v) => v && set('protocol', v as 'tcp' | 'udp')}>
+        <ToggleGroupItem value="tcp" className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">TCP</ToggleGroupItem>
+        <ToggleGroupItem value="udp" className="flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">UDP</ToggleGroupItem>
+      </ToggleGroup>
+      <div className="space-y-2">
+        <Label htmlFor="st-port">
+          <Trans>Listen port</Trans>
+        </Label>
+        <Input id="st-port" type="number" min={1} max={65535} value={form.listen_port || ''} onChange={(e) => set('listen_port', Number(e.target.value))} placeholder="5432" required />
+      </div>
+      <div className="grid grid-cols-[1fr_7rem] gap-3">
+        <div className="space-y-2">
+          <Label htmlFor="st-host">
+            <Trans>Target</Trans>
+          </Label>
+          <Input id="st-host" className="font-mono" value={form.forward_host} onChange={(e) => set('forward_host', e.target.value)} placeholder="postgres" required />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="st-fport">
+            <Trans>Port</Trans>
+          </Label>
+          <Input id="st-fport" type="number" min={1} max={65535} value={form.forward_port || ''} onChange={(e) => set('forward_port', Number(e.target.value))} placeholder="5432" required />
+        </div>
+      </div>
+      {form.listen_port > 0 && (
+        <p className="text-xs text-muted-foreground">
+          <Trans>
+            Remember to publish the port on the Dockfly container: <code className="font-mono">{portLine(form)}</code>{' '}
+            in the ports section of its docker-compose.yml.
+          </Trans>
+        </p>
+      )}
+    </FormDialog>
   );
 }

@@ -8,36 +8,22 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api, errorMessage } from '@/lib/api';
+import { api } from '@/lib/api';
+import { useSubmit } from '@/lib/use-form';
 
 export function ChangePassword() {
   const { t } = useLingui();
   const [current, setCurrent] = useState('');
   const [next, setNext] = useState('');
   const [confirm, setConfirm] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    if (next !== confirm) {
-      setError(t`The new passwords don't match`);
-      return;
-    }
-    setBusy(true);
-    try {
-      await api.changePassword(current, next);
-      toast.success(t`Password changed`, { description: t`Your sessions on other devices have been signed out.` });
-      setCurrent('');
-      setNext('');
-      setConfirm('');
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { submit: save, busy, error } = useSubmit(async () => {
+    if (next !== confirm) throw new Error(t`The new passwords don't match`);
+    await api.changePassword(current, next);
+    toast.success(t`Password changed`, { description: t`Your sessions on other devices have been signed out.` });
+    setCurrent('');
+    setNext('');
+    setConfirm('');
+  });
 
   return (
     <Card>

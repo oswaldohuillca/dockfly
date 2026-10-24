@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { api, errorMessage, type BackupStorage } from '@/lib/api';
+import { useSubmit } from '@/lib/use-form';
 
 const empty: BackupStorage = { type: 'local', endpoint: '', region: '', bucket: '', prefix: 'dockfly', access_key: '', secret_key: '' };
 
@@ -21,8 +22,6 @@ export function BackupStorageSettings() {
   const { t } = useLingui();
   const [form, setForm] = useState<BackupStorage | null>(null);
   const [location, setLocation] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api
@@ -34,26 +33,17 @@ export function BackupStorageSettings() {
       .catch((e) => toast.error(errorMessage(e)));
   }, []);
 
+  const { submit: save, busy, error } = useSubmit(async () => {
+    if (!form) return;
+    const res = await api.putBackupStorage(form);
+    setLocation(res.location);
+    setForm({ ...form, secret_key: res.config.secret_key });
+    const location = res.location;
+    toast.success(t`Storage saved`, { description: t`Backups are stored in ${location}` });
+  });
+
   if (!form) return null;
   const set = <K extends keyof BackupStorage>(k: K, v: BackupStorage[K]) => setForm({ ...form, [k]: v });
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form) return;
-    setError('');
-    setBusy(true);
-    try {
-      const res = await api.putBackupStorage(form);
-      setLocation(res.location);
-      setForm({ ...form, secret_key: res.config.secret_key });
-      const location = res.location;
-      toast.success(t`Storage saved`, { description: t`Backups are stored in ${location}` });
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
 
   return (
     <Card>

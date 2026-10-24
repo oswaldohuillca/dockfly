@@ -5,6 +5,7 @@ import { DatabaseBackup, Download, Loader2, RotateCcw, Trash2 } from 'lucide-rea
 import { Link } from '@tanstack/react-router';
 import { toast } from 'sonner';
 
+import { useConfirm } from '@/components/confirm';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +27,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { api, errorMessage, type DBBackup, type DBBackupPolicy, type DBBackups } from '@/lib/api';
 import { formatBytes, formatDate, timeAgo } from '@/lib/format';
 import { useCan } from '@/lib/roles';
+import { useAction } from '@/lib/use-resource';
 
 const engineName = { postgres: 'PostgreSQL', mysql: 'MySQL/MariaDB', redis: 'Redis' } as const;
 
@@ -45,6 +47,8 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
   const [policy, setPolicy] = useState<DBBackupPolicy>(initial.policy);
   const [restoring, setRestoring] = useState<DBBackup | null>(null);
   const [busy, setBusy] = useState(false);
+  const run = useAction();
+  const { confirm, dialog } = useConfirm();
 
   const load = useCallback(() => {
     api
@@ -99,11 +103,9 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
   }
 
   async function remove(b: DBBackup) {
-    try {
-      await api.deleteDBBackup(appId, b.id);
-      load();
-    } catch (e) {
-      toast.error(errorMessage(e));
+    const date = formatDate(b.created_at);
+    if (await confirm({ title: t`Delete the backup from ${date}?` })) {
+      await run(() => api.deleteDBBackup(appId, b.id), { then: load });
     }
   }
 
@@ -303,6 +305,7 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      {dialog}
     </Card>
   );
 }

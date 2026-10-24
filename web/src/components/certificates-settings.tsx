@@ -1,44 +1,56 @@
-import { useCallback, useEffect, useState } from 'react';
-import { FileKey, Globe, Loader2, Plus, Trash2, TriangleAlert, Upload } from 'lucide-react';
+import { useState } from 'react';
+import { FileKey, Globe, Plus, Trash2, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { Trans, useLingui } from '@lingui/react/macro';
 
+import { useConfirm } from '@/components/confirm';
 import { DomainsInput } from '@/components/domains-input';
 import { EnvEditor, envToRows, rowsToEnv, type EnvRow } from '@/components/env-editor';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FormDialog } from '@/components/form-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   api,
-  errorMessage,
   SECRET_MASK,
   type CustomCertificate,
   type DNSProvider,
   type DNSProviderInfo,
 } from '@/lib/api';
 import { formatDate } from '@/lib/format';
+import { useSubmit } from '@/lib/use-form';
+import { useAction, useResource } from '@/lib/use-resource';
 
 export function CertificatesSettings() {
   const { t } = useLingui();
-  const [catalog, setCatalog] = useState<DNSProviderInfo[]>([]);
-  const [providers, setProviders] = useState<DNSProvider[]>([]);
-  const [certs, setCerts] = useState<CustomCertificate[]>([]);
+  const { data: catalog = [] } = useResource(api.dnsCatalog, { silent: true });
+  const { data: providers = [], reload: reloadProviders } = useResource(api.listDNSProviders);
+  const { data: certs = [], reload: reloadCerts } = useResource(api.listCustomCerts, { silent: true });
   const [editing, setEditing] = useState<DNSProvider | 'new' | null>(null);
   const [uploading, setUploading] = useState(false);
+  const run = useAction();
+  const { confirm, dialog } = useConfirm();
+  const load = () => {
+    reloadProviders();
+    reloadCerts();
+  };
 
-  const load = useCallback(() => {
-    api.listDNSProviders().then(setProviders).catch((e) => toast.error(errorMessage(e)));
-    api.listCustomCerts().then(setCerts).catch(() => {});
-  }, []);
-  useEffect(() => {
-    api.dnsCatalog().then(setCatalog);
-    load();
-  }, [load]);
+  async function removeProvider(p: DNSProvider) {
+    const provider = name(p.provider);
+    if (await confirm({ title: t`Delete the DNS provider ${provider}?` })) {
+      await run(() => api.deleteDNSProvider(p.id), { then: load });
+    }
+  }
+
+  async function removeCert(c: CustomCertificate) {
+    const cert = c.name;
+    if (await confirm({ title: t`Delete the certificate ${cert}?` })) {
+      await run(() => api.deleteCustomCert(c.id), { then: load });
+    }
+  }
 
   const name = (code: string) => catalog.find((c) => c.code === code)?.name ?? code;
 
@@ -92,7 +104,7 @@ export function CertificatesSettings() {
                     variant="ghost"
                     size="icon-sm"
                     className="text-destructive hover:text-destructive"
-                    onClick={() => api.deleteDNSProvider(p.id).then(load).catch((e) => toast.error(errorMessage(e)))}
+                    onClick={() => removeProvider(p)}
                     aria-label={t`Delete`}
                   >
                     <Trash2 />
@@ -134,7 +146,7 @@ export function CertificatesSettings() {
                       variant="ghost"
                       size="icon-sm"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => api.deleteCustomCert(c.id).then(load).catch((e) => toast.error(errorMessage(e)))}
+                      onClick={() => removeCert(c)}
                       aria-label={t`Delete`}
                     >
                       <Trash2 />
@@ -167,6 +179,7 @@ export function CertificatesSettings() {
           }}
         />
       )}
+      {dialog}
     </Card>
   );
 }
@@ -181,137 +194,112 @@ function DNSDialog({ catalog, provider, onClose, onSaved }: {
   const [zones, setZones] = useState<string[]>(provider?.zones ?? []);
   const [env, setEnv] = useState<Record<string, string>>(provider?.env ?? {});
   const [rows, setRows] = useState<EnvRow[]>(provider && !known(provider.provider) ? envToRows(provider.env) : []);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
   const info = catalog.find((c) => c.code === code);
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      await api.saveDNSProvider({
-        provider: code === 'custom' ? customCode : code,
-        zones,
-        env: code === 'custom' ? rowsToEnv(rows) : env,
-      });
-      toast.success(t`DNS provider saved`, { description: t`Traefik restarted to load the credentials.` });
-      onSaved();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { submit, busy, error } = useSubmit(async () => {
+    await api.saveDNSProvider({
+      provider: code === 'custom' ? customCode : code,
+      zones,
+      env: code === 'custom' ? rowsToEnv(rows) : env,
+    });
+    toast.success(t`DNS provider saved`, { description: t`Traefik restarted to load the credentials.` });
+    onSaved();
+  });
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
-        <form onSubmit={save} className="contents">
-          <DialogHeader>
-            <DialogTitle>{provider ? <Trans>Edit DNS provider</Trans> : <Trans>DNS provider</Trans>}</DialogTitle>
-            <DialogDescription>
-              <Trans>
-                Let&apos;s Encrypt will verify that you control the domain by creating a temporary TXT record. Credentials
-                are stored encrypted.
-              </Trans>
-            </DialogDescription>
-          </DialogHeader>
+    <FormDialog
+      title={provider ? <Trans>Edit DNS provider</Trans> : <Trans>DNS provider</Trans>}
+      description={
+        <Trans>
+          Let&apos;s Encrypt will verify that you control the domain by creating a temporary TXT record. Credentials are
+          stored encrypted.
+        </Trans>
+      }
+      className="max-h-[90svh] overflow-y-auto sm:max-w-lg"
+      onClose={onClose}
+      onSubmit={submit}
+      busy={busy}
+      error={error}
+      submitDisabled={zones.length === 0}
+    >
+      <div className="space-y-2">
+        <Label>
+          <Trans>Provider</Trans>
+        </Label>
+        <Select value={code} onValueChange={(v) => { setCode(v); setEnv({}); }} disabled={!!provider}>
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {catalog.map((c) => (
+              <SelectItem key={c.code} value={c.code}>
+                {c.name}
+              </SelectItem>
+            ))}
+            <SelectItem value="custom">
+              <Trans>Other (any lego provider)</Trans>
+            </SelectItem>
+          </SelectContent>
+        </Select>
+        {info?.help && <p className="text-xs text-muted-foreground">{info.help}</p>}
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="dns-zones">
+          <Trans>Zones</Trans>
+        </Label>
+        <DomainsInput id="dns-zones" value={zones} onChange={setZones} />
+        <p className="text-xs text-muted-foreground">
+          <Trans>Each zone covers the domain, its subdomains and its wildcard.</Trans>
+        </p>
+      </div>
+      {code === 'custom' ? (
+        <>
           <div className="space-y-2">
-            <Label>
-              <Trans>Provider</Trans>
+            <Label htmlFor="dns-code">
+              <Trans>Provider code</Trans>
             </Label>
-            <Select value={code} onValueChange={(v) => { setCode(v); setEnv({}); }} disabled={!!provider}>
-              <SelectTrigger className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {catalog.map((c) => (
-                  <SelectItem key={c.code} value={c.code}>
-                    {c.name}
-                  </SelectItem>
-                ))}
-                <SelectItem value="custom">
-                  <Trans>Other (any lego provider)</Trans>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {info?.help && <p className="text-xs text-muted-foreground">{info.help}</p>}
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="dns-zones">
-              <Trans>Zones</Trans>
-            </Label>
-            <DomainsInput id="dns-zones" value={zones} onChange={setZones} />
+            <Input id="dns-code" className="font-mono" value={customCode} onChange={(e) => setCustomCode(e.target.value)} placeholder="hetzner" required disabled={!!provider} />
             <p className="text-xs text-muted-foreground">
-              <Trans>Each zone covers the domain, its subdomains and its wildcard.</Trans>
+              <Trans>
+                Each provider&apos;s code and variables are listed in{' '}
+                <a className="underline" href="https://doc.traefik.io/traefik/https/acme/#providers" target="_blank" rel="noreferrer">
+                  the Traefik documentation
+                </a>
+                .
+              </Trans>
             </p>
           </div>
-          {code === 'custom' ? (
-            <>
-              <div className="space-y-2">
-                <Label htmlFor="dns-code">
-                  <Trans>Provider code</Trans>
-                </Label>
-                <Input id="dns-code" className="font-mono" value={customCode} onChange={(e) => setCustomCode(e.target.value)} placeholder="hetzner" required disabled={!!provider} />
-                <p className="text-xs text-muted-foreground">
-                  <Trans>
-                    Each provider&apos;s code and variables are listed in{' '}
-                    <a className="underline" href="https://doc.traefik.io/traefik/https/acme/#providers" target="_blank" rel="noreferrer">
-                      the Traefik documentation
-                    </a>
-                    .
-                  </Trans>
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label>
-                  <Trans>Variables</Trans>
-                </Label>
-                <EnvEditor rows={rows} onChange={setRows} />
-              </div>
-            </>
-          ) : (
-            info?.fields.map((f) => (
-              <div key={f.env} className="space-y-2">
-                <Label htmlFor={f.env}>
-                  {f.label}
-                  {f.optional && <span className="font-normal text-muted-foreground">
-                      {' '}
-                      <Trans>(optional)</Trans>
-                    </span>}
-                </Label>
-                <Input
-                  id={f.env}
-                  type={f.secret ? 'password' : 'text'}
-                  className="font-mono"
-                  value={env[f.env] ?? ''}
-                  onChange={(e) => setEnv((v) => ({ ...v, [f.env]: e.target.value }))}
-                  onFocus={(e) => f.secret && e.target.value === SECRET_MASK && setEnv((v) => ({ ...v, [f.env]: '' }))}
-                  required={!f.optional}
-                  autoComplete="off"
-                />
-              </div>
-            ))
-          )}
-          {error && (
-            <Alert variant="destructive">
-              <TriangleAlert />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              <Trans>Cancel</Trans>
-            </Button>
-            <Button type="submit" disabled={busy || zones.length === 0}>
-              {busy && <Loader2 className="animate-spin" />}
-              <Trans>Save</Trans>
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+          <div className="space-y-2">
+            <Label>
+              <Trans>Variables</Trans>
+            </Label>
+            <EnvEditor rows={rows} onChange={setRows} />
+          </div>
+        </>
+      ) : (
+        info?.fields.map((f) => (
+          <div key={f.env} className="space-y-2">
+            <Label htmlFor={f.env}>
+              {f.label}
+              {f.optional && <span className="font-normal text-muted-foreground">
+                  {' '}
+                  <Trans>(optional)</Trans>
+                </span>}
+            </Label>
+            <Input
+              id={f.env}
+              type={f.secret ? 'password' : 'text'}
+              className="font-mono"
+              value={env[f.env] ?? ''}
+              onChange={(e) => setEnv((v) => ({ ...v, [f.env]: e.target.value }))}
+              onFocus={(e) => f.secret && e.target.value === SECRET_MASK && setEnv((v) => ({ ...v, [f.env]: '' }))}
+              required={!f.optional}
+              autoComplete="off"
+            />
+          </div>
+        ))
+      )}
+    </FormDialog>
   );
 }
 
@@ -320,78 +308,48 @@ function UploadCertDialog({ onClose, onSaved }: { onClose: () => void; onSaved: 
   const [name, setName] = useState('');
   const [cert, setCert] = useState('');
   const [key, setKey] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
   const readFile = (set: (v: string) => void) => (e: React.ChangeEvent<HTMLInputElement>) => {
     e.target.files?.[0]?.text().then(set);
   };
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      await api.uploadCustomCert({ name, cert, key });
-      toast.success(t`Certificate uploaded`);
-      onSaved();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { submit, busy, error } = useSubmit(async () => {
+    await api.uploadCustomCert({ name, cert, key });
+    toast.success(t`Certificate uploaded`);
+    onSaved();
+  });
 
   const area = 'min-h-28 w-full rounded-md border border-input bg-transparent px-3 py-2 font-mono text-xs outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50';
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
-        <form onSubmit={save} className="contents">
-          <DialogHeader>
-            <DialogTitle>
-              <Trans>Upload certificate</Trans>
-            </DialogTitle>
-            <DialogDescription>
-              <Trans>In PEM format. Include the intermediate chain after the certificate.</Trans>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="cert-name">
-              <Trans>Name</Trans>
-            </Label>
-            <Input id="cert-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t`(the first domain)`} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="cert-pem">
-              <Trans>Certificate</Trans>
-            </Label>
-            <textarea id="cert-pem" className={area} value={cert} onChange={(e) => setCert(e.target.value)} placeholder="-----BEGIN CERTIFICATE-----" required />
-            <Input type="file" accept=".pem,.crt,.cer" onChange={readFile(setCert)} />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="key-pem">
-              <Trans>Private key</Trans>
-            </Label>
-            <textarea id="key-pem" className={area} value={key} onChange={(e) => setKey(e.target.value)} placeholder="-----BEGIN PRIVATE KEY-----" required />
-            <Input type="file" accept=".pem,.key" onChange={readFile(setKey)} />
-          </div>
-          {error && (
-            <Alert variant="destructive">
-              <TriangleAlert />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              <Trans>Cancel</Trans>
-            </Button>
-            <Button type="submit" disabled={busy}>
-              {busy && <Loader2 className="animate-spin" />}
-              <Trans>Upload</Trans>
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      title={<Trans>Upload certificate</Trans>}
+      description={<Trans>In PEM format. Include the intermediate chain after the certificate.</Trans>}
+      className="max-h-[90svh] overflow-y-auto sm:max-w-lg"
+      submitLabel={<Trans>Upload</Trans>}
+      onClose={onClose}
+      onSubmit={submit}
+      busy={busy}
+      error={error}
+    >
+      <div className="space-y-2">
+        <Label htmlFor="cert-name">
+          <Trans>Name</Trans>
+        </Label>
+        <Input id="cert-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t`(the first domain)`} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="cert-pem">
+          <Trans>Certificate</Trans>
+        </Label>
+        <textarea id="cert-pem" className={area} value={cert} onChange={(e) => setCert(e.target.value)} placeholder="-----BEGIN CERTIFICATE-----" required />
+        <Input type="file" accept=".pem,.crt,.cer" onChange={readFile(setCert)} />
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="key-pem">
+          <Trans>Private key</Trans>
+        </Label>
+        <textarea id="key-pem" className={area} value={key} onChange={(e) => setKey(e.target.value)} placeholder="-----BEGIN PRIVATE KEY-----" required />
+        <Input type="file" accept=".pem,.key" onChange={readFile(setKey)} />
+      </div>
+    </FormDialog>
   );
 }

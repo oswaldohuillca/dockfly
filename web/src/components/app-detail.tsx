@@ -43,6 +43,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api, ApiError, appDeployFinished, errorMessage, type App, type AppDeployment, type DBBackups } from '@/lib/api';
 import { formatDate, timeAgo } from '@/lib/format';
 import { useCertificates } from '@/lib/use-certificates';
+import { useAction } from '@/lib/use-resource';
 import { useServerNames } from '@/lib/use-servers';
 
 const triggerLabel = { manual: msg`Manual`, push: msg`Push`, rollback: msg`Rollback` };
@@ -60,6 +61,7 @@ export function AppDetail({ id }: { id: number }) {
   const [deleting, setDeleting] = useState(false);
   const [removeData, setRemoveData] = useState(false);
   const [busy, setBusy] = useState(false);
+  const action = useAction();
   // Solo las apps de bases de datos tienen la pestaña de copias.
   const [backups, setBackups] = useState<DBBackups | null>(null);
 
@@ -91,40 +93,25 @@ export function AppDetail({ id }: { id: number }) {
 
   async function run(label: string, fn: () => Promise<unknown>) {
     setBusy(true);
-    try {
-      await fn();
-      toast.success(label);
-      await load();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    } finally {
-      setBusy(false);
-    }
+    await action(fn, { success: label, then: load });
+    setBusy(false);
   }
 
-  async function deploy() {
-    try {
+  const deploy = () =>
+    action(async () => {
       const d = await api.deployApp(id);
       await load();
       setViewing(d);
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
-  }
+    });
 
-  async function remove() {
-    try {
-      await api.deleteApp(id, removeData);
-      const name = app?.name;
-      toast.success(
-        removeData
-          ? t({ context: 'app', message: `${name} and its data deleted` })
-          : t({ context: 'app', message: `${name} deleted` }),
-      );
-      navigate({ to: '/apps' });
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
+  function remove() {
+    const name = app?.name;
+    return action(() => api.deleteApp(id, removeData), {
+      success: removeData
+        ? t({ context: 'app', message: `${name} and its data deleted` })
+        : t({ context: 'app', message: `${name} deleted` }),
+      then: () => navigate({ to: '/apps' }),
+    });
   }
 
   if (notFound) {
@@ -305,14 +292,12 @@ export function AppDetail({ id }: { id: number }) {
                               variant="ghost"
                               size="sm"
                               disabled={active}
-                              onClick={async () => {
-                                try {
+                              onClick={() =>
+                                action(async () => {
                                   setViewing(await api.redeploy(id, d.id));
                                   load();
-                                } catch (e) {
-                                  toast.error(errorMessage(e));
-                                }
-                              }}
+                                })
+                              }
                             >
                               <RotateCcw /> <Trans>Roll back to this version</Trans>
                             </Button>

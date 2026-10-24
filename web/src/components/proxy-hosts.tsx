@@ -1,23 +1,13 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Box, ExternalLink, Globe, Pencil, Plus, Search, Server, Trash2 } from 'lucide-react';
-import { toast } from 'sonner';
 import type { MessageDescriptor } from '@lingui/core';
 import { msg } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
 
 import { CertBadge } from '@/components/cert-badge';
+import { useConfirm } from '@/components/confirm';
 import { ProxyHostDialog } from '@/components/proxy-host-dialog';
 import { compactNumber, formatMs, Sparkline, TrafficCard, useTrafficSummary } from '@/components/traffic';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,9 +15,10 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { api, errorMessage, type ProxyHost, type ProxyHostInput, type TargetType, type TrafficSummary } from '@/lib/api';
+import { api, type ProxyHost, type ProxyHostInput, type TargetType, type TrafficSummary } from '@/lib/api';
 import { useCan } from '@/lib/roles';
 import { useCertificates } from '@/lib/use-certificates';
+import { useAction, useResource } from '@/lib/use-resource';
 import { cn } from '@/lib/utils';
 
 const targets: Record<TargetType, { label: MessageDescriptor; icon: typeof Box }> = {
@@ -46,27 +37,13 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
   const traffic = useTrafficSummary();
   const [trafficOf, setTrafficOf] = useState<ProxyHost | null>(null);
   const canEdit = useCan('admin');
-  const [hosts, setHosts] = useState<ProxyHost[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: hosts = [], setData: setHosts, loading, reload: load } = useResource(api.listProxyHosts);
   const [filter, setFilter] = useState('');
   // null = cerrado, {} = nuevo, host = editar
   const [editing, setEditing] = useState<Partial<ProxyHost> | null>(null);
-  const [deleting, setDeleting] = useState<ProxyHost | null>(null);
   const certs = useCertificates();
-
-  const load = useCallback(async () => {
-    try {
-      setHosts(await api.listProxyHosts());
-    } catch (e) {
-      toast.error(errorMessage(e));
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  const run = useAction();
+  const { confirm, dialog } = useConfirm();
 
   const visible = useMemo(() => {
     const q = filter.trim().toLowerCase();
@@ -76,27 +53,18 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
 
   async function toggle(h: ProxyHost) {
     // Actualización optimista: el switch responde al instante.
-    setHosts((prev) => prev.map((x) => (x.id === h.id ? { ...x, enabled: !h.enabled } : x)));
-    try {
-      await api.updateProxyHost(h.id, { ...toInput(h), enabled: !h.enabled });
-    } catch (e) {
-      toast.error(errorMessage(e));
-      load();
-    }
+    setHosts((prev) => prev?.map((x) => (x.id === h.id ? { ...x, enabled: !h.enabled } : x)));
+    if (!(await run(() => api.updateProxyHost(h.id, { ...toInput(h), enabled: !h.enabled })))) load();
   }
 
-  async function confirmDelete() {
-    if (!deleting) return;
-    try {
-      await api.deleteProxyHost(deleting.id);
-      const domain = deleting.domains[0];
-      toast.success(t`${domain} deleted`);
-      load();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    } finally {
-      setDeleting(null);
-    }
+  async function remove(h: ProxyHost) {
+    const ok = await confirm({
+      title: <Trans>Delete {h.domains[0]}?</Trans>,
+      description: <Trans>The domain will stop responding immediately. This action can't be undone.</Trans>,
+    });
+    if (!ok) return;
+    const domain = h.domains[0];
+    await run(() => api.deleteProxyHost(h.id), { success: t`${domain} deleted`, then: load });
   }
 
   return (
@@ -206,7 +174,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
                           variant="ghost"
                           size="icon-sm"
                           className="text-destructive hover:text-destructive"
-                          onClick={() => setDeleting(h)}
+                          onClick={() => remove(h)}
                           aria-label={t`Delete`}
                         >
                           <Trash2 />
@@ -252,26 +220,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={deleting !== null} onOpenChange={(open) => !open && setDeleting(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              <Trans>Delete {deleting?.domains[0]}?</Trans>
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              <Trans>The domain will stop responding immediately. This action can't be undone.</Trans>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              <Trans>Cancel</Trans>
-            </AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={confirmDelete}>
-              <Trans>Delete</Trans>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialog}
     </>
   );
 }

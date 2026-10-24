@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Copy, Download, Loader2, ShieldCheck, ShieldOff } from 'lucide-react';
 import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
@@ -10,22 +10,16 @@ import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle }
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api, errorMessage, type TwoFactorSetup } from '@/lib/api';
+import { api, type TwoFactorSetup } from '@/lib/api';
+import { useSubmit } from '@/lib/use-form';
+import { useResource } from '@/lib/use-resource';
 
 type Flow = 'enable' | 'disable' | 'regenerate' | null;
 
 /** Verificación en dos pasos de la cuenta (TOTP + códigos de recuperación). */
 export function TwoFactor() {
-  const [status, setStatus] = useState<{ enabled: boolean; recovery_codes_left: number } | null>(null);
+  const { data: status, reload } = useResource(api.get2FA);
   const [flow, setFlow] = useState<Flow>(null);
-
-  const load = useCallback(() => {
-    api
-      .get2FA()
-      .then(setStatus)
-      .catch((e) => toast.error(errorMessage(e)));
-  }, []);
-  useEffect(load, [load]);
 
   if (!status) return null;
 
@@ -81,7 +75,7 @@ export function TwoFactor() {
           flow={flow}
           onClose={() => {
             setFlow(null);
-            load();
+            reload();
           }}
         />
       )}
@@ -95,32 +89,22 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
   const [setup, setSetup] = useState<TwoFactorSetup | null>(null);
   const [code, setCode] = useState('');
   const [codes, setCodes] = useState<string[] | null>(null);
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      if (flow === 'disable') {
-        await api.disable2FA(password);
-        toast.success(t`Two-step verification disabled`);
-        onClose();
-      } else if (flow === 'regenerate') {
-        setCodes((await api.regenerateRecoveryCodes(password)).recovery_codes);
-      } else if (!setup) {
-        setSetup(await api.setup2FA(password));
-      } else {
-        setCodes((await api.enable2FA(code)).recovery_codes);
-        toast.success(t`Two-step verification enabled`);
-      }
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
+  // El diálogo tiene varios pasos y un botón rojo al desactivar: no encaja
+  // en FormDialog, pero el envío sí es el de siempre.
+  const { submit, busy, error } = useSubmit(async () => {
+    if (flow === 'disable') {
+      await api.disable2FA(password);
+      toast.success(t`Two-step verification disabled`);
+      onClose();
+    } else if (flow === 'regenerate') {
+      setCodes((await api.regenerateRecoveryCodes(password)).recovery_codes);
+    } else if (!setup) {
+      setSetup(await api.setup2FA(password));
+    } else {
+      setCodes((await api.enable2FA(code)).recovery_codes);
+      toast.success(t`Two-step verification enabled`);
     }
-  }
+  });
 
   const title = {
     enable: t`Enable two-step verification`,

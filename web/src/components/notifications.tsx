@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Bell, Loader2, Mail, Pencil, Plus, Send, Trash2, TriangleAlert, Webhook } from 'lucide-react';
 import { toast } from 'sonner';
 import { msg } from '@lingui/core/macro';
@@ -7,11 +7,11 @@ import { useLingui } from '@lingui/react';
 import { Trans, useLingui as useLinguiMacro } from '@lingui/react/macro';
 
 import { CheckField } from '@/components/check-field';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useConfirm } from '@/components/confirm';
+import { FormDialog } from '@/components/form-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -26,6 +26,8 @@ import {
   type NotificationEvent,
 } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
+import { useSubmit } from '@/lib/use-form';
+import { useAction, useResource } from '@/lib/use-resource';
 
 const eventLabels: Record<NotificationEvent, MessageDescriptor> = {
   build_failed: msg`Build failed`,
@@ -112,14 +114,11 @@ function ChannelIcon({ type }: { type: ChannelType }) {
 export function Notifications() {
   const { i18n } = useLingui();
   const { t } = useLinguiMacro();
-  const [channels, setChannels] = useState<NotificationChannel[] | null>(null);
+  const { data: channels, reload: load } = useResource(api.listChannels);
   const [editing, setEditing] = useState<NotificationChannel | 'new' | null>(null);
   const [testing, setTesting] = useState<number | null>(null);
-
-  const load = useCallback(() => {
-    api.listChannels().then(setChannels).catch((e) => toast.error(errorMessage(e)));
-  }, []);
-  useEffect(load, [load]);
+  const run = useAction();
+  const { confirm, dialog } = useConfirm();
 
   async function test(c: NotificationChannel) {
     setTesting(c.id);
@@ -136,21 +135,15 @@ export function Notifications() {
     }
   }
 
-  async function toggle(c: NotificationChannel) {
-    try {
-      await api.updateChannel(c.id, { type: c.type, name: c.name, events: c.events, enabled: !c.enabled, config: c.config });
-      load();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
-  }
+  const toggle = (c: NotificationChannel) =>
+    run(() => api.updateChannel(c.id, { type: c.type, name: c.name, events: c.events, enabled: !c.enabled, config: c.config }), {
+      then: load,
+    });
 
   async function remove(c: NotificationChannel) {
-    try {
-      await api.deleteChannel(c.id);
-      load();
-    } catch (e) {
-      toast.error(errorMessage(e));
+    const name = c.name;
+    if (await confirm({ title: t`Delete the channel ${name}?` })) {
+      await run(() => api.deleteChannel(c.id), { then: load });
     }
   }
 
@@ -238,6 +231,7 @@ export function Notifications() {
           }}
         />
       )}
+      {dialog}
     </Card>
   );
 }
@@ -257,8 +251,6 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationCh
       Object.entries(c).map(([k, v]) => [k, Array.isArray(v) ? v.join(', ') : String(v ?? '')]),
     );
   });
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
   const channelName = channel?.name;
 
   function changeType(t: ChannelType) {
@@ -266,150 +258,123 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationCh
     setConfig(t === 'email' ? { port: '587', security: 'starttls' } : {});
   }
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
+  const { submit, busy, error } = useSubmit(async () => {
     const cfg: Record<string, unknown> = { ...config };
     if (type === 'email') {
       cfg.port = Number(config.port);
       cfg.to = (config.to ?? '').split(/[\s,;]+/).filter(Boolean);
     }
     const input: ChannelInput = { type, name, events, enabled: channel?.enabled ?? true, config: cfg };
-    try {
-      if (channel) await api.updateChannel(channel.id, input);
-      else await api.createChannel(input);
-      toast.success(channel ? t`Channel saved` : t`Channel created: click "Test" to check it`);
-      onSaved();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+    if (channel) await api.updateChannel(channel.id, input);
+    else await api.createChannel(input);
+    toast.success(channel ? t`Channel saved` : t`Channel created: click "Test" to check it`);
+    onSaved();
+  });
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-h-[90svh] overflow-y-auto sm:max-w-lg">
-        <form onSubmit={save} className="contents">
-          <DialogHeader>
-            <DialogTitle>{channel ? t`Edit ${channelName}` : t`New notification channel`}</DialogTitle>
-            <DialogDescription>
-              <Trans>Data is stored encrypted; secret fields are never shown again.</Trans>
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>
-                <Trans>Type</Trans>
-              </Label>
-              <Select value={type} onValueChange={(v) => changeType(v as ChannelType)} disabled={!!channel}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {(Object.keys(typeLabels) as ChannelType[]).map((t) => (
-                    <SelectItem key={t} value={t}>
-                      {typeLabels[t]}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="ch-name">
-                <Trans>Name</Trans>
-              </Label>
-              <Input id="ch-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t`Team`} required />
-            </div>
-          </div>
-
-          {type === 'email' && (
-            <div className="space-y-2">
-              <Label>
-                <Trans>Security</Trans>
-              </Label>
-              <Select value={config.security ?? 'starttls'} onValueChange={(v) => setConfig((c) => ({ ...c, security: v }))}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="starttls">
-                    <Trans>STARTTLS (port 587)</Trans>
-                  </SelectItem>
-                  <SelectItem value="tls">
-                    <Trans>TLS (port 465)</Trans>
-                  </SelectItem>
-                  <SelectItem value="none">
-                    <Trans>Unencrypted (local servers only)</Trans>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {fields[type].map((f) => (
-              <div key={f.key} className={f.hint || f.key.endsWith('url') || f.key === 'to' ? 'space-y-2 sm:col-span-2' : 'space-y-2'}>
-                <Label htmlFor={`ch-${f.key}`}>
-                  {fieldText(i18n, f.label)}
-                  {f.optional && (
-                    <span className="font-normal text-muted-foreground">
-                      {' '}
-                      <Trans>(optional)</Trans>
-                    </span>
-                  )}
-                </Label>
-                <Input
-                  id={`ch-${f.key}`}
-                  type={f.secret ? 'password' : (f.type ?? 'text')}
-                  value={config[f.key] ?? ''}
-                  onChange={(e) => setConfig((c) => ({ ...c, [f.key]: e.target.value }))}
-                  onFocus={(e) => f.secret && e.target.value === SECRET_MASK && setConfig((c) => ({ ...c, [f.key]: '' }))}
-                  placeholder={f.placeholder && fieldText(i18n, f.placeholder)}
-                  required={!f.optional}
-                  autoComplete="off"
-                />
-                {f.hint && <p className="text-xs text-muted-foreground">{i18n._(f.hint)}</p>}
-              </div>
-            ))}
-          </div>
-
-          <div className="space-y-2">
-            <Label>
-              <Trans>Notify about</Trans>
-            </Label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {(Object.keys(eventLabels) as NotificationEvent[]).map((ev) => (
-                <CheckField
-                  key={ev}
-                  id={`ev-${ev}`}
-                  checked={events.includes(ev)}
-                  onChange={(v) => setEvents((list) => (v ? [...list, ev] : list.filter((x) => x !== ev)))}
-                  label={i18n._(eventLabels[ev])}
-                />
+    <FormDialog
+      title={channel ? t`Edit ${channelName}` : t`New notification channel`}
+      description={<Trans>Data is stored encrypted; secret fields are never shown again.</Trans>}
+      className="max-h-[90svh] overflow-y-auto sm:max-w-lg"
+      onClose={onClose}
+      onSubmit={submit}
+      busy={busy}
+      error={error}
+      submitDisabled={events.length === 0}
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>
+            <Trans>Type</Trans>
+          </Label>
+          <Select value={type} onValueChange={(v) => changeType(v as ChannelType)} disabled={!!channel}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {(Object.keys(typeLabels) as ChannelType[]).map((t) => (
+                <SelectItem key={t} value={t}>
+                  {typeLabels[t]}
+                </SelectItem>
               ))}
-            </div>
-          </div>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="ch-name">
+            <Trans>Name</Trans>
+          </Label>
+          <Input id="ch-name" value={name} onChange={(e) => setName(e.target.value)} placeholder={t`Team`} required />
+        </div>
+      </div>
 
-          {error && (
-            <Alert variant="destructive">
-              <TriangleAlert />
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              <Trans>Cancel</Trans>
-            </Button>
-            <Button type="submit" disabled={busy || events.length === 0}>
-              {busy && <Loader2 className="animate-spin" />}
-              <Trans>Save</Trans>
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      {type === 'email' && (
+        <div className="space-y-2">
+          <Label>
+            <Trans>Security</Trans>
+          </Label>
+          <Select value={config.security ?? 'starttls'} onValueChange={(v) => setConfig((c) => ({ ...c, security: v }))}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="starttls">
+                <Trans>STARTTLS (port 587)</Trans>
+              </SelectItem>
+              <SelectItem value="tls">
+                <Trans>TLS (port 465)</Trans>
+              </SelectItem>
+              <SelectItem value="none">
+                <Trans>Unencrypted (local servers only)</Trans>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {fields[type].map((f) => (
+          <div key={f.key} className={f.hint || f.key.endsWith('url') || f.key === 'to' ? 'space-y-2 sm:col-span-2' : 'space-y-2'}>
+            <Label htmlFor={`ch-${f.key}`}>
+              {fieldText(i18n, f.label)}
+              {f.optional && (
+                <span className="font-normal text-muted-foreground">
+                  {' '}
+                  <Trans>(optional)</Trans>
+                </span>
+              )}
+            </Label>
+            <Input
+              id={`ch-${f.key}`}
+              type={f.secret ? 'password' : (f.type ?? 'text')}
+              value={config[f.key] ?? ''}
+              onChange={(e) => setConfig((c) => ({ ...c, [f.key]: e.target.value }))}
+              onFocus={(e) => f.secret && e.target.value === SECRET_MASK && setConfig((c) => ({ ...c, [f.key]: '' }))}
+              placeholder={f.placeholder && fieldText(i18n, f.placeholder)}
+              required={!f.optional}
+              autoComplete="off"
+            />
+            {f.hint && <p className="text-xs text-muted-foreground">{i18n._(f.hint)}</p>}
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-2">
+        <Label>
+          <Trans>Notify about</Trans>
+        </Label>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {(Object.keys(eventLabels) as NotificationEvent[]).map((ev) => (
+            <CheckField
+              key={ev}
+              id={`ev-${ev}`}
+              checked={events.includes(ev)}
+              onChange={(v) => setEvents((list) => (v ? [...list, ev] : list.filter((x) => x !== ev)))}
+              label={i18n._(eventLabels[ev])}
+            />
+          ))}
+        </div>
+      </div>
+    </FormDialog>
   );
 }

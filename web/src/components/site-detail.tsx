@@ -7,21 +7,12 @@ import { toast } from 'sonner';
 
 import { ProviderIcon } from '@/components/brand-icons';
 import { CertBadge } from '@/components/cert-badge';
+import { useConfirm } from '@/components/confirm';
 import { Dropzone, selectionSummary } from '@/components/dropzone';
 import { SiteDialog } from '@/components/site-dialog';
 import { SiteGit } from '@/components/site-git';
 import { SitePreviews } from '@/components/site-previews';
 import { TrafficCard } from '@/components/traffic';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +22,7 @@ import { api, ApiError, errorMessage, type Deployment, type Site } from '@/lib/a
 import type { Selection } from '@/lib/collect-files';
 import { formatBytes, formatDate, timeAgo } from '@/lib/format';
 import { useCertificates } from '@/lib/use-certificates';
+import { useAction } from '@/lib/use-resource';
 
 export function SiteDetail({ id }: { id: number }) {
   const { t } = useLingui();
@@ -39,10 +31,11 @@ export function SiteDetail({ id }: { id: number }) {
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [notFound, setNotFound] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [uploading, setUploading] = useState('');
   const certs = useCertificates();
+  const run = useAction();
+  const { confirm, dialog } = useConfirm();
 
   const load = useCallback(async () => {
     try {
@@ -78,35 +71,26 @@ export function SiteDetail({ id }: { id: number }) {
     }
   }
 
-  async function activate(dep: Deployment) {
-    try {
-      await api.activateDeployment(id, dep.id);
-      const depId = dep.id;
-      toast.success(t`Deployment #${depId} published again`);
-      await load();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
+  function activate(dep: Deployment) {
+    const depId = dep.id;
+    return run(() => api.activateDeployment(id, dep.id), { success: t`Deployment #${depId} published again`, then: load });
   }
 
-  async function removeDeployment(dep: Deployment) {
-    try {
-      await api.deleteDeployment(id, dep.id);
-      await load();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
-  }
+  const removeDeployment = (dep: Deployment) => run(() => api.deleteDeployment(id, dep.id), { then: load });
 
   async function removeSite() {
-    try {
-      await api.deleteSite(id);
-      const name = site?.name;
-      toast.success(t`${name} deleted`);
-      navigate({ to: '/sites' });
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
+    if (!site) return;
+    const ok = await confirm({
+      title: <Trans>Delete {site.name}?</Trans>,
+      description: (
+        <Trans>
+          Its domains will stop responding and all its deployments will be deleted. This can't be undone.
+        </Trans>
+      ),
+    });
+    if (!ok) return;
+    const name = site.name;
+    await run(() => api.deleteSite(id), { success: t`${name} deleted`, then: () => navigate({ to: '/sites' }) });
   }
 
   if (notFound) {
@@ -172,7 +156,7 @@ export function SiteDetail({ id }: { id: number }) {
               variant="outline"
               size="sm"
               className="text-destructive hover:text-destructive"
-              onClick={() => setConfirmDelete(true)}
+              onClick={removeSite}
             >
               <Trash2 /> <Trans>Delete</Trans>
             </Button>
@@ -293,28 +277,7 @@ export function SiteDetail({ id }: { id: number }) {
         />
       )}
 
-      <AlertDialog open={confirmDelete} onOpenChange={setConfirmDelete}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              <Trans>Delete {site.name}?</Trans>
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              <Trans>
-                Its domains will stop responding and all its deployments will be deleted. This can't be undone.
-              </Trans>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>
-              <Trans>Cancel</Trans>
-            </AlertDialogCancel>
-            <AlertDialogAction variant="destructive" onClick={removeSite}>
-              <Trans>Delete</Trans>
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      {dialog}
     </div>
   );
 }

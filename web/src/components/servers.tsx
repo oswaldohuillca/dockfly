@@ -1,10 +1,11 @@
 import { ph } from '@lingui/core/macro';
 import { Plural, Trans, useLingui } from '@lingui/react/macro';
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Copy, KeyRound, Loader2, Plus, Server, Trash2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FormDialog } from '@/components/form-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,47 +19,28 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { api, errorMessage, type RemoteServer } from '@/lib/api';
+import { api, type RemoteServer } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
+import { useSubmit } from '@/lib/use-form';
+import { useAction, useResource } from '@/lib/use-resource';
 
 /** Servidores remotos, cada uno con su agente. */
 export function Servers() {
   const { t } = useLingui();
-  const [servers, setServers] = useState<RemoteServer[]>([]);
+  // El estado de conexión cambia solo: se refresca cada pocos segundos.
+  const { data: servers = [], reload } = useResource(api.listServers, { interval: 5000 });
   const [adding, setAdding] = useState(false);
   const [join, setJoin] = useState<{ name: string; command: string; warning: string } | null>(null);
+  const run = useAction();
 
-  const load = useCallback(() => {
-    api
-      .listServers()
-      .then(setServers)
-      .catch((e) => toast.error(errorMessage(e)));
-  }, []);
-  useEffect(() => {
-    load();
-    // El estado de conexión cambia solo: se refresca cada pocos segundos.
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
-  }, [load]);
-
-  async function rotate(s: RemoteServer) {
-    try {
+  const rotate = (s: RemoteServer) =>
+    run(async () => {
       const res = await api.rotateServerToken(s.id);
       setJoin({ name: s.name, command: res.command, warning: res.warning });
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
-  }
+    });
 
-  async function remove(s: RemoteServer) {
-    try {
-      await api.deleteServer(s.id);
-      toast.success(t`${ph({ name: s.name })} deleted`);
-      load();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
-  }
+  const remove = (s: RemoteServer) =>
+    run(() => api.deleteServer(s.id), { success: t`${ph({ name: s.name })} deleted`, then: reload });
 
   return (
     <Card>
@@ -148,7 +130,7 @@ export function Servers() {
           onCreated={(info) => {
             setAdding(false);
             setJoin(info);
-            load();
+            reload();
           }}
         />
       )}
@@ -165,65 +147,36 @@ function AddServerDialog({
   onCreated: (info: { name: string; command: string; warning: string }) => void;
 }) {
   const [name, setName] = useState('');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      const res = await api.createServer(name);
-      onCreated({ name: res.server.name, command: res.command, warning: res.warning });
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { submit, busy, error } = useSubmit(async () => {
+    const res = await api.createServer(name);
+    onCreated({ name: res.server.name, command: res.command, warning: res.warning });
+  });
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={save} className="contents">
-          <DialogHeader>
-            <DialogTitle>
-              <Trans>Add server</Trans>
-            </DialogTitle>
-            <DialogDescription>
-              <Trans>It only needs Docker. You'll run a command on it next.</Trans>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="server-name">
-              <Trans>Name</Trans>
-            </Label>
-            <Input
-              id="server-name"
-              value={name}
-              onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
-              placeholder="madrid-1"
-              required
-              autoFocus
-            />
-          </div>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              <Trans>Cancel</Trans>
-            </Button>
-            <Button type="submit" disabled={busy}>
-              {busy && <Loader2 className="animate-spin" />}
-              <Trans>Continue</Trans>
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      className="sm:max-w-md"
+      title={<Trans>Add server</Trans>}
+      description={<Trans>It only needs Docker. You'll run a command on it next.</Trans>}
+      onClose={onClose}
+      onSubmit={submit}
+      busy={busy}
+      error={error}
+      submitLabel={<Trans>Continue</Trans>}
+    >
+      <div className="space-y-2">
+        <Label htmlFor="server-name">
+          <Trans>Name</Trans>
+        </Label>
+        <Input
+          id="server-name"
+          value={name}
+          onChange={(e) => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+          placeholder="madrid-1"
+          required
+          autoFocus
+        />
+      </div>
+    </FormDialog>
   );
 }
 

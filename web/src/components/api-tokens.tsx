@@ -1,9 +1,9 @@
-import { useCallback, useContext, useEffect, useState } from 'react';
-import { Copy, KeyRound, Loader2, Plus, Trash2 } from 'lucide-react';
+import { useContext, useState } from 'react';
+import { Copy, KeyRound, Plus, Trash2 } from 'lucide-react';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
 
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FormDialog } from '@/components/form-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -11,34 +11,23 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { api, errorMessage, type APIToken, type Role } from '@/lib/api';
+import { api, type APIToken, type Role } from '@/lib/api';
 import { formatDate, timeAgo } from '@/lib/format';
 import { can, roleHint, roleLabel, UserContext } from '@/lib/roles';
+import { useSubmit } from '@/lib/use-form';
+import { useAction, useResource } from '@/lib/use-resource';
 
 /** Tokens de API del usuario, para el CLI y la integración continua. */
 export function APITokens() {
   const { t } = useLingui();
-  const [tokens, setTokens] = useState<APIToken[]>([]);
+  const { data: tokens = [], reload } = useResource(api.listTokens);
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<string | null>(null);
+  const run = useAction();
 
-  const load = useCallback(() => {
-    api
-      .listTokens()
-      .then(setTokens)
-      .catch((e) => toast.error(errorMessage(e)));
-  }, []);
-  useEffect(load, [load]);
-
-  async function revoke(token: APIToken) {
-    try {
-      await api.deleteToken(token.id);
-      const name = token.name;
-      toast.success(t`Token "${name}" revoked`);
-      load();
-    } catch (e) {
-      toast.error(errorMessage(e));
-    }
+  function revoke(token: APIToken) {
+    const name = token.name;
+    return run(() => api.deleteToken(token.id), { success: t`Token "${name}" revoked`, then: reload });
   }
 
   return (
@@ -117,7 +106,7 @@ export function APITokens() {
           onCreated={(token) => {
             setCreating(false);
             setCreated(token);
-            load();
+            reload();
           }}
         />
       )}
@@ -132,108 +121,79 @@ function CreateTokenDialog({ onClose, onCreated }: { onClose: () => void; onCrea
   const [name, setName] = useState('');
   const [role, setRole] = useState<Role>(roles[0] ?? 'viewer');
   const [days, setDays] = useState('90');
-  const [error, setError] = useState('');
-  const [busy, setBusy] = useState(false);
-
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    setBusy(true);
-    try {
-      onCreated((await api.createToken({ name, role, expires_days: Number(days) })).token);
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const { submit, busy, error } = useSubmit(async () =>
+    onCreated((await api.createToken({ name, role, expires_days: Number(days) })).token),
+  );
 
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <form onSubmit={save} className="contents">
-          <DialogHeader>
-            <DialogTitle>
-              <Trans>Create API token</Trans>
-            </DialogTitle>
-            <DialogDescription>
-              <Trans>Give it a name that tells you where it's used, so you can revoke it later.</Trans>
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2">
-            <Label htmlFor="token-name">
-              <Trans>Name</Trans>
-            </Label>
-            <Input
-              id="token-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="GitHub Actions"
-              required
-              autoFocus
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-2">
-              <Label>
-                <Trans>Permissions</Trans>
-              </Label>
-              <Select value={role} onValueChange={(v) => setRole(v as Role)}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {roles.map((r) => (
-                    <SelectItem key={r} value={r}>
-                      {roleLabel(r)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label>
-                <Trans>Expires</Trans>
-              </Label>
-              <Select value={days} onValueChange={setDays}>
-                <SelectTrigger className="w-full">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30">
-                    <Trans>In 30 days</Trans>
-                  </SelectItem>
-                  <SelectItem value="90">
-                    <Trans>In 90 days</Trans>
-                  </SelectItem>
-                  <SelectItem value="365">
-                    <Trans>In a year</Trans>
-                  </SelectItem>
-                  <SelectItem value="0">
-                    <Trans>Never</Trans>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-          <p className="text-xs text-muted-foreground">{roleHint(role)}</p>
-          {error && (
-            <Alert variant="destructive">
-              <AlertDescription>{error}</AlertDescription>
-            </Alert>
-          )}
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              <Trans>Cancel</Trans>
-            </Button>
-            <Button type="submit" disabled={busy}>
-              {busy && <Loader2 className="animate-spin" />}
-              <Trans>Create</Trans>
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+    <FormDialog
+      className="sm:max-w-md"
+      title={<Trans>Create API token</Trans>}
+      description={<Trans>Give it a name that tells you where it's used, so you can revoke it later.</Trans>}
+      onClose={onClose}
+      onSubmit={submit}
+      busy={busy}
+      error={error}
+      submitLabel={<Trans>Create</Trans>}
+    >
+      <div className="space-y-2">
+        <Label htmlFor="token-name">
+          <Trans>Name</Trans>
+        </Label>
+        <Input
+          id="token-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="GitHub Actions"
+          required
+          autoFocus
+        />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>
+            <Trans>Permissions</Trans>
+          </Label>
+          <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {roles.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {roleLabel(r)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="space-y-2">
+          <Label>
+            <Trans>Expires</Trans>
+          </Label>
+          <Select value={days} onValueChange={setDays}>
+            <SelectTrigger className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="30">
+                <Trans>In 30 days</Trans>
+              </SelectItem>
+              <SelectItem value="90">
+                <Trans>In 90 days</Trans>
+              </SelectItem>
+              <SelectItem value="365">
+                <Trans>In a year</Trans>
+              </SelectItem>
+              <SelectItem value="0">
+                <Trans>Never</Trans>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <p className="text-xs text-muted-foreground">{roleHint(role)}</p>
+    </FormDialog>
   );
 }
 

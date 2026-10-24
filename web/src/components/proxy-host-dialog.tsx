@@ -28,6 +28,7 @@ import {
   type Scheme,
   type TargetType,
 } from '@/lib/api';
+import { useForm, useSubmit } from '@/lib/use-form';
 
 // La opción activa debe distinguirse claramente: el estilo por defecto es muy sutil.
 const segmentClass = 'flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground';
@@ -72,17 +73,12 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
   const { t } = useLingui();
   const isNew = host.id === undefined;
   // El componente se monta en cada apertura, así que el estado inicial basta.
-  const [form, setForm] = useState(() => initialForm(host, dockerAvailable));
-  const [error, setError] = useState('');
+  const { form, set, setForm } = useForm(() => initialForm(host, dockerAvailable));
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
 
   const [containers, setContainers] = useState<Container[]>([]);
   const [selfNetworks, setSelfNetworks] = useState<string[]>([]);
   const [containersLoaded, setContainersLoaded] = useState(false);
-
-  const set = <K extends keyof ProxyHostInput>(key: K, value: ProxyHostInput[K]) =>
-    setForm((f) => ({ ...f, [key]: value }));
 
   // Los contenedores se cargan si los necesita el destino o alguna ubicación.
   const wantsContainers = form.target_type === 'docker' || form.locations.some((l) => l.target_type === 'docker');
@@ -124,25 +120,15 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
     setForm((f) => ({ ...f, forward_host: name, forward_port: c?.ports[0] ?? f.forward_port }));
   }
 
-  async function save(e: React.FormEvent) {
-    e.preventDefault();
-    const payload = form;
-    setError('');
-    setBusy(true);
-    try {
-      const res = isNew ? await api.createProxyHost(payload) : await api.updateProxyHost(host.id!, payload);
-      if (res.warnings?.length) {
-        setWarnings(res.warnings);
-      } else {
-        toast.success(isNew ? t`Proxy host created` : t`Changes saved`);
-        onSaved();
-      }
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
+  const { submit: save, busy, error, setError } = useSubmit(async () => {
+    const res = isNew ? await api.createProxyHost(form) : await api.updateProxyHost(host.id!, form);
+    if (res.warnings?.length) {
+      setWarnings(res.warnings);
+    } else {
+      toast.success(isNew ? t`Proxy host created` : t`Changes saved`);
+      onSaved();
     }
-  }
+  });
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
