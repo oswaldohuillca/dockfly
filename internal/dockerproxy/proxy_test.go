@@ -44,12 +44,12 @@ func TestCheckCreate(t *testing.T) {
 		{"volumen ajeno por Mounts", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-otra_db"}]}`), false},
 		{"volumes_from", ok(`{"VolumesFrom":["dockfly"]}`), false},
 		// C2: compartir namespaces con otro contenedor (no del proyecto).
-		{"pid container ajeno", ok(`{"PidMode":"container:dockfly"}`), false},
-		{"pid container del proyecto", ok(`{"PidMode":"container:dockfly-web-db-1"}`), true},
-		{"ipc container ajeno", ok(`{"IpcMode":"container:abc123"}`), false},
-		{"network container ajeno", ok(`{"NetworkMode":"container:dockfly"}`), false},
+		{"pid container (lo comprueba el proxy con Docker)", ok(`{"PidMode":"container:dockfly-web-db-1"}`), true},
 		{"network container del proyecto", ok(`{"NetworkMode":"container:dockfly-web-api-1"}`), true},
 		{"network red ajena", ok(`{"NetworkMode":"otra_red"}`), false},
+		{"network red de Dockfly", ok(`{"NetworkMode":"dockfly"}`), true},
+		{"endpoint en red de otra app", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"NetworkingConfig":{"EndpointsConfig":{"dockfly-web-db_default":{}}}}`, false},
+		{"endpoint en red propia y de Dockfly", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"NetworkingConfig":{"EndpointsConfig":{"dockfly-web_default":{},"dockfly":{}}}}`, true},
 		{"ipc shareable", ok(`{"IpcMode":"shareable"}`), true},
 		// A1: campos de HostConfig fuera de la lista blanca.
 		{"sysctls", ok(`{"Sysctls":{"net.ipv4.ip_forward":"1"}}`), false},
@@ -67,7 +67,7 @@ func TestCheckCreate(t *testing.T) {
 		{"runc explícito", ok(`{"Runtime":"runc"}`), true},
 		{"campos normales permitidos", ok(`{"RestartPolicy":{"Name":"always"},"Memory":536870912,"CapDrop":["ALL"],"ReadonlyRootfs":true,"Init":true,"Ulimits":[{"Name":"nofile","Soft":1024,"Hard":2048}]}`), true},
 	} {
-		err := checkCreate([]byte(tc.body), project, protected)
+		_, err := checkCreate([]byte(tc.body), project, "dockfly", protected)
 		if (err == nil) != tc.allowed {
 			t.Errorf("%s: err=%v, permitido=%v", tc.name, err, tc.allowed)
 		}
@@ -113,6 +113,18 @@ func fakeDocker(t *testing.T) (dial func(context.Context) (net.Conn, error), see
 		case strings.HasSuffix(r.URL.Path, "/containers/mio/json"):
 			io.WriteString(w, `{"Config":{"Labels":{"com.docker.compose.project":"dockfly-web"}}}`)
 			return
+		case strings.HasSuffix(r.URL.Path, "/containers/dockfly-web-db-postgres-1/json"):
+			io.WriteString(w, `{"Config":{"Labels":{"com.docker.compose.project":"dockfly-web-db"}}}`)
+			return
+		case r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/networks/dockfly"):
+			io.WriteString(w, `{"Name":"dockfly","Labels":{}}`)
+			return
+		case r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/networks/dockfly-web_default"):
+			io.WriteString(w, `{"Name":"dockfly-web_default","Labels":{"com.docker.compose.project":"dockfly-web"}}`)
+			return
+		case r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/networks/dockfly-web-db_default"):
+			io.WriteString(w, `{"Name":"dockfly-web-db_default","Labels":{"com.docker.compose.project":"dockfly-web-db"}}`)
+			return
 		case strings.HasSuffix(r.URL.Path, "/containers/dockfly/json"):
 			io.WriteString(w, `{"Config":{"Labels":{}}}`)
 			return
@@ -143,7 +155,7 @@ func fakeDocker(t *testing.T) (dial func(context.Context) (net.Conn, error), see
 
 func TestProxy(t *testing.T) {
 	dial, seen := fakeDocker(t)
-	p := &Proxy{Dial: dial, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	p := &Proxy{Dial: dial, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), Network: "dockfly"}
 	ts := httptest.NewServer(p.Handler("dockfly-web"))
 	defer ts.Close()
 
@@ -214,6 +226,12 @@ func TestProxy(t *testing.T) {
 		{"POST", "/v1.47/networks/create", `{"Name":"red-ajena"}`, 403},
 		{"POST", "/v1.47/networks/dockfly/connect", `{"Container":"mio"}`, 200},
 		{"POST", "/v1.47/networks/dockfly-web_default/connect", `{"Container":"dockfly"}`, 403},
+		// Otra app cuyo nombre empieza igual ("web-db"): ni su red ni sus contenedores.
+		{"POST", "/v1.47/networks/dockfly-web-db_default/connect", `{"Container":"mio"}`, 403},
+		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"NetworkMode":"container:dockfly-web-db-postgres-1"}}`, 403},
+		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"PidMode":"container:mio"}}`, 200},
+		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"PidMode":"container:dockfly"}}`, 403},
+		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"IpcMode":"container:dockfly"}}`, 403},
 		{"DELETE", "/v1.47/networks/4a38", "", 200},
 		{"DELETE", "/v1.47/networks/9f01", "", 403},
 	} {

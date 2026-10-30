@@ -233,7 +233,7 @@ func run(log *slog.Logger) error {
 	})
 	if dc != nil {
 		ensureNetwork(ctx, log, dc, opts.DockerNet)
-		startComposeProxy(ctx, log, dc, srv.Apps)
+		startComposeProxy(ctx, log, dc, srv.Apps, opts.DockerNet)
 		if self, ok := dc.Self(ctx); ok {
 			srv.Image = self.Image
 		}
@@ -356,7 +356,7 @@ func ensureNetwork(ctx context.Context, log *slog.Logger, dc *docker.Client, net
 // startComposeProxy activa el proxy del socket de Docker con permisos
 // mínimos para el auxiliar de Compose (solo si Dockfly corre en Docker: el
 // auxiliar llega a él por una red interna de cada ejecución).
-func startComposeProxy(ctx context.Context, log *slog.Logger, dc *docker.Client, m *apps.Manager) {
+func startComposeProxy(ctx context.Context, log *slog.Logger, dc *docker.Client, m *apps.Manager, network string) {
 	if env("DOCKFLY_COMPOSE_PROXY", "1") == "0" {
 		log.Warn("proxy de Docker desactivado: las apps de Compose tienen acceso total a Docker")
 		return
@@ -367,7 +367,7 @@ func startComposeProxy(ctx context.Context, log *slog.Logger, dc *docker.Client,
 		log.Warn("Dockfly no corre en Docker: las apps de Compose tendrán acceso total a Docker")
 		return
 	}
-	m.SetComposeProxy(&dockerproxy.Proxy{Dial: dc.Dial, Log: log.With("component", "docker-proxy"), Protected: self.Mounts}, host)
+	m.SetComposeProxy(&dockerproxy.Proxy{Dial: dc.Dial, Log: log.With("component", "docker-proxy"), Protected: self.Mounts, Network: network}, host)
 	m.CleanupProxyNetworks(ctx)
 	log.Info("proxy de Docker para Compose activo")
 }

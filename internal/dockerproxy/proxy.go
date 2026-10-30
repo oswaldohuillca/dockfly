@@ -38,6 +38,9 @@ type Proxy struct {
 	// Protected son rutas del host que nunca se pueden montar (los datos del
 	// propio Dockfly).
 	Protected []string
+	// Network es la red compartida de Dockfly, a la que se pueden unir los
+	// servicios para recibir tráfico.
+	Network string
 
 	rp   *httputil.ReverseProxy
 	api  *http.Client
@@ -134,7 +137,18 @@ func (p *Proxy) check(r *http.Request, project string) error {
 			if err != nil {
 				return err
 			}
-			return checkCreate(body, project, p.Protected)
+			refs, err := checkCreate(body, project, p.Network, p.Protected)
+			if err != nil {
+				return err
+			}
+			// container:<x> solo con contenedores del proyecto: el nombre no
+			// basta (la app "web" y la app "web-db" comparten prefijo).
+			for _, ref := range refs {
+				if err := p.ownContainer(r.Context(), ref, project); err != nil {
+					return err
+				}
+			}
+			return nil
 		}
 	case strings.HasPrefix(rest, "volumes/") && !read || route == "/volumes/create":
 		name := strings.TrimPrefix(route, "/volumes/")
@@ -173,6 +187,14 @@ func (p *Proxy) check(r *http.Request, project string) error {
 			_ = json.Unmarshal(body, &c)
 			if err := p.ownContainer(r.Context(), c.Container, project); err != nil {
 				return err
+			}
+			// …y solo a redes del proyecto o a la de Dockfly, no a las de otra app.
+			name, labels, err := p.networkInfo(r.Context(), id)
+			if err != nil {
+				return err
+			}
+			if labels != nil && name != p.Network && !owned(name) && labels[ProjectLabel] != project {
+				return fmt.Errorf("la red %s no es de este proyecto", name)
 			}
 		case action == "" && r.Method == http.MethodDelete:
 			// Compose las borra por ID: se pregunta a Docker de quién es.
@@ -287,7 +309,10 @@ func checkRoute(r *http.Request, p string) error {
 }
 
 type createRequest struct {
-	Labels     map[string]string
+	Labels           map[string]string
+	NetworkingConfig struct {
+		EndpointsConfig map[string]json.RawMessage
+	}
 	HostConfig struct {
 		Privileged     bool
 		CapAdd         []string
@@ -368,25 +393,50 @@ var defaultMaskedPaths = []string{
 var defaultReadonlyPaths = []string{"/proc/bus", "/proc/fs", "/proc/irq", "/proc/sys", "/proc/sysrq-trigger"}
 
 // okNamespace acepta un modo de espacio de nombres: vacío, los predefinidos,
-// o container:<id> y <red> del propio proyecto. Rechaza host y lo desconocido.
-func okNamespace(mode, project string, ns bool) bool {
+// container:<x> (devuelto en ref: el llamador comprueba que sea del
+// proyecto) y, para la red, las del proyecto y la de Dockfly. Rechaza host y
+// lo desconocido.
+func okNamespace(mode, project, network string, ns bool) (ok bool, ref string) {
 	switch mode {
 	case "", "none", "private", "default", "shareable":
-		return true
+		return true, ""
 	}
 	if target, ok := strings.CutPrefix(mode, "container:"); ok {
-		return strings.HasPrefix(target, project+"-") || strings.HasPrefix(target, project+"_")
+		return target != "", target
 	}
-	// Las redes del proyecto se llaman "<proyecto>_<nombre>"; también se
-	// admite una red concreta por su nombre de proyecto.
-	return ns && strings.HasPrefix(mode, project+"_")
+	// Las redes del proyecto se llaman "<proyecto>_<nombre>".
+	return ns && (strings.HasPrefix(mode, project+"_") || (network != "" && mode == network)), ""
 }
 
-func checkCreate(body []byte, project string, protected []string) error {
+// checkCreate aplica la política al crear un contenedor. refs son los
+// contenedores con los que comparte espacios de nombres (container:<x>).
+func checkCreate(body []byte, project, network string, protected []string) (refs []string, err error) {
 	var req createRequest
 	if err := json.Unmarshal(body, &req); err != nil {
-		return fmt.Errorf("cuerpo inválido: %w", err)
+		return nil, fmt.Errorf("cuerpo inválido: %w", err)
 	}
+	h := req.HostConfig
+	for _, ns := range []struct {
+		name, mode string
+		net        bool
+	}{{"pid", h.PidMode, false}, {"ipc", h.IpcMode, false}, {"network_mode", h.NetworkMode, true}} {
+		ok, ref := okNamespace(ns.mode, project, network, ns.net)
+		if !ok {
+			return nil, fmt.Errorf("%s: %q no está permitido (solo redes o contenedores del proyecto)", ns.name, ns.mode)
+		}
+		if ref != "" {
+			refs = append(refs, ref)
+		}
+	}
+	for name := range req.NetworkingConfig.EndpointsConfig {
+		if !strings.HasPrefix(name, project+"_") && name != network {
+			return nil, fmt.Errorf("la red %s no es de este proyecto", name)
+		}
+	}
+	return refs, checkHost(body, req, project, protected)
+}
+
+func checkHost(body []byte, req createRequest, project string, protected []string) error {
 	// Lista blanca de los campos de HostConfig.
 	var top struct {
 		HostConfig map[string]json.RawMessage `json:"HostConfig"`
@@ -407,12 +457,6 @@ func checkCreate(body []byte, project string, protected []string) error {
 		return fmt.Errorf("añadir capabilities (cap_add: %s) no está permitido", strings.Join(h.CapAdd, ", "))
 	case len(h.Devices) > 0 || len(h.DeviceRequests) > 0:
 		return fmt.Errorf("acceder a dispositivos del host (devices, gpus) no está permitido")
-	case !okNamespace(h.PidMode, project, false):
-		return fmt.Errorf("pid: %q no está permitido (solo contenedores del proyecto)", h.PidMode)
-	case !okNamespace(h.IpcMode, project, false):
-		return fmt.Errorf("ipc: %q no está permitido (solo contenedores del proyecto)", h.IpcMode)
-	case !okNamespace(h.NetworkMode, project, true):
-		return fmt.Errorf("network_mode: %q no está permitido (solo redes o contenedores del proyecto)", h.NetworkMode)
 	case h.UTSMode == "host", h.UsernsMode == "host", h.CgroupnsMode == "host":
 		return fmt.Errorf("compartir los espacios de nombres del host (uts/userns/cgroup: host) no está permitido")
 	}
