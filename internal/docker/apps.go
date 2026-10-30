@@ -137,7 +137,7 @@ func (c *Client) InspectContainer(ctx context.Context, id string) (*ContainerInf
 // StopContainer detiene el contenedor dándole timeout para terminar bien
 // (una base de datos necesita unos segundos para cerrar sus archivos).
 func (c *Client) StopContainer(ctx context.Context, id string, timeout time.Duration) error {
-	err := c.do(ctx, http.MethodPost, "/containers/"+url.PathEscape(id)+"/stop?t="+strconv.Itoa(int(timeout.Seconds())), nil, nil)
+	err := c.postLong(ctx, "/containers/"+url.PathEscape(id)+"/stop?t="+strconv.Itoa(int(timeout.Seconds())))
 	var apiErr *APIError
 	if errors.As(err, &apiErr) && apiErr.Status == http.StatusNotModified {
 		return nil // ya estaba parado
@@ -146,7 +146,18 @@ func (c *Client) StopContainer(ctx context.Context, id string, timeout time.Dura
 }
 
 func (c *Client) RestartContainer(ctx context.Context, id string, timeout time.Duration) error {
-	return c.do(ctx, http.MethodPost, "/containers/"+url.PathEscape(id)+"/restart?t="+strconv.Itoa(int(timeout.Seconds())), nil, nil)
+	return c.postLong(ctx, "/containers/"+url.PathEscape(id)+"/restart?t="+strconv.Itoa(int(timeout.Seconds())))
+}
+
+// postLong hace un POST que puede tardar más que el timeout de 15 s de
+// c.http: parar un contenedor espera hasta su timeout (20 s) a que termine,
+// y cortarlo antes deja el deploy a medias con el contenedor parándose.
+func (c *Client) postLong(ctx context.Context, path string) error {
+	resp, err := c.raw(ctx, c.stream, http.MethodPost, path, nil, "")
+	if err != nil {
+		return err
+	}
+	return resp.Body.Close()
 }
 
 // FollowLogs sigue los logs de un contenedor (multiplexados: usar Demux),
