@@ -3,15 +3,19 @@ import { ExternalLink, GitBranch, Trash2 } from 'lucide-react';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
 
+import { useConfirm } from '@/components/confirm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { api, errorMessage, type Preview, type Site } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
+import { useCan } from '@/lib/roles';
 
 /** Ramas publicadas como preview. reload cambia cuando termina un build. */
 export function SitePreviews({ site, reload }: { site: Site; reload: unknown }) {
   const { t } = useLingui();
   const [previews, setPreviews] = useState<Preview[]>([]);
+  const canEdit = useCan('deployer');
+  const { confirm, dialog } = useConfirm();
 
   const load = useCallback(() => {
     api
@@ -22,9 +26,10 @@ export function SitePreviews({ site, reload }: { site: Site; reload: unknown }) 
   useEffect(load, [load, reload]);
 
   async function remove(p: Preview) {
+    const branch = p.branch;
+    if (!(await confirm({ title: t`Delete the preview for ${branch}?` }))) return;
     try {
       await api.deletePreview(site.id, p.preview);
-      const branch = p.branch;
       toast.success(t`Preview for ${branch} deleted`);
       load();
     } catch (e) {
@@ -74,20 +79,23 @@ export function SitePreviews({ site, reload }: { site: Site; reload: unknown }) 
                     </a>
                   </Button>
                 )}
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-destructive hover:text-destructive"
-                  onClick={() => remove(p)}
-                  aria-label={t`Delete preview for ${p.branch}`}
-                >
-                  <Trash2 />
-                </Button>
+                {canEdit && (
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className="text-destructive hover:text-destructive"
+                    onClick={() => remove(p)}
+                    aria-label={t`Delete preview for ${p.branch}`}
+                  >
+                    <Trash2 />
+                  </Button>
+                )}
               </li>
             ))}
           </ul>
         )}
       </CardContent>
+      {dialog}
     </Card>
   );
 }

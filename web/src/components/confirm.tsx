@@ -26,7 +26,9 @@ interface ConfirmOptions {
  * El elemento devuelto (dialog) se pinta una vez en el componente.
  */
 export function useConfirm() {
+  // Las opciones se conservan al cerrar: el diálogo se desvanece con su texto.
   const [opts, setOpts] = useState<ConfirmOptions | null>(null);
+  const [open, setOpen] = useState(false);
   const resolve = useRef<(ok: boolean) => void>(() => {});
 
   const confirm = useCallback(
@@ -34,16 +36,17 @@ export function useConfirm() {
       new Promise<boolean>((r) => {
         resolve.current = r;
         setOpts(o);
+        setOpen(true);
       }),
     [],
   );
   const close = (ok: boolean) => {
     resolve.current(ok);
-    setOpts(null);
+    setOpen(false);
   };
 
   const dialog = (
-    <AlertDialog open={opts !== null} onOpenChange={(open) => !open && close(false)}>
+    <AlertDialog open={open} onOpenChange={(open) => !open && close(false)}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{opts?.title}</AlertDialogTitle>

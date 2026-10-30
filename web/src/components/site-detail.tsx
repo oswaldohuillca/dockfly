@@ -22,6 +22,7 @@ import { api, ApiError, errorMessage, type Deployment, type Site } from '@/lib/a
 import type { Selection } from '@/lib/collect-files';
 import { formatBytes, formatDate, timeAgo } from '@/lib/format';
 import { useCertificates } from '@/lib/use-certificates';
+import { useCan } from '@/lib/roles';
 import { useAction } from '@/lib/use-resource';
 
 export function SiteDetail({ id }: { id: number }) {
@@ -35,6 +36,7 @@ export function SiteDetail({ id }: { id: number }) {
   const [uploading, setUploading] = useState('');
   const certs = useCertificates();
   const run = useAction();
+  const canEdit = useCan('deployer');
   const { confirm, dialog } = useConfirm();
 
   const load = useCallback(async () => {
@@ -76,7 +78,12 @@ export function SiteDetail({ id }: { id: number }) {
     return run(() => api.activateDeployment(id, dep.id), { success: t`Deployment #${depId} published again`, then: load });
   }
 
-  const removeDeployment = (dep: Deployment) => run(() => api.deleteDeployment(id, dep.id), { then: load });
+  async function removeDeployment(dep: Deployment) {
+    const depId = dep.id;
+    if (await confirm({ title: t`Delete deployment #${depId}?` })) {
+      await run(() => api.deleteDeployment(id, dep.id), { then: load });
+    }
+  }
 
   async function removeSite() {
     if (!site) return;
@@ -148,23 +155,27 @@ export function SiteDetail({ id }: { id: number }) {
               ))}
             </CardDescription>
           </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
-              <Pencil /> <Trans>Edit</Trans>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              onClick={removeSite}
-            >
-              <Trash2 /> <Trans>Delete</Trans>
-            </Button>
-          </div>
+          {canEdit && (
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
+                <Pencil /> <Trans>Edit</Trans>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={removeSite}
+              >
+                <Trash2 /> <Trans>Delete</Trans>
+              </Button>
+            </div>
+          )}
         </CardHeader>
-        <CardContent>
-          <Dropzone onSelect={upload} progress={progress} uploading={uploading} />
-        </CardContent>
+        {canEdit && (
+          <CardContent>
+            <Dropzone onSelect={upload} progress={progress} uploading={uploading} />
+          </CardContent>
+        )}
       </Card>
 
       {site.domains.length > 0 && <TrafficCard owner={`site-${site.id}`} />}
@@ -240,7 +251,7 @@ export function SiteDetail({ id }: { id: number }) {
                       <TableCell>{dep.file_count}</TableCell>
                       <TableCell>{formatBytes(dep.total_bytes)}</TableCell>
                       <TableCell className="pr-6 text-right">
-                        {!active && (
+                        {canEdit && !active && (
                           <>
                             <Button variant="ghost" size="sm" onClick={() => activate(dep)}>
                               <RotateCcw /> <Trans>Publish</Trans>

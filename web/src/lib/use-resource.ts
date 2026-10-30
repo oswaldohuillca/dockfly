@@ -3,45 +3,36 @@ import { toast } from 'sonner';
 
 import { errorMessage } from '@/lib/api';
 
-interface ResourceOptions<T> {
-  /** Recarga cada n ms (o según los datos: false = no recargar). */
-  interval?: number | ((data: T | undefined) => number | false);
-  /** Al cambiar, se vuelve a cargar. */
-  deps?: unknown[];
-  /** Sin aviso si falla (p. ej. un refresco en segundo plano). */
-  silent?: boolean;
-}
-
 /**
- * Datos de la API: los carga al montar (y al cambiar deps), los refresca
- * cada interval y avisa con un toast si falla. reload() vuelve a pedirlos.
+ * Datos de la API: los carga al montar, los refresca cada interval ms y avisa
+ * con un toast si falla la carga (los refrescos en segundo plano fallan en
+ * silencio, para no repetir el aviso en cada tick). reload() vuelve a pedirlos.
  */
-export function useResource<T>(fetch: () => Promise<T>, opts: ResourceOptions<T> = {}) {
+export function useResource<T>(fetch: () => Promise<T>, opts: { interval?: number } = {}) {
   const [data, setData] = useState<T>();
   const [loading, setLoading] = useState(true);
   const fetchRef = useRef(fetch);
   fetchRef.current = fetch;
-  const silent = opts.silent ?? false;
 
-  const reload = useCallback(async () => {
+  const load = useCallback(async (quiet: boolean) => {
     try {
       setData(await fetchRef.current());
     } catch (e) {
-      if (!silent) toast.error(errorMessage(e));
+      if (!quiet) toast.error(errorMessage(e));
     } finally {
       setLoading(false);
     }
-  }, [silent]);
+  }, []);
+  const reload = useCallback(() => load(false), [load]);
 
-  useEffect(() => void reload(), [reload, ...(opts.deps ?? [])]);
+  useEffect(() => void reload(), [reload]);
 
   const { interval } = opts;
-  const every = typeof interval === 'function' ? interval(data) : interval;
   useEffect(() => {
-    if (!every) return;
-    const id = setInterval(reload, every);
+    if (!interval) return;
+    const id = setInterval(() => load(true), interval);
     return () => clearInterval(id);
-  }, [every, reload]);
+  }, [interval, load]);
 
   return { data, setData, loading, reload };
 }

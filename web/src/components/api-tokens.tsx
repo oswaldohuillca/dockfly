@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 
 import { FormDialog } from '@/components/form-dialog';
 import { Badge } from '@/components/ui/badge';
+import { useConfirm } from '@/components/confirm';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -24,9 +25,11 @@ export function APITokens() {
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<string | null>(null);
   const run = useAction();
+  const { confirm, dialog } = useConfirm();
 
-  function revoke(token: APIToken) {
+  async function revoke(token: APIToken) {
     const name = token.name;
+    if (!(await confirm({ title: t`Revoke the token "${name}"?`, action: t`Revoke` }))) return;
     return run(() => api.deleteToken(token.id), { success: t`Token "${name}" revoked`, then: reload });
   }
 
@@ -111,6 +114,7 @@ export function APITokens() {
         />
       )}
       {created && <TokenCreatedDialog token={created} onClose={() => setCreated(null)} />}
+      {dialog}
     </Card>
   );
 }

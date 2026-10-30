@@ -42,6 +42,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { api, ApiError, appDeployFinished, errorMessage, type App, type AppDeployment, type DBBackups } from '@/lib/api';
 import { formatDate, timeAgo } from '@/lib/format';
+import { useCan } from '@/lib/roles';
 import { useCertificates } from '@/lib/use-certificates';
 import { useAction } from '@/lib/use-resource';
 import { useServerNames } from '@/lib/use-servers';
@@ -49,6 +50,7 @@ import { useServerNames } from '@/lib/use-servers';
 const triggerLabel = { manual: msg`Manual`, push: msg`Push`, rollback: msg`Rollback` };
 
 export function AppDetail({ id }: { id: number }) {
+  const canEdit = useCan('deployer');
   const { t, i18n } = useLingui();
   const servers = useServerNames();
   const navigate = useNavigate();
@@ -185,33 +187,35 @@ export function AppDetail({ id }: { id: number }) {
               </div>
             </CardDescription>
           </div>
-          <div className="flex flex-wrap gap-2">
-            <Button size="sm" onClick={deploy} disabled={active}>
-              <Play /> {deployed ? <Trans>Deploy</Trans> : <Trans>Deploy for the first time</Trans>}
-            </Button>
-            {deployed && (
-              <>
-                <Button size="sm" variant="outline" disabled={busy} onClick={() => run(t`Restarted`, () => api.appAction(id, 'restart'))}>
-                  <RotateCw /> <Trans>Restart</Trans>
-                </Button>
-                {app.stopped ? (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => run(t`Started`, () => api.appAction(id, 'start'))}>
-                    <Play /> <Trans>Start</Trans>
+          {canEdit && (
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" onClick={deploy} disabled={active}>
+                <Play /> {deployed ? <Trans>Deploy</Trans> : <Trans>Deploy for the first time</Trans>}
+              </Button>
+              {deployed && (
+                <>
+                  <Button size="sm" variant="outline" disabled={busy} onClick={() => run(t`Restarted`, () => api.appAction(id, 'restart'))}>
+                    <RotateCw /> <Trans>Restart</Trans>
                   </Button>
-                ) : (
-                  <Button size="sm" variant="outline" disabled={busy} onClick={() => run(t`Stopped`, () => api.appAction(id, 'stop'))}>
-                    <Square /> <Trans>Stop</Trans>
-                  </Button>
-                )}
-              </>
-            )}
-            <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
-              <Pencil /> <Trans>Configure</Trans>
-            </Button>
-            <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleting(true)}>
-              <Trash2 />
-            </Button>
-          </div>
+                  {app.stopped ? (
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => run(t`Started`, () => api.appAction(id, 'start'))}>
+                      <Play /> <Trans>Start</Trans>
+                    </Button>
+                  ) : (
+                    <Button size="sm" variant="outline" disabled={busy} onClick={() => run(t`Stopped`, () => api.appAction(id, 'stop'))}>
+                      <Square /> <Trans>Stop</Trans>
+                    </Button>
+                  )}
+                </>
+              )}
+              <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
+                <Pencil /> <Trans>Configure</Trans>
+              </Button>
+              <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleting(true)}>
+                <Trash2 />
+              </Button>
+            </div>
+          )}
         </CardHeader>
       </Card>
 
@@ -287,7 +291,7 @@ export function AppDetail({ id }: { id: number }) {
                           {timeAgo(d.created_at)}
                         </TableCell>
                         <TableCell className="pr-6 text-right" onClick={(e) => e.stopPropagation()}>
-                          {d.status === 'replaced' && d.image && (
+                          {canEdit && d.status === 'replaced' && d.image && (
                             <Button
                               variant="ghost"
                               size="sm"
@@ -380,6 +384,7 @@ export function AppDetail({ id }: { id: number }) {
 }
 
 function DeploymentLog({ deployment, onClose, onChange }: { deployment: AppDeployment; onClose: () => void; onChange: () => void }) {
+  const canEdit = useCan('deployer');
   const { t } = useLingui();
   const [d, setD] = useState(deployment);
   return (
@@ -402,7 +407,7 @@ function DeploymentLog({ deployment, onClose, onChange }: { deployment: AppDeplo
             onChange();
           }}
         />
-        {!appDeployFinished(d) && (
+        {canEdit && !appDeployFinished(d) && (
           <div className="flex justify-end">
             <Button
               variant="outline"

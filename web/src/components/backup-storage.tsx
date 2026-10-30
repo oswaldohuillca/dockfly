@@ -107,11 +107,15 @@ export function BackupStorageSettings() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="s3-key">Access key</Label>
+                <Label htmlFor="s3-key">
+                  <Trans>Access key</Trans>
+                </Label>
                 <Input id="s3-key" value={form.access_key} onChange={(e) => set('access_key', e.target.value)} required />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="s3-secret">Secret key</Label>
+                <Label htmlFor="s3-secret">
+                  <Trans>Secret key</Trans>
+                </Label>
                 <Input
                   id="s3-secret"
                   type="password"

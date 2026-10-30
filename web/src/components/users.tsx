@@ -5,6 +5,7 @@ import { Trans, useLingui } from '@lingui/react/macro';
 
 import { FormDialog } from '@/components/form-dialog';
 import { Badge } from '@/components/ui/badge';
+import { useConfirm } from '@/components/confirm';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -32,12 +33,14 @@ export function Users() {
   const [editing, setEditing] = useState<UserEntry | 'new' | null>(null);
   const [link, setLink] = useState<(PasswordLink & { user: UserEntry; invite: boolean }) | null>(null);
   const run = useAction();
+  const { confirm, dialog } = useConfirm();
 
   const newLink = (u: UserEntry) =>
     run(async () => setLink({ ...(await api.userLink(u.id)), user: u, invite: u.pending }));
 
-  function remove(u: UserEntry) {
+  async function remove(u: UserEntry) {
     const name = u.name;
+    if (!(await confirm({ title: t`Remove ${name}'s access?`, action: t`Remove` }))) return;
     return run(() => api.deleteUser(u.id), { success: t`${name} no longer has access`, then: reload });
   }
 
@@ -127,6 +130,7 @@ export function Users() {
         />
       )}
       {link && <LinkDialog link={link} onClose={() => setLink(null)} />}
+      {dialog}
     </Card>
   );
 }

@@ -26,9 +26,9 @@ import { useAction, useResource } from '@/lib/use-resource';
 
 export function CertificatesSettings() {
   const { t } = useLingui();
-  const { data: catalog = [] } = useResource(api.dnsCatalog, { silent: true });
+  const { data: catalog = [] } = useResource(api.dnsCatalog);
   const { data: providers = [], reload: reloadProviders } = useResource(api.listDNSProviders);
-  const { data: certs = [], reload: reloadCerts } = useResource(api.listCustomCerts, { silent: true });
+  const { data: certs = [], reload: reloadCerts } = useResource(api.listCustomCerts);
   const [editing, setEditing] = useState<DNSProvider | 'new' | null>(null);
   const [uploading, setUploading] = useState(false);
   const run = useAction();

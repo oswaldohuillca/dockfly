@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FormDialog } from '@/components/form-dialog';
 import { Badge } from '@/components/ui/badge';
+import { useConfirm } from '@/components/confirm';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -32,6 +33,7 @@ export function Servers() {
   const [adding, setAdding] = useState(false);
   const [join, setJoin] = useState<{ name: string; command: string; warning: string } | null>(null);
   const run = useAction();
+  const { confirm, dialog } = useConfirm();
 
   const rotate = (s: RemoteServer) =>
     run(async () => {
@@ -39,8 +41,10 @@ export function Servers() {
       setJoin({ name: s.name, command: res.command, warning: res.warning });
     });
 
-  const remove = (s: RemoteServer) =>
-    run(() => api.deleteServer(s.id), { success: t`${ph({ name: s.name })} deleted`, then: reload });
+  async function remove(s: RemoteServer) {
+    if (!(await confirm({ title: t`Delete the server ${ph({ name: s.name })}?` }))) return;
+    await run(() => api.deleteServer(s.id), { success: t`${ph({ name: s.name })} deleted`, then: reload });
+  }
 
   return (
     <Card>
@@ -135,6 +139,7 @@ export function Servers() {
         />
       )}
       {join && <JoinDialog {...join} onClose={() => setJoin(null)} />}
+      {dialog}
     </Card>
   );
 }

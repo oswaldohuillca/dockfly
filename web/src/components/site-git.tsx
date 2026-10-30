@@ -16,6 +16,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { api, buildFinished, errorMessage, type Build, type GitConnection, type Site } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { useAction } from '@/lib/use-resource';
+import { useCan } from '@/lib/roles';
 
 interface Props {
   site: Site;
@@ -33,6 +34,7 @@ export function SiteGit({ site, onChange }: Props) {
   const linked = site.repo !== '';
   const run = useAction();
   const { confirm, dialog } = useConfirm();
+  const canEdit = useCan('deployer');
 
   const loadBuilds = useCallback(async () => {
     if (!linked) return;
@@ -143,25 +145,27 @@ export function SiteGit({ site, onChange }: Props) {
               <Trans>Connect a GitHub or GitLab repository to build and publish the site on every push.</Trans>
             </CardDescription>
           )}
-          <CardAction className="flex gap-2">
-            {linked ? (
-              <>
-                <Button size="sm" onClick={deploy}>
-                  <Play /> <Trans>Deploy now</Trans>
+          {canEdit && (
+            <CardAction className="flex gap-2">
+              {linked ? (
+                <>
+                  <Button size="sm" onClick={deploy}>
+                    <Play /> <Trans>Deploy now</Trans>
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setConfiguring(true)} aria-label={t`Configure`}>
+                    <Settings2 />
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={unlink} aria-label={t`Disconnect`}>
+                    <Unplug />
+                  </Button>
+                </>
+              ) : (
+                <Button size="sm" variant="outline" onClick={() => setConfiguring(true)}>
+                  <Trans>Connect repository</Trans>
                 </Button>
-                <Button size="sm" variant="outline" onClick={() => setConfiguring(true)} aria-label={t`Configure`}>
-                  <Settings2 />
-                </Button>
-                <Button size="sm" variant="outline" onClick={unlink} aria-label={t`Disconnect`}>
-                  <Unplug />
-                </Button>
-              </>
-            ) : (
-              <Button size="sm" variant="outline" onClick={() => setConfiguring(true)}>
-                <Trans>Connect repository</Trans>
-              </Button>
-            )}
-          </CardAction>
+              )}
+            </CardAction>
+          )}
         </CardHeader>
 
         {linked && (

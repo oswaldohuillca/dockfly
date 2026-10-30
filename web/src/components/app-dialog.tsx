@@ -82,6 +82,9 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
   });
   const onRepoError = useCallback((msg: string) => setError(msg), [setError]);
 
+  // Por id y no por objeto: la página refresca la app cada pocos segundos y
+  // no debe pisar las variables que se están editando.
+  const appId = app?.id;
   useEffect(() => {
     api
       .listConnections()
@@ -90,9 +93,9 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
         setForm((f) => (f.connection_id === 0 && list.length > 0 ? { ...f, connection_id: list[0].id } : f));
       })
       .catch((e) => setError(errorMessage(e)));
-    if (app)
+    if (appId)
       api
-        .getAppEnv(app.id)
+        .getAppEnv(appId)
         .then((e) => setEnv(envToRows(e)))
         .catch((e) => setError(errorMessage(e)));
     else
@@ -100,7 +103,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
         .listServers()
         .then(setServers)
         .catch(() => {}); // solo los administradores ven los servidores
-  }, [app, setForm, setError]);
+  }, [appId, setForm, setError]);
 
   function applyTemplate(id: string) {
     const t = appTemplates.find((t) => t.id === id)!.build();
