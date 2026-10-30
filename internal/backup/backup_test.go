@@ -147,3 +147,38 @@ func TestStageRejectsBadArchives(t *testing.T) {
 		}
 	}
 }
+
+// Si el proceso muere a medias al aplicar la copia, el siguiente arranque
+// termina el trabajo sin apartar lo ya restaurado ni pisar los datos viejos.
+func TestApplyPendingResumes(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "dockfly.db"), "vieja")
+	write(t, filepath.Join(dir, "secret.key"), "vieja")
+	write(t, filepath.Join(dir, pendingDir, "dockfly.db"), "nueva")
+	write(t, filepath.Join(dir, pendingDir, "secret.key"), "nueva")
+
+	// Primer intento cortado: apartó lo viejo y movió secret.key, pero
+	// murió antes de mover la base de datos.
+	keep := "before-restore-1"
+	write(t, filepath.Join(dir, pendingDir, keepMarker), keep)
+	os.MkdirAll(filepath.Join(dir, keep), 0o700)
+	os.Rename(filepath.Join(dir, "dockfly.db"), filepath.Join(dir, keep, "dockfly.db"))
+	os.Rename(filepath.Join(dir, "secret.key"), filepath.Join(dir, keep, "secret.key"))
+	os.Rename(filepath.Join(dir, pendingDir, "secret.key"), filepath.Join(dir, "secret.key"))
+
+	applied, kept, err := ApplyPending(dir)
+	if err != nil || !applied || filepath.Base(kept) != keep {
+		t.Fatalf("ApplyPending: %v %s %v", applied, kept, err)
+	}
+	for path, want := range map[string]string{
+		"dockfly.db": "nueva", "secret.key": "nueva",
+		keep + "/dockfly.db": "vieja", keep + "/secret.key": "vieja",
+	} {
+		if b, _ := os.ReadFile(filepath.Join(dir, path)); string(b) != want {
+			t.Errorf("%s = %q, quería %q", path, b, want)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, pendingDir)); !os.IsNotExist(err) {
+		t.Error("la copia pendiente debe desaparecer")
+	}
+}

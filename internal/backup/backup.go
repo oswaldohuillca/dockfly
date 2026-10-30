@@ -244,12 +244,22 @@ func allowed(name string) bool {
 // ApplyPending aplica una copia preparada por Stage. Debe llamarse al
 // arrancar, antes de abrir la base de datos. Los datos que había se
 // conservan en dataDir/before-restore-<fecha>, por si hubiera que volver.
+//
+// Se puede repetir si se corta a medias (OOM, reinicio): reutiliza la misma
+// carpeta de respaldo, no aparta dos veces lo ya apartado (que ahora sería
+// lo restaurado) y mueve la base de datos la última.
 func ApplyPending(dataDir string) (applied bool, keptAt string, err error) {
 	pending := filepath.Join(dataDir, pendingDir)
 	if _, err := os.Stat(pending); errors.Is(err, fs.ErrNotExist) {
 		return false, "", nil
 	}
+	marker := filepath.Join(pending, keepMarker)
 	keep := filepath.Join(dataDir, "before-restore-"+time.Now().UTC().Format("20060102-150405"))
+	if raw, err := os.ReadFile(marker); err == nil {
+		keep = filepath.Join(dataDir, string(raw))
+	} else if err := os.WriteFile(marker, []byte(filepath.Base(keep)), 0o600); err != nil {
+		return false, "", err
+	}
 	if err := os.MkdirAll(filepath.Join(keep, "traefik"), 0o700); err != nil {
 		return false, "", err
 	}
@@ -257,9 +267,12 @@ func ApplyPending(dataDir string) (applied bool, keptAt string, err error) {
 	current := append([]string{"dockfly.db", "dockfly.db-wal", "dockfly.db-shm"}, files...)
 	current = append(current, dirs...)
 	for _, name := range current {
-		src := filepath.Join(dataDir, name)
+		src, dst := filepath.Join(dataDir, name), filepath.Join(keep, name)
+		if _, err := os.Stat(dst); err == nil {
+			continue // ya se apartó en un intento anterior
+		}
 		if _, err := os.Stat(src); err == nil {
-			if err := os.Rename(src, filepath.Join(keep, name)); err != nil {
+			if err := os.Rename(src, dst); err != nil {
 				return false, "", fmt.Errorf("apartando %s: %w", name, err)
 			}
 		}
@@ -269,6 +282,11 @@ func ApplyPending(dataDir string) (applied bool, keptAt string, err error) {
 		return false, "", err
 	}
 	for _, e := range entries {
+		// dockfly.db va el último (abajo): mientras siga en pending, un
+		// reinicio vuelve a pasar por aquí.
+		if e.Name() == keepMarker || e.Name() == "dockfly.db" {
+			continue
+		}
 		dst := filepath.Join(dataDir, e.Name())
 		if e.IsDir() {
 			// traefik/ ya existe (lo crea Dockfly): movemos su contenido.
@@ -281,8 +299,15 @@ func ApplyPending(dataDir string) (applied bool, keptAt string, err error) {
 			return false, "", err
 		}
 	}
+	if err := os.Rename(filepath.Join(pending, "dockfly.db"), filepath.Join(dataDir, "dockfly.db")); err != nil &&
+		!errors.Is(err, fs.ErrNotExist) {
+		return false, "", err
+	}
 	return true, keep, os.RemoveAll(pending)
 }
+
+// keepMarker guarda, dentro de pending, la carpeta de respaldo elegida.
+const keepMarker = ".keep"
 
 func mergeDir(src, dst string) error {
 	if _, err := os.Stat(dst); errors.Is(err, fs.ErrNotExist) {
