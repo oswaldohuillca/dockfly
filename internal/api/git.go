@@ -537,18 +537,7 @@ func (s *Server) handleBuildLogs(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	w.Header().Set("Content-Type", "text/event-stream")
-	w.Header().Set("Cache-Control", "no-cache")
-	w.Header().Set("X-Accel-Buffering", "no")
-	rc := http.NewResponseController(w)
-
-	send := func(event string, data any) bool {
-		payload, _ := json.Marshal(data)
-		if _, err := fmt.Fprintf(w, "event: %s\ndata: %s\n\n", event, payload); err != nil {
-			return false
-		}
-		return rc.Flush() == nil
-	}
+	send := newSSE(w).send
 
 	// El cliente puede tener un estado viejo (p. ej. el de la lista): le
 	// mandamos el actual nada más conectar.

@@ -63,7 +63,7 @@ func (s *S3) Put(ctx context.Context, key string, r io.Reader, size int64) error
 	}
 	req.ContentLength = size
 	req.Header.Set("Content-Type", "application/gzip")
-	return s.do(req, nil)
+	return s.do(req)
 }
 
 func (s *S3) Get(ctx context.Context, key string) (io.ReadCloser, error) {
@@ -92,7 +92,7 @@ func (s *S3) Delete(ctx context.Context, key string) error {
 	if err != nil {
 		return err
 	}
-	return s.do(req, nil)
+	return s.do(req)
 }
 
 // Check sube y borra un objeto pequeño: así se comprueban a la vez las
@@ -105,7 +105,7 @@ func (s *S3) Check(ctx context.Context) error {
 	return s.Delete(ctx, key)
 }
 
-func (s *S3) do(req *http.Request, out any) error {
+func (s *S3) do(req *http.Request) error {
 	s.sign(req)
 	resp, err := s.client().Do(req)
 	if err != nil {
@@ -114,9 +114,6 @@ func (s *S3) do(req *http.Request, out any) error {
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		return s3Error(resp)
-	}
-	if out != nil {
-		return xml.NewDecoder(resp.Body).Decode(out)
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
 	return nil

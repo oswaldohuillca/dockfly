@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -29,22 +28,6 @@ type Agent struct {
 	Log     *slog.Logger
 	// HTTP es el cliente del canal de control (sin timeout global).
 	HTTP *http.Client
-
-	mu        sync.Mutex
-	connected bool
-}
-
-// Connected indica si el canal de control está abierto ahora mismo.
-func (a *Agent) Connected() bool {
-	a.mu.Lock()
-	defer a.mu.Unlock()
-	return a.connected
-}
-
-func (a *Agent) setConnected(v bool) {
-	a.mu.Lock()
-	a.connected = v
-	a.mu.Unlock()
 }
 
 // Run mantiene la conexión con el panel, reconectando si se corta.
@@ -53,7 +36,6 @@ func (a *Agent) Run(ctx context.Context) {
 	for ctx.Err() == nil {
 		start := time.Now()
 		err := a.control(ctx)
-		a.setConnected(false)
 		if ctx.Err() != nil {
 			return
 		}
@@ -100,7 +82,6 @@ func (a *Agent) control(ctx context.Context) error {
 		}
 		return fmt.Errorf("el panel respondió %s", resp.Status)
 	}
-	a.setConnected(true)
 	a.Log.Info("conectado al panel", "panel", a.PanelURL)
 
 	// Si el panel deja de hablar (ni pings), la conexión está muerta.
