@@ -250,9 +250,11 @@ func (s *Server) checkContainers(ctx context.Context, down map[string]bool) {
 			})
 		}
 	}
-	// Los que ya no vigila ningún host dejan de contar como caídos.
+	// Los que ya no vigila ningún host dejan de contar como caídos (los de
+	// servidores remotos los lleva checkRemote: si se borraran aquí, cada
+	// minuto volvería a avisar de la caída y nunca de la vuelta).
 	for name := range down {
-		if _, ok := watched[name]; !ok {
+		if _, ok := watched[name]; !ok && !strings.HasPrefix(name, "server:") {
 			delete(down, name)
 		}
 	}
