@@ -299,16 +299,27 @@ func (s *Server) refuseIfInUse(w http.ResponseWriter, r *http.Request, match fun
 			ids = append(ids, c.ID)
 		}
 	}
+	// Sus sitios y apps quedarían sin poder construir y con webhooks huérfanos.
 	sites, err := s.Store.SitesUsingConnections(r.Context(), ids)
 	if err != nil {
 		s.internalError(w, err)
 		return false
 	}
-	if len(sites) > 0 {
-		names := make([]string, len(sites))
-		for i, st := range sites {
-			names[i] = st.Name
+	apps, err := s.Store.ListApps(r.Context())
+	if err != nil {
+		s.internalError(w, err)
+		return false
+	}
+	var names []string
+	for _, st := range sites {
+		names = append(names, st.Name)
+	}
+	for _, a := range apps {
+		if a.GitConnectionID != nil && slices.Contains(ids, *a.GitConnectionID) {
+			names = append(names, a.Name)
 		}
+	}
+	if len(names) > 0 {
 		writeError(w, http.StatusConflict, errGitConnectionInUse.With("sites", strings.Join(names, ", ")))
 		return false
 	}

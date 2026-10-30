@@ -77,3 +77,20 @@ func TestDeployerCannotChangeSiteRouting(t *testing.T) {
 		t.Errorf("el admin sí: %d", code)
 	}
 }
+
+// Una cuenta de Git que usa una app no se puede borrar: la app se quedaría
+// sin repositorio (ON DELETE SET NULL) y con el webhook huérfano.
+func TestGitConnectionInUseByApp(t *testing.T) {
+	gh := newFakeGitHub(t)
+	ts, _, _ := testServerWithPages(t)
+	admin := newClient(t, ts)
+	admin.do("POST", "/api/setup", adminJSON)
+	admin.do("POST", "/api/git/connections", fmt.Sprintf(`{"provider":"github","base_url":%q,"token":"ghp_bueno"}`, gh.URL))
+	if code, body := admin.do("POST", "/api/apps", `{"name":"api","source":"git","connection_id":1,"repo":"oswa/web","branch":"main","port":8080}`); code != 201 {
+		t.Fatalf("crear app: %d %v", code, body)
+	}
+	code, body := admin.do("DELETE", "/api/git/connections/1", "")
+	if code != 409 || body["code"] != "git_connection_in_use" || body["params"].(map[string]any)["sites"] != "api" {
+		t.Errorf("borrar una cuenta en uso por una app: %d %v", code, body)
+	}
+}

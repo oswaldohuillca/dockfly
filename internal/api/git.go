@@ -28,7 +28,7 @@ var (
 	errGitInvalidProvider    = newError("git_invalid_provider", "Invalid provider: use github or gitlab")
 	errGitTokenRequired      = newError("git_token_required", "The token is required")
 	errGitTokenCheckFailed   = newError("git_token_check_failed", "Couldn't verify the token: {detail}")
-	errGitConnectionInUse    = newError("git_connection_in_use", "These sites use it; disconnect them first: {sites}")
+	errGitConnectionInUse    = newError("git_connection_in_use", "These sites and apps use it; disconnect them first: {sites}")
 	errGitConnectionNotFound = newError("git_connection_not_found", "Account not found")
 	errPreviewDomainInvalid  = newError("preview_domain_invalid", "The previews domain must look like previews.mydomain.com (without *.)")
 	errPublicURLInvalid      = newError("public_url_invalid", "The public URL must look like https://dockfly.mydomain.com")
@@ -105,25 +105,11 @@ func (s *Server) handleDeleteConnection(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	// No se puede borrar una cuenta en uso: sus sitios quedarían con webhooks
-	// huérfanos y sin poder construir.
-	sites, err := s.Store.ListSites(r.Context())
-	if err != nil {
-		s.internalError(w, err)
-		return
-	}
-	var using []string
-	for _, site := range sites {
-		if site.GitConnectionID != nil && *site.GitConnectionID == id {
-			using = append(using, site.Name)
-		}
-	}
-	if len(using) > 0 {
-		writeError(w, http.StatusConflict, errGitConnectionInUse.With("sites", strings.Join(using, ", ")))
+	if !s.refuseIfInUse(w, r, func(c *store.GitConnection) bool { return c.ID == id }) {
 		return
 	}
 	s.Git.Forget(id)
-	err = s.Store.DeleteGitConnection(r.Context(), id)
+	err := s.Store.DeleteGitConnection(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeError(w, http.StatusNotFound, errGitConnectionNotFound)
 		return

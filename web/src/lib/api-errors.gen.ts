@@ -90,7 +90,7 @@ export const apiErrors: Record<string, MessageDescriptor> = {
   git_app_not_found: msg({ context: "api:git_app_not_found", message: "App not found" }),
   git_branch_required: msg({ context: "api:git_branch_required", message: "Enter the branch to deploy" }),
   git_branch_unreachable: msg({ context: "api:git_branch_unreachable", message: "Couldn't access {repo} ({branch}): {detail}" }),
-  git_connection_in_use: msg({ context: "api:git_connection_in_use", message: "These sites use it; disconnect them first: {sites}" }),
+  git_connection_in_use: msg({ context: "api:git_connection_in_use", message: "These sites and apps use it; disconnect them first: {sites}" }),
   git_connection_missing: msg({ context: "api:git_connection_missing", message: "The selected account doesn't exist" }),
   git_connection_not_found: msg({ context: "api:git_connection_not_found", message: "Account not found" }),
   git_connection_required: msg({ context: "api:git_connection_required", message: "Choose a GitHub or GitLab account" }),
