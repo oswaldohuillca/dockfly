@@ -151,6 +151,7 @@ export const apiErrors: Record<string, MessageDescriptor> = {
   site_name_taken: msg({ context: "api:site_name_taken", message: "A site with that name already exists" }),
   site_not_found: msg({ context: "api:site_not_found", message: "Site not found" }),
   site_not_linked: msg({ context: "api:site_not_linked", message: "The site isn't linked to any repository" }),
+  site_routing_admin_only: msg({ context: "api:site_routing_admin_only", message: "Only an administrator can change custom locations or the access list" }),
   site_webhooks_inactive: msg({ context: "api:site_webhooks_inactive", message: "This site has no active webhooks" }),
   stream_forward_host_invalid: msg({ context: "api:stream_forward_host_invalid", message: "Enter the target host (a container, an app or an IP)" }),
   stream_not_found: msg({ context: "api:stream_not_found", message: "Stream not found" }),

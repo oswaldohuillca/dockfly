@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -106,7 +107,7 @@ func (s *Server) handleGetSite(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleCreateSite(w http.ResponseWriter, r *http.Request) {
 	site, ok := s.readSite(w, r, 0)
-	if !ok {
+	if !ok || !s.checkSiteRouting(w, r, &store.Site{AccessListID: site.AccessListID}, site) {
 		return
 	}
 	if err := s.Store.CreateSite(r.Context(), site); err != nil {
@@ -127,7 +128,7 @@ func (s *Server) handleUpdateSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	site, ok := s.readSite(w, r, existing.ID)
-	if !ok {
+	if !ok || !s.checkSiteRouting(w, r, existing, site) {
 		return
 	}
 	site.ID, site.CreatedAt = existing.ID, existing.CreatedAt
@@ -450,4 +451,20 @@ func isUniqueViolation(err error) bool {
 func isMultipartUpload(r *http.Request) bool {
 	mt, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	return err == nil && mt == "multipart/form-data" && r.Header.Get(uploadHeader) == "1"
+}
+
+// checkSiteRouting: las ubicaciones mandan tráfico a cualquier destino (como
+// un proxy host) y la lista de acceso protege el sitio; cambiarlas es cosa
+// del admin, igual que crear proxy hosts.
+func (s *Server) checkSiteRouting(w http.ResponseWriter, r *http.Request, old, site *store.Site) bool {
+	oldLocs, _ := json.Marshal(old.Locations)
+	newLocs, _ := json.Marshal(site.Locations)
+	sameACL := (old.AccessListID == nil) == (site.AccessListID == nil) &&
+		(old.AccessListID == nil || *old.AccessListID == *site.AccessListID)
+	sameLocs := string(oldLocs) == string(newLocs) || len(old.Locations)+len(site.Locations) == 0
+	if (!sameLocs || !sameACL) && !isAdmin(r) {
+		writeError(w, http.StatusForbidden, errSiteRoutingAdmin)
+		return false
+	}
+	return true
 }

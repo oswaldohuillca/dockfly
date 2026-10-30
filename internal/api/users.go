@@ -27,15 +27,18 @@ var (
 	errLastAdmin         = newError("last_admin", "This is the only administrator: make someone else an administrator first")
 	errDeleteSelf        = newError("delete_own_account", "You can't delete your own account")
 	errRepoLinkAdmin     = newError("repo_link_admin_only", "Only an administrator can link a new repository")
+	errSiteRoutingAdmin  = newError("site_routing_admin_only", "Only an administrator can change custom locations or the access list")
 )
+
+func isAdmin(r *http.Request) bool {
+	return store.RoleRank(effectiveRole(currentUser(r), currentToken(r))) >= store.RoleRank(store.RoleAdmin)
+}
 
 // canLinkRepo: enlazar un repositorio nuevo (a un sitio o una app) es cosa
 // del admin. Las cuentas Git son suyas y ven todos sus repos privados: un
 // deployer podría publicar cualquiera de ellos. El deployer sí puede cambiar
 // la rama o el build de los ya enlazados.
-func canLinkRepo(r *http.Request) bool {
-	return store.RoleRank(effectiveRole(currentUser(r), currentToken(r))) >= store.RoleRank(store.RoleAdmin)
-}
+func canLinkRepo(r *http.Request) bool { return isAdmin(r) }
 
 // --- Permisos ---
 

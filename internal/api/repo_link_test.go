@@ -45,3 +45,35 @@ func TestDeployerCannotLinkRepos(t *testing.T) {
 		t.Errorf("un deployer no crea apps desde un repo: %d %v", code, body)
 	}
 }
+
+// Las ubicaciones de un sitio publican cualquier destino, como un proxy host:
+// solo el admin las cambia (y la lista de acceso). El deployer sí edita el resto.
+func TestDeployerCannotChangeSiteRouting(t *testing.T) {
+	ts, _, _ := testServerWithPages(t)
+	admin := newClient(t, ts)
+	admin.do("POST", "/api/setup", adminJSON)
+	admin.do("POST", "/api/access-lists", `{"name":"oficina","allow_ips":["10.0.0.0/8"]}`)
+	if code, body := admin.do("POST", "/api/sites", `{"name":"web","domains":["web.test"],"access_list_id":1}`); code != 201 {
+		t.Fatalf("crear sitio: %d %v", code, body)
+	}
+	_, inv := admin.do("POST", "/api/users", `{"name":"Dev","email":"dev@test.com","role":"deployer"}`)
+	dev := newClient(t, ts)
+	accept(t, dev, inv["link"].(string), "dev-secreto")
+
+	loc := `{"name":"web","domains":["web.test"],"access_list_id":1,"locations":[{"path":"/x","target_type":"external","forward_scheme":"http","forward_host":"169.254.169.254","forward_port":80,"access":"public"}]}`
+	if code, body := dev.do("PUT", "/api/sites/1", loc); code != 403 || body["code"] != "site_routing_admin_only" {
+		t.Errorf("un deployer no añade ubicaciones: %d %v", code, body)
+	}
+	if code, _ := dev.do("PUT", "/api/sites/1", `{"name":"web","domains":["web.test"]}`); code != 403 {
+		t.Errorf("un deployer no quita la lista de acceso: %d", code)
+	}
+	if code, body := dev.do("PUT", "/api/sites/1", `{"name":"web","domains":["web.test"],"access_list_id":1,"spa":true}`); code != 200 {
+		t.Errorf("un deployer sí edita lo demás: %d %v", code, body)
+	}
+	if code, _ := dev.do("POST", "/api/sites", `{"name":"otro","domains":["otro.test"],"locations":[{"path":"/x","target_type":"external","forward_scheme":"http","forward_host":"10.0.0.1","forward_port":80,"access":"public"}]}`); code != 403 {
+		t.Errorf("un deployer no crea sitios con ubicaciones: %d", code)
+	}
+	if code, _ := admin.do("PUT", "/api/sites/1", loc); code != 200 {
+		t.Errorf("el admin sí: %d", code)
+	}
+}
