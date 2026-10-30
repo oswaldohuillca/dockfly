@@ -215,6 +215,16 @@ func run(log *slog.Logger) error {
 		}
 	}
 	srv.Builds = builder.New(buildCfg)
+	go func() {
+		for {
+			builder.PruneLogs(buildCfg.LogDir, 30*24*time.Hour)
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(24 * time.Hour):
+			}
+		}
+	}()
 	srv.Hub = &tunnel.Hub{OnConnect: srv.OnAgentConnect}
 	// Instalación nueva: el alta del administrador exige este código, que
 	// solo ve quien tiene acceso al servidor.

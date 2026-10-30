@@ -420,3 +420,23 @@ func TestBuildCacheIsReused(t *testing.T) {
 	}
 	assertNoBuildContainers(t, dc)
 }
+
+func TestPruneLogs(t *testing.T) {
+	dir := t.TempDir()
+	old, fresh := filepath.Join(dir, "1.log"), filepath.Join(dir, "app-2.log")
+	os.WriteFile(old, []byte("x"), 0o644)
+	os.WriteFile(fresh, []byte("x"), 0o644)
+	os.WriteFile(filepath.Join(dir, "otro.txt"), []byte("x"), 0o644)
+	past := time.Now().Add(-40 * 24 * time.Hour)
+	os.Chtimes(old, past, past)
+	os.Chtimes(filepath.Join(dir, "otro.txt"), past, past)
+	PruneLogs(dir, 30*24*time.Hour)
+	if _, err := os.Stat(old); !os.IsNotExist(err) {
+		t.Error("el log viejo debe borrarse")
+	}
+	for _, keep := range []string{fresh, filepath.Join(dir, "otro.txt")} {
+		if _, err := os.Stat(keep); err != nil {
+			t.Errorf("%s no debe borrarse", keep)
+		}
+	}
+}

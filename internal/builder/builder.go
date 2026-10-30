@@ -42,7 +42,7 @@ const LabelBuild = "dockfly.build"
 
 const (
 	maxSourceBytes = 1 << 30 // 1 GiB de código fuente
-	maxLogBytes    = 5 << 20 // 5 MiB de log por build
+	MaxLogBytes    = 5 << 20 // 5 MiB de log por build o deploy
 )
 
 // Providers da un cliente con credenciales vigentes para una conexión
@@ -220,7 +220,7 @@ func (m *Manager) run(parent context.Context, id int64) {
 		return
 	}
 	defer logFile.Close()
-	logw := &cappedWriter{w: logFile, remaining: maxLogBytes}
+	logw := NewCappedWriter(logFile)
 
 	start := time.Now()
 	depID, err := m.pipeline(ctx, b, logw)

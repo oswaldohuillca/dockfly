@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dockfly/dockfly/internal/builder"
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/dockerproxy"
 	"github.com/dockfly/dockfly/internal/gitprovider"
@@ -252,7 +253,7 @@ func (m *Manager) run(parent context.Context, id int64) {
 		return
 	}
 	defer f.Close()
-	log := io.Writer(f)
+	log := io.Writer(builder.NewCappedWriter(f))
 	start := time.Now()
 
 	err = m.deploy(ctx, d, log)

@@ -5,8 +5,11 @@ import (
 	"compress/gzip"
 	"fmt"
 	"io"
+	"os"
 	"path"
+	"path/filepath"
 	"strings"
+	"time"
 )
 
 // buildUID es el usuario sin privilegios con el que corre el build. En
@@ -102,15 +105,29 @@ func repack(gz io.Reader, w io.Writer, maxBytes int64) error {
 	return tw.Close()
 }
 
-// cappedWriter deja de escribir al llegar a max bytes, para que un build
-// muy ruidoso no llene el disco.
-type cappedWriter struct {
+// CappedWriter deja de escribir al llegar a MaxLogBytes, para que un build
+// (o el deploy de una app) muy ruidoso no llene el disco.
+type CappedWriter struct {
 	w         io.Writer
 	remaining int64
 	truncated bool
 }
 
-func (c *cappedWriter) Write(p []byte) (int, error) {
+// NewCappedWriter limita w a MaxLogBytes.
+func NewCappedWriter(w io.Writer) *CappedWriter { return &CappedWriter{w: w, remaining: MaxLogBytes} }
+
+// PruneLogs borra los logs de builds y deploys de dir con más de maxAge.
+// Pesan hasta 5 MiB cada uno y no se borraban nunca.
+func PruneLogs(dir string, maxAge time.Duration) {
+	entries, _ := os.ReadDir(dir)
+	for _, e := range entries {
+		if info, err := e.Info(); err == nil && strings.HasSuffix(e.Name(), ".log") && time.Since(info.ModTime()) > maxAge {
+			_ = os.Remove(filepath.Join(dir, e.Name()))
+		}
+	}
+}
+
+func (c *CappedWriter) Write(p []byte) (int, error) {
 	if c.remaining <= 0 {
 		if !c.truncated {
 			c.truncated = true
