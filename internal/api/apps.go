@@ -47,6 +47,7 @@ var (
 	errAppServerNotFound       = newError("app_server_not_found", "The server doesn't exist")
 	errAppComposeRemote        = newError("app_compose_remote", "Compose apps can only be deployed on the main server, for now")
 	errAppNameTaken            = newError("app_name_taken", "An app with that name already exists")
+	errAppVolumeShared         = newError("app_volume_shared", "The volume {volume} would share its data with the app {app}: give it another name")
 	errAppNoReusableImage      = newError("app_no_reusable_image", "That deployment has no reusable image")
 	errAppImageGone            = newError("app_image_gone", "That deployment's image no longer exists; deploy again")
 	errAppNotDeployed          = newError("app_not_deployed", "The app hasn't been deployed yet")
@@ -264,6 +265,7 @@ func (s *Server) handleCreateApp(w http.ResponseWriter, r *http.Request) {
 		a.ServerID = in.ServerID
 	}
 	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp}) || !s.checkAccessList(w, r, a.AccessListID) ||
+		!s.checkVolumes(w, r, a, 0) ||
 		!s.checkSSL(w, r, a.Domains, a.SSL) {
 		return
 	}
@@ -313,6 +315,7 @@ func (s *Server) handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !s.checkDomains(w, r, a.Domains, owner{kind: ownerApp, id: existing.ID}) || !s.checkAccessList(w, r, a.AccessListID) ||
+		!s.checkVolumes(w, r, a, existing.ID) ||
 		!s.checkSSL(w, r, a.Domains, a.SSL) {
 		return
 	}
@@ -647,4 +650,34 @@ func (s *Server) handleAppWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]any{"status": "en cola", "deployment_id": d.ID})
+}
+
+// checkVolumes evita que dos apps compartan datos: el volumen de Docker se
+// llama dockfly-app-<app>-<volumen>, así que la app "shop" con "db-data" y
+// la app "shop-db" con "data" acabarían en el mismo.
+func (s *Server) checkVolumes(w http.ResponseWriter, r *http.Request, a *store.App, selfID int64) bool {
+	if len(a.Volumes) == 0 {
+		return true
+	}
+	others, err := s.Store.ListApps(r.Context())
+	if err != nil {
+		s.internalError(w, err)
+		return false
+	}
+	taken := map[string]string{}
+	for _, o := range others {
+		if o.ID == selfID {
+			continue
+		}
+		for _, v := range o.Volumes {
+			taken[apps.VolumeName(o, v)] = o.Name
+		}
+	}
+	for _, v := range a.Volumes {
+		if other, ok := taken[apps.VolumeName(a, v)]; ok {
+			writeError(w, http.StatusConflict, errAppVolumeShared.With("volume", v.Name, "app", other))
+			return false
+		}
+	}
+	return true
 }

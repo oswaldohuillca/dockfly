@@ -69,3 +69,21 @@ func TestAppsAPI(t *testing.T) {
 		t.Errorf("borrar: %d", code)
 	}
 }
+
+// Dos apps no pueden acabar en el mismo volumen de Docker
+// (dockfly-app-<app>-<volumen>): "shop"+"db-data" = "shop-db"+"data".
+func TestAppVolumesNotShared(t *testing.T) {
+	ts, _, _ := testServerWithPages(t)
+	c := newClient(t, ts)
+	c.do("POST", "/api/setup", adminJSON)
+	if code, res := c.do("POST", "/api/apps", `{"name":"shop","source":"image","image":"nginx","volumes":[{"name":"db-data","path":"/d"}]}`); code != 201 {
+		t.Fatalf("crear shop: %d %v", code, res)
+	}
+	code, res := c.do("POST", "/api/apps", `{"name":"shop-db","source":"image","image":"postgres","volumes":[{"name":"data","path":"/var/lib/postgresql/data"}]}`)
+	if code != 409 || res["code"] != "app_volume_shared" {
+		t.Errorf("volumen compartido: %d %v", code, res)
+	}
+	if code, _ := c.do("POST", "/api/apps", `{"name":"shop-db","source":"image","image":"postgres","volumes":[{"name":"pg","path":"/var/lib/postgresql/data"}]}`); code != 201 {
+		t.Errorf("con otro nombre sí: %d", code)
+	}
+}

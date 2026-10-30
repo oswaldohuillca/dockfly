@@ -39,6 +39,7 @@ export const apiErrors: Record<string, MessageDescriptor> = {
   app_source_invalid: msg({ context: "api:app_source_invalid", message: "The source must be an image or a repository" }),
   app_volume_name_invalid: msg({ context: "api:app_volume_name_invalid", message: "Invalid or duplicate volume name: {name}" }),
   app_volume_path_not_absolute: msg({ context: "api:app_volume_path_not_absolute", message: "The path of volume {name} must be absolute (e.g. /data)" }),
+  app_volume_shared: msg({ context: "api:app_volume_shared", message: "The volume {volume} would share its data with the app {app}: give it another name" }),
   app_webhook_inactive: msg({ context: "api:app_webhook_inactive", message: "This app has no active webhooks" }),
   app_webhook_unknown_provider: msg({ context: "api:app_webhook_unknown_provider", message: "Unknown provider" }),
   backup_invalid: msg({ context: "api:backup_invalid", message: "Invalid backup: {detail}" }),
