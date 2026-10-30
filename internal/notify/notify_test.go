@@ -238,3 +238,15 @@ func TestDispatcher(t *testing.T) {
 		t.Error("tras Forget debe volver a avisar")
 	}
 }
+
+// Un fallo de red no puede llevar la URL: la de Telegram contiene el token.
+func TestPostJSONHidesURL(t *testing.T) {
+	err := postJSON(context.Background(), "http://127.0.0.1:1/bot123:SECRETO/sendMessage", map[string]string{}, nil)
+	if err == nil || strings.Contains(err.Error(), "SECRETO") {
+		t.Fatalf("el error no debe incluir la URL: %v", err)
+	}
+	err = postJSON(context.Background(), "http://[::1/botSECRETO", map[string]string{}, nil)
+	if err == nil || strings.Contains(err.Error(), "SECRETO") {
+		t.Fatalf("una URL mal formada tampoco: %v", err)
+	}
+}

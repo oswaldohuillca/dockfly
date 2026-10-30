@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html"
 	"io"
@@ -23,6 +24,17 @@ import (
 
 var httpClient = &http.Client{Timeout: 20 * time.Second}
 
+// hideURL quita la URL de un error de red: la de Telegram lleva el token del
+// bot y la de un webhook de Discord/Slack es su secreto. El error se guarda en
+// last_error, que ven todos los usuarios.
+func hideURL(err error) error {
+	var ue *url.Error
+	if errors.As(err, &ue) {
+		return fmt.Errorf("%s: %w", ue.Op, ue.Err)
+	}
+	return err
+}
+
 func postJSON(ctx context.Context, rawURL string, body any, headers map[string]string) error {
 	data, err := json.Marshal(body)
 	if err != nil {
@@ -30,7 +42,7 @@ func postJSON(ctx context.Context, rawURL string, body any, headers map[string]s
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, rawURL, bytes.NewReader(data))
 	if err != nil {
-		return err
+		return hideURL(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", "Dockfly")
@@ -39,7 +51,7 @@ func postJSON(ctx context.Context, rawURL string, body any, headers map[string]s
 	}
 	resp, err := httpClient.Do(req)
 	if err != nil {
-		return err
+		return hideURL(err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
