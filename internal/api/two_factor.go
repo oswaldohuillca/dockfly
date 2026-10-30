@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/dockfly/dockfly/internal/auth"
@@ -20,10 +19,6 @@ const (
 	mfaTicketPurpose = "mfa"
 	mfaTicketTTL     = 5 * time.Minute
 	recoveryCodes    = 10
-	// Fallos permitidos por usuario antes de bloquear el segundo paso un
-	// rato: el límite por IP no basta si el atacante rota direcciones.
-	mfaMaxFailures = 10
-	mfaLockout     = 15 * time.Minute
 )
 
 // Errores de la verificación en dos pasos.
@@ -38,48 +33,6 @@ var (
 	err2FAWrongSetupCode = newError("two_factor_wrong_setup_code", "Wrong code: check that your phone's clock is correct")
 	err2FANotEnabled     = newError("two_factor_not_enabled", "Two-step verification isn't enabled")
 )
-
-// mfaFailures cuenta los códigos incorrectos por usuario.
-type mfaFailures struct {
-	mu   sync.Mutex
-	byID map[int64]mfaCounter
-}
-
-type mfaCounter struct {
-	n     int
-	since time.Time
-}
-
-func (f *mfaFailures) blocked(id int64) bool {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	c, ok := f.byID[id]
-	if ok && time.Since(c.since) > mfaLockout {
-		delete(f.byID, id)
-		return false
-	}
-	return ok && c.n >= mfaMaxFailures
-}
-
-func (f *mfaFailures) fail(id int64) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	if f.byID == nil {
-		f.byID = map[int64]mfaCounter{}
-	}
-	c := f.byID[id]
-	if c.n == 0 {
-		c.since = time.Now()
-	}
-	c.n++
-	f.byID[id] = c
-}
-
-func (f *mfaFailures) reset(id int64) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	delete(f.byID, id)
-}
 
 // checkSecondFactor acepta un código TOTP o uno de recuperación.
 func (s *Server) checkSecondFactor(ctx context.Context, u *store.User, code string) (ok bool, usedRecovery bool, err error) {
@@ -116,7 +69,7 @@ func (s *Server) handleLogin2FA(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusUnauthorized, errLoginExpired)
 		return
 	}
-	if s.mfa.blocked(id) {
+	if s.mfa.blocked(id, mfaMaxFailures) {
 		writeError(w, http.StatusTooManyRequests, errTooManyCodes)
 		return
 	}

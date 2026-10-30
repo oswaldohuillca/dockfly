@@ -78,10 +78,10 @@ type Server struct {
 	SetupToken string
 
 	applyMu   sync.Mutex
-	mfa       mfaFailures
+	mfa       failures[int64] // códigos de 2FA incorrectos por usuario
 	csrf      *http.CrossOriginProtection
 	csrfOnce  sync.Once
-	loginFail loginFailures
+	loginFail failures[string] // contraseñas incorrectas por email
 }
 
 // Apply publica el estado actual: regenera la configuración de Traefik y la
@@ -252,7 +252,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
-	if s.loginFail.blocked(in.Email) {
+	if s.loginFail.blocked(loginKey(in.Email), loginMaxFailures) {
 		writeError(w, http.StatusTooManyRequests, errTooManyAttempts)
 		return
 	}
@@ -269,11 +269,11 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		hash = u.PasswordHash
 	}
 	if !auth.CheckPassword(hash, in.Password) || u == nil || u.PasswordHash == "" {
-		s.loginFail.fail(in.Email)
+		s.loginFail.fail(loginKey(in.Email))
 		writeError(w, http.StatusUnauthorized, errBadCredentials)
 		return
 	}
-	s.loginFail.reset(in.Email)
+	s.loginFail.reset(loginKey(in.Email))
 	if u.TOTPEnabled {
 		writeJSON(w, http.StatusOK, map[string]any{
 			"two_factor": true, "ticket": s.Signer.IssueTicket(mfaTicketPurpose, u.ID, mfaTicketTTL),
