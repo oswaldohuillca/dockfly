@@ -161,8 +161,18 @@ func (m *Manager) recover(ctx context.Context) {
 	running, _ := st.ListAppDeploymentsByStatus(ctx, store.DeployRunning)
 	for _, d := range running {
 		_ = st.FinishAppDeployment(ctx, d.ID, store.DeployFailed, "interrumpido por un reinicio de Dockfly")
-		if app, err := st.GetApp(ctx, d.AppID); err == nil && d.Container != "" && m.Docker(app) != nil {
+		app, err := st.GetApp(ctx, d.AppID)
+		if err != nil || m.Docker(app) == nil {
+			continue
+		}
+		if d.Container != "" {
 			_ = m.Docker(app).RemoveContainer(ctx, d.Container)
+		}
+		// Con volúmenes, el deploy para el contenedor anterior antes de
+		// arrancar el nuevo: si se cortó ahí, la app se quedaría caída.
+		// (Si ya estaba en marcha, Docker responde 304 y no pasa nada.)
+		if cur := app.Current; !app.Stopped && cur != nil && cur.Container != "" && cur.Container != d.Container {
+			_ = m.Docker(app).StartContainer(ctx, cur.Container)
 		}
 	}
 	queued, _ := st.ListAppDeploymentsByStatus(ctx, store.DeployQueued)
