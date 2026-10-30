@@ -156,8 +156,25 @@ func TestWildcardAndResolvers(t *testing.T) {
 		t.Errorf("tls del comodín: %v", tls)
 	}
 	c := routers["concreto-secure"].(map[string]any)
-	if _, has := c["tls"].(map[string]any)["certResolver"]; has || c["priority"] != nil {
+	if _, has := c["tls"].(map[string]any)["certResolver"]; has {
 		t.Errorf("con certificado propio no debe pedirse a Let's Encrypt: %v", c)
+	}
+}
+
+// Una ubicación larga de un comodín no gana al host concreto del dominio.
+func TestWildcardLocationBelowConcreteHost(t *testing.T) {
+	routes := []Route{
+		{Name: "comodin", Domains: []string{"*.example.com"}, URL: "http://x", PathPrefix: "/api/v1/internal-service"},
+		{Name: "concreto", Domains: []string{"app.example.com"}, URL: "http://y"},
+		{Name: "concreto-loc", Domains: []string{"app.example.com"}, URL: "http://z", PathPrefix: "/api"},
+	}
+	routers := BuildDynamic(routes, nil)["http"].(map[string]any)["routers"].(map[string]any)
+	prio := func(name string) int { return routers[name].(map[string]any)["priority"].(int) }
+	if prio("comodin") >= prio("concreto") {
+		t.Errorf("comodín %d debe quedar por debajo del host concreto %d", prio("comodin"), prio("concreto"))
+	}
+	if prio("concreto-loc") <= prio("concreto") {
+		t.Errorf("la ubicación %d debe ganar a su host %d", prio("concreto-loc"), prio("concreto"))
 	}
 }
 

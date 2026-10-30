@@ -321,10 +321,12 @@ func BuildDynamic(routes []Route, extra map[string]any) map[string]any {
 				rt.Middlewares = append(slices.Clone(rt.Middlewares), mw)
 			}
 		}
-		// Prioridad: Traefik da por defecto más a la regla más larga, así que
-		// una ubicación gana a su host y /api/v2 a /api. Con comodines se fija
-		// a mano para no pasar por delante de los hosts concretos del dominio.
-		priority := 0
+		// Prioridad: como hace Traefik por defecto, más a la regla más larga
+		// (una ubicación gana a su host y /api/v2 a /api). Los comodines van
+		// siempre por debajo (≤ 202: las rutas tienen 200 caracteres como
+		// mucho) de los hosts concretos (≥ 1000): si no, una ubicación larga
+		// de *.dominio.com ganaría a app.dominio.com.
+		priority := 1000 + len(rule)
 		if hasWildcard(rt.Domains) {
 			priority = 1
 			if rt.PathPrefix != "" {
