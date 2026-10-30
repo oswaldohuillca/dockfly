@@ -29,7 +29,9 @@ func (c *Client) ExecStream(ctx context.Context, container string, cmd []string,
 	start := `{"Detach":false,"Tty":false}`
 
 	var out io.ReadCloser
+	copyErr := make(chan error, 1)
 	if stdin == nil {
+		copyErr <- nil
 		resp, err := c.raw(ctx, c.stream, http.MethodPost, "/exec/"+created.ID+"/start", strings.NewReader(start), "application/json")
 		if err != nil {
 			return 0, err
@@ -44,7 +46,12 @@ func (c *Client) ExecStream(ctx context.Context, container string, cmd []string,
 		// La entrada se envía mientras se lee la salida; al acabar se cierra
 		// la escritura para que el comando reciba EOF.
 		go func() {
-			_, _ = io.Copy(conn, stdin)
+			_, err := io.Copy(conn, stdin)
+			copyErr <- err
+			if err != nil {
+				conn.Close() // la entrada se cortó: que no parezca un final normal
+				return
+			}
 			if cw, ok := conn.Conn.(interface{ CloseWrite() error }); ok {
 				_ = cw.CloseWrite()
 			}
@@ -56,6 +63,11 @@ func (c *Client) ExecStream(ctx context.Context, container string, cmd []string,
 	out.Close()
 	if ctx.Err() != nil {
 		return 0, ctx.Err() // cancelado o fuera de tiempo: la salida está incompleta
+	}
+	// Si la entrada se cortó (p. ej. falló la descarga de una copia), el
+	// comando solo recibió una parte aunque termine con código 0.
+	if cerr := <-copyErr; cerr != nil {
+		return 0, fmt.Errorf("la entrada se cortó a medias: %w", cerr)
 	}
 	if err != nil {
 		return 0, err

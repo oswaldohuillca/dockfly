@@ -176,6 +176,19 @@ func TestBackupAndRestore(t *testing.T) {
 			if got, _ := exec(tc.read); got != want {
 				t.Errorf("tras restaurar: %q, quería %q", got, want)
 			}
+			// Antes de restaurar se copió lo que había.
+			if list, _ := st.ListDBBackups(ctx, app.ID); len(list) != 2 || list[0].Status != store.DBBackupSuccess {
+				t.Errorf("falta la copia previa a la restauración: %+v", list)
+			}
+			// Una copia cortada a medias no se da por restaurada.
+			path := filepath.Join(local.Dir, b.ObjectKey)
+			raw, _ := os.ReadFile(path)
+			if err := os.WriteFile(path, raw[:len(raw)/2], 0o600); err != nil {
+				t.Fatal(err)
+			}
+			if err := m.Restore(ctx, app, b); err == nil {
+				t.Error("restaurar una copia cortada debe fallar")
+			}
 		})
 	}
 }

@@ -74,6 +74,8 @@ redis-cli ${REDIS_PASSWORD:+-a "$REDIS_PASSWORD" --no-auth-warning} --rdb "$F" >
 func restoreCommand(engine string) []string {
 	switch engine {
 	case Postgres:
+		// ON_ERROR_STOP=0: pg_dumpall --clean siempre intenta borrar y crear
+		// el rol con el que se conecta, y eso falla sin que importe.
 		return []string{"sh", "-c", `exec psql -q -v ON_ERROR_STOP=0 -U "${POSTGRES_USER:-postgres}" -d postgres`}
 	case MySQL:
 		return []string{"sh", "-c", `C=mysql; command -v mariadb >/dev/null && C=mariadb
@@ -257,7 +259,8 @@ func (m *Manager) backup(ctx context.Context, app *store.App, b *store.DBBackup)
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
-	key := fmt.Sprintf("%s/%s-%s.%s", app.Name, app.Name, b.CreatedAt.UTC().Format("20060102-150405"), extension(b.Engine))
+	// Con el ID: dos copias en el mismo segundo no se pisan.
+	key := fmt.Sprintf("%s/%s-%s-%d.%s", app.Name, app.Name, b.CreatedAt.UTC().Format("20060102-150405"), b.ID, extension(b.Engine))
 	if err := storage.Put(ctx, key, tmp, size); err != nil {
 		return fmt.Errorf("subiendo la copia a %s: %w", storage.Describe(), err)
 	}
@@ -329,7 +332,8 @@ func (m *Manager) Open(ctx context.Context, b *store.DBBackup) (io.ReadCloser, e
 	return storage.Get(ctx, b.ObjectKey)
 }
 
-// Restore vuelca una copia en la base de datos de la app (sustituye sus datos).
+// Restore vuelca una copia en la base de datos de la app (sustituye sus
+// datos). Antes copia lo que hay, por si hubiera que volver atrás.
 func (m *Manager) Restore(ctx context.Context, app *store.App, b *store.DBBackup) error {
 	cmd := restoreCommand(b.Engine)
 	if cmd == nil {
@@ -339,8 +343,25 @@ func (m *Manager) Restore(ctx context.Context, app *store.App, b *store.DBBackup
 		return ErrBusy
 	}
 	defer m.unlock(app.ID)
+	// Una restauración cortada a medias deja la base de datos a medio
+	// escribir: no se cancela porque el navegador cierre la petición.
+	ctx = context.WithoutCancel(ctx)
 	ctr, err := m.container(ctx, app)
 	if err != nil {
+		return err
+	}
+	// Sin prune: podría borrar la copia que se va a restaurar.
+	safety := &store.DBBackup{AppID: app.ID, Status: store.DBBackupRunning, Trigger: store.TriggerManual, Engine: b.Engine}
+	if err := m.Store.CreateDBBackup(ctx, safety); err != nil {
+		return err
+	}
+	if err := m.backup(ctx, app, safety); err != nil {
+		safety.Status, safety.Error = store.DBBackupFailed, err.Error()
+		_ = m.Store.FinishDBBackup(ctx, safety)
+		return fmt.Errorf("no se pudo copiar antes los datos actuales, así que no se restaura: %w", err)
+	}
+	safety.Status = store.DBBackupSuccess
+	if err := m.Store.FinishDBBackup(ctx, safety); err != nil {
 		return err
 	}
 	rc, err := m.Open(ctx, b)
