@@ -15,7 +15,12 @@ permissions:
   packages: write
 
 jobs:
+  # No se publica nada que no pase los tests.
+  ci:
+    uses: ./.github/workflows/ci.yml
+
   publish:
+    needs: ci
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -46,6 +51,7 @@ jobs:
           cache-to: type=gha,mode=max
 
   binaries:
+    needs: ci
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
