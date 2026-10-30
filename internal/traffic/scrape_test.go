@@ -115,3 +115,19 @@ func TestSeries(t *testing.T) {
 		t.Errorf("resúmenes: %+v", sums)
 	}
 }
+
+func TestOwner(t *testing.T) {
+	for router, want := range map[string]string{
+		"ph-3-secure@file":                          "ph-3",
+		"ph-3-loc0-secure@file":                     "ph-3",
+		"site-2-loc1@file":                          "site-2",
+		"preview-1-feature-local--web.pv.test@file": "previews",
+		"previews-secure@file":                      "previews",
+		"app-4@file":                                "app-4",
+		"dashboard@internal":                        "",
+	} {
+		if got := Owner(router); got != want {
+			t.Errorf("Owner(%q) = %q, quería %q", router, got, want)
+		}
+	}
+}

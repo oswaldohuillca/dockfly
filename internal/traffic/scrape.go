@@ -36,8 +36,14 @@ func Owner(router string) string {
 		return ""
 	}
 	name = strings.TrimSuffix(name, "-secure")
-	// Las ubicaciones personalizadas (ph-3-loc0) cuentan como su proxy host.
-	if i := strings.LastIndex(name, "-loc"); i > 0 && strings.HasPrefix(name, "ph-") {
+	// Las previews protegidas tienen un router por host (preview-1-<host>):
+	// cuentan con las demás previews.
+	if strings.HasPrefix(name, "preview-") {
+		return "previews"
+	}
+	// Las ubicaciones personalizadas (ph-3-loc0, site-2-loc1) cuentan como
+	// su proxy host o su sitio.
+	if i := strings.LastIndex(name, "-loc"); i > 0 {
 		name = name[:i]
 	}
 	return name
