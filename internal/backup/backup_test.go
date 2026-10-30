@@ -41,6 +41,7 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	write(t, filepath.Join(src, "sites/1/7/index.html"), "hola")
 	write(t, filepath.Join(src, "sites/1/.staging-x/basura"), "no")
 	write(t, filepath.Join(src, "builds/1.log"), "no")
+	write(t, filepath.Join(src, "db-backups/pg/pg-1.sql.gz"), "volcado")
 
 	var buf bytes.Buffer
 	if err := Create(ctx, st, src, "1.2.3", &buf); err != nil {
@@ -80,6 +81,7 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	for name, want := range map[string]string{
 		"secret.key": "clave-sesion", "encryption.key": "clave-cifrado",
 		"traefik/acme.json": `{"certs":1}`, "sites/1/7/index.html": "hola",
+		"db-backups/pg/pg-1.sql.gz": "volcado",
 	} {
 		if b, err := os.ReadFile(filepath.Join(dst, name)); err != nil || string(b) != want {
 			t.Errorf("%s: %q %v", name, b, err)

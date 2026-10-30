@@ -38,9 +38,11 @@ type Manifest struct {
 
 // Archivos y carpetas de /data que forman parte de la copia. Lo demás
 // (logs de builds, configuración de Traefik, temporales) se regenera.
+// db-backups son las copias de bases de datos guardadas en local: sin ellas,
+// las de la base de datos restaurada apuntarían a archivos que no existen.
 var (
 	files = []string{"secret.key", "encryption.key", "traefik/acme.json"}
-	dirs  = []string{"sites"}
+	dirs  = []string{"sites", "db-backups"}
 )
 
 // Snapshotter crea una copia consistente de la base de datos.
