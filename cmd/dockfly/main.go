@@ -34,6 +34,7 @@ import (
 	"github.com/dockfly/dockfly/internal/notify"
 	"github.com/dockfly/dockfly/internal/pages"
 	"github.com/dockfly/dockfly/internal/secrets"
+	"github.com/dockfly/dockfly/internal/selfupdate"
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
 	"github.com/dockfly/dockfly/internal/traffic"
@@ -61,6 +62,19 @@ func main() {
 			log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 			log.Error("proxy de salida", "error", egress.Serve(":"+egress.Port, log))
 			os.Exit(1)
+		case "self-update":
+			// Lo lanza el panel en un contenedor auxiliar (ver selfupdate).
+			log := slog.New(slog.NewTextHandler(os.Stderr, nil))
+			if len(os.Args) != 4 {
+				log.Error("uso: dockfly self-update <contenedor> <imagen>")
+				os.Exit(2)
+			}
+			dc := docker.New(env("DOCKFLY_DOCKER_SOCKET", "/var/run/docker.sock"))
+			if err := selfupdate.Helper(context.Background(), dc, os.Args[2], os.Args[3], log); err != nil {
+				log.Error(err.Error())
+				os.Exit(1)
+			}
+			os.Exit(0)
 		}
 	}
 
@@ -226,6 +240,11 @@ func run(log *slog.Logger) error {
 		}
 	}()
 	srv.Hub = &tunnel.Hub{OnConnect: srv.OnAgentConnect}
+	srv.Updater = &selfupdate.Updater{
+		Docker: dc, DB: st, DataDir: dataDir, Version: version,
+		Socket: env("DOCKFLY_DOCKER_SOCKET", "/var/run/docker.sock"), Log: log.With("component", "update"),
+	}
+	go srv.Updater.Cleanup(ctx)
 	// Instalación nueva: el alta del administrador exige este código, que
 	// solo ve quien tiene acceso al servidor.
 	if token, err := srv.PrepareSetupToken(ctx); err != nil {

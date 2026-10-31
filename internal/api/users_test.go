@@ -39,6 +39,8 @@ func TestRequiredRole(t *testing.T) {
 		{"GET", "/api/users/", store.RoleAdmin},
 		{"POST", "/api/notifications/1/test", store.RoleAdmin},
 		{"PUT", "/api/dns-providers", store.RoleAdmin},
+		{"GET", "/api/system/update", store.RoleViewer},
+		{"POST", "/api/system/update", store.RoleAdmin},
 		// Un prefijo parecido no cuela como ruta de despliegue.
 		{"POST", "/api/sitesx", store.RoleAdmin},
 	} {

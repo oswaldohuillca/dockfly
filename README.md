@@ -50,7 +50,15 @@ docker compose up -d
 ```
 
 Abre `http://TU_SERVIDOR:81` y crea la cuenta de administrador (el primer usuario que se
-registra es el administrador). Para actualizar:
+registra es el administrador).
+
+**Actualizar.** En **Ajustes → Versión de Dockfly** aparece un aviso cuando hay una versión
+nueva; con el botón **Actualizar**, Dockfly copia sus datos en `/data/pre-update.tar.gz`,
+descarga la imagen nueva y se recrea con ella (mismos volúmenes, puertos, redes y variables).
+Si la versión nueva no arranca sana, vuelve a la anterior. Funciona con la etiqueta `:latest` o
+con una versión (`:1.2.3`, que pasa a la nueva; cambia también la etiqueta en tu
+`docker-compose.yml`, o un `docker compose up` posterior volvería a la anterior). También se
+puede hacer a mano:
 
 ```bash
 docker compose pull && docker compose up -d

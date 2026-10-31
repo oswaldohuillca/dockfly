@@ -23,6 +23,7 @@ import (
 	"github.com/dockfly/dockfly/internal/pages"
 	"github.com/dockfly/dockfly/internal/routing"
 	"github.com/dockfly/dockfly/internal/secrets"
+	"github.com/dockfly/dockfly/internal/selfupdate"
 	"github.com/dockfly/dockfly/internal/store"
 	"github.com/dockfly/dockfly/internal/traefik"
 	"github.com/dockfly/dockfly/internal/tunnel"
@@ -73,6 +74,8 @@ type Server struct {
 	// Restart detiene Dockfly para que Docker lo vuelva a arrancar (lo usa la
 	// restauración de copias, que se aplica al arrancar).
 	Restart func()
+	// Updater actualiza Dockfly desde el panel.
+	Updater *selfupdate.Updater
 
 	// SetupToken es el código de instalación mientras no hay usuarios.
 	SetupToken string

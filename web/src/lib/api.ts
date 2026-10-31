@@ -474,6 +474,17 @@ export interface RemoteServer {
   created_at: string;
 }
 
+/** Actualización de Dockfly desde el panel. */
+export interface UpdateInfo {
+  current: string;
+  latest: { version: string; url: string; notes: string } | null;
+  available: boolean;
+  can_update: boolean;
+  reason?: 'not_in_docker' | 'dev_version' | 'pinned_tag' | 'no_socket';
+  state: '' | 'backup' | 'pulling' | 'restarting' | 'failed';
+  error?: string;
+}
+
 export const appDeployFinished = (d: AppDeployment) => d.status !== 'queued' && d.status !== 'running';
 
 export interface AccessList {
@@ -651,6 +662,8 @@ export const api = {
   logout: () => request<void>('POST', '/auth/logout'),
   me: () => request<User>('GET', '/auth/me'),
   status: () => request<Status>('GET', '/status'),
+  getUpdate: () => request<UpdateInfo>('GET', '/system/update'),
+  startUpdate: (password: string) => request<UpdateInfo>('POST', '/system/update', { password }),
   certificates: () => request<CertStatus[]>('GET', '/certificates'),
   listProxyHosts: () => request<ProxyHost[]>('GET', '/proxy-hosts'),
   createProxyHost: (data: ProxyHostInput) => request<SaveResult>('POST', '/proxy-hosts', data),

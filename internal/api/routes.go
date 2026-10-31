@@ -88,6 +88,8 @@ func (s *Server) Handler() http.Handler {
 			r.With(accountLimit).Post("/auth/2fa/disable", s.handleDisable2FA)
 			r.With(accountLimit).Post("/auth/2fa/recovery-codes", s.handleRegenerateRecoveryCodes)
 			r.Get("/status", s.handleStatus)
+			r.Get("/system/update", s.handleGetUpdate)
+			r.With(accountLimit).Post("/system/update", s.handleStartUpdate)
 			r.Get("/traffic", s.handleTrafficSummary)
 			r.Get("/traffic/{owner}", s.handleTraffic)
 			r.Get("/certificates", s.handleCertificates)

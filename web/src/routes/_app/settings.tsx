@@ -8,6 +8,7 @@ import { CertificatesSettings } from '@/components/certificates-settings';
 import { Notifications } from '@/components/notifications';
 import { PreviewSettings } from '@/components/preview-settings';
 import { RestoreBackup } from '@/components/restore-backup';
+import { SystemUpdate } from '@/components/system-update';
 import { Users } from '@/components/users';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -27,6 +28,7 @@ export const Route = createFileRoute('/_app/settings')({
 function Settings() {
   return (
     <div className="space-y-4">
+      <SystemUpdate />
       <Users />
       <Notifications />
       <AccessLists />

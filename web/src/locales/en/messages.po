@@ -157,7 +157,7 @@ msgstr "5xx errors"
 msgid "7 days"
 msgstr "7 days"
 
-#: src/routes/_app/settings.tsx:42
+#: src/routes/_app/settings.tsx:44
 msgid "A backup includes the database, the keys (sessions and token encryption), the published sites and the Let's Encrypt certificates. Keep it somewhere safe: it can be used to read the tokens of your Git accounts."
 msgstr "A backup includes the database, the keys (sessions and token encryption), the published sites and the Let's Encrypt certificates. Keep it somewhere safe: it can be used to read the tokens of your Git accounts."
 
@@ -189,7 +189,7 @@ msgctxt "api:token_role_too_high"
 msgid "A token can't have more permissions than your user"
 msgstr "A token can't have more permissions than your user"
 
-#: src/lib/api-errors.gen.ts:180
+#: src/lib/api-errors.gen.ts:183
 msgctxt "api:user_email_taken"
 msgid "A user with that email already exists"
 msgstr "A user with that email already exists"
@@ -310,6 +310,11 @@ msgctxt "api:app_name_taken"
 msgid "An app with that name already exists"
 msgstr "An app with that name already exists"
 
+#: src/lib/api-errors.gen.ts:179
+msgctxt "api:update_in_progress"
+msgid "An update is already in progress"
+msgstr "An update is already in progress"
+
 #: src/components/apps.tsx:85
 msgid "another server"
 msgstr "another server"
@@ -318,7 +323,7 @@ msgstr "another server"
 msgid "API tokens"
 msgstr "API tokens"
 
-#: src/lib/api.ts:820
+#: src/lib/api.ts:833
 msgctxt "domain owner"
 msgid "app"
 msgstr "app"
@@ -404,6 +409,10 @@ msgstr "Back to sites"
 msgid "Back up now"
 msgstr "Back up now"
 
+#: src/components/system-update.tsx:75
+msgid "Backing up the data…"
+msgstr "Backing up the data…"
+
 #: src/components/db-backups.tsx:209
 msgid "Backup"
 msgstr "Backup"
@@ -418,7 +427,7 @@ msgid "Backup not found"
 msgstr "Backup not found"
 
 #: src/components/db-backups.tsx:123
-#: src/routes/_app/settings.tsx:39
+#: src/routes/_app/settings.tsx:41
 msgid "Backups"
 msgstr "Backups"
 
@@ -435,7 +444,7 @@ msgstr "Backups are stored in {location}"
 msgid "Besides your password, the dashboard will ask for a code from your authenticator app (Google Authenticator, 1Password, Bitwarden, Authy…). Anyone who steals your password won't be able to sign in without your phone."
 msgstr "Besides your password, the dashboard will ask for a code from your authenticator app (Google Authenticator, 1Password, Bitwarden, Authy…). Anyone who steals your password won't be able to sign in without your phone."
 
-#: src/lib/api-errors.gen.ts:184
+#: src/lib/api-errors.gen.ts:187
 msgctxt "api:webhook_body_too_large"
 msgid "Body too large"
 msgstr "Body too large"
@@ -589,6 +598,10 @@ msgstr "Channel not found"
 #: src/components/notifications.tsx:270
 msgid "Channel saved"
 msgstr "Channel saved"
+
+#: src/components/system-update.tsx:60
+msgid "Checking for updates…"
+msgstr "Checking for updates…"
 
 #: src/components/dropzone.tsx:81
 msgid "Choose .zip"
@@ -811,7 +824,7 @@ msgctxt "api:build_cache_clear_failed"
 msgid "Couldn't clear the cache (is a build running?): {detail}"
 msgstr "Couldn't clear the cache (is a build running?): {detail}"
 
-#: src/lib/api-errors.gen.ts:185
+#: src/lib/api-errors.gen.ts:188
 msgctxt "api:webhook_create_failed"
 msgid "Couldn't create the webhook: {detail}"
 msgstr "Couldn't create the webhook: {detail}"
@@ -1211,13 +1224,29 @@ msgstr "Docker isn't available"
 msgid "Docker unavailable"
 msgstr "Docker unavailable"
 
+#: src/components/system-update.tsx:137
+msgid "Dockfly backs up its data to /data/pre-update.tar.gz, downloads the new version and restarts with it. The dashboard stops responding for a few seconds; your sites and apps keep working. If the new version doesn't start, it goes back to the current one."
+msgstr "Dockfly backs up its data to /data/pre-update.tar.gz, downloads the new version and restarts with it. The dashboard stops responding for a few seconds; your sites and apps keep working. If the new version doesn't start, it goes back to the current one."
+
 #: src/components/restore-backup.tsx:169
 msgid "Dockfly didn't start again. If it has no restart policy, start it manually (docker start dockfly)."
 msgstr "Dockfly didn't start again. If it has no restart policy, start it manually (docker start dockfly)."
 
+#: src/components/system-update.tsx:45
+msgid "Dockfly isn't running in a Docker container with access to Docker, so it can't update itself."
+msgstr "Dockfly isn't running in a Docker container with access to Docker, so it can't update itself."
+
 #: src/components/integrations.tsx:531
 msgid "Dockfly public URL"
 msgstr "Dockfly public URL"
+
+#: src/components/system-update.tsx:33
+msgid "Dockfly updated to {waitingFor}"
+msgstr "Dockfly updated to {waitingFor}"
+
+#: src/components/system-update.tsx:57
+msgid "Dockfly version"
+msgstr "Dockfly version"
 
 #: src/components/notifications.tsx:97
 msgid "dockfly@mydomain.com"
@@ -1262,9 +1291,13 @@ msgstr "Down ({state})"
 msgid "Download"
 msgstr "Download"
 
-#: src/routes/_app/settings.tsx:53
+#: src/routes/_app/settings.tsx:55
 msgid "Download backup"
 msgstr "Download backup"
+
+#: src/components/system-update.tsx:76
+msgid "Downloading the new version…"
+msgstr "Downloading the new version…"
 
 #: src/components/dropzone.tsx:67
 msgid "Drop your build folder or a .zip here"
@@ -1496,7 +1529,7 @@ msgstr "First-time setup: create the administrator account."
 msgid "Folder"
 msgstr "Folder"
 
-#: src/lib/api-errors.gen.ts:187
+#: src/lib/api-errors.gen.ts:190
 msgctxt "api:wildcard_ssl_needs_dns"
 msgid "For a wildcard domain with SSL, set up its DNS zone in Settings → Certificates (Let's Encrypt only issues wildcards via DNS) or upload your own certificate"
 msgstr "For a wildcard domain with SSL, set up its DNS zone in Settings → Certificates (Let's Encrypt only issues wildcards via DNS) or upload your own certificate"
@@ -1549,7 +1582,7 @@ msgstr "Framework"
 msgid "Frequency"
 msgstr "Frequency"
 
-#: src/routes/_app/settings.tsx:67
+#: src/routes/_app/settings.tsx:69
 msgid "From the terminal (e.g. with a cron job, or if the dashboard won't start)"
 msgstr "From the terminal (e.g. with a cron job, or if the dashboard won't start)"
 
@@ -1827,7 +1860,7 @@ msgctxt "api:invalid_panel_url"
 msgid "Invalid panel address"
 msgstr "Invalid panel address"
 
-#: src/lib/api-errors.gen.ts:182
+#: src/lib/api-errors.gen.ts:185
 msgctxt "api:webhook_bad_payload"
 msgid "Invalid payload"
 msgstr "Invalid payload"
@@ -1857,7 +1890,7 @@ msgctxt "api:agent_token_invalid"
 msgid "Invalid server token: generate a new one in the panel"
 msgstr "Invalid server token: generate a new one in the panel"
 
-#: src/lib/api-errors.gen.ts:183
+#: src/lib/api-errors.gen.ts:186
 msgctxt "api:webhook_bad_signature"
 msgid "Invalid signature"
 msgstr "Invalid signature"
@@ -2133,7 +2166,7 @@ msgstr "Name is required"
 msgid "Name it <0>Dockfly</0>, check <1>Confidential</1> and the <2>api</2> scope. Paste this as the Redirect URI:"
 msgstr "Name it <0>Dockfly</0>, check <1>Confidential</1> and the <2>api</2> scope. Paste this as the Redirect URI:"
 
-#: src/lib/api.ts:807
+#: src/lib/api.ts:820
 msgid "network error during upload"
 msgstr "network error during upload"
 
@@ -2559,7 +2592,7 @@ msgctxt "api:dns_provider_not_found"
 msgid "Provider not found"
 msgstr "Provider not found"
 
-#: src/lib/api.ts:818
+#: src/lib/api.ts:831
 msgctxt "domain owner"
 msgid "proxy host"
 msgstr "proxy host"
@@ -2629,7 +2662,7 @@ msgstr "Recipients"
 msgid "Recovery code"
 msgstr "Recovery code"
 
-#: src/lib/api.ts:821
+#: src/lib/api.ts:834
 msgctxt "domain owner"
 msgid "redirect"
 msgstr "redirect"
@@ -2757,6 +2790,10 @@ msgstr "Restarted"
 #: src/components/restore-backup.tsx:58
 msgid "Restarting Dockfly with the restored backup…"
 msgstr "Restarting Dockfly with the restored backup…"
+
+#: src/components/system-update.tsx:78
+msgid "Restarting with the new version; the dashboard will reload by itself…"
+msgstr "Restarting with the new version; the dashboard will reload by itself…"
 
 #: src/components/db-backups.tsx:249
 #: src/components/db-backups.tsx:303
@@ -2949,7 +2986,7 @@ msgstr "Serves index.html for any path that doesn't exist. Turn it on for React 
 msgid "Set Dockfly's public URL in Integrations and save the build settings again to deploy on every push."
 msgstr "Set Dockfly's public URL in Integrations and save the build settings again to deploy on every push."
 
-#: src/lib/api-errors.gen.ts:186
+#: src/lib/api-errors.gen.ts:189
 msgctxt "api:webhook_public_url_missing"
 msgid "Set Dockfly's public URL in Integrations to deploy on every push"
 msgstr "Set Dockfly's public URL in Integrations to deploy on every push"
@@ -2995,7 +3032,7 @@ msgstr "since {since}"
 msgid "Single-page application (SPA)"
 msgstr "Single-page application (SPA)"
 
-#: src/lib/api.ts:819
+#: src/lib/api.ts:832
 msgctxt "domain owner"
 msgid "site"
 msgstr "site"
@@ -3180,7 +3217,7 @@ msgctxt "api:app_image_gone"
 msgid "That deployment's image no longer exists; deploy again"
 msgstr "That deployment's image no longer exists; deploy again"
 
-#: src/lib/api-errors.gen.ts:178
+#: src/lib/api-errors.gen.ts:181
 msgctxt "api:upload_header_missing"
 msgid "The {header} header is missing"
 msgstr "The {header} header is missing"
@@ -3243,9 +3280,17 @@ msgctxt "api:app_compose_file_dotdot"
 msgid "The Compose file can't contain \"..\""
 msgstr "The Compose file can't contain \"..\""
 
+#: src/components/system-update.tsx:47
+msgid "The container uses an image tag that isn't a version. Switch it to :latest to update from here."
+msgstr "The container uses an image tag that isn't a version. Switch it to :latest to update from here."
+
 #: src/components/db-backups.tsx:288
 msgid "The current data is replaced with the backup's: anything changed since then will be lost. Back up first if you're not sure."
 msgstr "The current data is replaced with the backup's: anything changed since then will be lost. Back up first if you're not sure."
+
+#: src/components/system-update.tsx:48
+msgid "The Docker socket isn't mounted from the host, so the update can't recreate the container."
+msgstr "The Docker socket isn't mounted from the host, so the update can't recreate the container."
 
 #: src/components/app-dialog.tsx:353
 msgid "The docker-compose.yml service that receives the domains' traffic (on the port set above). Volumes are defined in the file itself; relative host paths (<0>./data:/data</0>) don't work: use named volumes."
@@ -3450,7 +3495,12 @@ msgctxt "api:git_token_required"
 msgid "The token is required"
 msgstr "The token is required"
 
-#: src/lib/api-errors.gen.ts:179
+#: src/lib/api-errors.gen.ts:178
+msgctxt "api:update_failed"
+msgid "The update couldn't start: {detail}"
+msgstr "The update couldn't start: {detail}"
+
+#: src/lib/api-errors.gen.ts:182
 msgctxt "api:upload_too_large"
 msgid "The upload exceeds {max_mb} MiB"
 msgstr "The upload exceeds {max_mb} MiB"
@@ -3518,6 +3568,11 @@ msgstr "This container isn't on the Dockfly network. Saving will connect it auto
 msgctxt "api:already_set_up"
 msgid "This installation is already set up"
 msgstr "This installation is already set up"
+
+#. placeholder {0}: info?.current ?? ''
+#: src/components/system-update.tsx:46
+msgid "This is a development build ({0}): update it by pulling the image again."
+msgstr "This is a development build ({0}): update it by pulling the image again."
 
 #: src/lib/api-errors.gen.ts:118
 msgctxt "api:last_admin"
@@ -3716,6 +3771,23 @@ msgstr "untagged image ({digest})"
 msgid "Unused"
 msgstr "Unused"
 
+#: src/components/system-update.tsx:143
+msgid "Update"
+msgstr "Update"
+
+#: src/components/system-update.tsx:135
+msgid "Update Dockfly to {version}?"
+msgstr "Update Dockfly to {version}?"
+
+#: src/components/system-update.tsx:65
+msgid "Update to {latest}"
+msgstr "Update to {latest}"
+
+#: src/lib/api-errors.gen.ts:180
+msgctxt "api:update_unavailable"
+msgid "Updates from the panel aren't available here"
+msgstr "Updates from the panel aren't available here"
+
 #: src/components/certificates-settings.tsx:327
 msgid "Upload"
 msgstr "Upload"
@@ -3750,7 +3822,7 @@ msgstr "Use the app"
 msgid "Used {0}"
 msgstr "Used {0}"
 
-#: src/lib/api-errors.gen.ts:181
+#: src/lib/api-errors.gen.ts:184
 msgctxt "api:user_not_found"
 msgid "User not found"
 msgstr "User not found"
@@ -3797,6 +3869,10 @@ msgstr "Verify"
 msgid "Version"
 msgstr "Version"
 
+#: src/components/system-update.tsx:84
+msgid "Version {latest} is available."
+msgstr "Version {latest} is available."
+
 #: src/lib/roles.ts:26
 msgid "View the dashboard and logs, without changing anything or seeing secrets."
 msgstr "View the dashboard and logs, without changing anything or seeing secrets."
@@ -3834,7 +3910,11 @@ msgstr "Website and service monitoring."
 msgid "Welcome to Dockfly"
 msgstr "Welcome to Dockfly"
 
-#: src/routes/_app/settings.tsx:59
+#: src/components/system-update.tsx:87
+msgid "What's new"
+msgstr "What's new"
+
+#: src/routes/_app/settings.tsx:61
 msgid "When restoring, Dockfly restarts and applies the backup; the previous data is kept in <0>{beforeRestoreDir}</0>."
 msgstr "When restoring, Dockfly restarts and applies the backup; the previous data is kept in <0>{beforeRestoreDir}</0>."
 
@@ -3863,7 +3943,7 @@ msgstr "Without commands, the repository files (or its output directory) are pub
 msgid "Workflow automation."
 msgstr "Workflow automation."
 
-#: src/lib/api-errors.gen.ts:188
+#: src/lib/api-errors.gen.ts:191
 msgctxt "api:wrong_2fa_code"
 msgid "Wrong code"
 msgstr "Wrong code"
@@ -3878,7 +3958,7 @@ msgctxt "api:bad_credentials"
 msgid "Wrong email or password"
 msgstr "Wrong email or password"
 
-#: src/lib/api-errors.gen.ts:189
+#: src/lib/api-errors.gen.ts:192
 msgctxt "api:wrong_password"
 msgid "Wrong password"
 msgstr "Wrong password"
@@ -3905,6 +3985,10 @@ msgstr "You can't delete your own account"
 msgid "You don't have any tokens yet."
 msgstr "You don't have any tokens yet."
 
+#: src/components/system-update.tsx:94
+msgid "You have the latest version."
+msgstr "You have the latest version."
+
 #: src/components/auth-form.tsx:49
 msgid "You used a recovery code: {left} left"
 msgstr "You used a recovery code: {left} left"
@@ -3912,6 +3996,11 @@ msgstr "You used a recovery code: {left} left"
 #: src/components/users.tsx:167
 msgid "You'll get a link to send them however you like."
 msgstr "You'll get a link to send them however you like."
+
+#. placeholder {0}: info.current
+#: src/components/system-update.tsx:60
+msgid "You're running {0}."
+msgstr "You're running {0}."
 
 #. placeholder {0}: data.email
 #: src/routes/invite/$token.tsx:80
@@ -3921,6 +4010,10 @@ msgstr "You've been invited to Dockfly. Choose a password for {0}."
 #: src/components/integrations.tsx:655
 msgid "Your GitLab URL"
 msgstr "Your GitLab URL"
+
+#: src/components/system-update.tsx:151
+msgid "Your password"
+msgstr "Your password"
 
 #: src/components/two-factor.tsx:132
 msgid "Your previous codes no longer work."
