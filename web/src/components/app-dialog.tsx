@@ -38,17 +38,19 @@ const empty: AppInput = {
   memory_mb: 0, cpus: 0, health_path: '', access_list_id: null,
 };
 
+// Solo los campos que acepta la API: rechaza los desconocidos (id, created_at…).
+const appInput = (a: App): AppInput => ({
+  name: a.name, source: a.source, image: a.image, connection_id: a.git_connection_id ?? 0, repo: a.repo,
+  branch: a.branch, root_dir: a.root_dir, dockerfile: a.dockerfile, compose_file: a.compose_file,
+  compose_service: a.compose_service, port: a.port, domains: [...a.domains], ssl: a.ssl, force_https: a.force_https,
+  hsts: a.hsts, env: null, volumes: a.volumes.map((v) => ({ ...v })), command: a.command, memory_mb: a.memory_mb,
+  cpus: a.cpus, health_path: a.health_path, access_list_id: a.access_list_id,
+});
+
 export function AppDialog({ app, onClose, onSaved }: Props) {
   const { t, i18n } = useLingui();
   const isNew = app === undefined;
-  const { form, set, setForm } = useForm<AppInput>(() =>
-    app
-      ? {
-          ...empty, ...app, connection_id: app.git_connection_id ?? 0, env: null,
-          volumes: app.volumes.map((v) => ({ ...v })), domains: [...app.domains],
-        }
-      : empty,
-  );
+  const { form, set, setForm } = useForm<AppInput>(() => (app ? appInput(app) : empty));
   const [env, setEnv] = useState<EnvRow[]>([]);
   const [envTouched, setEnvTouched] = useState(false);
   const [connections, setConnections] = useState<GitConnection[]>([]);

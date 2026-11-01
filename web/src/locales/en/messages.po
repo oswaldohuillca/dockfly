@@ -7,11 +7,11 @@ msgstr ""
 "X-Generator: @lingui/cli\n"
 "Language: en\n"
 
-#: src/components/app-dialog.tsx:383
+#: src/components/app-dialog.tsx:385
 msgid "(image default)"
 msgstr "(image default)"
 
-#: src/components/app-dialog.tsx:189
+#: src/components/app-dialog.tsx:191
 msgid "(offline)"
 msgstr "(offline)"
 
@@ -20,7 +20,7 @@ msgstr "(offline)"
 msgid "(optional)"
 msgstr "(optional)"
 
-#: src/components/app-dialog.tsx:311
+#: src/components/app-dialog.tsx:313
 #: src/components/git-dialog.tsx:193
 msgid "(repo root)"
 msgstr "(repo root)"
@@ -97,7 +97,7 @@ msgstr "{name} and its data deleted"
 msgid "{name} connected as {username}"
 msgstr "{name} connected as {username}"
 
-#: src/components/app-dialog.tsx:72
+#: src/components/app-dialog.tsx:74
 msgctxt "app"
 msgid "{name} created"
 msgstr "{name} created"
@@ -132,7 +132,7 @@ msgstr "{username} disconnected from Dockfly"
 msgid "{volumeNames}: this can't be undone."
 msgstr "{volumeNames}: this can't be undone."
 
-#: src/components/app-dialog.tsx:452
+#: src/components/app-dialog.tsx:454
 msgid "/var/lib/data"
 msgstr "/var/lib/data"
 
@@ -166,11 +166,11 @@ msgctxt "api:db_backup_busy"
 msgid "A backup or restore is already running for this database"
 msgstr "A backup or restore is already running for this database"
 
-#: src/components/app-dialog.tsx:123
+#: src/components/app-dialog.tsx:125
 msgid "A container that Dockfly manages end to end: zero-downtime deploys, encrypted variables, volumes and a domain with SSL."
 msgstr "A container that Dockfly manages end to end: zero-downtime deploys, encrypted variables, volumes and a domain with SSL."
 
-#: src/components/app-dialog.tsx:398
+#: src/components/app-dialog.tsx:400
 msgid "A deploy receives no traffic until this path responds. Without it, the port just has to accept connections."
 msgstr "A deploy receives no traffic until this path responds. Without it, the port just has to accept connections."
 
@@ -268,11 +268,11 @@ msgstr "Add server"
 msgid "Add user"
 msgstr "Add user"
 
-#: src/components/env-editor.tsx:42
+#: src/components/env-editor.tsx:45
 msgid "Add variable"
 msgstr "Add variable"
 
-#: src/components/app-dialog.tsx:462
+#: src/components/app-dialog.tsx:464
 msgid "Add volume"
 msgstr "Add volume"
 
@@ -280,7 +280,7 @@ msgstr "Add volume"
 msgid "Administrator"
 msgstr "Administrator"
 
-#: src/components/app-dialog.tsx:370
+#: src/components/app-dialog.tsx:372
 #: src/components/git-dialog.tsx:175
 msgid "Advanced options"
 msgstr "Advanced options"
@@ -337,7 +337,7 @@ msgstr "App {0}"
 msgid "App {name} removed from Dockfly"
 msgstr "App {name} removed from Dockfly"
 
-#: src/components/app-dialog.tsx:71
+#: src/components/app-dialog.tsx:73
 msgid "App created, with a warning"
 msgstr "App created, with a warning"
 
@@ -513,11 +513,11 @@ msgstr "Cache and queues. Other apps connect at redis:6379."
 msgid "Cache cleared: the next build will download dependencies again"
 msgstr "Cache cleared: the next build will download dependencies again"
 
-#: src/components/app-dialog.tsx:215
+#: src/components/app-dialog.tsx:217
 msgid "Can't be changed later: its volumes depend on it."
 msgstr "Can't be changed later: its volumes depend on it."
 
-#: src/components/app-dialog.tsx:197
+#: src/components/app-dialog.tsx:199
 msgid "Can't be changed later."
 msgstr "Can't be changed later."
 
@@ -575,7 +575,7 @@ msgstr "Change password"
 msgid "Changes apply instantly."
 msgstr "Changes apply instantly."
 
-#: src/components/app-dialog.tsx:76
+#: src/components/app-dialog.tsx:78
 #: src/components/proxy-host-dialog.tsx:128
 #: src/components/site-dialog.tsx:54
 #: src/components/users.tsx:156
@@ -669,7 +669,7 @@ msgstr "Codes copied"
 msgid "Coming from another server?"
 msgstr "Coming from another server?"
 
-#: src/components/app-dialog.tsx:376
+#: src/components/app-dialog.tsx:378
 msgid "Command"
 msgstr "Command"
 
@@ -686,7 +686,7 @@ msgctxt "api:app_compose_remote"
 msgid "Compose apps can only be deployed on the main server, for now"
 msgstr "Compose apps can only be deployed on the main server, for now"
 
-#: src/components/app-dialog.tsx:328
+#: src/components/app-dialog.tsx:330
 msgid "Compose file"
 msgstr "Compose file"
 
@@ -695,7 +695,7 @@ msgstr "Compose file"
 msgid "Configure"
 msgstr "Configure"
 
-#: src/components/app-dialog.tsx:121
+#: src/components/app-dialog.tsx:123
 msgid "Configure {name}"
 msgstr "Configure {name}"
 
@@ -886,7 +886,7 @@ msgstr "Create an app at api.slack.com with \"Incoming Webhooks\" and add a webh
 msgid "Create API token"
 msgstr "Create API token"
 
-#: src/components/app-dialog.tsx:132
+#: src/components/app-dialog.tsx:134
 msgid "Create app"
 msgstr "Create app"
 
@@ -956,7 +956,7 @@ msgstr "Dark"
 msgid "Data is stored encrypted; secret fields are never shown again."
 msgstr "Data is stored encrypted; secret fields are never shown again."
 
-#: src/components/app-dialog.tsx:435
+#: src/components/app-dialog.tsx:437
 msgid "Data that must survive deploys (databases, uploads…). With volumes, each deploy stops the current version before starting the new one: two instances writing to the same data would corrupt it."
 msgstr "Data that must survive deploys (databases, uploads…). With volumes, each deploy stops the current version before starting the new one: two instances writing to the same data would corrupt it."
 
@@ -1092,7 +1092,7 @@ msgstr "Deploy for the first time"
 msgid "Deploy now"
 msgstr "Deploy now"
 
-#: src/components/app-dialog.tsx:483
+#: src/components/app-dialog.tsx:485
 msgid "Deploy on create"
 msgstr "Deploy on create"
 
@@ -1104,7 +1104,7 @@ msgstr "Deployer"
 msgid "Deploying"
 msgstr "Deploying"
 
-#: src/components/app-dialog.tsx:72
+#: src/components/app-dialog.tsx:74
 msgid "Deploying {name}…"
 msgstr "Deploying {name}…"
 
@@ -1150,7 +1150,7 @@ msgstr "Deploys on every push"
 msgid "Details"
 msgstr "Details"
 
-#: src/components/app-dialog.tsx:304
+#: src/components/app-dialog.tsx:306
 msgid "Directory"
 msgstr "Directory"
 
@@ -1207,7 +1207,7 @@ msgstr "DNS zones"
 msgid "Docker connected"
 msgstr "Docker connected"
 
-#: src/components/app-dialog.tsx:255
+#: src/components/app-dialog.tsx:257
 msgid "Docker image"
 msgstr "Docker image"
 
@@ -1252,11 +1252,11 @@ msgstr "Dockfly version"
 msgid "dockfly@mydomain.com"
 msgstr "dockfly@mydomain.com"
 
-#: src/components/app-dialog.tsx:165
+#: src/components/app-dialog.tsx:167
 msgid "Domain & SSL"
 msgstr "Domain & SSL"
 
-#: src/components/app-dialog.tsx:469
+#: src/components/app-dialog.tsx:471
 #: src/components/proxy-host-dialog.tsx:165
 #: src/components/proxy-hosts.tsx:108
 #: src/components/redirects.tsx:67
@@ -1264,7 +1264,7 @@ msgstr "Domain & SSL"
 msgid "Domains"
 msgstr "Domains"
 
-#: src/components/app-dialog.tsx:77
+#: src/components/app-dialog.tsx:79
 msgid "Domains are already applied; everything else takes effect on the next deploy."
 msgstr "Domains are already applied; everything else takes effect on the next deploy."
 
@@ -1517,7 +1517,7 @@ msgstr "Failed"
 msgid "Files"
 msgstr "Files"
 
-#: src/components/app-dialog.tsx:284
+#: src/components/app-dialog.tsx:286
 msgid "First connect your GitHub or GitLab account in <0>Integrations</0>."
 msgstr "First connect your GitHub or GitLab account in <0>Integrations</0>."
 
@@ -1590,7 +1590,7 @@ msgstr "From the terminal (e.g. with a cron job, or if the dashboard won't start
 msgid "Full, compressed {engineLabel} backups in <0>{location}</0>. Storage (e.g. an S3 bucket) is configured in <1>Settings</1>."
 msgstr "Full, compressed {engineLabel} backups in <0>{location}</0>. Storage (e.g. an S3 bucket) is configured in <1>Settings</1>."
 
-#: src/components/app-dialog.tsx:152
+#: src/components/app-dialog.tsx:154
 msgid "General"
 msgstr "General"
 
@@ -1686,7 +1686,7 @@ msgstr "Go to login"
 msgid "Got it"
 msgstr "Got it"
 
-#: src/components/app-dialog.tsx:388
+#: src/components/app-dialog.tsx:390
 msgid "Health check path"
 msgstr "Health check path"
 
@@ -1707,7 +1707,7 @@ msgstr "I've saved them"
 msgid "If you lose your phone, each code lets you sign in once. Keep them somewhere safe (a password manager): they won't be shown again."
 msgstr "If you lose your phone, each code lets you sign in once. Keep them somewhere safe (a password manager): they won't be shown again."
 
-#: src/components/app-dialog.tsx:269
+#: src/components/app-dialog.tsx:271
 msgid "Image"
 msgstr "Image"
 
@@ -1970,7 +1970,7 @@ msgstr "It won't be shown again. Store it as a secret (e.g. in your GitHub Actio
 msgid "Its container is stopped and deleted. Its domains will stop responding."
 msgstr "Its container is stopped and deleted. Its domains will stop responding."
 
-#: src/components/app-dialog.tsx:196
+#: src/components/app-dialog.tsx:198
 msgid "Its domains must point to that server's IP: its own Traefik serves the traffic and requests the certificates. Can't be changed later."
 msgstr "Its domains must point to that server's IP: its own Traefik serves the traffic and requests the certificates. Can't be changed later."
 
@@ -2107,7 +2107,7 @@ msgstr "max {peakLabel}"
 msgid "me@mydomain.com, team@mydomain.com"
 msgstr "me@mydomain.com, team@mydomain.com"
 
-#: src/components/app-dialog.tsx:407
+#: src/components/app-dialog.tsx:409
 msgid "Memory (MB)"
 msgstr "Memory (MB)"
 
@@ -2129,7 +2129,7 @@ msgstr "multipart/form-data was expected"
 msgid "My account"
 msgstr "My account"
 
-#: src/components/app-dialog.tsx:210
+#: src/components/app-dialog.tsx:212
 msgid "my-api"
 msgstr "my-api"
 
@@ -2143,7 +2143,7 @@ msgstr "my-site"
 
 #: src/components/access-lists.tsx:142
 #: src/components/api-tokens.tsx:145
-#: src/components/app-dialog.tsx:204
+#: src/components/app-dialog.tsx:206
 #: src/components/auth-form.tsx:192
 #: src/components/certificates-settings.tsx:335
 #: src/components/notifications.tsx:305
@@ -2186,7 +2186,7 @@ msgstr "Never used"
 msgid "New access list"
 msgstr "New access list"
 
-#: src/components/app-dialog.tsx:121
+#: src/components/app-dialog.tsx:123
 #: src/components/apps.tsx:39
 msgid "New app"
 msgstr "New app"
@@ -2242,7 +2242,7 @@ msgstr "New stream"
 msgid "New token for {name}"
 msgstr "New token for {name}"
 
-#: src/components/app-dialog.tsx:276
+#: src/components/app-dialog.tsx:278
 msgid "nginx:alpine, ghcr.io/user/app:1.0…"
 msgstr "nginx:alpine, ghcr.io/user/app:1.0…"
 
@@ -2288,8 +2288,8 @@ msgstr "No deployments yet."
 msgid "No deployments yet. Upload your first version above."
 msgstr "No deployments yet. Upload your first version above."
 
-#: src/components/app-dialog.tsx:409
-#: src/components/app-dialog.tsx:413
+#: src/components/app-dialog.tsx:411
+#: src/components/app-dialog.tsx:415
 msgid "no limit"
 msgstr "no limit"
 
@@ -2429,7 +2429,7 @@ msgstr "Organization (optional)"
 msgid "Other (any lego provider)"
 msgstr "Other (any lego provider)"
 
-#: src/components/app-dialog.tsx:217
+#: src/components/app-dialog.tsx:219
 msgid "Other apps reach it at <0>{internalHost}</0>."
 msgstr "Other apps reach it at <0>{internalHost}</0>."
 
@@ -2502,7 +2502,7 @@ msgstr "Permissions"
 msgid "Plain HTML (no build)"
 msgstr "Plain HTML (no build)"
 
-#: src/components/app-dialog.tsx:225
+#: src/components/app-dialog.tsx:227
 #: src/components/notifications.tsx:94
 #: src/components/proxy-host-dialog.tsx:268
 #: src/components/proxy-locations.tsx:236
@@ -2865,7 +2865,7 @@ msgstr "Running"
 msgid "S3 bucket"
 msgstr "S3 bucket"
 
-#: src/components/app-dialog.tsx:132
+#: src/components/app-dialog.tsx:134
 #: src/components/backup-storage.tsx:143
 #: src/components/form-dialog.tsx:53
 #: src/components/git-dialog.tsx:127
@@ -2952,7 +2952,7 @@ msgstr "Send them this link to choose their password. It can only be used once a
 msgid "Sender"
 msgstr "Sender"
 
-#: src/components/app-dialog.tsx:173
+#: src/components/app-dialog.tsx:175
 msgid "Server"
 msgstr "Server"
 
@@ -2991,7 +2991,7 @@ msgctxt "api:webhook_public_url_missing"
 msgid "Set Dockfly's public URL in Integrations to deploy on every push"
 msgstr "Set Dockfly's public URL in Integrations to deploy on every push"
 
-#: src/components/app-dialog.tsx:474
+#: src/components/app-dialog.tsx:476
 msgid "Set the app's port (General tab) to publish it."
 msgstr "Set the app's port (General tab) to publish it."
 
@@ -3077,7 +3077,7 @@ msgstr "SMTP server"
 msgid "So nobody can claim your panel before you do. It's in the server logs (<0>docker logs dockfly</0>) and in <1>/data/setup-token</1>."
 msgstr "So nobody can claim your panel before you do. It's in the server logs (<0>docker logs dockfly</0>) and in <1>/data/setup-token</1>."
 
-#: src/components/app-dialog.tsx:244
+#: src/components/app-dialog.tsx:246
 msgid "Source"
 msgstr "Source"
 
@@ -3118,7 +3118,7 @@ msgstr "staging environment: browsers won't trust it"
 msgid "Start"
 msgstr "Start"
 
-#: src/components/app-dialog.tsx:137
+#: src/components/app-dialog.tsx:139
 msgid "Start from a template"
 msgstr "Start from a template"
 
@@ -3147,7 +3147,7 @@ msgstr "Stopped"
 msgid "Storage saved"
 msgstr "Storage saved"
 
-#: src/components/app-dialog.tsx:422
+#: src/components/app-dialog.tsx:424
 msgid "Stored encrypted and applied on the next deploy."
 msgstr "Stored encrypted and applied on the next deploy."
 
@@ -3292,7 +3292,7 @@ msgstr "The current data is replaced with the backup's: anything changed since t
 msgid "The Docker socket isn't mounted from the host, so the update can't recreate the container."
 msgstr "The Docker socket isn't mounted from the host, so the update can't recreate the container."
 
-#: src/components/app-dialog.tsx:353
+#: src/components/app-dialog.tsx:355
 msgid "The docker-compose.yml service that receives the domains' traffic (on the port set above). Volumes are defined in the file itself; relative host paths (<0>./data:/data</0>) don't work: use named volumes."
 msgstr "The docker-compose.yml service that receives the domains' traffic (on the port set above). Volumes are defined in the file itself; relative host paths (<0>./data:/data</0>) don't work: use named volumes."
 
@@ -3359,7 +3359,7 @@ msgstr "The name can only contain lowercase letters, numbers and hyphens (max. 6
 msgid "The new passwords don't match"
 msgstr "The new passwords don't match"
 
-#: src/components/app-dialog.tsx:237
+#: src/components/app-dialog.tsx:239
 msgid "The one it listens on. Leave empty if it isn't a web app."
 msgstr "The one it listens on. Leave empty if it isn't a web app."
 
@@ -3594,7 +3594,7 @@ msgstr "this panel"
 msgid "This server"
 msgstr "This server"
 
-#: src/components/app-dialog.tsx:184
+#: src/components/app-dialog.tsx:186
 msgid "This server (the panel's)"
 msgstr "This server (the panel's)"
 
@@ -3852,11 +3852,11 @@ msgstr "Using your own GitLab?"
 msgid "Valid until {date}"
 msgstr "Valid until {date}"
 
-#: src/components/env-editor.tsx:32
+#: src/components/env-editor.tsx:35
 msgid "value"
 msgstr "value"
 
-#: src/components/app-dialog.tsx:155
+#: src/components/app-dialog.tsx:157
 #: src/components/certificates-settings.tsx:274
 msgid "Variables"
 msgstr "Variables"
@@ -3877,7 +3877,7 @@ msgstr "Version {latest} is available."
 msgid "View the dashboard and logs, without changing anything or seeing secrets."
 msgstr "View the dashboard and logs, without changing anything or seeing secrets."
 
-#: src/components/app-dialog.tsx:160
+#: src/components/app-dialog.tsx:162
 msgid "Volumes"
 msgstr "Volumes"
 
@@ -3893,7 +3893,7 @@ msgstr "Waiting in queue…"
 msgid "Waiting in the queue…"
 msgstr "Waiting in the queue…"
 
-#: src/components/app-dialog.tsx:343
+#: src/components/app-dialog.tsx:345
 msgid "Web service"
 msgstr "Web service"
 

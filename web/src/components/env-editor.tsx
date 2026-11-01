@@ -23,9 +23,12 @@ export function EnvEditor({ rows, onChange }: { rows: EnvRow[]; onChange: (rows:
             className="font-mono"
             placeholder={t`NAME`}
             value={row.key}
-            onChange={(e) =>
-              onChange(rows.map((r, j) => (j === i ? { ...r, key: e.target.value.replace(/[^A-Za-z0-9_]/g, '_') } : r)))
-            }
+            onChange={(e) => {
+              // Pegar KEY=foo:bar rellena las dos casillas; el valor va entero.
+              const [name, ...value] = e.target.value.split('=');
+              const key = name.replace(/[^A-Za-z0-9_]/g, '_');
+              onChange(rows.map((r, j) => (j === i ? { key, value: value.length ? value.join('=') : r.value } : r)));
+            }}
           />
           <Input
             className="font-mono"

@@ -87,3 +87,21 @@ func TestAppVolumesNotShared(t *testing.T) {
 		t.Errorf("con otro nombre sí: %d", code)
 	}
 }
+
+// Los valores de las variables se guardan tal cual, también con ":" o "=".
+func TestAppEnvValuesKeptVerbatim(t *testing.T) {
+	ts, _, _ := testServerWithPages(t)
+	c := newClient(t, ts)
+	c.do("POST", "/api/setup", adminJSON)
+	if code, res := c.do("POST", "/api/apps", `{"name":"api","source":"image","image":"nginx"}`); code != 201 {
+		t.Fatalf("crear: %d %v", code, res)
+	}
+	put := `{"name":"api","source":"image","image":"nginx","env":{"KEY":"foo:bar","URL":"postgres://u:p@db:5432/x?a=b"}}`
+	if code, res := c.do("PUT", "/api/apps/1", put); code != 200 {
+		t.Fatalf("guardar: %d %v", code, res)
+	}
+	_, env := c.do("GET", "/api/apps/1/env", "")
+	if env["KEY"] != "foo:bar" || env["URL"] != "postgres://u:p@db:5432/x?a=b" {
+		t.Errorf("variables: %v", env)
+	}
+}
