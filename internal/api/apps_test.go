@@ -105,3 +105,33 @@ func TestAppEnvValuesKeptVerbatim(t *testing.T) {
 		t.Errorf("variables: %v", env)
 	}
 }
+
+// Un deployer no puede quitar ni cambiar la lista de acceso de una app (la
+// dejaría pública); solo el admin, igual que en los sitios (M-A).
+func TestAppAccessListAdminOnly(t *testing.T) {
+	ts, _, _ := testServerWithPages(t)
+	admin := newClient(t, ts)
+	admin.do("POST", "/api/setup", adminJSON)
+	admin.do("PUT", "/api/settings", `{"public_url":"https://dockfly.ejemplo.com"}`)
+	admin.do("POST", "/api/access-lists", `{"name":"Equipo","users":[{"username":"o","password":"secreto1"}]}`)
+	if code, res := admin.do("POST", "/api/apps", `{"name":"api","source":"image","image":"nginx","port":80,"domains":["api.test"],"access_list_id":1}`); code != 201 {
+		t.Fatalf("crear app protegida: %d %v", code, res)
+	}
+
+	_, inv := admin.do("POST", "/api/users", `{"name":"Dev","email":"dev@test.com","role":"deployer"}`)
+	dev := newClient(t, ts)
+	accept(t, dev, inv["link"].(string), "dev-secreto")
+
+	// El deployer edita la app pero SIN tocar la lista: permitido.
+	if code, res := dev.do("PUT", "/api/apps/1", `{"name":"api","source":"image","image":"nginx:1.2","port":80,"domains":["api.test"],"access_list_id":1}`); code != 200 {
+		t.Fatalf("deployer edita sin tocar la ACL: %d %v", code, res)
+	}
+	// El deployer quita la lista (la omite): prohibido.
+	if code, res := dev.do("PUT", "/api/apps/1", `{"name":"api","source":"image","image":"nginx:1.2","port":80,"domains":["api.test"]}`); code != 403 || res["code"] != "app_access_admin_only" {
+		t.Fatalf("deployer no debe poder quitar la ACL: %d %v", code, res)
+	}
+	// El admin sí puede quitarla.
+	if code, res := admin.do("PUT", "/api/apps/1", `{"name":"api","source":"image","image":"nginx:1.2","port":80,"domains":["api.test"]}`); code != 200 {
+		t.Fatalf("el admin sí puede quitar la ACL: %d %v", code, res)
+	}
+}

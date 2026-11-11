@@ -61,6 +61,25 @@ func TestCheckCreate(t *testing.T) {
 		{"tmpfs", ok(`{"Tmpfs":{"/run":""}}`), false},
 		{"deviceCgroupRules", ok(`{"DeviceCgroupRules":["c 1:3 rwm"]}`), false},
 		{"campo desconocido futuro", ok(`{"FutureEscapeField":true}`), false},
+		// Mounts con VolumeOptions.DriverConfig local: bind al host sin pasar
+		// por /volumes/create (el volumen se crea al vuelo en el create).
+		{"mount volume local bind a /", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-web_x","VolumeOptions":{"DriverConfig":{"Name":"local","Options":{"type":"none","o":"bind","device":"/"}}}}]}`), false},
+		{"mount volume anónimo bind a /etc", ok(`{"Mounts":[{"Type":"volume","Source":"","VolumeOptions":{"DriverConfig":{"Options":{"device":"/etc"}}}}]}`), false},
+		{"mount volume bind a datos de Dockfly", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-web_x","VolumeOptions":{"DriverConfig":{"Options":{"device":"/srv/dockfly/data"}}}}]}`), false},
+		{"mount volume device a ruta propia", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-web_x","VolumeOptions":{"DriverConfig":{"Options":{"device":"/srv/apps/web"}}}}]}`), true},
+		// Desenmascarar /proc con la clave en minúsculas (Docker es case-insensitive).
+		{"maskedpaths en minúsculas", ok(`{"maskedpaths":[]}`), false},
+		{"readonlypaths en minúsculas", ok(`{"readonlypaths":[]}`), false},
+		{"maskedpaths duplicado con otra caja", ok(`{"MaskedPaths":null,"maskedpaths":[]}`), false},
+		{"sysctls en minúsculas", ok(`{"sysctls":{"net.ipv4.ip_forward":"1"}}`), false},
+		// Montar un ANCESTRO de una ruta sensible (/var/lib ⊃ /var/lib/docker).
+		{"bind a /var/lib", ok(`{"Binds":["/var/lib:/x"]}`), false},
+		{"bind a /var", ok(`{"Mounts":[{"Type":"bind","Source":"/var"}]}`), false},
+		{"device a /var/lib", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-web_x","VolumeOptions":{"DriverConfig":{"Options":{"device":"/var/lib"}}}}]}`), false},
+		// uts/userns/cgroup con host: rechazado como pid/ipc/network.
+		{"uts host", ok(`{"UTSMode":"host"}`), false},
+		{"userns host", ok(`{"UsernsMode":"host"}`), false},
+		{"cgroupns host", ok(`{"CgroupnsMode":"host"}`), false},
 		// Lo que Compose envía de verdad: campos estándar vacíos y defaults.
 		{"compose típico", ok(`{"RestartPolicy":{"Name":"unless-stopped"},"Memory":134217728,"NetworkMode":"dockfly-web_default","CpuRealtimePeriod":0,"CpuRealtimeRuntime":0,"CgroupParent":"","Runtime":"","Cgroup":"","OomKillDisable":false,"Sysctls":null,"MaskedPaths":null,"ReadonlyPaths":null,"Tmpfs":null}`), true},
 		{"maskedpaths por defecto", ok(`{"MaskedPaths":["/proc/asound","/proc/acpi","/proc/kcore","/proc/keys","/proc/latency_stats","/proc/timer_list","/proc/timer_stats","/proc/sched_debug","/proc/scsi","/sys/firmware","/sys/devices/virtual/powercap"]}`), true},
@@ -155,7 +174,7 @@ func fakeDocker(t *testing.T) (dial func(context.Context) (net.Conn, error), see
 
 func TestProxy(t *testing.T) {
 	dial, seen := fakeDocker(t)
-	p := &Proxy{Dial: dial, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), Network: "dockfly"}
+	p := &Proxy{Dial: dial, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), Network: "dockfly", Protected: []string{"/srv/dockfly/data"}}
 	ts := httptest.NewServer(p.Handler("dockfly-web"))
 	defer ts.Close()
 
@@ -217,6 +236,12 @@ func TestProxy(t *testing.T) {
 	}{
 		{"POST", "/v1.47/volumes/create", `{"Name":"dockfly-web_db"}`, 200},
 		{"POST", "/v1.47/volumes/create", `{"Name":"dockfly-otra_db"}`, 403},
+		// Volumen local con device = bind al host: montaría / o los datos
+		// de Dockfly saltándose checkMount (allí es solo un nombre).
+		{"POST", "/v1.47/volumes/create", `{"Name":"dockfly-web_x","Driver":"local","DriverOpts":{"type":"none","o":"bind","device":"/"}}`, 403},
+		{"POST", "/v1.47/volumes/create", `{"Name":"dockfly-web_x","DriverOpts":{"o":"bind","device":"/srv/dockfly/data"}}`, 403},
+		{"POST", "/v1.47/volumes/create", `{"Name":"dockfly-web_x","DriverOpts":{"Device":"/etc"}}`, 403},
+		{"POST", "/v1.47/volumes/create", `{"Name":"dockfly-web_x","DriverOpts":{"device":"/srv/apps/web"}}`, 200},
 		{"DELETE", "/v1.47/volumes/dockfly-web_db", "", 200},
 		{"DELETE", "/v1.47/volumes/dockfly_data", "", 403},
 		{"GET", "/v1.47/volumes/dockfly_data", "", 200},
@@ -232,6 +257,15 @@ func TestProxy(t *testing.T) {
 		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"PidMode":"container:mio"}}`, 200},
 		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"PidMode":"container:dockfly"}}`, 403},
 		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"IpcMode":"container:dockfly"}}`, 403},
+		// uts/userns/cgroup: container:<x> solo de contenedores del proyecto.
+		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"UTSMode":"container:mio"}}`, 200},
+		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"UTSMode":"container:dockfly"}}`, 403},
+		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"CgroupnsMode":"container:dockfly"}}`, 403},
+		// exec: no se permite privilegiado (daría todas las capabilities).
+		{"POST", "/v1.47/containers/mio/exec", `{"Privileged":true}`, 403},
+		{"POST", "/v1.47/containers/mio/exec", `{"privileged":true}`, 403},
+		{"POST", "/v1.47/containers/mio/exec", `{"Cmd":["ls"]}`, 200},
+		{"POST", "/v1.47/containers/dockfly/exec", `{"Cmd":["ls"]}`, 403},
 		{"DELETE", "/v1.47/networks/4a38", "", 200},
 		{"DELETE", "/v1.47/networks/9f01", "", 403},
 	} {

@@ -113,3 +113,28 @@ func TestAPITokens(t *testing.T) {
 		t.Errorf("no se pueden revocar tokens ajenos: %d", code)
 	}
 }
+
+// Un token de API de rol admin no puede gestionar usuarios: crear un admin con
+// enlace de invitación/reset sería una persistencia que sobrevive a revocar el
+// token, justo lo que el veto "solo-panel" evita para /api/auth y /api/tokens (M-B).
+func TestAdminTokenCannotManageUsers(t *testing.T) {
+	ts, _, _ := testServerWithPages(t)
+	admin := newClient(t, ts)
+	admin.do("POST", "/api/setup", adminJSON)
+	admin.do("PUT", "/api/settings", `{"public_url":"https://dockfly.ejemplo.com"}`)
+
+	_, body := admin.do("POST", "/api/tokens", `{"name":"ci","role":"admin"}`)
+	token := body["token"].(string)
+	bearer := func(method, path, b string) (int, map[string]any) {
+		return newClient(t, ts).do(method, path, b, "Authorization", "Bearer "+token)
+	}
+	// Con cookie admin sí se gestionan usuarios; con el token admin, no.
+	if code, res := admin.do("POST", "/api/users", `{"name":"X","email":"x@test.com","role":"admin"}`); code != 201 {
+		t.Fatalf("el admin por panel sí invita: %d %v", code, res)
+	}
+	for _, p := range []string{"/api/users", "/api/users/2/link"} {
+		if code, res := bearer("POST", p, `{"name":"Y","email":"y@test.com","role":"admin"}`); code != 403 || res["code"] != "panel_only" {
+			t.Errorf("token admin en %s: %d %v (esperaba 403 panel_only)", p, code, res)
+		}
+	}
+}

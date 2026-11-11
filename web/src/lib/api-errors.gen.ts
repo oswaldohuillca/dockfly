@@ -16,6 +16,7 @@ export const apiErrors: Record<string, MessageDescriptor> = {
   agent_token_invalid: msg({ context: "api:agent_token_invalid", message: "Invalid server token: generate a new one in the panel" }),
   agent_token_missing: msg({ context: "api:agent_token_missing", message: "The server token is missing" }),
   already_set_up: msg({ context: "api:already_set_up", message: "This installation is already set up" }),
+  app_access_admin_only: msg({ context: "api:app_access_admin_only", message: "Only an administrator can change the access list" }),
   app_command_unclosed_quote: msg({ context: "api:app_command_unclosed_quote", message: "The command has an unclosed quote" }),
   app_compose_file_dotdot: msg({ context: "api:app_compose_file_dotdot", message: "The Compose file can't contain \"..\"" }),
   app_compose_remote: msg({ context: "api:app_compose_remote", message: "Compose apps can only be deployed on the main server, for now" }),

@@ -28,6 +28,7 @@ var (
 	errDeleteSelf        = newError("delete_own_account", "You can't delete your own account")
 	errRepoLinkAdmin     = newError("repo_link_admin_only", "Only an administrator can link a new repository")
 	errSiteRoutingAdmin  = newError("site_routing_admin_only", "Only an administrator can change custom locations or the access list")
+	errAppAccessAdmin    = newError("app_access_admin_only", "Only an administrator can change the access list")
 )
 
 func isAdmin(r *http.Request) bool {
@@ -84,9 +85,12 @@ func requiredRole(method, path string) string {
 func (s *Server) authorize(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u, t := currentUser(r), currentToken(r)
-		// La cuenta (contraseña, 2FA) y los propios tokens solo se gestionan
-		// desde el panel: un token filtrado no puede crear otros.
-		if t != nil && (strings.HasPrefix(r.URL.Path, "/api/auth/") || strings.HasPrefix(r.URL.Path, "/api/tokens")) {
+		// La cuenta (contraseña, 2FA), los propios tokens y la gestión de
+		// usuarios solo se hacen desde el panel: un token filtrado no puede
+		// crear otros tokens ni un usuario admin persistente (con enlace de
+		// invitación/reset) que sobreviva a revocar el token.
+		if t != nil && (strings.HasPrefix(r.URL.Path, "/api/auth/") || strings.HasPrefix(r.URL.Path, "/api/tokens") ||
+			strings.HasPrefix(r.URL.Path, "/api/users")) {
 			writeError(w, http.StatusForbidden, errPanelOnly)
 			return
 		}

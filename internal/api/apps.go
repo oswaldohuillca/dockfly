@@ -319,6 +319,12 @@ func (s *Server) handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 		!s.checkSSL(w, r, a.Domains, a.SSL) {
 		return
 	}
+	// Cambiar la lista de acceso (protege la app) es cosa del admin, igual que
+	// en los sitios: si no, un deployer la quitaría y la app quedaría pública.
+	if !sameID(existing.AccessListID, a.AccessListID) && !isAdmin(r) {
+		writeError(w, http.StatusForbidden, errAppAccessAdmin)
+		return
+	}
 	a.ID, a.EnvEnc = existing.ID, existing.EnvEnc
 	if in.Env != nil {
 		raw, _ := json.Marshal(in.Env)

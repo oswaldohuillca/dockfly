@@ -150,6 +150,21 @@ func (p *Proxy) check(r *http.Request, project string) error {
 			}
 			return nil
 		}
+		// Un exec privilegiado da todas las capabilities dentro de un
+		// contenedor del proyecto (CAP_SYS_MODULE/ADMIN → root en el host),
+		// saltándose la política del create. El resto del create de exec no
+		// concede privilegios (ni HostConfig).
+		if r.Method == http.MethodPost && strings.HasSuffix(route, "/exec") {
+			body, err := readBody(r)
+			if err != nil {
+				return err
+			}
+			var ex struct{ Privileged bool }
+			_ = json.Unmarshal(body, &ex)
+			if ex.Privileged {
+				return fmt.Errorf("los exec privilegiados (privileged: true) no están permitidos")
+			}
+		}
 	case strings.HasPrefix(rest, "volumes/") && !read || route == "/volumes/create":
 		name := strings.TrimPrefix(route, "/volumes/")
 		if route == "/volumes/create" {
@@ -157,9 +172,18 @@ func (p *Proxy) check(r *http.Request, project string) error {
 			if err != nil {
 				return err
 			}
-			var v struct{ Name string }
+			var v struct {
+				Name       string
+				DriverOpts map[string]string
+			}
 			_ = json.Unmarshal(body, &v)
 			name = v.Name
+			// Un volumen local con device = bind al host (type=none,o=bind):
+			// al montarlo, el create del contenedor solo ve un nombre, así
+			// que la ruta se valida aquí, como cualquier bind.
+			if err := checkDriverOpts(v.DriverOpts, project, p.Protected); err != nil {
+				return err
+			}
 		}
 		if name != "" && !owned(name) {
 			return fmt.Errorf("el volumen %s no es de este proyecto", name)
@@ -328,8 +352,13 @@ type createRequest struct {
 		Binds          []string
 		VolumesFrom    []string
 		Mounts         []struct {
-			Type   string
-			Source string
+			Type          string
+			Source        string
+			VolumeOptions struct {
+				DriverConfig struct {
+					Options map[string]string
+				}
+			}
 		}
 	}
 }
@@ -346,7 +375,10 @@ func sensitivePath(src string) bool {
 		return true // sockets de Docker, containerd…
 	}
 	for _, s := range sensitive {
-		if src == s || (s != "/" && strings.HasPrefix(src, s+"/")) {
+		// Bloquea la ruta sensible, algo dentro de ella, y también un
+		// ANCESTRO suyo: montar /var/lib expondría /var/lib/docker (volúmenes
+		// y rootfs de todas las apps = root en el host).
+		if src == s || (s != "/" && strings.HasPrefix(src, s+"/")) || strings.HasPrefix(s, src+"/") {
 			return true
 		}
 	}
@@ -419,7 +451,8 @@ func checkCreate(body []byte, project, network string, protected []string) (refs
 	for _, ns := range []struct {
 		name, mode string
 		net        bool
-	}{{"pid", h.PidMode, false}, {"ipc", h.IpcMode, false}, {"network_mode", h.NetworkMode, true}} {
+	}{{"pid", h.PidMode, false}, {"ipc", h.IpcMode, false}, {"network_mode", h.NetworkMode, true},
+		{"uts", h.UTSMode, false}, {"userns", h.UsernsMode, false}, {"cgroup", h.CgroupnsMode, false}} {
 		ok, ref := okNamespace(ns.mode, project, network, ns.net)
 		if !ok {
 			return nil, fmt.Errorf("%s: %q no está permitido (solo redes o contenedores del proyecto)", ns.name, ns.mode)
@@ -482,6 +515,26 @@ func checkHost(body []byte, req createRequest, project string, protected []strin
 				return err
 			}
 		}
+		// Un volumen con DriverConfig local y device=/ruta es un bind al host
+		// (como /volumes/create, pero creado al vuelo en el create). El Source
+		// solo es un nombre, así que la ruta se valida aquí.
+		if err := checkDriverOpts(m.VolumeOptions.DriverConfig.Options, project, protected); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// checkDriverOpts bloquea un volumen "local" cuyo device sea un bind a una
+// ruta del host prohibida. El driver local pasa la clave por ToLower, así que
+// la comparamos igual.
+func checkDriverOpts(opts map[string]string, project string, protected []string) error {
+	for k, dev := range opts {
+		if strings.ToLower(k) == "device" && strings.HasPrefix(dev, "/") {
+			if err := checkMount(dev, true, project, protected); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -495,12 +548,33 @@ func isEmptyJSON(v json.RawMessage) bool {
 	return t == "" || t == "null" || t == `""` || t == "0" || t == "false" || t == "[]" || t == "{}"
 }
 
+// lowerSafe son los campos que pueden llevar valor (safeNonEmpty más los que
+// se validan aparte), en minúsculas: Docker decodifica HostConfig sin
+// distinguir mayúsculas, así que la lista blanca también.
+var lowerSafe = func() map[string]bool {
+	m := map[string]bool{"cgroupparent": true, "cgroup": true, "runtime": true, "securityopt": true}
+	for k := range safeNonEmpty {
+		m[strings.ToLower(k)] = true
+	}
+	return m
+}()
+
 // checkHostFields aplica la política a HostConfig: los campos seguros pueden
 // llevar valor; los peligrosos conocidos se validan; cualquier otro campo
-// debe ir vacío.
+// debe ir vacío. Trabaja con las claves en minúsculas para que un campo
+// peligroso no se cuele con otra caja (p.ej. "maskedpaths": [] en vez de
+// "MaskedPaths", que desenmascararía /proc en el host).
 func checkHostFields(h map[string]json.RawMessage) error {
+	low := make(map[string]json.RawMessage, len(h))
+	for k, v := range h {
+		lk := strings.ToLower(k)
+		if _, dup := low[lk]; dup {
+			return fmt.Errorf("HostConfig.%s está repetido", k)
+		}
+		low[lk] = v
+	}
 	empty := func(field string) bool {
-		v, ok := h[field]
+		v, ok := low[strings.ToLower(field)]
 		return !ok || isEmptyJSON(v)
 	}
 	// Campos peligrosos que nunca pueden llevar valor.
@@ -519,15 +593,15 @@ func checkHostFields(h map[string]json.RawMessage) error {
 		}
 	}
 	for _, field := range []string{"CgroupParent", "Cgroup", "Runtime"} {
-		if !empty(field) && string(h[field]) != `"runc"` {
+		if !empty(field) && string(low[strings.ToLower(field)]) != `"runc"` {
 			return fmt.Errorf("HostConfig.%s solo puede ir vacío", field)
 		}
 	}
 	// MaskedPaths/ReadonlyPaths: ausentes o null = Docker aplica sus defaults
 	// (seguro); una lista vacía o acortada desenmascara /proc, así que solo
 	// se admite exactamente la lista por defecto.
-	for field, def := range map[string][]string{"MaskedPaths": defaultMaskedPaths, "ReadonlyPaths": defaultReadonlyPaths} {
-		raw, ok := h[field]
+	for field, def := range map[string][]string{"maskedpaths": defaultMaskedPaths, "readonlypaths": defaultReadonlyPaths} {
+		raw, ok := low[field]
 		if !ok || strings.TrimSpace(string(raw)) == "null" {
 			continue
 		}
@@ -537,9 +611,8 @@ func checkHostFields(h map[string]json.RawMessage) error {
 		}
 	}
 	// Cualquier otro campo (desconocido o no listado como seguro) debe ir vacío.
-	handled := map[string]bool{"CgroupParent": true, "Cgroup": true, "Runtime": true, "SecurityOpt": true}
-	for field, v := range h {
-		if safeNonEmpty[field] || handled[field] {
+	for field, v := range low {
+		if lowerSafe[field] {
 			continue
 		}
 		if !isEmptyJSON(v) {
