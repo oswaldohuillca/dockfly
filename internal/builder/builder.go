@@ -19,6 +19,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/dockfly/dockfly/internal/docker"
@@ -189,11 +190,32 @@ func (m *Manager) Cancel(ctx context.Context, buildID int64) error {
 
 var errCanceled = errors.New("cancelado")
 
+// minBuildFreeBytes es el mínimo de disco libre para empezar un build.
+const minBuildFreeBytes = 2 << 30 // 2 GiB
+
+func freeDiskBytes(path string) (uint64, error) {
+	var st syscall.Statfs_t
+	if err := syscall.Statfs(path, &st); err != nil {
+		return 0, err
+	}
+	return st.Bavail * uint64(st.Bsize), nil
+}
+
 func (m *Manager) run(parent context.Context, id int64) {
 	st := m.cfg.Store
 	// Si se canceló mientras esperaba en cola, MarkBuildStarted falla y no
 	// hay nada que hacer.
 	if err := st.MarkBuildStarted(parent, id); err != nil {
+		return
+	}
+	// No empezar si el disco está casi lleno: un build puede escribir GiB en la
+	// capa del contenedor y en la caché, y llenar el host.
+	// shortcut: solo mira el FS de LogDir (/data); si /var/lib/docker está en otro
+	// disco no lo cubre. Subir a cuota por capa (StorageOpt) cuando el driver de
+	// almacenamiento de Docker lo soporte (overlay2+xfs/pquota, btrfs…).
+	if free, err := freeDiskBytes(m.cfg.LogDir); err == nil && free < minBuildFreeBytes {
+		_ = st.FinishBuild(parent, id, store.BuildFailed,
+			fmt.Sprintf("espacio en disco insuficiente: %d MiB libres, se necesitan al menos %d MiB", free>>20, minBuildFreeBytes>>20), nil)
 		return
 	}
 	b, err := st.GetBuild(parent, id)

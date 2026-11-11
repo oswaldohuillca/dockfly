@@ -7,7 +7,7 @@ services:
     ports:
       - "80:80"     # HTTP de las apps
       - "443:443"   # HTTPS de las apps
-      - "81:81"     # Panel de Dockfly
+      - "127.0.0.1:81:81"   # Panel de Dockfly (solo local; publícalo por un proxy host con HTTPS)
     environment:
       # DOCKFLY_ACME_EMAIL: tu@email.com
       # DOCKFLY_ACME_STAGING: "true"   # usa el entorno de pruebas de Let's Encrypt

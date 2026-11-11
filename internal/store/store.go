@@ -299,6 +299,13 @@ func (s *Store) SetPassword(ctx context.Context, id int64, hash string) (int64, 
 	return version, notFound(err)
 }
 
+// BumpSessionVersion sube la versión de sesión del usuario (cierra todas sus
+// sesiones). Lo usa el logout.
+func (s *Store) BumpSessionVersion(ctx context.Context, id int64) error {
+	return mustAffect(s.db.NewUpdate().Model((*User)(nil)).
+		Set("session_version = session_version + 1").Where("id = ?", id).Exec(ctx))
+}
+
 func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewDelete().Model((*User)(nil)).Where("id = ?", id).Exec(ctx))
 }

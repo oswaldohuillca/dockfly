@@ -52,7 +52,7 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 
 // sessionUser devuelve el usuario de la cookie de sesión, si es válida.
 func (s *Server) sessionUser(r *http.Request) (*store.User, bool) {
-	c, err := r.Cookie(sessionCookie)
+	c, err := r.Cookie(s.sessionCookieName())
 	if err != nil {
 		return nil, false
 	}

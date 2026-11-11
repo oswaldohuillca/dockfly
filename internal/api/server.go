@@ -29,7 +29,21 @@ import (
 	"github.com/dockfly/dockfly/internal/tunnel"
 )
 
-const sessionCookie = "dockfly_session"
+const sessionCookieDev = "dockfly_session"
+
+// sessionCookieName usa el prefijo __Host- en producción (exige Secure, Path=/
+// y sin Domain). En desarrollo (sin Traefik, HTTP en localhost) usa el nombre
+// plano para que la cookie funcione sin HTTPS.
+func (s *Server) sessionCookieName() string {
+	if s.Super == nil {
+		return sessionCookieDev
+	}
+	return "__Host-" + sessionCookieDev
+}
+
+func (s *Server) cookieSecure(r *http.Request) bool {
+	return s.Super != nil || r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https"
+}
 
 type ctxKey struct{}
 
@@ -171,12 +185,12 @@ func currentUser(r *http.Request) *store.User {
 func (s *Server) setSession(w http.ResponseWriter, r *http.Request, u *store.User) {
 	token, exp := s.Signer.Issue(u.ID, u.SessionVersion)
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookie,
+		Name:     s.sessionCookieName(),
 		Value:    token,
 		Path:     "/",
 		Expires:  exp,
 		HttpOnly: true,
-		Secure:   r.TLS != nil || r.Header.Get("X-Forwarded-Proto") == "https",
+		Secure:   s.cookieSecure(r),
 		SameSite: http.SameSiteStrictMode,
 	})
 }
@@ -288,7 +302,12 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{Name: sessionCookie, Value: "", Path: "/", MaxAge: -1, HttpOnly: true})
+	// Subir la versión de sesión invalida la cookie en el servidor (una cookie
+	// robada deja de valer). Cierra todas las sesiones de ese usuario.
+	if u, ok := s.sessionUser(r); ok {
+		_ = s.Store.BumpSessionVersion(r.Context(), u.ID)
+	}
+	http.SetCookie(w, &http.Cookie{Name: s.sessionCookieName(), Value: "", Path: "/", MaxAge: -1, HttpOnly: true, Secure: s.cookieSecure(r), SameSite: http.SameSiteStrictMode})
 	w.WriteHeader(http.StatusNoContent)
 }
 

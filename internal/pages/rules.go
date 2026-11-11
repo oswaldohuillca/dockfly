@@ -94,6 +94,11 @@ func ParseRedirects(r io.Reader) []RedirectRule {
 		default:
 			continue
 		}
+		// Destinos protocolo-relativos ("//host") o con "\" los tratan algunos
+		// navegadores como externos → redirección abierta. Se rechazan.
+		if strings.ContainsRune(f[1], '\\') || strings.HasPrefix(f[1], "//") {
+			continue
+		}
 		// Una reescritura solo puede apuntar a otra ruta del propio sitio.
 		if status == 200 && !strings.HasPrefix(f[1], "/") {
 			continue

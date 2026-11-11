@@ -43,6 +43,7 @@ export const apiErrors: Record<string, MessageDescriptor> = {
   app_volume_shared: msg({ context: "api:app_volume_shared", message: "The volume {volume} would share its data with the app {app}: give it another name" }),
   app_webhook_inactive: msg({ context: "api:app_webhook_inactive", message: "This app has no active webhooks" }),
   app_webhook_unknown_provider: msg({ context: "api:app_webhook_unknown_provider", message: "Unknown provider" }),
+  backup_encrypted: msg({ context: "api:backup_encrypted", message: "This backup is encrypted: enter its password" }),
   backup_invalid: msg({ context: "api:backup_invalid", message: "Invalid backup: {detail}" }),
   backup_missing: msg({ context: "api:backup_missing", message: "No backup was received" }),
   backup_multipart_required: msg({ context: "api:backup_multipart_required", message: "The backup must be sent as multipart/form-data" }),

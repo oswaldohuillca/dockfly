@@ -5,9 +5,8 @@ import (
 	"testing"
 )
 
-// Las cuentas Git son del admin: un deployer no puede enlazar con ellas un
-// repositorio nuevo (ni listar sus repos si es viewer), pero sí cambiar la
-// rama o el build de uno ya enlazado.
+// Las cuentas Git son del admin: solo el admin lista sus repos y enlaza uno
+// nuevo; un deployer no, pero sí cambia la rama o el build de uno ya enlazado.
 func TestDeployerCannotLinkRepos(t *testing.T) {
 	gh := newFakeGitHub(t)
 	ts, _, _ := testServerWithPages(t)
@@ -30,8 +29,8 @@ func TestDeployerCannotLinkRepos(t *testing.T) {
 	if code, _ := viewer.do("GET", "/api/git/connections/1/repos", ""); code != 403 {
 		t.Errorf("un viewer no lista repos: %d", code)
 	}
-	if code, _ := dev.doList("GET", "/api/git/connections/1/repos"); code != 200 {
-		t.Errorf("un deployer sí lista repos: %d", code)
+	if code, _ := dev.doList("GET", "/api/git/connections/1/repos"); code != 403 {
+		t.Errorf("un deployer tampoco lista repos (solo admin): %d", code)
 	}
 	if code, body := dev.do("PUT", "/api/sites/2/git", link); code != 403 || body["code"] != "repo_link_admin_only" {
 		t.Errorf("un deployer no enlaza un repo nuevo: %d %v", code, body)

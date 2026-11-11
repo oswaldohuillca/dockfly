@@ -1,8 +1,9 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
-import { Download, Terminal } from 'lucide-react';
+import { Terminal } from 'lucide-react';
 import { Trans } from '@lingui/react/macro';
 
 import { AccessLists } from '@/components/access-lists';
+import { BackupDownload } from '@/components/backup-download';
 import { BackupStorageSettings } from '@/components/backup-storage';
 import { CertificatesSettings } from '@/components/certificates-settings';
 import { Notifications } from '@/components/notifications';
@@ -10,7 +11,6 @@ import { PreviewSettings } from '@/components/preview-settings';
 import { RestoreBackup } from '@/components/restore-backup';
 import { SystemUpdate } from '@/components/system-update';
 import { Users } from '@/components/users';
-import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { can } from '@/lib/roles';
 
@@ -49,12 +49,8 @@ function Settings() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" asChild>
-              <a href="/api/backup" download>
-                <Download /> <Trans>Download backup</Trans>
-              </a>
-            </Button>
+          <div className="flex flex-wrap items-end gap-3">
+            <BackupDownload />
             <RestoreBackup />
           </div>
           <p className="text-xs text-muted-foreground">

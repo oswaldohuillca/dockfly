@@ -23,17 +23,43 @@ var (
 	errBackupNoFile    = newError("backup_missing", "No backup was received")
 	errBackupUpload    = newError("backup_upload_failed", "Couldn't read the upload: {detail}")
 	errBackupInvalid   = newError("backup_invalid", "Invalid backup: {detail}")
+	errBackupEncrypted = newError("backup_encrypted", "This backup is encrypted: enter its password")
 )
 
 func (s *Server) handleDownloadBackup(w http.ResponseWriter, r *http.Request) {
+	// Contraseña opcional (por cabecera, no en la URL, que acabaría en los logs):
+	// si viene, la copia se cifra. Incluye claves, así que cifrarla es sensato.
+	pw := r.Header.Get("X-Backup-Password")
 	name := "dockfly-backup-" + time.Now().UTC().Format("20060102-1504") + ".tar.gz"
-	w.Header().Set("Content-Type", "application/gzip")
+	ctype := "application/gzip"
+	if pw != "" {
+		name += ".enc"
+		ctype = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", ctype)
 	w.Header().Set("Content-Disposition", `attachment; filename="`+name+`"`)
-	if err := backup.Create(r.Context(), s.Store, s.DataDir, s.Version, w); err != nil {
+
+	out := io.Writer(w)
+	var enc io.WriteCloser
+	if pw != "" {
+		var err error
+		if enc, err = backup.EncryptWriter(w, pw); err != nil {
+			s.internalError(w, err)
+			return
+		}
+		out = enc
+	}
+	if err := backup.Create(r.Context(), s.Store, s.DataDir, s.Version, out); err != nil {
 		// Las cabeceras ya se enviaron: solo queda cortar la descarga y
 		// registrarlo (el navegador verá la descarga fallida).
 		s.Log.Error("generando copia de seguridad", "error", err)
 		panic(http.ErrAbortHandler)
+	}
+	if enc != nil {
+		if err := enc.Close(); err != nil { // emite el último bloque cifrado
+			s.Log.Error("cerrando copia cifrada", "error", err)
+			panic(http.ErrAbortHandler)
+		}
 	}
 }
 
@@ -74,7 +100,7 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Los campos de confirmación van antes que el archivo.
-	var password, setupToken string
+	var password, setupToken, encPassword string
 	for {
 		part, err := mr.NextPart()
 		if err == io.EOF {
@@ -86,13 +112,17 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		switch part.FormName() {
-		case "password", "setup_token":
+		case "password", "setup_token", "encryption_password":
 			v, _ := io.ReadAll(io.LimitReader(part, 1024))
+			name := part.FormName()
 			part.Close()
-			if part.FormName() == "password" {
+			switch name {
+			case "password":
 				password = string(v)
-			} else {
+			case "setup_token":
 				setupToken = string(v)
+			default:
+				encPassword = string(v)
 			}
 			continue
 		case "backup":
@@ -110,7 +140,30 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, errSetupToken)
 			return
 		}
-		m, err := backup.Stage(part, s.DataDir)
+		// Una copia cifrada (empieza por su magic) se descifra al vuelo con la
+		// contraseña de cifrado (distinta de la del admin).
+		src, rest, err := backup.IsEncrypted(part)
+		if err != nil {
+			part.Close()
+			writeError(w, http.StatusBadRequest, errBackupUpload.With("detail", err.Error()))
+			return
+		}
+		reader := rest
+		if src {
+			if encPassword == "" {
+				part.Close()
+				writeError(w, http.StatusBadRequest, errBackupEncrypted)
+				return
+			}
+			dr, err := backup.DecryptReader(rest, encPassword)
+			if err != nil {
+				part.Close()
+				writeError(w, http.StatusBadRequest, errBackupInvalid.With("detail", err.Error()))
+				return
+			}
+			reader = dr
+		}
+		m, err := backup.Stage(reader, s.DataDir)
 		part.Close()
 		if errors.Is(err, backup.ErrInvalid) {
 			// El detalle es lo que sigue a "copia de seguridad inválida: ".

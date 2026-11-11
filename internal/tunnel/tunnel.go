@@ -91,6 +91,18 @@ func (h *Hub) Online(serverID int64) (Info, bool) {
 	return s.info, true
 }
 
+// Disconnect cierra la sesión del agente de ese servidor, si está conectado.
+// Lo usan el borrado y la rotación de token del servidor.
+func (h *Hub) Disconnect(serverID int64) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	h.init()
+	if s, ok := h.sessions[serverID]; ok {
+		close(s.done)
+		delete(h.sessions, serverID)
+	}
+}
+
 // ServeControl atiende el canal de control de un agente ya autenticado.
 // Dura lo que dure la conexión; si el servidor ya tenía un agente
 // conectado, el nuevo lo sustituye.

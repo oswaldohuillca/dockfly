@@ -266,5 +266,5 @@ var SecretFields = map[string][]string{
 	"discord":  {"webhook_url"},
 	"slack":    {"webhook_url"},
 	"telegram": {"bot_token"},
-	"webhook":  {"secret"},
+	"webhook":  {"secret", "url"},
 }

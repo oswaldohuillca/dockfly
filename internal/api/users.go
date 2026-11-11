@@ -59,10 +59,11 @@ func requiredRole(method, path string) string {
 	// Las variables de entorno y las copias de las bases de datos llevan secretos.
 	secret := strings.HasSuffix(path, "/env") || strings.HasSuffix(path, "/download") ||
 		path == "/api/backup" || strings.HasPrefix(path, "/api/users")
-	// Los repositorios de una cuenta Git pueden ser privados.
+	// Los repositorios de una cuenta Git pueden ser privados; listarlos queda
+	// restringido a admin, igual que enlazarlos (canLinkRepo).
 	if read && strings.HasPrefix(path, "/api/git/connections/") &&
 		(strings.HasSuffix(path, "/repos") || strings.HasSuffix(path, "/branches")) {
-		return store.RoleDeployer
+		return store.RoleAdmin
 	}
 	deployScope := false
 	for _, p := range []string{"/api/sites", "/api/builds", "/api/apps", "/api/app-deployments"} {

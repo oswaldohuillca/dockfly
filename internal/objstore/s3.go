@@ -14,7 +14,13 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/dockfly/dockfly/internal/egress"
 )
+
+// safeClient rechaza las IPs link-local (metadatos de nube) contra SSRF por un
+// endpoint malicioso; deja loopback/privadas para MinIO autoalojado.
+var safeClient = &http.Client{Transport: egress.SafeTransport()}
 
 // S3 habla con cualquier almacenamiento compatible con S3 firmando las
 // peticiones con AWS Signature V4 (sin el SDK, que pesa decenas de MB).
@@ -35,7 +41,7 @@ func (s *S3) client() *http.Client {
 	if s.HTTP != nil {
 		return s.HTTP
 	}
-	return http.DefaultClient
+	return safeClient
 }
 
 func (s *S3) Describe() string {

@@ -93,7 +93,7 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
   // en FormDialog, pero el envío sí es el de siempre.
   const { submit, busy, error } = useSubmit(async () => {
     if (flow === 'disable') {
-      await api.disable2FA(password);
+      await api.disable2FA(password, code);
       toast.success(t`Two-step verification disabled`);
       onClose();
     } else if (flow === 'regenerate') {
@@ -172,6 +172,8 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
             <DialogDescription>
               {setup ? (
                 <Trans>Scan the code with your authenticator app and enter the 6-digit code it shows.</Trans>
+              ) : flow === 'disable' ? (
+                <Trans>For security, confirm your password and a current two-step code.</Trans>
               ) : (
                 <Trans>For security, confirm your password.</Trans>
               )}
@@ -211,19 +213,38 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
               </div>
             </div>
           ) : (
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">
-                <Trans>Password</Trans>
-              </Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                autoFocus
-                autoComplete="current-password"
-              />
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="confirm-password">
+                  <Trans>Password</Trans>
+                </Label>
+                <Input
+                  id="confirm-password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  required
+                  autoFocus
+                  autoComplete="current-password"
+                />
+              </div>
+              {flow === 'disable' && (
+                <div className="space-y-2">
+                  <Label htmlFor="disable-code">
+                    <Trans>Two-step code</Trans>
+                  </Label>
+                  <Input
+                    id="disable-code"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.trim())}
+                    required
+                    autoComplete="one-time-code"
+                    inputMode="numeric"
+                    placeholder="123456"
+                    className="font-mono tracking-widest"
+                  />
+                </div>
+              )}
             </div>
           )}
 

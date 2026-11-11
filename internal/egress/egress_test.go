@@ -28,6 +28,20 @@ func TestPublic(t *testing.T) {
 	}
 }
 
+// SafeTransport (cuentas Git, endpoint S3) solo bloquea link-local/metadatos;
+// loopback y privadas se permiten (autoalojar GitLab/MinIO en LAN).
+func TestLinkLocalOrUnspecified(t *testing.T) {
+	for ip, want := range map[string]bool{
+		"169.254.169.254": true, "fe80::1": true, "0.0.0.0": true, "::": true,
+		"127.0.0.1": false, "::1": false, "10.0.0.5": false, "192.168.1.1": false, "8.8.8.8": false,
+		"::ffff:169.254.169.254": true,
+	} {
+		if got := LinkLocalOrUnspecified(netip.MustParseAddr(ip)); got != want {
+			t.Errorf("LinkLocalOrUnspecified(%s) = %v, quiero %v", ip, got, want)
+		}
+	}
+}
+
 func proxyClient(t *testing.T) (*httptest.Server, *http.Client) {
 	t.Helper()
 	p := httptest.NewServer(NewProxy(slog.New(slog.DiscardHandler)))

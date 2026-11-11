@@ -48,8 +48,8 @@ func TestNotificationChannels(t *testing.T) {
 		t.Fatalf("crear canal: %d %v", code, ch)
 	}
 	cfg := ch["config"].(map[string]any)
-	if cfg["secret"] != secretMask || cfg["url"] != hook.URL+"/ok" {
-		t.Errorf("el secreto nunca debe devolverse: %v", cfg)
+	if cfg["secret"] != secretMask || cfg["url"] != secretMask {
+		t.Errorf("el secreto y la url nunca deben devolverse: %v", cfg)
 	}
 	_, list := c.doList("GET", "/api/notifications")
 	if strings.Contains(fmt.Sprint(list), "muy-secreto") {

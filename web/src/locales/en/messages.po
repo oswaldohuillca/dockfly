@@ -62,7 +62,7 @@ msgctxt "api:access_list_in_use"
 msgid "{count} hosts, sites or apps use it: remove it from them first"
 msgstr "{count} hosts, sites or apps use it: remove it from them first"
 
-#: src/lib/api-errors.gen.ts:176
+#: src/lib/api-errors.gen.ts:178
 msgctxt "api:unexpected_error"
 msgid "{detail}"
 msgstr "{detail}"
@@ -71,7 +71,7 @@ msgstr "{detail}"
 msgid "{domain} deleted"
 msgstr "{domain} deleted"
 
-#: src/lib/api-errors.gen.ts:82
+#: src/lib/api-errors.gen.ts:84
 msgctxt "api:dns_field_missing"
 msgid "{field} is missing"
 msgstr "{field} is missing"
@@ -161,7 +161,7 @@ msgstr "7 days"
 msgid "A backup includes the database, the keys (sessions and token encryption), the published sites and the Let's Encrypt certificates. Keep it somewhere safe: it can be used to read the tokens of your Git accounts."
 msgstr "A backup includes the database, the keys (sessions and token encryption), the published sites and the Let's Encrypt certificates. Keep it somewhere safe: it can be used to read the tokens of your Git accounts."
 
-#: src/lib/api-errors.gen.ts:68
+#: src/lib/api-errors.gen.ts:70
 msgctxt "api:db_backup_busy"
 msgid "A backup or restore is already running for this database"
 msgstr "A backup or restore is already running for this database"
@@ -174,22 +174,22 @@ msgstr "A container that Dockfly manages end to end: zero-downtime deploys, encr
 msgid "A deploy receives no traffic until this path responds. Without it, the port just has to accept connections."
 msgstr "A deploy receives no traffic until this path responds. Without it, the port just has to accept connections."
 
-#: src/lib/api-errors.gen.ts:148
+#: src/lib/api-errors.gen.ts:150
 msgctxt "api:server_name_taken"
 msgid "A server with that name already exists"
 msgstr "A server with that name already exists"
 
-#: src/lib/api-errors.gen.ts:152
+#: src/lib/api-errors.gen.ts:154
 msgctxt "api:site_name_taken"
 msgid "A site with that name already exists"
 msgstr "A site with that name already exists"
 
-#: src/lib/api-errors.gen.ts:166
+#: src/lib/api-errors.gen.ts:168
 msgctxt "api:token_role_too_high"
 msgid "A token can't have more permissions than your user"
 msgstr "A token can't have more permissions than your user"
 
-#: src/lib/api-errors.gen.ts:183
+#: src/lib/api-errors.gen.ts:185
 msgctxt "api:user_email_taken"
 msgid "A user with that email already exists"
 msgstr "A user with that email already exists"
@@ -215,7 +215,7 @@ msgstr "Access lists"
 msgid "Account"
 msgstr "Account"
 
-#: src/lib/api-errors.gen.ts:95
+#: src/lib/api-errors.gen.ts:97
 msgctxt "api:git_connection_not_found"
 msgid "Account not found"
 msgstr "Account not found"
@@ -293,7 +293,7 @@ msgstr "Advanced: personal access tokens"
 msgid "Alerts when a build fails, an SSL certificate has problems or a container goes down. Each alert is sent only once, not repeatedly."
 msgstr "Alerts when a build fails, an SSL certificate has problems or a container goes down. Each alert is sent only once, not repeatedly."
 
-#: src/components/restore-backup.tsx:108
+#: src/components/restore-backup.tsx:112
 msgid "All current data (users, sites, apps, keys) will be replaced by the backup's. The current data is kept aside on the server, just in case."
 msgstr "All current data (users, sites, apps, keys) will be replaced by the backup's. The current data is kept aside on the server, just in case."
 
@@ -305,12 +305,12 @@ msgstr "Allowed IPs"
 msgid "Also delete its data (volumes)"
 msgstr "Also delete its data (volumes)"
 
-#: src/lib/api-errors.gen.ts:30
+#: src/lib/api-errors.gen.ts:31
 msgctxt "api:app_name_taken"
 msgid "An app with that name already exists"
 msgstr "An app with that name already exists"
 
-#: src/lib/api-errors.gen.ts:179
+#: src/lib/api-errors.gen.ts:181
 msgctxt "api:update_in_progress"
 msgid "An update is already in progress"
 msgstr "An update is already in progress"
@@ -323,7 +323,7 @@ msgstr "another server"
 msgid "API tokens"
 msgstr "API tokens"
 
-#: src/lib/api.ts:833
+#: src/lib/api.ts:847
 msgctxt "domain owner"
 msgid "app"
 msgstr "app"
@@ -341,17 +341,17 @@ msgstr "App {name} removed from Dockfly"
 msgid "App created, with a warning"
 msgstr "App created, with a warning"
 
-#: src/lib/api-errors.gen.ts:33
+#: src/lib/api-errors.gen.ts:34
 msgctxt "api:app_not_found"
 msgid "App not found"
 msgstr "App not found"
 
-#: src/lib/api-errors.gen.ts:90
+#: src/lib/api-errors.gen.ts:92
 msgctxt "api:git_app_not_found"
 msgid "App not found"
 msgstr "App not found"
 
-#: src/lib/api-errors.gen.ts:117
+#: src/lib/api-errors.gen.ts:119
 msgctxt "api:json_required"
 msgid "application/json is required"
 msgstr "application/json is required"
@@ -368,7 +368,7 @@ msgstr "Authorize Dockfly on your account or organization and choose which repos
 msgid "Automatic backups"
 msgstr "Automatic backups"
 
-#: src/lib/api-errors.gen.ts:74
+#: src/lib/api-errors.gen.ts:76
 msgctxt "api:db_backup_unsupported"
 msgid "Automatic backups are for database apps from an image (postgres, mysql, mariadb, redis)"
 msgstr "Automatic backups are for database apps from an image (postgres, mysql, mariadb, redis)"
@@ -421,10 +421,14 @@ msgstr "Backup"
 msgid "Backup from {date}"
 msgstr "Backup from {date}"
 
-#: src/lib/api-errors.gen.ts:70
+#: src/lib/api-errors.gen.ts:72
 msgctxt "api:db_backup_not_found"
 msgid "Backup not found"
 msgstr "Backup not found"
+
+#: src/components/restore-backup.tsx:137
+msgid "Backup password"
+msgstr "Backup password"
 
 #: src/components/db-backups.tsx:123
 #: src/routes/_app/settings.tsx:41
@@ -444,7 +448,7 @@ msgstr "Backups are stored in {location}"
 msgid "Besides your password, the dashboard will ask for a code from your authenticator app (Google Authenticator, 1Password, Bitwarden, Authy…). Anyone who steals your password won't be able to sign in without your phone."
 msgstr "Besides your password, the dashboard will ask for a code from your authenticator app (Google Authenticator, 1Password, Bitwarden, Authy…). Anyone who steals your password won't be able to sign in without your phone."
 
-#: src/lib/api-errors.gen.ts:187
+#: src/lib/api-errors.gen.ts:189
 msgctxt "api:webhook_body_too_large"
 msgid "Body too large"
 msgstr "Body too large"
@@ -488,7 +492,7 @@ msgstr "Build failed"
 msgid "Build image"
 msgstr "Build image"
 
-#: src/lib/api-errors.gen.ts:56
+#: src/lib/api-errors.gen.ts:58
 msgctxt "api:build_not_found"
 msgid "Build not found"
 msgstr "Build not found"
@@ -521,7 +525,7 @@ msgstr "Can't be changed later: its volumes depend on it."
 msgid "Can't be changed later."
 msgstr "Can't be changed later."
 
-#: src/components/two-factor.tsx:190
+#: src/components/two-factor.tsx:192
 msgid "Can't scan it? Enter the key manually"
 msgstr "Can't scan it? Enter the key manually"
 
@@ -532,8 +536,8 @@ msgstr "Can't scan it? Enter the key manually"
 #: src/components/git-dialog.tsx:100
 #: src/components/integrations.tsx:421
 #: src/components/proxy-host-dialog.tsx:376
-#: src/components/restore-backup.tsx:138
-#: src/components/two-factor.tsx:237
+#: src/components/restore-backup.tsx:157
+#: src/components/two-factor.tsx:258
 msgid "Cancel"
 msgstr "Cancel"
 
@@ -554,7 +558,7 @@ msgstr "Canceled"
 msgid "Certificate"
 msgstr "Certificate"
 
-#: src/lib/api-errors.gen.ts:59
+#: src/lib/api-errors.gen.ts:61
 msgctxt "api:cert_not_found"
 msgid "Certificate not found"
 msgstr "Certificate not found"
@@ -590,7 +594,7 @@ msgstr "Changing it signs you out on other devices."
 msgid "Channel created: click \"Test\" to check it"
 msgstr "Channel created: click \"Test\" to check it"
 
-#: src/lib/api-errors.gen.ts:65
+#: src/lib/api-errors.gen.ts:67
 msgctxt "api:channel_not_found"
 msgid "Channel not found"
 msgstr "Channel not found"
@@ -611,7 +615,7 @@ msgstr "Choose .zip"
 msgid "Choose a container…"
 msgstr "Choose a container…"
 
-#: src/lib/api-errors.gen.ts:96
+#: src/lib/api-errors.gen.ts:98
 msgctxt "api:git_connection_required"
 msgid "Choose a GitHub or GitLab account"
 msgstr "Choose a GitHub or GitLab account"
@@ -625,7 +629,7 @@ msgstr "Choose a new password for {0}."
 msgid "Choose a repository"
 msgstr "Choose a repository"
 
-#: src/lib/api-errors.gen.ts:101
+#: src/lib/api-errors.gen.ts:103
 msgctxt "api:git_repo_required"
 msgid "Choose a repository"
 msgstr "Choose a repository"
@@ -634,7 +638,7 @@ msgstr "Choose a repository"
 msgid "Choose an account"
 msgstr "Choose an account"
 
-#: src/lib/api-errors.gen.ts:63
+#: src/lib/api-errors.gen.ts:65
 msgctxt "api:channel_events_required"
 msgid "Choose at least one event"
 msgstr "Choose at least one event"
@@ -647,7 +651,7 @@ msgstr "Choose folder"
 msgid "Choose repositories"
 msgstr "Choose repositories"
 
-#: src/lib/api-errors.gen.ts:26
+#: src/lib/api-errors.gen.ts:27
 msgctxt "api:app_git_source_incomplete"
 msgid "Choose the account, the repository and the branch"
 msgstr "Choose the account, the repository and the branch"
@@ -657,7 +661,7 @@ msgid "Clear cache"
 msgstr "Clear cache"
 
 #: src/components/auth-form.tsx:93
-#: src/components/two-factor.tsx:198
+#: src/components/two-factor.tsx:200
 msgid "Code"
 msgstr "Code"
 
@@ -681,7 +685,7 @@ msgstr "Command copied"
 msgid "Commit"
 msgstr "Commit"
 
-#: src/lib/api-errors.gen.ts:21
+#: src/lib/api-errors.gen.ts:22
 msgctxt "api:app_compose_remote"
 msgid "Compose apps can only be deployed on the main server, for now"
 msgstr "Compose apps can only be deployed on the main server, for now"
@@ -707,7 +711,7 @@ msgstr "Confirm new password"
 msgid "Confirm password"
 msgstr "Confirm password"
 
-#: src/components/restore-backup.tsx:117
+#: src/components/restore-backup.tsx:121
 msgid "Confirm with your password"
 msgstr "Confirm with your password"
 
@@ -794,7 +798,7 @@ msgid "Containers that Dockfly deploys and manages: APIs, databases, services…
 msgstr "Containers that Dockfly deploys and manages: APIs, databases, services… from an image or a Dockerfile."
 
 #: src/components/servers.tsx:169
-#: src/components/two-factor.tsx:241
+#: src/components/two-factor.tsx:262
 msgid "Continue"
 msgstr "Continue"
 
@@ -814,50 +818,54 @@ msgstr "Copy"
 msgid "Copy your token"
 msgstr "Copy your token"
 
-#: src/lib/api-errors.gen.ts:92
+#: src/lib/api-errors.gen.ts:94
 msgctxt "api:git_branch_unreachable"
 msgid "Couldn't access {repo} ({branch}): {detail}"
 msgstr "Couldn't access {repo} ({branch}): {detail}"
 
-#: src/lib/api-errors.gen.ts:54
+#: src/lib/api-errors.gen.ts:56
 msgctxt "api:build_cache_clear_failed"
 msgid "Couldn't clear the cache (is a build running?): {detail}"
 msgstr "Couldn't clear the cache (is a build running?): {detail}"
 
-#: src/lib/api-errors.gen.ts:188
+#: src/lib/api-errors.gen.ts:190
 msgctxt "api:webhook_create_failed"
 msgid "Couldn't create the webhook: {detail}"
 msgstr "Couldn't create the webhook: {detail}"
+
+#: src/components/backup-download.tsx:33
+msgid "Couldn't download the backup"
+msgstr "Couldn't download the backup"
 
 #: src/components/site-detail.tsx:70
 msgid "Couldn't publish"
 msgstr "Couldn't publish"
 
-#: src/lib/api-errors.gen.ts:52
+#: src/lib/api-errors.gen.ts:54
 msgctxt "api:backup_upload_failed"
 msgid "Couldn't read the upload: {detail}"
 msgstr "Couldn't read the upload: {detail}"
 
-#: src/components/restore-backup.tsx:50
+#: src/components/restore-backup.tsx:53
 msgid "Couldn't restore"
 msgstr "Couldn't restore"
 
-#: src/lib/api-errors.gen.ts:72
+#: src/lib/api-errors.gen.ts:74
 msgctxt "api:db_backup_restore_failed"
 msgid "Couldn't restore: {detail}"
 msgstr "Couldn't restore: {detail}"
 
-#: src/lib/api-errors.gen.ts:66
+#: src/lib/api-errors.gen.ts:68
 msgctxt "api:channel_test_failed"
 msgid "Couldn't send the test notification: {detail}"
 msgstr "Couldn't send the test notification: {detail}"
 
-#: src/lib/api-errors.gen.ts:103
+#: src/lib/api-errors.gen.ts:105
 msgctxt "api:git_token_check_failed"
 msgid "Couldn't verify the token: {detail}"
 msgstr "Couldn't verify the token: {detail}"
 
-#: src/lib/api-errors.gen.ts:51
+#: src/lib/api-errors.gen.ts:53
 msgctxt "api:backup_storage_write_failed"
 msgid "Couldn't write to the bucket: {detail}"
 msgstr "Couldn't write to the bucket: {detail}"
@@ -1131,7 +1139,7 @@ msgstr "Deployment #{depId} published again"
 msgid "Deployment #{id}"
 msgstr "Deployment #{id}"
 
-#: src/lib/api-errors.gen.ts:79
+#: src/lib/api-errors.gen.ts:81
 msgctxt "api:deployment_not_found"
 msgid "Deployment not found"
 msgstr "Deployment not found"
@@ -1156,7 +1164,7 @@ msgstr "Directory"
 
 #: src/components/proxy-hosts.tsx:166
 #: src/components/two-factor.tsx:50
-#: src/components/two-factor.tsx:241
+#: src/components/two-factor.tsx:262
 msgid "Disable"
 msgstr "Disable"
 
@@ -1215,7 +1223,7 @@ msgstr "Docker image"
 msgid "Docker is unavailable: mount <0>/var/run/docker.sock</0> into the Dockfly container to use apps."
 msgstr "Docker is unavailable: mount <0>/var/run/docker.sock</0> into the Dockfly container to use apps."
 
-#: src/lib/api-errors.gen.ts:75
+#: src/lib/api-errors.gen.ts:77
 msgctxt "api:db_backups_docker_unavailable"
 msgid "Docker isn't available"
 msgstr "Docker isn't available"
@@ -1228,7 +1236,7 @@ msgstr "Docker unavailable"
 msgid "Dockfly backs up its data to /data/pre-update.tar.gz, downloads the new version and restarts with it. The dashboard stops responding for a few seconds; your sites and apps keep working. If the new version doesn't start, it goes back to the current one."
 msgstr "Dockfly backs up its data to /data/pre-update.tar.gz, downloads the new version and restarts with it. The dashboard stops responding for a few seconds; your sites and apps keep working. If the new version doesn't start, it goes back to the current one."
 
-#: src/components/restore-backup.tsx:169
+#: src/components/restore-backup.tsx:188
 msgid "Dockfly didn't start again. If it has no restart policy, start it manually (docker start dockfly)."
 msgstr "Dockfly didn't start again. If it has no restart policy, start it manually (docker start dockfly)."
 
@@ -1291,7 +1299,7 @@ msgstr "Down ({state})"
 msgid "Download"
 msgstr "Download"
 
-#: src/routes/_app/settings.tsx:55
+#: src/components/backup-download.tsx:55
 msgid "Download backup"
 msgstr "Download backup"
 
@@ -1359,7 +1367,7 @@ msgstr "Email"
 
 #: src/components/proxy-hosts.tsx:166
 #: src/components/two-factor.tsx:54
-#: src/components/two-factor.tsx:241
+#: src/components/two-factor.tsx:262
 msgid "Enable"
 msgstr "Enable"
 
@@ -1389,7 +1397,7 @@ msgctxt "redirect"
 msgid "Enabled"
 msgstr "Enabled"
 
-#: src/lib/api-errors.gen.ts:128
+#: src/lib/api-errors.gen.ts:130
 msgctxt "api:no_domains"
 msgid "Enter at least one domain"
 msgstr "Enter at least one domain"
@@ -1402,22 +1410,22 @@ msgstr "Enter one of your recovery codes. Each code can only be used once."
 msgid "Enter the 6-digit code from your authenticator app."
 msgstr "Enter the 6-digit code from your authenticator app."
 
-#: src/lib/api-errors.gen.ts:91
+#: src/lib/api-errors.gen.ts:93
 msgctxt "api:git_branch_required"
 msgid "Enter the branch to deploy"
 msgstr "Enter the branch to deploy"
 
-#: src/lib/api-errors.gen.ts:81
+#: src/lib/api-errors.gen.ts:83
 msgctxt "api:dns_env_required"
 msgid "Enter the provider's environment variables (see the lego documentation)"
 msgstr "Enter the provider's environment variables (see the lego documentation)"
 
-#: src/lib/api-errors.gen.ts:133
+#: src/lib/api-errors.gen.ts:135
 msgctxt "api:proxy_forward_host_required"
 msgid "Enter the target host"
 msgstr "Enter the target host"
 
-#: src/lib/api-errors.gen.ts:157
+#: src/lib/api-errors.gen.ts:159
 msgctxt "api:stream_forward_host_invalid"
 msgid "Enter the target host (a container, an app or an IP)"
 msgstr "Enter the target host (a container, an app or an IP)"
@@ -1492,7 +1500,7 @@ msgstr "expires on {0}"
 msgid "expires on {expires}"
 msgstr "expires on {expires}"
 
-#: src/lib/api-errors.gen.ts:163
+#: src/lib/api-errors.gen.ts:165
 msgctxt "api:token_expiry_out_of_range"
 msgid "Expiry must be between 0 (never) and {max} days"
 msgstr "Expiry must be between 0 (never) and {max} days"
@@ -1529,7 +1537,7 @@ msgstr "First-time setup: create the administrator account."
 msgid "Folder"
 msgstr "Folder"
 
-#: src/lib/api-errors.gen.ts:190
+#: src/lib/api-errors.gen.ts:192
 msgctxt "api:wildcard_ssl_needs_dns"
 msgid "For a wildcard domain with SSL, set up its DNS zone in Settings → Certificates (Let's Encrypt only issues wildcards via DNS) or upload your own certificate"
 msgstr "For a wildcard domain with SSL, set up its DNS zone in Settings → Certificates (Let's Encrypt only issues wildcards via DNS) or upload your own certificate"
@@ -1555,6 +1563,10 @@ msgid "For monorepos, e.g. apps/web."
 msgstr "For monorepos, e.g. apps/web."
 
 #: src/components/two-factor.tsx:176
+msgid "For security, confirm your password and a current two-step code."
+msgstr "For security, confirm your password and a current two-step code."
+
+#: src/components/two-factor.tsx:178
 msgid "For security, confirm your password."
 msgstr "For security, confirm your password."
 
@@ -1582,7 +1594,7 @@ msgstr "Framework"
 msgid "Frequency"
 msgstr "Frequency"
 
-#: src/routes/_app/settings.tsx:69
+#: src/routes/_app/settings.tsx:65
 msgid "From the terminal (e.g. with a cron job, or if the dashboard won't start)"
 msgstr "From the terminal (e.g. with a cron job, or if the dashboard won't start)"
 
@@ -1602,7 +1614,7 @@ msgstr "Generate new codes"
 msgid "Generate new codes in My account if you're running low."
 msgstr "Generate new codes in My account if you're running low."
 
-#: src/lib/api-errors.gen.ts:173
+#: src/lib/api-errors.gen.ts:175
 msgctxt "api:two_factor_setup_required"
 msgid "Generate the QR code first"
 msgstr "Generate the QR code first"
@@ -1655,7 +1667,7 @@ msgstr "GitLab token"
 msgid "gitlab.com or your own GitLab instance."
 msgstr "gitlab.com or your own GitLab instance."
 
-#: src/lib/api-errors.gen.ts:164
+#: src/lib/api-errors.gen.ts:166
 msgctxt "api:token_name_required"
 msgid "Give it a name (e.g. \"GitHub Actions\")"
 msgstr "Give it a name (e.g. \"GitHub Actions\")"
@@ -1664,7 +1676,7 @@ msgstr "Give it a name (e.g. \"GitHub Actions\")"
 msgid "Give it a name that tells you where it's used, so you can revoke it later."
 msgstr "Give it a name that tells you where it's used, so you can revoke it later."
 
-#: src/lib/api-errors.gen.ts:64
+#: src/lib/api-errors.gen.ts:66
 msgctxt "api:channel_name_required"
 msgid "Give the channel a name"
 msgstr "Give the channel a name"
@@ -1747,7 +1759,7 @@ msgstr "Install"
 msgid "Integrations"
 msgstr "Integrations"
 
-#: src/lib/api-errors.gen.ts:108
+#: src/lib/api-errors.gen.ts:110
 msgctxt "api:internal_error"
 msgid "Internal error"
 msgstr "Internal error"
@@ -1756,67 +1768,67 @@ msgstr "Internal error"
 msgid "Internal:"
 msgstr "Internal:"
 
-#: src/lib/api-errors.gen.ts:119
+#: src/lib/api-errors.gen.ts:121
 msgctxt "api:location_access_invalid"
 msgid "Invalid access for the location {path}"
 msgstr "Invalid access for the location {path}"
 
-#: src/lib/api-errors.gen.ts:69
+#: src/lib/api-errors.gen.ts:71
 msgctxt "api:db_backup_invalid_id"
 msgid "Invalid backup ID"
 msgstr "Invalid backup ID"
 
-#: src/lib/api-errors.gen.ts:45
+#: src/lib/api-errors.gen.ts:47
 msgctxt "api:backup_invalid"
 msgid "Invalid backup: {detail}"
 msgstr "Invalid backup: {detail}"
 
-#: src/lib/api-errors.gen.ts:55
+#: src/lib/api-errors.gen.ts:57
 msgctxt "api:build_invalid_id"
 msgid "Invalid build ID"
 msgstr "Invalid build ID"
 
-#: src/lib/api-errors.gen.ts:61
+#: src/lib/api-errors.gen.ts:63
 msgctxt "api:channel_config_invalid"
 msgid "Invalid channel settings: {detail}"
 msgstr "Invalid channel settings: {detail}"
 
-#: src/lib/api-errors.gen.ts:67
+#: src/lib/api-errors.gen.ts:69
 msgctxt "api:channel_type_invalid"
 msgid "Invalid channel type"
 msgstr "Invalid channel type"
 
-#: src/lib/api-errors.gen.ts:110
+#: src/lib/api-errors.gen.ts:112
 msgctxt "api:invalid_deployment_id"
 msgid "Invalid deployment ID"
 msgstr "Invalid deployment ID"
 
-#: src/lib/api-errors.gen.ts:78
+#: src/lib/api-errors.gen.ts:80
 msgctxt "api:deployment_invalid"
 msgid "Invalid deployment: {detail}"
 msgstr "Invalid deployment: {detail}"
 
-#: src/lib/api-errors.gen.ts:111
+#: src/lib/api-errors.gen.ts:113
 msgctxt "api:invalid_domain"
 msgid "Invalid domain: {domain}"
 msgstr "Invalid domain: {domain}"
 
-#: src/lib/api-errors.gen.ts:112
+#: src/lib/api-errors.gen.ts:114
 msgctxt "api:invalid_email"
 msgid "Invalid email"
 msgstr "Invalid email"
 
-#: src/lib/api-errors.gen.ts:113
+#: src/lib/api-errors.gen.ts:115
 msgctxt "api:invalid_id"
 msgid "Invalid ID"
 msgstr "Invalid ID"
 
-#: src/lib/api-errors.gen.ts:28
+#: src/lib/api-errors.gen.ts:29
 msgctxt "api:app_image_invalid"
 msgid "Invalid image: {image}"
 msgstr "Invalid image: {image}"
 
-#: src/lib/api-errors.gen.ts:97
+#: src/lib/api-errors.gen.ts:99
 msgctxt "api:git_invalid_build_image"
 msgid "Invalid image: {image}"
 msgstr "Invalid image: {image}"
@@ -1826,7 +1838,7 @@ msgctxt "api:access_list_ip_invalid"
 msgid "Invalid IP or range: \"{ip}\" (e.g. 203.0.113.7 or 192.168.1.0/24)"
 msgstr "Invalid IP or range: \"{ip}\" (e.g. 203.0.113.7 or 192.168.1.0/24)"
 
-#: src/lib/api-errors.gen.ts:114
+#: src/lib/api-errors.gen.ts:116
 msgctxt "api:invalid_json"
 msgid "Invalid JSON: {detail}"
 msgstr "Invalid JSON: {detail}"
@@ -1835,7 +1847,7 @@ msgstr "Invalid JSON: {detail}"
 msgid "Invalid link"
 msgstr "Invalid link"
 
-#: src/lib/api-errors.gen.ts:122
+#: src/lib/api-errors.gen.ts:124
 msgctxt "api:location_path_invalid"
 msgid "Invalid location \"{path}\": it must start with / and have no spaces, ? or #"
 msgstr "Invalid location \"{path}\": it must start with / and have no spaces, ? or #"
@@ -1845,42 +1857,42 @@ msgctxt "api:access_list_user_invalid"
 msgid "Invalid or duplicate user: \"{username}\""
 msgstr "Invalid or duplicate user: \"{username}\""
 
-#: src/lib/api-errors.gen.ts:40
+#: src/lib/api-errors.gen.ts:41
 msgctxt "api:app_volume_name_invalid"
 msgid "Invalid or duplicate volume name: {name}"
 msgstr "Invalid or duplicate volume name: {name}"
 
-#: src/lib/api-errors.gen.ts:169
+#: src/lib/api-errors.gen.ts:171
 msgctxt "api:traffic_invalid_owner"
 msgid "Invalid owner"
 msgstr "Invalid owner"
 
-#: src/lib/api-errors.gen.ts:115
+#: src/lib/api-errors.gen.ts:117
 msgctxt "api:invalid_panel_url"
 msgid "Invalid panel address"
 msgstr "Invalid panel address"
 
-#: src/lib/api-errors.gen.ts:185
+#: src/lib/api-errors.gen.ts:187
 msgctxt "api:webhook_bad_payload"
 msgid "Invalid payload"
 msgstr "Invalid payload"
 
-#: src/lib/api-errors.gen.ts:34
+#: src/lib/api-errors.gen.ts:35
 msgctxt "api:app_port_invalid"
 msgid "Invalid port"
 msgstr "Invalid port"
 
-#: src/lib/api-errors.gen.ts:84
+#: src/lib/api-errors.gen.ts:86
 msgctxt "api:dns_provider_code_invalid"
 msgid "Invalid provider code (e.g. cloudflare, hetznerv2…)"
 msgstr "Invalid provider code (e.g. cloudflare, hetznerv2…)"
 
-#: src/lib/api-errors.gen.ts:99
+#: src/lib/api-errors.gen.ts:101
 msgctxt "api:git_invalid_provider"
 msgid "Invalid provider: use github or gitlab"
 msgstr "Invalid provider: use github or gitlab"
 
-#: src/lib/api-errors.gen.ts:170
+#: src/lib/api-errors.gen.ts:172
 msgctxt "api:traffic_invalid_range"
 msgid "Invalid range: use 1h, 24h or 7d"
 msgstr "Invalid range: use 1h, 24h or 7d"
@@ -1890,37 +1902,37 @@ msgctxt "api:agent_token_invalid"
 msgid "Invalid server token: generate a new one in the panel"
 msgstr "Invalid server token: generate a new one in the panel"
 
-#: src/lib/api-errors.gen.ts:186
+#: src/lib/api-errors.gen.ts:188
 msgctxt "api:webhook_bad_signature"
 msgid "Invalid signature"
 msgstr "Invalid signature"
 
-#: src/lib/api-errors.gen.ts:132
+#: src/lib/api-errors.gen.ts:134
 msgctxt "api:proxy_forward_host_invalid"
 msgid "Invalid target host: \"{host}\" (no http:// or paths)"
 msgstr "Invalid target host: \"{host}\" (no http:// or paths)"
 
-#: src/lib/api-errors.gen.ts:137
+#: src/lib/api-errors.gen.ts:139
 msgctxt "api:proxy_target_type_invalid"
 msgid "Invalid target type"
 msgstr "Invalid target type"
 
-#: src/lib/api-errors.gen.ts:80
+#: src/lib/api-errors.gen.ts:82
 msgctxt "api:dns_env_name_invalid"
 msgid "Invalid variable name: \"{name}\""
 msgstr "Invalid variable name: \"{name}\""
 
-#: src/lib/api-errors.gen.ts:25
+#: src/lib/api-errors.gen.ts:26
 msgctxt "api:app_env_name_invalid"
 msgid "Invalid variable name: {name}"
 msgstr "Invalid variable name: {name}"
 
-#: src/lib/api-errors.gen.ts:98
+#: src/lib/api-errors.gen.ts:100
 msgctxt "api:git_invalid_env_name"
 msgid "Invalid variable name: {name}"
 msgstr "Invalid variable name: {name}"
 
-#: src/lib/api-errors.gen.ts:109
+#: src/lib/api-errors.gen.ts:111
 msgctxt "api:invalid_api_token"
 msgid "Invalid, expired or revoked API token"
 msgstr "Invalid, expired or revoked API token"
@@ -2060,7 +2072,7 @@ msgstr "Loading…"
 msgid "Location"
 msgstr "Location"
 
-#: src/lib/api-errors.gen.ts:120
+#: src/lib/api-errors.gen.ts:122
 msgctxt "api:location_invalid"
 msgid "Location {path}: {detail}"
 msgstr "Location {path}: {detail}"
@@ -2115,12 +2127,12 @@ msgstr "Memory (MB)"
 msgid "Message the bot and get your ID with @userinfobot; for a group, add the bot and use the group ID (it starts with -100)."
 msgstr "Message the bot and get your ID with @userinfobot; for a group, add the bot and use the group ID (it starts with -100)."
 
-#: src/lib/api-errors.gen.ts:125
+#: src/lib/api-errors.gen.ts:127
 msgctxt "api:method_not_allowed"
 msgid "Method not allowed"
 msgstr "Method not allowed"
 
-#: src/lib/api-errors.gen.ts:126
+#: src/lib/api-errors.gen.ts:128
 msgctxt "api:multipart_expected"
 msgid "multipart/form-data was expected"
 msgstr "multipart/form-data was expected"
@@ -2157,7 +2169,7 @@ msgstr "Name"
 msgid "NAME"
 msgstr "NAME"
 
-#: src/lib/api-errors.gen.ts:127
+#: src/lib/api-errors.gen.ts:129
 msgctxt "api:name_required"
 msgid "Name is required"
 msgstr "Name is required"
@@ -2166,7 +2178,7 @@ msgstr "Name is required"
 msgid "Name it <0>Dockfly</0>, check <1>Confidential</1> and the <2>api</2> scope. Paste this as the Redirect URI:"
 msgstr "Name it <0>Dockfly</0>, check <1>Confidential</1> and the <2>api</2> scope. Paste this as the Redirect URI:"
 
-#: src/lib/api.ts:820
+#: src/lib/api.ts:834
 msgid "network error during upload"
 msgstr "network error during upload"
 
@@ -2262,7 +2274,7 @@ msgstr "No apps yet"
 msgid "No automatic deploys"
 msgstr "No automatic deploys"
 
-#: src/lib/api-errors.gen.ts:46
+#: src/lib/api-errors.gen.ts:48
 msgctxt "api:backup_missing"
 msgid "No backup was received"
 msgstr "No backup was received"
@@ -2349,7 +2361,7 @@ msgstr "None: all certificates are validated over HTTP."
 msgid "None. If you upload one, it will be used automatically for the domains it covers."
 msgstr "None. If you upload one, it will be used automatically for the domains it covers."
 
-#: src/lib/api-errors.gen.ts:175
+#: src/lib/api-errors.gen.ts:177
 msgctxt "api:unauthenticated"
 msgid "Not authenticated or session expired"
 msgstr "Not authenticated or session expired"
@@ -2391,12 +2403,17 @@ msgstr "On this server"
 msgid "One per line. Empty = any IP."
 msgstr "One per line. Empty = any IP."
 
-#: src/lib/api-errors.gen.ts:155
+#: src/lib/api-errors.gen.ts:157
 msgctxt "api:site_routing_admin_only"
 msgid "Only an administrator can change custom locations or the access list"
 msgstr "Only an administrator can change custom locations or the access list"
 
-#: src/lib/api-errors.gen.ts:143
+#: src/lib/api-errors.gen.ts:19
+msgctxt "api:app_access_admin_only"
+msgid "Only an administrator can change the access list"
+msgstr "Only an administrator can change the access list"
+
+#: src/lib/api-errors.gen.ts:145
 msgctxt "api:repo_link_admin_only"
 msgid "Only an administrator can link a new repository"
 msgstr "Only an administrator can link a new repository"
@@ -2457,10 +2474,14 @@ msgstr "password"
 #: src/components/auth-form.tsx:212
 #: src/components/change-password.tsx:32
 #: src/components/notifications.tsx:96
-#: src/components/two-factor.tsx:216
+#: src/components/two-factor.tsx:219
 #: src/routes/invite/$token.tsx:91
 msgid "Password"
 msgstr "Password"
+
+#: src/components/backup-download.tsx:43
+msgid "Password (optional, encrypts the backup)"
+msgstr "Password (optional, encrypts the backup)"
 
 #: src/components/change-password.tsx:22
 msgid "Password changed"
@@ -2511,12 +2532,12 @@ msgstr "Plain HTML (no build)"
 msgid "Port"
 msgstr "Port"
 
-#: src/lib/api-errors.gen.ts:159
+#: src/lib/api-errors.gen.ts:161
 msgctxt "api:stream_port_reserved"
 msgid "Port {port} is used by Dockfly ({addr})"
 msgstr "Port {port} is used by Dockfly ({addr})"
 
-#: src/lib/api-errors.gen.ts:161
+#: src/lib/api-errors.gen.ts:163
 msgctxt "api:stream_ports_invalid"
 msgid "Ports must be between 1 and 65535"
 msgstr "Ports must be between 1 and 65535"
@@ -2587,12 +2608,12 @@ msgstr "Provider"
 msgid "Provider code"
 msgstr "Provider code"
 
-#: src/lib/api-errors.gen.ts:85
+#: src/lib/api-errors.gen.ts:87
 msgctxt "api:dns_provider_not_found"
 msgid "Provider not found"
 msgstr "Provider not found"
 
-#: src/lib/api.ts:831
+#: src/lib/api.ts:845
 msgctxt "domain owner"
 msgid "proxy host"
 msgstr "proxy host"
@@ -2601,7 +2622,7 @@ msgstr "proxy host"
 msgid "Proxy host created"
 msgstr "Proxy host created"
 
-#: src/lib/api-errors.gen.ts:134
+#: src/lib/api-errors.gen.ts:136
 msgctxt "api:proxy_host_not_found"
 msgid "Proxy host not found"
 msgstr "Proxy host not found"
@@ -2662,12 +2683,12 @@ msgstr "Recipients"
 msgid "Recovery code"
 msgstr "Recovery code"
 
-#: src/lib/api.ts:834
+#: src/lib/api.ts:848
 msgctxt "domain owner"
 msgid "redirect"
 msgstr "redirect"
 
-#: src/lib/api-errors.gen.ts:140
+#: src/lib/api-errors.gen.ts:142
 msgctxt "api:redirect_not_found"
 msgid "Redirect not found"
 msgstr "Redirect not found"
@@ -2770,7 +2791,7 @@ msgstr "Reset password for {name}"
 msgid "Reset password for {userName}"
 msgstr "Reset password for {userName}"
 
-#: src/lib/api-errors.gen.ts:36
+#: src/lib/api-errors.gen.ts:37
 msgctxt "api:app_resources_negative"
 msgid "Resource limits can't be negative"
 msgstr "Resource limits can't be negative"
@@ -2787,7 +2808,7 @@ msgstr "Restart loop"
 msgid "Restarted"
 msgstr "Restarted"
 
-#: src/components/restore-backup.tsx:58
+#: src/components/restore-backup.tsx:61
 msgid "Restarting Dockfly with the restored backup…"
 msgstr "Restarting Dockfly with the restored backup…"
 
@@ -2797,16 +2818,16 @@ msgstr "Restarting with the new version; the dashboard will reload by itself…"
 
 #: src/components/db-backups.tsx:249
 #: src/components/db-backups.tsx:303
-#: src/components/restore-backup.tsx:142
+#: src/components/restore-backup.tsx:161
 msgid "Restore"
 msgstr "Restore"
 
 #. placeholder {0}: pending.name
-#: src/components/restore-backup.tsx:105
+#: src/components/restore-backup.tsx:109
 msgid "Restore {0}?"
 msgstr "Restore {0}?"
 
-#: src/components/restore-backup.tsx:76
+#: src/components/restore-backup.tsx:79
 msgid "Restore a backup"
 msgstr "Restore a backup"
 
@@ -2847,7 +2868,7 @@ msgstr "Rollback"
 msgid "Root directory"
 msgstr "Root directory"
 
-#: src/lib/api-errors.gen.ts:145
+#: src/lib/api-errors.gen.ts:147
 msgctxt "api:route_not_found"
 msgid "Route not found"
 msgstr "Route not found"
@@ -2960,7 +2981,7 @@ msgstr "Server"
 msgid "Server disconnected"
 msgstr "Server disconnected"
 
-#: src/lib/api-errors.gen.ts:149
+#: src/lib/api-errors.gen.ts:151
 msgctxt "api:server_not_found"
 msgid "Server not found"
 msgstr "Server not found"
@@ -2986,7 +3007,7 @@ msgstr "Serves index.html for any path that doesn't exist. Turn it on for React 
 msgid "Set Dockfly's public URL in Integrations and save the build settings again to deploy on every push."
 msgstr "Set Dockfly's public URL in Integrations and save the build settings again to deploy on every push."
 
-#: src/lib/api-errors.gen.ts:189
+#: src/lib/api-errors.gen.ts:191
 msgctxt "api:webhook_public_url_missing"
 msgid "Set Dockfly's public URL in Integrations to deploy on every push"
 msgstr "Set Dockfly's public URL in Integrations to deploy on every push"
@@ -2999,7 +3020,7 @@ msgstr "Set the app's port (General tab) to publish it."
 msgid "Set up GitLab"
 msgstr "Set up GitLab"
 
-#: src/lib/api-errors.gen.ts:107
+#: src/lib/api-errors.gen.ts:109
 msgctxt "api:gitlab_app_not_configured"
 msgid "Set up the GitLab application first"
 msgstr "Set up the GitLab application first"
@@ -3032,7 +3053,7 @@ msgstr "since {since}"
 msgid "Single-page application (SPA)"
 msgstr "Single-page application (SPA)"
 
-#: src/lib/api.ts:832
+#: src/lib/api.ts:846
 msgctxt "domain owner"
 msgid "site"
 msgstr "site"
@@ -3041,7 +3062,7 @@ msgstr "site"
 msgid "Site created"
 msgstr "Site created"
 
-#: src/lib/api-errors.gen.ts:153
+#: src/lib/api-errors.gen.ts:155
 msgctxt "api:site_not_found"
 msgid "Site not found"
 msgstr "Site not found"
@@ -3085,7 +3106,7 @@ msgstr "Source"
 msgid "Source domains"
 msgstr "Source domains"
 
-#: src/lib/api-errors.gen.ts:22
+#: src/lib/api-errors.gen.ts:23
 msgctxt "api:app_compose_service_required"
 msgid "Specify which docker-compose.yml service receives the web traffic"
 msgstr "Specify which docker-compose.yml service receives the web traffic"
@@ -3155,7 +3176,7 @@ msgstr "Stored encrypted and applied on the next deploy."
 msgid "Stored encrypted and never exposed to build containers."
 msgstr "Stored encrypted and never exposed to build containers."
 
-#: src/lib/api-errors.gen.ts:158
+#: src/lib/api-errors.gen.ts:160
 msgctxt "api:stream_not_found"
 msgid "Stream not found"
 msgstr "Stream not found"
@@ -3207,17 +3228,17 @@ msgstr "Test notification sent to {name}"
 msgid "Test server that echoes the incoming request."
 msgstr "Test server that echoes the incoming request."
 
-#: src/lib/api-errors.gen.ts:31
+#: src/lib/api-errors.gen.ts:32
 msgctxt "api:app_no_reusable_image"
 msgid "That deployment has no reusable image"
 msgstr "That deployment has no reusable image"
 
-#: src/lib/api-errors.gen.ts:27
+#: src/lib/api-errors.gen.ts:28
 msgctxt "api:app_image_gone"
 msgid "That deployment's image no longer exists; deploy again"
 msgstr "That deployment's image no longer exists; deploy again"
 
-#: src/lib/api-errors.gen.ts:181
+#: src/lib/api-errors.gen.ts:183
 msgctxt "api:upload_header_missing"
 msgid "The {header} header is missing"
 msgstr "The {header} header is missing"
@@ -3230,37 +3251,37 @@ msgstr "The <0>dockfly</0> binary is in the project's releases, or use it from t
 msgid "The 10 most recent are kept. Publish any of them to roll back."
 msgstr "The 10 most recent are kept. Publish any of them to roll back."
 
-#: src/lib/api-errors.gen.ts:32
+#: src/lib/api-errors.gen.ts:33
 msgctxt "api:app_not_deployed"
 msgid "The app hasn't been deployed yet"
 msgstr "The app hasn't been deployed yet"
 
-#: src/lib/api-errors.gen.ts:106
+#: src/lib/api-errors.gen.ts:108
 msgctxt "api:gitlab_app_credentials_required"
 msgid "The Application ID and Secret are required"
 msgstr "The Application ID and Secret are required"
 
-#: src/lib/api-errors.gen.ts:73
+#: src/lib/api-errors.gen.ts:75
 msgctxt "api:db_backup_running"
 msgid "The backup is still running"
 msgstr "The backup is still running"
 
-#: src/lib/api-errors.gen.ts:47
+#: src/lib/api-errors.gen.ts:49
 msgctxt "api:backup_multipart_required"
 msgid "The backup must be sent as multipart/form-data"
 msgstr "The backup must be sent as multipart/form-data"
 
-#: src/lib/api-errors.gen.ts:49
+#: src/lib/api-errors.gen.ts:51
 msgctxt "api:backup_storage_missing_credentials"
 msgid "The bucket or the access keys are missing"
 msgstr "The bucket or the access keys are missing"
 
-#: src/lib/api-errors.gen.ts:57
+#: src/lib/api-errors.gen.ts:59
 msgctxt "api:cert_key_pair_invalid"
 msgid "The certificate and key are invalid or don't match: {detail}"
 msgstr "The certificate and key are invalid or don't match: {detail}"
 
-#: src/lib/api-errors.gen.ts:58
+#: src/lib/api-errors.gen.ts:60
 msgctxt "api:cert_no_domains"
 msgid "The certificate doesn't name any domain"
 msgstr "The certificate doesn't name any domain"
@@ -3270,12 +3291,12 @@ msgctxt "api:access_list_missing"
 msgid "The chosen access list doesn't exist"
 msgstr "The chosen access list doesn't exist"
 
-#: src/lib/api-errors.gen.ts:19
+#: src/lib/api-errors.gen.ts:20
 msgctxt "api:app_command_unclosed_quote"
 msgid "The command has an unclosed quote"
 msgstr "The command has an unclosed quote"
 
-#: src/lib/api-errors.gen.ts:20
+#: src/lib/api-errors.gen.ts:21
 msgctxt "api:app_compose_file_dotdot"
 msgid "The Compose file can't contain \"..\""
 msgstr "The Compose file can't contain \"..\""
@@ -3296,7 +3317,7 @@ msgstr "The Docker socket isn't mounted from the host, so the update can't recre
 msgid "The docker-compose.yml service that receives the domains' traffic (on the port set above). Volumes are defined in the file itself; relative host paths (<0>./data:/data</0>) don't work: use named volumes."
 msgstr "The docker-compose.yml service that receives the domains' traffic (on the port set above). Volumes are defined in the file itself; relative host paths (<0>./data:/data</0>) don't work: use named volumes."
 
-#: src/lib/api-errors.gen.ts:24
+#: src/lib/api-errors.gen.ts:25
 msgctxt "api:app_dockerfile_dotdot"
 msgid "The Dockerfile can't contain \"..\""
 msgstr "The Dockerfile can't contain \"..\""
@@ -3306,7 +3327,7 @@ msgstr "The Dockerfile can't contain \"..\""
 msgid "The Dockfly container doesn't publish this port: add <0>{0}</0> to the ports section of its docker-compose.yml and run docker compose up -d."
 msgstr "The Dockfly container doesn't publish this port: add <0>{0}</0> to the ports section of its docker-compose.yml and run docker compose up -d."
 
-#: src/lib/api-errors.gen.ts:89
+#: src/lib/api-errors.gen.ts:91
 msgctxt "api:domain_in_use"
 msgid "The domain {domain} is already used by another {kind}"
 msgstr "The domain {domain} is already used by another {kind}"
@@ -3315,42 +3336,42 @@ msgstr "The domain {domain} is already used by another {kind}"
 msgid "The domain will stop responding immediately. This action can't be undone."
 msgstr "The domain will stop responding immediately. This action can't be undone."
 
-#: src/lib/api-errors.gen.ts:48
+#: src/lib/api-errors.gen.ts:50
 msgctxt "api:backup_storage_endpoint_invalid"
 msgid "The endpoint must be a URL, e.g. https://s3.eu-west-1.amazonaws.com"
 msgstr "The endpoint must be a URL, e.g. https://s3.eu-west-1.amazonaws.com"
 
-#: src/lib/api-errors.gen.ts:71
+#: src/lib/api-errors.gen.ts:73
 msgctxt "api:db_backup_policy_invalid"
 msgid "The interval must be between 1 hour and 30 days, and you can keep 1 to 365 backups"
 msgstr "The interval must be between 1 hour and 30 days, and you can keep 1 to 365 backups"
 
-#: src/lib/api-errors.gen.ts:116
+#: src/lib/api-errors.gen.ts:118
 msgctxt "api:invite_link_invalid"
 msgid "The link is invalid or has expired; ask an administrator for a new one"
 msgstr "The link is invalid or has expired; ask an administrator for a new one"
 
-#: src/lib/api-errors.gen.ts:121
+#: src/lib/api-errors.gen.ts:123
 msgctxt "api:location_path_duplicate"
 msgid "The location {path} is repeated"
 msgstr "The location {path} is repeated"
 
-#: src/lib/api-errors.gen.ts:123
+#: src/lib/api-errors.gen.ts:125
 msgctxt "api:location_path_root"
 msgid "The location / is the whole domain: use a more specific path, such as /api"
 msgstr "The location / is the whole domain: use a more specific path, such as /api"
 
-#: src/lib/api-errors.gen.ts:147
+#: src/lib/api-errors.gen.ts:149
 msgctxt "api:server_invalid_name"
 msgid "The name can only contain lowercase letters, numbers and hyphens"
 msgstr "The name can only contain lowercase letters, numbers and hyphens"
 
-#: src/lib/api-errors.gen.ts:29
+#: src/lib/api-errors.gen.ts:30
 msgctxt "api:app_name_invalid"
 msgid "The name can only contain lowercase letters, numbers and hyphens (max. 42)"
 msgstr "The name can only contain lowercase letters, numbers and hyphens (max. 42)"
 
-#: src/lib/api-errors.gen.ts:151
+#: src/lib/api-errors.gen.ts:153
 msgctxt "api:site_name_invalid"
 msgid "The name can only contain lowercase letters, numbers and hyphens (max. 63)"
 msgstr "The name can only contain lowercase letters, numbers and hyphens (max. 63)"
@@ -3363,7 +3384,7 @@ msgstr "The new passwords don't match"
 msgid "The one it listens on. Leave empty if it isn't a web app."
 msgstr "The one it listens on. Leave empty if it isn't a web app."
 
-#: src/lib/api-errors.gen.ts:100
+#: src/lib/api-errors.gen.ts:102
 msgctxt "api:git_output_dir_dotdot"
 msgid "The output directory can't contain \"..\""
 msgstr "The output directory can't contain \"..\""
@@ -3382,67 +3403,67 @@ msgctxt "api:access_list_password_too_short"
 msgid "The password for {username} must be at least {min} characters long"
 msgstr "The password for {username} must be at least {min} characters long"
 
-#: src/lib/api-errors.gen.ts:130
+#: src/lib/api-errors.gen.ts:132
 msgctxt "api:password_too_short"
 msgid "The password must be at least {min} characters long"
 msgstr "The password must be at least {min} characters long"
 
-#: src/lib/api-errors.gen.ts:41
+#: src/lib/api-errors.gen.ts:42
 msgctxt "api:app_volume_path_not_absolute"
 msgid "The path of volume {name} must be absolute (e.g. /data)"
 msgstr "The path of volume {name} must be absolute (e.g. /data)"
 
-#: src/lib/api-errors.gen.ts:135
+#: src/lib/api-errors.gen.ts:137
 msgctxt "api:proxy_port_invalid"
 msgid "The port must be between 1 and 65535"
 msgstr "The port must be between 1 and 65535"
 
-#: src/lib/api-errors.gen.ts:131
+#: src/lib/api-errors.gen.ts:133
 msgctxt "api:preview_domain_invalid"
 msgid "The previews domain must look like previews.mydomain.com (without *.)"
 msgstr "The previews domain must look like previews.mydomain.com (without *.)"
 
-#: src/lib/api-errors.gen.ts:162
+#: src/lib/api-errors.gen.ts:164
 msgctxt "api:stream_protocol_invalid"
 msgid "The protocol must be tcp or udp"
 msgstr "The protocol must be tcp or udp"
 
-#: src/lib/api-errors.gen.ts:138
+#: src/lib/api-errors.gen.ts:140
 msgctxt "api:public_url_invalid"
 msgid "The public URL must look like https://dockfly.mydomain.com"
 msgstr "The public URL must look like https://dockfly.mydomain.com"
 
-#: src/lib/api-errors.gen.ts:77
+#: src/lib/api-errors.gen.ts:79
 msgctxt "api:deployment_active"
 msgid "The published deployment can't be deleted; activate another one first"
 msgstr "The published deployment can't be deleted; activate another one first"
 
-#: src/lib/api-errors.gen.ts:37
+#: src/lib/api-errors.gen.ts:38
 msgctxt "api:app_root_dir_dotdot"
 msgid "The root directory can't contain \"..\""
 msgstr "The root directory can't contain \"..\""
 
-#: src/lib/api-errors.gen.ts:102
+#: src/lib/api-errors.gen.ts:104
 msgctxt "api:git_root_dir_dotdot"
 msgid "The root directory can't contain \"..\""
 msgstr "The root directory can't contain \"..\""
 
-#: src/lib/api-errors.gen.ts:136
+#: src/lib/api-errors.gen.ts:138
 msgctxt "api:proxy_scheme_invalid"
 msgid "The scheme must be http or https"
 msgstr "The scheme must be http or https"
 
-#: src/lib/api-errors.gen.ts:94
+#: src/lib/api-errors.gen.ts:96
 msgctxt "api:git_connection_missing"
 msgid "The selected account doesn't exist"
 msgstr "The selected account doesn't exist"
 
-#: src/lib/api-errors.gen.ts:38
+#: src/lib/api-errors.gen.ts:39
 msgctxt "api:app_server_not_found"
 msgid "The server doesn't exist"
 msgstr "The server doesn't exist"
 
-#: src/lib/api-errors.gen.ts:146
+#: src/lib/api-errors.gen.ts:148
 msgctxt "api:server_has_apps"
 msgid "The server has {count} apps: delete them first"
 msgstr "The server has {count} apps: delete them first"
@@ -3452,12 +3473,12 @@ msgctxt "api:agent_token_missing"
 msgid "The server token is missing"
 msgstr "The server token is missing"
 
-#: src/lib/api-errors.gen.ts:154
+#: src/lib/api-errors.gen.ts:156
 msgctxt "api:site_not_linked"
 msgid "The site isn't linked to any repository"
 msgstr "The site isn't linked to any repository"
 
-#: src/lib/api-errors.gen.ts:39
+#: src/lib/api-errors.gen.ts:40
 msgctxt "api:app_source_invalid"
 msgid "The source must be an image or a repository"
 msgstr "The source must be an image or a repository"
@@ -3466,17 +3487,17 @@ msgstr "The source must be an image or a repository"
 msgid "The target can be a Dockfly app by name (e.g. postgres), a container or an IP."
 msgstr "The target can be a Dockfly app by name (e.g. postgres), a container or an IP."
 
-#: src/lib/api-errors.gen.ts:139
+#: src/lib/api-errors.gen.ts:141
 msgctxt "api:redirect_loop"
 msgid "The target can't be the domain itself: it would be a redirect loop"
 msgstr "The target can't be the domain itself: it would be a redirect loop"
 
-#: src/lib/api-errors.gen.ts:141
+#: src/lib/api-errors.gen.ts:143
 msgctxt "api:redirect_target_dollar"
 msgid "The target can't contain \"$\""
 msgstr "The target can't contain \"$\""
 
-#: src/lib/api-errors.gen.ts:142
+#: src/lib/api-errors.gen.ts:144
 msgctxt "api:redirect_target_invalid"
 msgid "The target must be a full URL, e.g. https://new.com"
 msgstr "The target must be a full URL, e.g. https://new.com"
@@ -3490,22 +3511,22 @@ msgstr "The target receives {0}/users as /users. Leave it off if the target expe
 msgid "The target receives the path without the location. Leave it off if the target expects the full path."
 msgstr "The target receives the path without the location. Leave it off if the target expects the full path."
 
-#: src/lib/api-errors.gen.ts:104
+#: src/lib/api-errors.gen.ts:106
 msgctxt "api:git_token_required"
 msgid "The token is required"
 msgstr "The token is required"
 
-#: src/lib/api-errors.gen.ts:178
+#: src/lib/api-errors.gen.ts:180
 msgctxt "api:update_failed"
 msgid "The update couldn't start: {detail}"
 msgstr "The update couldn't start: {detail}"
 
-#: src/lib/api-errors.gen.ts:182
+#: src/lib/api-errors.gen.ts:184
 msgctxt "api:upload_too_large"
 msgid "The upload exceeds {max_mb} MiB"
 msgstr "The upload exceeds {max_mb} MiB"
 
-#: src/lib/api-errors.gen.ts:42
+#: src/lib/api-errors.gen.ts:43
 msgctxt "api:app_volume_shared"
 msgid "The volume {volume} would share its data with the app {app}: give it another name"
 msgstr "The volume {volume} would share its data with the app {app}: give it another name"
@@ -3514,7 +3535,7 @@ msgstr "The volume {volume} would share its data with the app {app}: give it ano
 msgid "The webhook is deleted and pushes will no longer deploy. The site and its deployments are kept."
 msgstr "The webhook is deleted and pushes will no longer deploy. The site and its deployments are kept."
 
-#: src/lib/api-errors.gen.ts:87
+#: src/lib/api-errors.gen.ts:89
 msgctxt "api:dns_zone_taken"
 msgid "The zone {zone} is already managed by {provider}"
 msgstr "The zone {zone} is already managed by {provider}"
@@ -3531,31 +3552,31 @@ msgstr "Theme"
 msgid "There may have been an outage of ~1 s."
 msgstr "There may have been an outage of ~1 s."
 
-#: src/lib/api-errors.gen.ts:160
+#: src/lib/api-errors.gen.ts:162
 msgctxt "api:stream_port_taken"
 msgid "There's already a {protocol} stream on port {port}"
 msgstr "There's already a {protocol} stream on port {port}"
 
-#: src/lib/api-errors.gen.ts:93
+#: src/lib/api-errors.gen.ts:95
 msgctxt "api:git_connection_in_use"
 msgid "These sites and apps use it; disconnect them first: {sites}"
 msgstr "These sites and apps use it; disconnect them first: {sites}"
-
-#: src/lib/api-errors.gen.ts:92
-#~ msgctxt "api:git_connection_in_use"
-#~ msgid "These sites use it; disconnect them first: {sites}"
-#~ msgstr "These sites use it; disconnect them first: {sites}"
 
 #: src/components/app-detail.tsx:123
 msgid "This app doesn't exist"
 msgstr "This app doesn't exist"
 
-#: src/lib/api-errors.gen.ts:43
+#: src/lib/api-errors.gen.ts:44
 msgctxt "api:app_webhook_inactive"
 msgid "This app has no active webhooks"
 msgstr "This app has no active webhooks"
 
-#: src/lib/api-errors.gen.ts:129
+#: src/lib/api-errors.gen.ts:46
+msgctxt "api:backup_encrypted"
+msgid "This backup is encrypted: enter its password"
+msgstr "This backup is encrypted: enter its password"
+
+#: src/lib/api-errors.gen.ts:131
 msgctxt "api:panel_only"
 msgid "This can only be done from the panel, not with an API token"
 msgstr "This can only be done from the panel, not with an API token"
@@ -3574,7 +3595,7 @@ msgstr "This installation is already set up"
 msgid "This is a development build ({0}): update it by pulling the image again."
 msgstr "This is a development build ({0}): update it by pulling the image again."
 
-#: src/lib/api-errors.gen.ts:118
+#: src/lib/api-errors.gen.ts:120
 msgctxt "api:last_admin"
 msgid "This is the only administrator: make someone else an administrator first"
 msgstr "This is the only administrator: make someone else an administrator first"
@@ -3602,7 +3623,7 @@ msgstr "This server (the panel's)"
 msgid "This site doesn't exist"
 msgstr "This site doesn't exist"
 
-#: src/lib/api-errors.gen.ts:156
+#: src/lib/api-errors.gen.ts:158
 msgctxt "api:site_webhooks_inactive"
 msgid "This site has no active webhooks"
 msgstr "This site has no active webhooks"
@@ -3619,7 +3640,7 @@ msgstr "To build from a repository, connect your GitHub or GitLab account."
 msgid "To delete it completely, remove it on GitHub too."
 msgstr "To delete it completely, remove it on GitHub too."
 
-#: src/lib/api-errors.gen.ts:35
+#: src/lib/api-errors.gen.ts:36
 msgctxt "api:app_port_required"
 msgid "To publish the app on a domain, specify the port it listens on"
 msgstr "To publish the app on a domain, specify the port it listens on"
@@ -3632,17 +3653,17 @@ msgstr "Token \"{name}\" revoked"
 msgid "Token copied"
 msgstr "Token copied"
 
-#: src/lib/api-errors.gen.ts:165
+#: src/lib/api-errors.gen.ts:167
 msgctxt "api:token_not_found"
 msgid "Token not found"
 msgstr "Token not found"
 
-#: src/lib/api-errors.gen.ts:167
+#: src/lib/api-errors.gen.ts:169
 msgctxt "api:too_many_attempts"
 msgid "Too many attempts, wait a minute"
 msgstr "Too many attempts, wait a minute"
 
-#: src/lib/api-errors.gen.ts:168
+#: src/lib/api-errors.gen.ts:170
 msgctxt "api:too_many_wrong_codes"
 msgid "Too many wrong codes; wait a few minutes"
 msgstr "Too many wrong codes; wait a few minutes"
@@ -3690,6 +3711,10 @@ msgstr "Trigger"
 msgid "Turn it off if the target is an external site that requires its own domain."
 msgstr "Turn it off if the target is an external site that requires its own domain."
 
+#: src/components/two-factor.tsx:234
+msgid "Two-step code"
+msgstr "Two-step code"
+
 #: src/components/auth-form.tsx:80
 #: src/components/two-factor.tsx:30
 msgid "Two-step verification"
@@ -3703,12 +3728,12 @@ msgstr "Two-step verification disabled"
 msgid "Two-step verification enabled"
 msgstr "Two-step verification enabled"
 
-#: src/lib/api-errors.gen.ts:171
+#: src/lib/api-errors.gen.ts:173
 msgctxt "api:two_factor_already_enabled"
 msgid "Two-step verification is already enabled"
 msgstr "Two-step verification is already enabled"
 
-#: src/lib/api-errors.gen.ts:172
+#: src/lib/api-errors.gen.ts:174
 msgctxt "api:two_factor_not_enabled"
 msgid "Two-step verification isn't enabled"
 msgstr "Two-step verification isn't enabled"
@@ -3729,12 +3754,12 @@ msgstr "Unencrypted (local servers only)"
 msgid "unknown"
 msgstr "unknown"
 
-#: src/lib/api-errors.gen.ts:105
+#: src/lib/api-errors.gen.ts:107
 msgctxt "api:github_app_unknown"
 msgid "Unknown app"
 msgstr "Unknown app"
 
-#: src/lib/api-errors.gen.ts:62
+#: src/lib/api-errors.gen.ts:64
 msgctxt "api:channel_event_unknown"
 msgid "Unknown event: {event}"
 msgstr "Unknown event: {event}"
@@ -3743,22 +3768,22 @@ msgstr "Unknown event: {event}"
 msgid "unknown issuer"
 msgstr "unknown issuer"
 
-#: src/lib/api-errors.gen.ts:44
+#: src/lib/api-errors.gen.ts:45
 msgctxt "api:app_webhook_unknown_provider"
 msgid "Unknown provider"
 msgstr "Unknown provider"
 
-#: src/lib/api-errors.gen.ts:177
+#: src/lib/api-errors.gen.ts:179
 msgctxt "api:unknown_role"
 msgid "Unknown role: use admin, deployer or viewer"
 msgstr "Unknown role: use admin, deployer or viewer"
 
-#: src/lib/api-errors.gen.ts:50
+#: src/lib/api-errors.gen.ts:52
 msgctxt "api:backup_storage_type_unknown"
 msgid "Unknown storage type: use local or s3"
 msgstr "Unknown storage type: use local or s3"
 
-#: src/lib/api-errors.gen.ts:60
+#: src/lib/api-errors.gen.ts:62
 msgctxt "api:cert_unreadable"
 msgid "Unreadable certificate"
 msgstr "Unreadable certificate"
@@ -3783,7 +3808,7 @@ msgstr "Update Dockfly to {version}?"
 msgid "Update to {latest}"
 msgstr "Update to {latest}"
 
-#: src/lib/api-errors.gen.ts:180
+#: src/lib/api-errors.gen.ts:182
 msgctxt "api:update_unavailable"
 msgid "Updates from the panel aren't available here"
 msgstr "Updates from the panel aren't available here"
@@ -3801,7 +3826,7 @@ msgstr "Upload certificate"
 msgid "Uploading {uploading}…"
 msgstr "Uploading {uploading}…"
 
-#: src/components/restore-backup.tsx:68
+#: src/components/restore-backup.tsx:71
 msgid "Uploading backup… {percent}%"
 msgstr "Uploading backup… {percent}%"
 
@@ -3822,7 +3847,7 @@ msgstr "Use the app"
 msgid "Used {0}"
 msgstr "Used {0}"
 
-#: src/lib/api-errors.gen.ts:184
+#: src/lib/api-errors.gen.ts:186
 msgctxt "api:user_not_found"
 msgid "User not found"
 msgstr "User not found"
@@ -3914,7 +3939,7 @@ msgstr "Welcome to Dockfly"
 msgid "What's new"
 msgstr "What's new"
 
-#: src/routes/_app/settings.tsx:61
+#: src/routes/_app/settings.tsx:57
 msgid "When restoring, Dockfly restarts and applies the backup; the previous data is kept in <0>{beforeRestoreDir}</0>."
 msgstr "When restoring, Dockfly restarts and applies the backup; the previous data is kept in <0>{beforeRestoreDir}</0>."
 
@@ -3926,7 +3951,7 @@ msgstr "Where backups of PostgreSQL, MySQL and Redis apps are stored (they are s
 msgid "whoami (test)"
 msgstr "whoami (test)"
 
-#: src/lib/api-errors.gen.ts:23
+#: src/lib/api-errors.gen.ts:24
 msgctxt "api:app_compose_volumes"
 msgid "With Compose, volumes are defined in docker-compose.yml"
 msgstr "With Compose, volumes are defined in docker-compose.yml"
@@ -3943,27 +3968,27 @@ msgstr "Without commands, the repository files (or its output directory) are pub
 msgid "Workflow automation."
 msgstr "Workflow automation."
 
-#: src/lib/api-errors.gen.ts:191
+#: src/lib/api-errors.gen.ts:193
 msgctxt "api:wrong_2fa_code"
 msgid "Wrong code"
 msgstr "Wrong code"
 
-#: src/lib/api-errors.gen.ts:174
+#: src/lib/api-errors.gen.ts:176
 msgctxt "api:two_factor_wrong_setup_code"
 msgid "Wrong code: check that your phone's clock is correct"
 msgstr "Wrong code: check that your phone's clock is correct"
 
-#: src/lib/api-errors.gen.ts:53
+#: src/lib/api-errors.gen.ts:55
 msgctxt "api:bad_credentials"
 msgid "Wrong email or password"
 msgstr "Wrong email or password"
 
-#: src/lib/api-errors.gen.ts:192
+#: src/lib/api-errors.gen.ts:194
 msgctxt "api:wrong_password"
 msgid "Wrong password"
 msgstr "Wrong password"
 
-#: src/lib/api-errors.gen.ts:150
+#: src/lib/api-errors.gen.ts:152
 msgctxt "api:setup_token_invalid"
 msgid "Wrong setup code: find it in Dockfly's logs (docker logs dockfly) or in /data/setup-token"
 msgstr "Wrong setup code: find it in Dockfly's logs (docker logs dockfly) or in /data/setup-token"
@@ -3976,7 +4001,7 @@ msgstr "Yes"
 msgid "You can upload your build files afterwards."
 msgstr "You can upload your build files afterwards."
 
-#: src/lib/api-errors.gen.ts:76
+#: src/lib/api-errors.gen.ts:78
 msgctxt "api:delete_own_account"
 msgid "You can't delete your own account"
 msgstr "You can't delete your own account"
@@ -4019,7 +4044,7 @@ msgstr "Your password"
 msgid "Your previous codes no longer work."
 msgstr "Your previous codes no longer work."
 
-#: src/lib/api-errors.gen.ts:144
+#: src/lib/api-errors.gen.ts:146
 msgctxt "api:role_forbidden"
 msgid "Your role doesn't allow this; ask an administrator"
 msgstr "Your role doesn't allow this; ask an administrator"
@@ -4028,7 +4053,7 @@ msgstr "Your role doesn't allow this; ask an administrator"
 msgid "Your sessions on other devices have been signed out."
 msgstr "Your sessions on other devices have been signed out."
 
-#: src/lib/api-errors.gen.ts:124
+#: src/lib/api-errors.gen.ts:126
 msgctxt "api:login_expired"
 msgid "Your sign-in has expired; enter your password again"
 msgstr "Your sign-in has expired; enter your password again"
@@ -4037,17 +4062,17 @@ msgstr "Your sign-in has expired; enter your password again"
 msgid "Zones"
 msgstr "Zones"
 
-#: src/lib/api-errors.gen.ts:88
+#: src/lib/api-errors.gen.ts:90
 msgctxt "api:dns_zone_wildcard"
 msgid "Zones are domains without a wildcard (e.g. example.com)"
 msgstr "Zones are domains without a wildcard (e.g. example.com)"
 
-#: src/lib/api-errors.gen.ts:83
+#: src/lib/api-errors.gen.ts:85
 msgctxt "api:dns_no_zones"
 msgid "Zones: enter at least one domain"
 msgstr "Zones: enter at least one domain"
 
-#: src/lib/api-errors.gen.ts:86
+#: src/lib/api-errors.gen.ts:88
 msgctxt "api:dns_zone_invalid"
 msgid "Zones: invalid domain: {domain}"
 msgstr "Zones: invalid domain: {domain}"

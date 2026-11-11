@@ -13,6 +13,8 @@ import (
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/dockfly/dockfly/internal/egress"
 )
 
 const (
@@ -141,9 +143,11 @@ func NewWithOptions(provider, baseURL, token string, opts Options) (Provider, er
 }
 
 var (
-	apiHTTP = &http.Client{Timeout: 30 * time.Second}
+	// Transport que rechaza link-local (metadatos de nube) contra SSRF por un
+	// base_url malicioso, dejando loopback/privadas para GitHub/GitLab propios.
+	apiHTTP = &http.Client{Timeout: 30 * time.Second, Transport: egress.SafeTransport()}
 	// Las descargas de código pueden tardar: su límite lo pone el contexto.
-	downloadHTTP = &http.Client{}
+	downloadHTTP = &http.Client{Transport: egress.SafeTransport()}
 )
 
 // APIError es un error devuelto por GitHub o GitLab.

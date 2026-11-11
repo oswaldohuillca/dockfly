@@ -9,6 +9,7 @@ package routing
 import (
 	"fmt"
 	"net"
+	"slices"
 	"strconv"
 
 	"github.com/dockfly/dockfly/internal/pages"
@@ -192,6 +193,28 @@ func (b *builder) withACL(rt traefik.Route, id *int64) traefik.Route {
 	return rt
 }
 
+// chainACL encadena varias listas de acceso en una ruta: hay que pasar todas
+// (p. ej. la puerta global de previews y la propia del sitio). Una lista
+// borrada deniega todo. nil se ignora; los duplicados se omiten.
+func (b *builder) chainACL(ids ...*int64) []string {
+	var mw []string
+	for _, id := range ids {
+		if id == nil {
+			continue
+		}
+		m, ok := b.acl[*id]
+		if !ok {
+			return []string{traefik.MwDeny}
+		}
+		for _, name := range m {
+			if !slices.Contains(mw, name) {
+				mw = append(mw, name)
+			}
+		}
+	}
+	return mw
+}
+
 // locations traduce las ubicaciones de un proxy host o de un sitio (parent,
 // ya con su nombre y sus dominios). Cada una es una ruta más del mismo
 // dominio, limitada a su prefijo, con su destino y su acceso; Traefik la
@@ -247,11 +270,15 @@ func (b *builder) previews(table map[string]pages.Route) []traefik.Route {
 			if site.AccessListID == nil {
 				continue
 			}
-			rt := b.withACL(traefik.Route{
+			// El router por host gana al comodín por prioridad, así que debe
+			// repetir la puerta global de previews además de la del sitio; si no,
+			// las credenciales del sitio saltarían la lista global.
+			rt := traefik.Route{
 				Name: fmt.Sprintf("preview-%d-%s", site.ID, host), Domains: []string{host},
 				URL: b.snap.StaticURL, PreserveHost: true, Compress: true,
 				SSL: wildcard.SSL, ForceHTTPS: wildcard.SSL,
-			}, site.AccessListID)
+			}
+			rt.Middlewares = b.chainACL(p.AccessListID, site.AccessListID)
 			if rt.SSL {
 				rt.Resolver = traefik.NoResolver // el comodín ya tiene el certificado
 			}

@@ -187,6 +187,7 @@ func (s *Server) handleEnable2FA(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleDisable2FA(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Password string `json:"password"`
+		Code     string `json:"code"`
 	}
 	if !decode(w, r, &in) {
 		return
@@ -195,6 +196,23 @@ func (s *Server) handleDisable2FA(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	// Desactivar 2FA exige también un código válido (TOTP o de recuperación),
+	// para que una contraseña robada no baste para quitar el segundo factor.
+	if s.mfa.blocked(u.ID, mfaMaxFailures) {
+		writeError(w, http.StatusTooManyRequests, errTooManyCodes)
+		return
+	}
+	valid, _, err := s.checkSecondFactor(r.Context(), u, in.Code)
+	if err != nil {
+		s.internalError(w, err)
+		return
+	}
+	if !valid {
+		s.mfa.fail(u.ID)
+		writeError(w, http.StatusUnauthorized, errWrongCode)
+		return
+	}
+	s.mfa.reset(u.ID)
 	u.TOTPSecretEnc, u.TOTPEnabled, u.TOTPLastStep, u.RecoveryCodes = nil, false, 0, nil
 	if err := s.Store.SetUserTOTP(r.Context(), u); err != nil {
 		s.internalError(w, err)

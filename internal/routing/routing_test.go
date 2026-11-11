@@ -118,6 +118,24 @@ func TestProtectedPreviewUsesWildcardCertificate(t *testing.T) {
 	}
 }
 
+// Si hay lista de acceso global de previews, el router por host de un sitio
+// con su propia lista debe exigir las dos (si no, las credenciales del sitio
+// saltarían la puerta global).
+func TestPreviewChainsGlobalAndSiteACL(t *testing.T) {
+	s := base()
+	s.AccessLists = []*store.AccessList{list(1), list(6)}
+	s.Sites = []*store.Site{{ID: 1, Name: "web", Domains: []string{"web.test"}, AccessListID: id(1), Previews: true}}
+	s.Previews = Previews{Domain: "pv.test", AccessListID: id(6), BySite: map[int64][]*store.Deployment{1: {{ID: 9, Preview: "rama"}}}}
+	plan := Build(s)
+
+	if w := route(t, plan, PreviewRouteName).Middlewares; !slices.Equal(w, []string{"acl-6-ip"}) {
+		t.Errorf("el comodín usa la lista global: %v", w)
+	}
+	if p := route(t, plan, "preview-1-rama--web.pv.test").Middlewares; !slices.Equal(p, []string{"acl-6-ip", "acl-1-ip"}) {
+		t.Errorf("el router por host exige global + sitio: %v", p)
+	}
+}
+
 // Las apps de un servidor remoto van a su Traefik, no al de este servidor;
 // las paradas o sin desplegar no se publican.
 func TestAppsRemoteAndStopped(t *testing.T) {

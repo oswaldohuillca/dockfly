@@ -19,7 +19,7 @@ services:
       # Formato <puerto-del-host>:<puerto-del-contenedor>
       - '80:80'   # HTTP público (Traefik)
       - '443:443' # HTTPS público (Traefik)
-      - '81:81'   # Panel de Dockfly
+      - '127.0.0.1:81:81' # Panel de Dockfly (solo local; publícalo con HTTPS, ver abajo)
       # Añade los puertos de los streams TCP/UDP que quieras exponer
       # - '5432:5432' # PostgreSQL
 
@@ -49,8 +49,16 @@ services:
 docker compose up -d
 ```
 
-Abre `http://TU_SERVIDOR:81` y crea la cuenta de administrador (el primer usuario que se
-registra es el administrador).
+El panel se publica solo en `127.0.0.1:81` para que no quede expuesto en HTTP plano. Para el
+primer acceso, abre un túnel SSH desde tu máquina:
+
+```bash
+ssh -L 8081:127.0.0.1:81 usuario@TU_SERVIDOR
+```
+
+y entra en `http://127.0.0.1:8081` para crear la cuenta de administrador (el primer usuario que
+se registra es el administrador). Después, publica el propio panel con HTTPS creando un **proxy
+host** que apunte a `127.0.0.1:81`, y accede por ese dominio.
 
 **Actualizar.** En **Ajustes → Versión de Dockfly** aparece un aviso cuando hay una versión
 nueva; con el botón **Actualizar**, Dockfly copia sus datos en `/data/pre-update.tar.gz`,

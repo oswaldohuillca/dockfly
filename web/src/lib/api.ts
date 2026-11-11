@@ -656,7 +656,8 @@ export const api = {
   get2FA: () => request<{ enabled: boolean; recovery_codes_left: number }>('GET', '/auth/2fa'),
   setup2FA: (password: string) => request<TwoFactorSetup>('POST', '/auth/2fa/setup', { password }),
   enable2FA: (code: string) => request<{ recovery_codes: string[] }>('POST', '/auth/2fa/enable', { code }),
-  disable2FA: (password: string) => request<void>('POST', '/auth/2fa/disable', { password }),
+  disable2FA: (password: string, code: string) =>
+    request<void>('POST', '/auth/2fa/disable', { password, code }),
   regenerateRecoveryCodes: (password: string) =>
     request<{ recovery_codes: string[] }>('POST', '/auth/2fa/recovery-codes', { password }),
   logout: () => request<void>('POST', '/auth/logout'),
@@ -790,15 +791,28 @@ function uploadDeployment(siteId: number, payload: UploadPayload, onProgress?: (
  */
 export function restoreBackup(
   file: File,
-  confirm: { password?: string; setup_token?: string },
+  confirm: { password?: string; setup_token?: string; encryption_password?: string },
   onProgress?: (p: number) => void,
 ) {
   const form = new FormData();
   // Los campos de confirmación van antes que el archivo (el servidor los lee en orden).
   if (confirm.password) form.append('password', confirm.password);
   if (confirm.setup_token) form.append('setup_token', confirm.setup_token);
+  if (confirm.encryption_password) form.append('encryption_password', confirm.encryption_password);
   form.append('backup', file);
   return upload<{ message: string }>('/api/backup/restore', form, onProgress);
+}
+
+/**
+ * Descarga la copia completa. Con contraseña, el servidor la cifra (la
+ * contraseña va por cabecera, no en la URL). Devuelve el blob a guardar.
+ */
+export async function downloadBackup(password?: string): Promise<Blob> {
+  const res = await fetch('/api/backup', {
+    headers: password ? { 'X-Backup-Password': password } : undefined,
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.blob();
 }
 
 /**

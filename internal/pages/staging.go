@@ -192,11 +192,11 @@ func cleanPath(name string) (string, bool) {
 	}
 	// Anclar en "/" antes de limpiar elimina cualquier "../" inicial.
 	rel := strings.TrimPrefix(path.Clean("/"+name), "/")
-	if rel == "" {
+	if rel == "" || len(rel) > 1024 || strings.Count(rel, "/") > 64 {
 		return "", false
 	}
 	for seg := range strings.SplitSeq(rel, "/") {
-		if seg == "__MACOSX" || seg == ".DS_Store" || seg == "Thumbs.db" || seg == ".git" {
+		if len(seg) > 255 || seg == "__MACOSX" || seg == ".DS_Store" || seg == "Thumbs.db" || seg == ".git" {
 			return "", false
 		}
 	}

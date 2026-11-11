@@ -31,14 +31,17 @@ export function RestoreBackup({
   // La copia elegida, pendiente de confirmar.
   const [pending, setPending] = useState<File | null>(null);
   const [password, setPassword] = useState('');
+  const [encPassword, setEncPassword] = useState('');
   const [error, setError] = useState('');
   const fresh = setupToken !== undefined;
+  const encrypted = pending?.name.endsWith('.enc') ?? false;
 
   async function restore(file: File) {
     setError('');
     setProgress(0);
     try {
-      const res = await restoreBackup(file, fresh ? { setup_token: setupToken } : { password }, setProgress);
+      const confirm = fresh ? { setup_token: setupToken } : { password };
+      const res = await restoreBackup(file, { ...confirm, encryption_password: encPassword }, setProgress);
       setPending(null);
       setRestarting(true);
       toast.info(res.message);
@@ -78,13 +81,14 @@ export function RestoreBackup({
       <input
         ref={input}
         type="file"
-        accept=".tar.gz,.tgz,application/gzip"
+        accept=".tar.gz,.tgz,.enc,application/gzip,application/octet-stream"
         className="hidden"
         onChange={(e) => {
           const f = e.target.files?.[0];
           e.target.value = '';
           if (f) {
             setPassword('');
+            setEncPassword('');
             setError('');
             setPending(f);
           }
@@ -124,6 +128,21 @@ export function RestoreBackup({
                     required
                     autoFocus
                     autoComplete="current-password"
+                  />
+                </div>
+              )}
+              {encrypted && (
+                <div className="space-y-2">
+                  <Label htmlFor="restore-enc-password">
+                    <Trans>Backup password</Trans>
+                  </Label>
+                  <Input
+                    id="restore-enc-password"
+                    type="password"
+                    value={encPassword}
+                    onChange={(e) => setEncPassword(e.target.value)}
+                    required
+                    autoComplete="off"
                   />
                 </div>
               )}

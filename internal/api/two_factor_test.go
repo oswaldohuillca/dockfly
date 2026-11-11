@@ -86,11 +86,15 @@ func TestTwoFactorFlow(t *testing.T) {
 		t.Errorf("ticket caducado: %d %v", code, body)
 	}
 
-	// Desactivar pide la contraseña.
+	// Desactivar pide la contraseña y un código válido.
 	if code, _ := c.do("POST", "/api/auth/2fa/disable", `{"password":"mala"}`); code != 403 {
 		t.Errorf("desactivar con contraseña incorrecta: %d", code)
 	}
-	if code, _ := c.do("POST", "/api/auth/2fa/disable", `{"password":"secreto123"}`); code != 204 {
+	if code, _ := c.do("POST", "/api/auth/2fa/disable", `{"password":"secreto123","code":"000000"}`); code != 401 {
+		t.Errorf("desactivar con código incorrecto: %d", code)
+	}
+	disableCode := en["recovery_codes"].([]any)[1].(string) // sin usar; no depende del reloj
+	if code, _ := c.do("POST", "/api/auth/2fa/disable", fmt.Sprintf(`{"password":"secreto123","code":%q}`, disableCode)); code != 204 {
 		t.Fatalf("desactivar: %d", code)
 	}
 	if _, body := newClient(t, ts).do("POST", "/api/auth/login", login); body["two_factor"] == true {

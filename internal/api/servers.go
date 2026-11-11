@@ -214,6 +214,10 @@ func (s *Server) handleServerToken(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
+	// Echa al agente conectado: el token viejo deja de valer y debe reconectar.
+	if s.Hub != nil {
+		s.Hub.Disconnect(sv.ID)
+	}
 	cmd, warning := s.joinCommand(r.Context(), token)
 	writeJSON(w, http.StatusOK, map[string]any{"token": token, "command": cmd, "warning": warning})
 }
@@ -233,6 +237,9 @@ func (s *Server) handleDeleteServer(w http.ResponseWriter, r *http.Request) {
 	if err := s.Store.DeleteServer(r.Context(), sv.ID); err != nil {
 		s.internalError(w, err)
 		return
+	}
+	if s.Hub != nil {
+		s.Hub.Disconnect(sv.ID)
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -283,7 +290,17 @@ func (s *Server) handleAgentData(w http.ResponseWriter, r *http.Request) {
 
 // pushServer envía a un servidor la configuración de Traefik de sus apps.
 func (s *Server) pushServer(ctx context.Context, id int64, routes []traefik.Route, extra map[string]any) error {
-	data, err := traefik.RenderDynamic(traefik.Dynamic{Routes: routes, Middlewares: extra})
+	// Enviar a este agente solo los middlewares que usan sus rutas (los hashes
+	// de las listas de acceso de otros servidores no deben salir a este).
+	used := map[string]any{}
+	for _, rt := range routes {
+		for _, name := range rt.Middlewares {
+			if mw, ok := extra[name]; ok {
+				used[name] = mw
+			}
+		}
+	}
+	data, err := traefik.RenderDynamic(traefik.Dynamic{Routes: routes, Middlewares: used})
 	if err != nil {
 		return err
 	}

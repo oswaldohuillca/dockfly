@@ -61,6 +61,35 @@ func Public(ip netip.Addr) bool {
 	return true
 }
 
+// LinkLocalOrUnspecified marca las IPs que no deben alcanzarse ni siquiera
+// cuando es el admin quien configura el destino: el endpoint de metadatos de
+// nube (169.254.169.254, fe80::/10) y la dirección sin especificar.
+func LinkLocalOrUnspecified(ip netip.Addr) bool {
+	ip = ip.Unmap()
+	return ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified()
+}
+
+// SafeTransport es un http.Transport que, al conectar (ya resuelto el DNS, así
+// que cubre el DNS-rebinding), rechaza LinkLocalOrUnspecified. A diferencia del
+// proxy de builds, permite loopback y redes privadas: lo usan destinos que
+// configura el admin (cuentas Git, endpoint S3), donde autoalojar en LAN es
+// legítimo, pero sin dejar robar las credenciales de nube por SSRF.
+func SafeTransport() *http.Transport {
+	t := http.DefaultTransport.(*http.Transport).Clone()
+	d := &net.Dialer{Timeout: 30 * time.Second, Control: func(_, address string, _ syscall.RawConn) error {
+		ap, err := netip.ParseAddrPort(address)
+		if err != nil {
+			return err
+		}
+		if LinkLocalOrUnspecified(ap.Addr()) {
+			return fmt.Errorf("destino no permitido (metadatos/link-local): %s", ap.Addr())
+		}
+		return nil
+	}}
+	t.DialContext = d.DialContext
+	return t
+}
+
 // allow decide a qué IPs se conecta (los tests lo cambian).
 var allow = Public
 

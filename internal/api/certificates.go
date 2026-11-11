@@ -60,6 +60,13 @@ var (
 	envKeyRe       = regexp.MustCompile(`^[A-Z][A-Z0-9_]{1,63}$`)
 )
 
+// dnsEnvDenied son nombres de variable que no se pasan al proceso de Traefik
+// aunque cumplan el patrón: alterarían la carga de librerías o la salida de red.
+var dnsEnvDenied = map[string]bool{
+	"LD_PRELOAD": true, "LD_LIBRARY_PATH": true, "LD_AUDIT": true, "PATH": true,
+	"HTTP_PROXY": true, "HTTPS_PROXY": true, "ALL_PROXY": true, "NO_PROXY": true,
+}
+
 var (
 	errDNSProviderCodeInvalid = newError("dns_provider_code_invalid", "Invalid provider code (e.g. cloudflare, hetznerv2…)")
 	errDNSZoneInvalid         = newError("dns_zone_invalid", "Zones: invalid domain: {domain}")
@@ -146,7 +153,7 @@ func (in *dnsProviderInput) build(previous map[string]string) (*store.DNSProvide
 	env := map[string]string{}
 	for k, v := range in.Env {
 		k = strings.TrimSpace(k)
-		if !envKeyRe.MatchString(k) {
+		if !envKeyRe.MatchString(k) || dnsEnvDenied[k] {
 			return nil, nil, errDNSEnvNameInvalid.With("name", k)
 		}
 		if v == secretMask {
