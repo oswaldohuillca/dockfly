@@ -163,8 +163,16 @@ func TestGitIntegrationFlow(t *testing.T) {
 	hook := func(body []byte, sig, event string) (int, map[string]any) {
 		return c.do("POST", "/api/hooks/github/1", string(body), "X-GitHub-Event", event, "X-Hub-Signature-256", sig)
 	}
-	if code, _ := hook(push, githubSignature("otro", push), "push"); code != 401 {
-		t.Errorf("firma inválida: esperaba 401, obtuve %d", code)
+	badCode, badBody := hook(push, githubSignature("otro", push), "push")
+	if badCode != 401 {
+		t.Errorf("firma inválida: esperaba 401, obtuve %d", badCode)
+	}
+	// Sin el secreto no se distingue un id que existe de uno que no, ni el proveedor.
+	for _, path := range []string{"/api/hooks/github/999", "/api/hooks/gitlab/1", "/api/hooks/github/apps/999", "/api/hooks/otro/apps/999"} {
+		code, body := c.do("POST", path, string(push), "X-GitHub-Event", "push", "X-Hub-Signature-256", githubSignature("otro", push))
+		if code != badCode || body["code"] != badBody["code"] {
+			t.Errorf("%s: esperaba la misma respuesta que una firma inválida (%d %v), obtuve %d %v", path, badCode, badBody, code, body)
+		}
 	}
 	if code, body := hook([]byte(`{"zen":"x"}`), githubSignature(secret, []byte(`{"zen":"x"}`)), "ping"); code != 200 {
 		t.Errorf("ping: %d %v", code, body)
@@ -242,8 +250,8 @@ func TestGitIntegrationFlow(t *testing.T) {
 	if deleted != "101" {
 		t.Errorf("desenlazar debe borrar el webhook en GitHub, se borró %q", deleted)
 	}
-	if code, _ := hook(push, githubSignature(secret, push), "push"); code != 404 {
-		t.Errorf("tras desenlazar, el webhook antiguo debe dar 404, dio %d", code)
+	if code, _ := hook(push, githubSignature(secret, push), "push"); code != 401 {
+		t.Errorf("tras desenlazar, el webhook antiguo debe rechazarse con 401, dio %d", code)
 	}
 	if code, _ := c.do("DELETE", "/api/git/connections/1", ""); code != 204 {
 		t.Errorf("borrar cuenta sin uso: %d", code)

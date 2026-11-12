@@ -51,8 +51,6 @@ var (
 	errAppNoReusableImage      = newError("app_no_reusable_image", "That deployment has no reusable image")
 	errAppImageGone            = newError("app_image_gone", "That deployment's image no longer exists; deploy again")
 	errAppNotDeployed          = newError("app_not_deployed", "The app hasn't been deployed yet")
-	errAppWebhookInactive      = newError("app_webhook_inactive", "This app has no active webhooks")
-	errAppWebhookProvider      = newError("app_webhook_unknown_provider", "Unknown provider")
 )
 
 type appInput struct {
@@ -616,7 +614,7 @@ func (s *Server) syncAppWebhook(ctx context.Context, a *store.App) *apiError {
 
 // handleAppWebhook recibe los pushes de un repo con webhook propio.
 func (s *Server) handleAppWebhook(w http.ResponseWriter, r *http.Request) {
-	a, ok := s.loadApp(w, r)
+	id, ok := pathID(w, r)
 	if !ok {
 		return
 	}
@@ -624,8 +622,12 @@ func (s *Server) handleAppWebhook(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		return
 	}
-	if a.WebhookSecret == "" || a.GitConnectionID == nil {
-		writeError(w, http.StatusNotFound, errAppWebhookInactive)
+	a, err := s.Store.GetApp(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && (a.WebhookSecret == "" || a.GitConnectionID == nil)) {
+		denyWebhook(w)
+		return
+	} else if err != nil {
+		s.internalError(w, err)
 		return
 	}
 	var push gitprovider.Push
@@ -636,11 +638,10 @@ func (s *Server) handleAppWebhook(w http.ResponseWriter, r *http.Request) {
 	case gitprovider.GitLab:
 		push, isPush, err = gitprovider.ParseGitLabWebhook(r.Header, body, a.WebhookSecret)
 	default:
-		writeError(w, http.StatusNotFound, errAppWebhookProvider)
-		return
+		err = gitprovider.ErrBadSignature
 	}
 	if errors.Is(err, gitprovider.ErrBadSignature) {
-		writeError(w, http.StatusUnauthorized, errWebhookBadSignature)
+		denyWebhook(w)
 		return
 	} else if err != nil {
 		writeError(w, http.StatusBadRequest, errWebhookBadPayload)

@@ -46,7 +46,6 @@ var (
 	errBuildInvalidID        = newError("build_invalid_id", "Invalid build ID")
 	errBuildNotFound         = newError("build_not_found", "Build not found")
 	errWebhookBodyTooLarge   = newError("webhook_body_too_large", "Body too large")
-	errSiteWebhooksInactive  = newError("site_webhooks_inactive", "This site has no active webhooks")
 	errWebhookBadSignature   = newError("webhook_bad_signature", "Invalid signature")
 	errWebhookBadPayload     = newError("webhook_bad_payload", "Invalid payload")
 	errBuildCacheClearFailed = newError("build_cache_clear_failed", "Couldn't clear the cache (is a build running?): {detail}")
@@ -603,25 +602,37 @@ func (s *Server) handleBuildLogs(w http.ResponseWriter, r *http.Request) {
 
 // --- Webhooks ---
 
+// denyWebhook responde igual a todo webhook que no se puede verificar: id
+// inexistente, sin webhooks, de otro proveedor o con la firma incorrecta. Así
+// quien llama sin el secreto no averigua qué ids existen.
+func denyWebhook(w http.ResponseWriter) {
+	writeError(w, http.StatusUnauthorized, errWebhookBadSignature)
+}
+
 // handleWebhook recibe los pushes de GitHub y GitLab. Es la única ruta de
 // escritura sin sesión: la autentica la firma del propio webhook.
 func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	provider := chi.URLParam(r, "provider")
-	site, ok := s.loadSite(w, r)
+	id, ok := pathID(w, r)
 	if !ok {
 		return
 	}
+	// El cuerpo se lee antes de buscar el sitio: un 413 tampoco debe depender de si existe.
 	body, err := readWebhookBody(w, r)
 	if err != nil {
 		return
 	}
-	if site.WebhookSecret == "" || site.GitConnectionID == nil {
-		writeError(w, http.StatusNotFound, errSiteWebhooksInactive)
+	site, err := s.Store.GetSite(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) || (err == nil && (site.WebhookSecret == "" || site.GitConnectionID == nil)) {
+		denyWebhook(w)
+		return
+	} else if err != nil {
+		s.internalError(w, err)
 		return
 	}
 	conn, err := s.Store.GetGitConnection(r.Context(), *site.GitConnectionID)
 	if err != nil || conn.Provider != provider {
-		writeError(w, http.StatusNotFound, errSiteWebhooksInactive)
+		denyWebhook(w)
 		return
 	}
 
@@ -636,7 +647,7 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		push, isPush, err = gitprovider.ParseGitLabWebhook(r.Header, body, site.WebhookSecret)
 	}
 	if errors.Is(err, gitprovider.ErrBadSignature) {
-		writeError(w, http.StatusUnauthorized, errWebhookBadSignature)
+		denyWebhook(w)
 		return
 	} else if err != nil {
 		writeError(w, http.StatusBadRequest, errWebhookBadPayload)
