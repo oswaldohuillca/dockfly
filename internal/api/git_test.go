@@ -209,6 +209,26 @@ func TestGitIntegrationFlow(t *testing.T) {
 		t.Errorf("deben listarse 2 builds, hay %d", len(list))
 	}
 
+	// 5b. Deploy hook: una URL secreta lanza un build; regenerarla invalida la anterior.
+	_, deployHook := c.do("POST", "/api/sites/1/deploy-hook", "")
+	hookToken, _ := deployHook["token"].(string)
+	if _, got := c.do("GET", "/api/sites/1/deploy-hook", ""); hookToken == "" || got["token"] != hookToken {
+		t.Fatalf("el deploy hook debe poder leerse después: %v", got)
+	}
+	if code, body := c.do("POST", "/api/hooks/deploy/"+hookToken, `{"event":"entry.publish"}`); code != 202 || body["build_id"] == nil {
+		t.Fatalf("el deploy hook debe encolar un build: %d %v", code, body)
+	} else if b := waitBuild(t, c, int(body["build_id"].(float64))); b["trigger"] != "hook" {
+		t.Errorf("build del deploy hook: %v", b)
+	}
+	c.do("POST", "/api/sites/1/deploy-hook", "")
+	if code, _ := c.do("POST", "/api/hooks/deploy/"+hookToken, ""); code != 404 {
+		t.Errorf("un deploy hook regenerado no debe seguir valiendo: %d", code)
+	}
+	c.do("PUT", "/api/sites/1", `{"name":"web","domains":["web.test"]}`)
+	if _, got := c.do("GET", "/api/sites/1/deploy-hook", ""); got["token"] == "" {
+		t.Error("editar el sitio no debe borrar su deploy hook")
+	}
+
 	// 6. La cuenta en uso no se puede borrar; desenlazar borra el webhook.
 	if code, _ := c.do("DELETE", "/api/git/connections/1", ""); code != 409 {
 		t.Errorf("borrar cuenta en uso: esperaba 409, obtuve %d", code)

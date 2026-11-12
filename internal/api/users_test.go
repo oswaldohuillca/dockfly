@@ -18,6 +18,7 @@ func TestRequiredRole(t *testing.T) {
 		{"PUT", "/api/auth/password", store.RoleViewer},
 		{"POST", "/api/auth/2fa/setup", store.RoleViewer},
 		{"GET", "/api/sites/1/git/env", store.RoleDeployer},
+		{"GET", "/api/sites/1/deploy-hook", store.RoleDeployer},
 		{"GET", "/api/apps/2/env", store.RoleDeployer},
 		{"GET", "/api/apps/2/backups", store.RoleViewer},
 		{"GET", "/api/apps/2/backups/7/download", store.RoleDeployer},

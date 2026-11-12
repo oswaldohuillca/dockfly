@@ -48,6 +48,9 @@ type SiteGit struct {
 	BuildEnvEnc     []byte `json:"-"` // map[string]string en JSON, cifrado
 	WebhookID       string `json:"webhook_id"`
 	WebhookSecret   string `json:"-"`
+	// DeployHook es el secreto de la URL que lanza un build ("" = sin hook).
+	// No va en gitColumns: solo lo escribe SetSiteDeployHook.
+	DeployHook string `json:"-"`
 }
 
 // gitColumns son las columnas de SiteGit: solo las escribe UpdateSiteGit,
@@ -120,7 +123,7 @@ func (s *Store) CreateSite(ctx context.Context, site *Site) error {
 func (s *Store) UpdateSite(ctx context.Context, site *Site) error {
 	site.UpdatedAt = now()
 	return mustAffect(s.db.NewUpdate().Model(site).WherePK().
-		ExcludeColumn("created_at", "active_deployment_id").ExcludeColumn(gitColumns...).Exec(ctx))
+		ExcludeColumn("created_at", "active_deployment_id", "deploy_hook").ExcludeColumn(gitColumns...).Exec(ctx))
 }
 
 // UpdateSiteGit guarda (o, con un SiteGit vacío, borra) la configuración de
@@ -128,6 +131,23 @@ func (s *Store) UpdateSite(ctx context.Context, site *Site) error {
 func (s *Store) UpdateSiteGit(ctx context.Context, siteID int64, g *SiteGit) error {
 	site := &Site{ID: siteID, SiteGit: *g, UpdatedAt: now()}
 	return mustAffect(s.db.NewUpdate().Model(site).WherePK().Column(append(gitColumns, "updated_at")...).Exec(ctx))
+}
+
+// SetSiteDeployHook guarda (o, con "", borra) el secreto del deploy hook.
+func (s *Store) SetSiteDeployHook(ctx context.Context, siteID int64, token string) error {
+	return mustAffect(s.db.NewUpdate().Model((*Site)(nil)).Set("deploy_hook = ?", token).Where("id = ?", siteID).Exec(ctx))
+}
+
+// GetSiteByDeployHook busca el sitio de un deploy hook.
+func (s *Store) GetSiteByDeployHook(ctx context.Context, token string) (*Site, error) {
+	if token == "" {
+		return nil, ErrNotFound
+	}
+	site := new(Site)
+	if err := s.db.NewSelect().Model(site).Where("deploy_hook = ?", token).Scan(ctx); err != nil {
+		return nil, notFound(err)
+	}
+	return site, nil
 }
 
 func (s *Store) DeleteSite(ctx context.Context, id int64) error {

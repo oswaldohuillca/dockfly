@@ -212,6 +212,7 @@ const (
 const (
 	TriggerPush   = "push"
 	TriggerManual = "manual"
+	TriggerHook   = "hook" // deploy hook del sitio
 )
 
 type Build struct {

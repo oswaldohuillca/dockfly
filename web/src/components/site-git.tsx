@@ -6,6 +6,7 @@ import { Trans, useLingui } from '@lingui/react/macro';
 import { ProviderIcon } from '@/components/brand-icons';
 import { BuildLog } from '@/components/build-log';
 import { BuildStatusBadge } from '@/components/build-status';
+import { DeployHook } from '@/components/deploy-hook';
 import { useConfirm } from '@/components/confirm';
 import { GitDialog } from '@/components/git-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -168,6 +169,8 @@ export function SiteGit({ site, onChange }: Props) {
           )}
         </CardHeader>
 
+        {linked && canEdit && <DeployHook siteId={site.id} />}
+
         {linked && (
           <CardContent className="px-0">
             {builds.length === 0 ? (
@@ -219,7 +222,7 @@ export function SiteGit({ site, onChange }: Props) {
                           <div className="truncate text-xs text-destructive">{b.error}</div>
                         )}
                       </TableCell>
-                      <TableCell className="text-muted-foreground">{b.trigger === 'push' ? t`Push` : t`Manual`}</TableCell>
+                      <TableCell className="text-muted-foreground">{b.trigger === 'push' ? t`Push` : b.trigger === 'hook' ? t`Deploy hook` : t`Manual`}</TableCell>
                       <TableCell className="pr-6 text-muted-foreground">{timeAgo(b.created_at)}</TableCell>
                     </TableRow>
                   ))}

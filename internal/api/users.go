@@ -56,8 +56,9 @@ func requiredRole(method, path string) string {
 		return store.RoleViewer
 	}
 	read := method == http.MethodGet || method == http.MethodHead
-	// Las variables de entorno y las copias de las bases de datos llevan secretos.
-	secret := strings.HasSuffix(path, "/env") || strings.HasSuffix(path, "/download") ||
+	// Las variables de entorno, el deploy hook y las copias de las bases de
+	// datos llevan secretos.
+	secret := strings.HasSuffix(path, "/env") || strings.HasSuffix(path, "/deploy-hook") || strings.HasSuffix(path, "/download") ||
 		path == "/api/backup" || strings.HasPrefix(path, "/api/users")
 	// Los repositorios de una cuenta Git pueden ser privados; listarlos queda
 	// restringido a admin, igual que enlazarlos (canLinkRepo).

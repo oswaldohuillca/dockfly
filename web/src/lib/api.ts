@@ -286,7 +286,7 @@ export interface Build {
   id: number;
   site_id: number;
   status: BuildStatus;
-  trigger: 'push' | 'manual';
+  trigger: 'push' | 'manual' | 'hook';
   branch: string;
   preview: string;
   commit_sha: string;
@@ -786,6 +786,11 @@ export const api = {
   listBuilds: (id: number) => request<Build[]>('GET', `/sites/${id}/builds`),
   triggerBuild: (id: number) => request<Build>('POST', `/sites/${id}/builds`),
   clearBuildCache: (id: number) => request<void>('DELETE', `/sites/${id}/cache`),
+  /** token "" = el sitio no tiene deploy hook. */
+  getDeployHook: (id: number) => request<{ token: string }>('GET', `/sites/${id}/deploy-hook`),
+  /** Crea el deploy hook o lo regenera (la URL anterior deja de valer). */
+  createDeployHook: (id: number) => request<{ token: string }>('POST', `/sites/${id}/deploy-hook`),
+  deleteDeployHook: (id: number) => request<{ token: string }>('DELETE', `/sites/${id}/deploy-hook`),
   cancelBuild: (id: number) => request<void>('POST', `/builds/${id}/cancel`),
   buildLogsURL: (id: number) => `/api/builds/${id}/logs`,
 };

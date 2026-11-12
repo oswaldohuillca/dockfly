@@ -62,6 +62,8 @@ func (s *Server) Handler() http.Handler {
 		r.With(authLimit).Post("/backup/restore", s.handleRestoreBackup)
 		// Webhooks de GitHub/GitLab: sin sesión, autenticados por su firma.
 		r.With(hookLimit).Post("/hooks/github-app", s.handleGitHubAppWebhook)
+		// Deploy hook de un sitio: lo autentica el secreto de la propia URL.
+		r.With(hookLimit).Post("/hooks/deploy/{token}", s.handleDeployHook)
 		r.With(hookLimit).Post("/hooks/{provider}/apps/{id}", s.handleAppWebhook)
 		r.With(hookLimit).Post("/hooks/{provider}/{id}", s.handleWebhook)
 		// Retornos de GitHub/GitLab: los autentica el parámetro state.
@@ -119,6 +121,9 @@ func (s *Server) Handler() http.Handler {
 					r.Get("/git/env", s.handleGetSiteEnv)
 					r.Get("/builds", s.handleListBuilds)
 					r.Post("/builds", s.handleTriggerBuild)
+					r.Get("/deploy-hook", s.handleGetDeployHook)
+					r.Post("/deploy-hook", s.handleCreateDeployHook)
+					r.Delete("/deploy-hook", s.handleDeleteDeployHook)
 					r.Delete("/cache", s.handleClearBuildCache)
 				})
 			})

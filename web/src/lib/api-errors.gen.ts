@@ -77,6 +77,7 @@ export const apiErrors: Record<string, MessageDescriptor> = {
   db_backup_unsupported: msg({ context: "api:db_backup_unsupported", message: "Automatic backups are for database apps from an image (postgres, mysql, mariadb, redis)" }),
   db_backups_docker_unavailable: msg({ context: "api:db_backups_docker_unavailable", message: "Docker isn't available" }),
   delete_own_account: msg({ context: "api:delete_own_account", message: "You can't delete your own account" }),
+  deploy_hook_not_found: msg({ context: "api:deploy_hook_not_found", message: "This deploy hook doesn't exist or was regenerated" }),
   deployment_active: msg({ context: "api:deployment_active", message: "The published deployment can't be deleted; activate another one first" }),
   deployment_invalid: msg({ context: "api:deployment_invalid", message: "Invalid deployment: {detail}" }),
   deployment_not_found: msg({ context: "api:deployment_not_found", message: "Deployment not found" }),

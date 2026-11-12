@@ -41,6 +41,7 @@ var (
 	errGitInvalidEnvName     = newError("git_invalid_env_name", "Invalid variable name: {name}")
 	errGitConnectionMissing  = newError("git_connection_missing", "The selected account doesn't exist")
 	errGitBranchUnreachable  = newError("git_branch_unreachable", "Couldn't access {repo} ({branch}): {detail}")
+	errDeployHookNotFound    = newError("deploy_hook_not_found", "This deploy hook doesn't exist or was regenerated")
 	errSiteNotLinked         = newError("site_not_linked", "The site isn't linked to any repository")
 	errBuildInvalidID        = newError("build_invalid_id", "Invalid build ID")
 	errBuildNotFound         = newError("build_not_found", "Build not found")
@@ -657,6 +658,66 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusAccepted, map[string]any{"status": status, "build_id": id})
+}
+
+// --- Deploy hook ---
+//
+// Una URL secreta por sitio que lanza un build de su rama: para reconstruir
+// cuando cambia el contenido de un CMS, desde un cron… Solo sirve para eso y
+// solo para ese sitio; si se filtra, se regenera.
+
+func (s *Server) handleGetDeployHook(w http.ResponseWriter, r *http.Request) {
+	site, ok := s.loadSite(w, r)
+	if !ok {
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"token": site.DeployHook})
+}
+
+// handleCreateDeployHook crea el hook o, si ya existe, lo regenera (la URL
+// anterior deja de funcionar).
+func (s *Server) handleCreateDeployHook(w http.ResponseWriter, r *http.Request) {
+	s.setDeployHook(w, r, randomHex(24))
+}
+
+func (s *Server) handleDeleteDeployHook(w http.ResponseWriter, r *http.Request) {
+	s.setDeployHook(w, r, "")
+}
+
+func (s *Server) setDeployHook(w http.ResponseWriter, r *http.Request, token string) {
+	site, ok := s.loadSite(w, r)
+	if !ok {
+		return
+	}
+	if err := s.Store.SetSiteDeployHook(r.Context(), site.ID, token); err != nil {
+		s.internalError(w, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]string{"token": token})
+}
+
+// handleDeployHook lanza un build del sitio dueño del secreto. No lee el
+// cuerpo: cada CMS manda el suyo. Varias llamadas seguidas no se acumulan
+// (Enqueue descarta los builds que seguían en cola).
+func (s *Server) handleDeployHook(w http.ResponseWriter, r *http.Request) {
+	site, err := s.Store.GetSiteByDeployHook(r.Context(), chi.URLParam(r, "token"))
+	if errors.Is(err, store.ErrNotFound) {
+		writeError(w, http.StatusNotFound, errDeployHookNotFound)
+		return
+	} else if err != nil {
+		s.internalError(w, err)
+		return
+	}
+	if site.Repo == "" {
+		writeError(w, http.StatusBadRequest, errSiteNotLinked)
+		return
+	}
+	b, err := s.Builds.Enqueue(r.Context(), site.ID, store.TriggerHook, site.Branch, "", gitprovider.Commit{})
+	if err != nil {
+		writeErrorFrom(w, http.StatusServiceUnavailable, err, errUnexpected)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, map[string]any{"status": "queued", "build_id": b.ID})
 }
 
 // handleClearBuildCache vacía la caché de dependencias del sitio (útil si
