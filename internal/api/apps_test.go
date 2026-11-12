@@ -57,6 +57,40 @@ func TestAppsAPI(t *testing.T) {
 		t.Error("env: null debe conservar las variables")
 	}
 
+	// La consola: sin comando no se ejecuta nada, y sin desplegar no hay contenedor.
+	if code, res := c.do("POST", "/api/apps/1/exec", `{"command":"  "}`); code != 400 || res["code"] != "app_exec_empty" {
+		t.Errorf("comando vacío: %d %v", code, res)
+	}
+	if code, res := c.do("POST", "/api/apps/1/exec", `{"command":"ls"}`); code != 409 || res["code"] != "app_not_deployed" {
+		t.Errorf("exec sin desplegar: %d %v", code, res)
+	}
+
+	// Tareas programadas: se validan el comando y el horario, y son de su app.
+	for name, body := range map[string]string{
+		"sin comando":      `{"command":" ","schedule":"* * * * *","enabled":true}`,
+		"horario inválido": `{"command":"ls","schedule":"cada hora","enabled":true}`,
+	} {
+		if code, res := c.do("POST", "/api/apps/1/jobs", body); code != 400 {
+			t.Errorf("tarea %s: esperaba 400, obtuve %d %v", name, code, res)
+		}
+	}
+	code, res = c.do("POST", "/api/apps/1/jobs", `{"command":" php artisan schedule:run ","schedule":"*/5  * * * *","enabled":true}`)
+	if code != 201 || res["command"] != "php artisan schedule:run" || res["schedule"] != "*/5 * * * *" {
+		t.Fatalf("crear tarea: %d %v", code, res)
+	}
+	if code, res := c.do("PUT", "/api/apps/1/jobs/1", `{"command":"ls","schedule":"0 3 * * *","enabled":false}`); code != 200 || res["enabled"] != false {
+		t.Errorf("editar tarea: %d %v", code, res)
+	}
+	if code, res := c.do("POST", "/api/apps/1/jobs/1/run", ""); code != 409 || res["code"] != "job_app_not_running" {
+		t.Errorf("ejecutar una tarea sin desplegar: %d %v", code, res)
+	}
+	if code, _ := c.do("DELETE", "/api/apps/2/jobs/1", ""); code != 404 {
+		t.Errorf("una tarea no se borra desde otra app: %d", code)
+	}
+	if code, _ := c.do("DELETE", "/api/apps/1/jobs/1", ""); code != 204 {
+		t.Errorf("borrar tarea: %d", code)
+	}
+
 	// Sin desplegar no hay ruta en Traefik (no hay contenedor al que enviar tráfico).
 	cfg, _ := os.ReadFile(dynDir + "/dockfly.yml")
 	if strings.Contains(string(cfg), "app-1") {

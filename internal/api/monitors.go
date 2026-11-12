@@ -8,6 +8,7 @@ import (
 
 	"github.com/dockfly/dockfly/internal/notify"
 	"github.com/dockfly/dockfly/internal/store"
+	"github.com/dockfly/dockfly/internal/sysinfo"
 	"github.com/dockfly/dockfly/internal/traefik"
 )
 
@@ -120,6 +121,7 @@ func (s *Server) RunMonitors(ctx context.Context) {
 	defer certs.Stop()
 	defer containers.Stop()
 	down := map[string]bool{}
+	resources := resourceWatch{}
 
 	// Primera revisión al poco de arrancar (Traefik ya cargó la configuración).
 	select {
@@ -137,6 +139,7 @@ func (s *Server) RunMonitors(ctx context.Context) {
 			s.checkCertificates(ctx)
 		case <-containers.C:
 			s.checkContainers(ctx, down)
+			s.checkResources(ctx, resources)
 		}
 	}
 }
@@ -316,4 +319,103 @@ func (s *Server) checkRemote(ctx context.Context, apps []*store.App, down map[st
 			})
 		}
 	}
+}
+
+// --- Recursos de los servidores ---
+
+// resourceLimits son los recursos que se vigilan: se avisa cuando el uso
+// llega a percent durante checks revisiones seguidas (una por minuto; el
+// disco no tiene picos, la memoria y la CPU sí), y de nuevo cuando baja
+// resourceMargin puntos por debajo, para no avisar en bucle en el límite.
+var resourceLimits = []struct {
+	kind, label string
+	percent     float64
+	checks      int
+	usage       func(sysinfo.Stats) float64
+}{
+	{"disk", "El disco", 90, 1, func(st sysinfo.Stats) float64 { return percentOf(st.DiskUsed, st.DiskTotal) }},
+	{"memory", "La memoria", 90, 5, func(st sysinfo.Stats) float64 { return percentOf(st.MemUsed, st.MemTotal) }},
+	{"cpu", "La CPU", 90, 10, func(st sysinfo.Stats) float64 { return st.CPUPercent }},
+}
+
+const resourceMargin = 5
+
+func percentOf(used, total uint64) float64 {
+	if total == 0 {
+		return 0
+	}
+	return float64(used) / float64(total) * 100
+}
+
+// resourceWatch recuerda, por servidor y recurso, cuántas revisiones
+// seguidas lleva por encima del límite; -1 = ya se avisó.
+type resourceWatch map[string]int
+
+// observe anota una lectura y devuelve los avisos que tocan.
+func (w resourceWatch) observe(server string, st sysinfo.Stats) []notify.Event {
+	var events []notify.Event
+	for _, l := range resourceLimits {
+		key, use := server+"/"+l.kind, l.usage(st)
+		switch alerted := w[key] == -1; {
+		case alerted && use < l.percent-resourceMargin:
+			delete(w, key)
+			events = append(events, notify.Event{Kind: notify.EventResourceNormal, Severity: notify.Success,
+				Title: fmt.Sprintf("%s de %s vuelve a niveles normales (%.0f %%)", l.label, server, use)})
+		case alerted:
+		case use < l.percent:
+			delete(w, key)
+		default:
+			if w[key]++; w[key] >= l.checks {
+				w[key] = -1
+				events = append(events, notify.Event{Kind: notify.EventResourceHigh, Severity: notify.Warning,
+					Title:   fmt.Sprintf("%s de %s está al %.0f %%", l.label, server, use),
+					Message: fmt.Sprintf("Supera el %.0f %% que se considera seguro. Con el disco o la memoria llenos fallan los despliegues y las bases de datos.", l.percent)})
+			}
+		}
+	}
+	return events
+}
+
+// checkResources avisa cuando el disco, la memoria o la CPU de un servidor
+// (el del panel y los remotos conectados) se acercan al límite.
+func (s *Server) checkResources(ctx context.Context, w resourceWatch) {
+	if s.Notify == nil {
+		return
+	}
+	link := s.panelLink(ctx, "/servers")
+	send := func(server string, st sysinfo.Stats) {
+		for _, ev := range w.observe(server, st) {
+			ev.URL = link
+			s.Notify.Notify(ev)
+		}
+	}
+	if st, err := sysinfo.Read(ctx, s.DataDir); err == nil {
+		send("este servidor", st)
+	}
+	if s.Hub == nil {
+		return
+	}
+	servers, _ := s.Store.ListServers(ctx)
+	for _, sv := range servers {
+		// Sin conexión (o con un agente antiguo) no hay lectura: no se avisa ni se da por resuelto.
+		if st, err := s.remoteStats(ctx, sv.ID); err == nil {
+			send(sv.Name, st)
+		}
+	}
+}
+
+// OnAppJobFailed avisa de una tarea programada que terminó mal.
+func (s *Server) OnAppJobFailed(ctx context.Context, app *store.App, job *store.AppJob, exitCode int) {
+	if s.Notify == nil {
+		return
+	}
+	what := fmt.Sprintf("terminó con el código %d", exitCode)
+	if exitCode < 0 {
+		what = "no se pudo ejecutar o superó el tiempo máximo"
+	}
+	s.Notify.Notify(notify.Event{
+		Kind: notify.EventJobFailed, Severity: notify.Error, URL: s.panelLink(ctx, fmt.Sprintf("/apps/%d", app.ID)),
+		Title:   "Falló una tarea programada de " + app.Name,
+		Message: fmt.Sprintf("«%s» %s.", job.Command, what),
+	})
 }

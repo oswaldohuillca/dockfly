@@ -338,3 +338,54 @@ func (c *Client) KeepRunning(ctx context.Context, id string) error {
 	body := map[string]any{"RestartPolicy": map[string]any{"Name": "unless-stopped"}}
 	return c.do(ctx, http.MethodPost, "/containers/"+url.PathEscape(id)+"/update", body, nil)
 }
+
+// ContainerUsage es el consumo de un contenedor en este momento.
+type ContainerUsage struct {
+	CPUPercent float64 `json:"cpu_percent"` // sobre todos los núcleos del servidor: 100 = todos ocupados
+	MemUsed    uint64  `json:"mem_used"`
+	MemLimit   uint64  `json:"mem_limit"` // su límite o, si no tiene, la memoria del servidor
+}
+
+// containerStats es lo que se usa de GET /containers/{id}/stats.
+type containerStats struct {
+	CPU    cpuSample `json:"cpu_stats"`
+	PreCPU cpuSample `json:"precpu_stats"`
+	Memory struct {
+		Usage uint64            `json:"usage"`
+		Limit uint64            `json:"limit"`
+		Stats map[string]uint64 `json:"stats"`
+	} `json:"memory_stats"`
+}
+
+type cpuSample struct {
+	Usage struct {
+		Total uint64 `json:"total_usage"`
+	} `json:"cpu_usage"`
+	System uint64 `json:"system_cpu_usage"`
+}
+
+func (s *containerStats) usage() ContainerUsage {
+	u := ContainerUsage{MemUsed: s.Memory.Usage, MemLimit: s.Memory.Limit}
+	// Igual que `docker stats`: la caché de archivos no cuenta como memoria usada
+	// (inactive_file en cgroup v2, total_inactive_file en v1).
+	for _, k := range []string{"inactive_file", "total_inactive_file"} {
+		if cache := s.Memory.Stats[k]; cache > 0 && cache < u.MemUsed {
+			u.MemUsed -= cache
+			break
+		}
+	}
+	if system := s.CPU.System - s.PreCPU.System; s.CPU.System > s.PreCPU.System && s.CPU.Usage.Total >= s.PreCPU.Usage.Total {
+		u.CPUPercent = float64(s.CPU.Usage.Total-s.PreCPU.Usage.Total) / float64(system) * 100
+	}
+	return u
+}
+
+// ContainerUsage mide la CPU y la memoria de un contenedor. Docker toma dos
+// muestras separadas un segundo para la CPU, así que tarda eso en responder.
+func (c *Client) ContainerUsage(ctx context.Context, id string) (ContainerUsage, error) {
+	var raw containerStats
+	if err := c.do(ctx, http.MethodGet, "/containers/"+url.PathEscape(id)+"/stats?stream=false", nil, &raw); err != nil {
+		return ContainerUsage{}, err
+	}
+	return raw.usage(), nil
+}

@@ -27,12 +27,16 @@ const (
 	EventBackupFailed      = "backup_failed"
 	EventServerDown        = "server_down"
 	EventServerUp          = "server_up"
+	EventResourceHigh      = "resource_high"
+	EventResourceNormal    = "resource_normal"
+	EventJobFailed         = "job_failed"
 	EventTest              = "test" // el botón «Probar»: llega a cualquier canal
 )
 
 var AllEvents = []string{
 	EventBuildFailed, EventBuildSucceeded, EventCertError, EventCertExpiring,
 	EventContainerDown, EventContainerRecovers, EventBackupFailed, EventServerDown, EventServerUp,
+	EventResourceHigh, EventResourceNormal, EventJobFailed,
 }
 
 type Severity string

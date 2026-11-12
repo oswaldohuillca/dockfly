@@ -51,6 +51,8 @@ var (
 	errAppNoReusableImage      = newError("app_no_reusable_image", "That deployment has no reusable image")
 	errAppImageGone            = newError("app_image_gone", "That deployment's image no longer exists; deploy again")
 	errAppNotDeployed          = newError("app_not_deployed", "The app hasn't been deployed yet")
+	errAppExecEmpty            = newError("app_exec_empty", "Type a command to run")
+	errAppExecTimeout          = newError("app_exec_timeout", "The command took more than {minutes} minutes and was stopped")
 )
 
 type appInput struct {
@@ -564,6 +566,65 @@ func (s *Server) handleAppLogs(w http.ResponseWriter, r *http.Request) {
 	sse := newSSE(w)
 	_ = docker.Demux(rc, sseWriter{sse})
 	sse.send("end", nil)
+}
+
+// handleAppStats devuelve la CPU y la memoria que usa ahora el contenedor
+// de la app.
+// shortcut: en una app de Compose solo mide el servicio que recibe el tráfico;
+// sumar el resto cuando haga falta ver el proyecto entero.
+func (s *Server) handleAppStats(w http.ResponseWriter, r *http.Request) {
+	a, ok := s.loadApp(w, r)
+	if !ok {
+		return
+	}
+	if a.Current == nil || a.Current.Container == "" {
+		writeError(w, http.StatusConflict, errAppNotDeployed)
+		return
+	}
+	usage, err := s.Apps.Docker(a).ContainerUsage(r.Context(), a.Current.Container)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, errUnexpected.With("detail", err.Error()))
+		return
+	}
+	writeJSON(w, http.StatusOK, usage)
+}
+
+// Límites de un comando lanzado desde el panel.
+const (
+	execTimeout   = 2 * time.Minute
+	execMaxOutput = 256 << 10
+)
+
+// handleAppExec ejecuta un comando en el contenedor de la app (una
+// migración, mirar un archivo) y devuelve su salida y su código.
+// shortcut: no es una terminal interactiva (sin TTY ni estado entre
+// comandos); pasar a websocket + emulador si hace falta un shell de verdad.
+func (s *Server) handleAppExec(w http.ResponseWriter, r *http.Request) {
+	a, ok := s.loadApp(w, r)
+	if !ok {
+		return
+	}
+	var in struct {
+		Command string `json:"command"`
+	}
+	if !decode(w, r, &in) {
+		return
+	}
+	if strings.TrimSpace(in.Command) == "" {
+		writeError(w, http.StatusBadRequest, errAppExecEmpty)
+		return
+	}
+	res, err := s.Apps.Exec(r.Context(), a, in.Command, execTimeout, execMaxOutput)
+	switch {
+	case errors.Is(err, apps.ErrNotDeployed):
+		writeError(w, http.StatusConflict, errAppNotDeployed)
+	case errors.Is(err, context.DeadlineExceeded):
+		writeError(w, http.StatusGatewayTimeout, errAppExecTimeout.With("minutes", int(execTimeout.Minutes())))
+	case err != nil:
+		writeError(w, http.StatusBadGateway, errUnexpected.With("detail", err.Error()))
+	default:
+		writeJSON(w, http.StatusOK, res)
+	}
 }
 
 // --- SSE ---

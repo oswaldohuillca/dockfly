@@ -331,6 +331,18 @@ Redis, n8n y Uptime Kuma.
   del host (`./datos:/datos`) no funcionan.
 - Variables de entorno cifradas, límites de memoria y CPU, logs en vivo, reiniciar, detener y
   volver a una versión anterior.
+- **Recursos**: CPU y memoria del contenedor en vivo (la CPU, sobre todos los núcleos del
+  servidor). En una app de Compose mide el servicio que recibe el tráfico.
+- **Consola**: ejecuta un comando suelto en el contenedor (una migración, mirar un archivo) y
+  muestra su salida y su código. No es una terminal: cada comando empieza de cero. Máximo
+  2 minutos y 256 KB de salida; roles «desplegar» y administrador.
+- **Tareas programadas**: comandos que se ejecutan en el contenedor según una expresión cron de
+  cinco campos en **UTC** (`0 3 * * *`, `*/15 * * * *`). Se pueden pausar y lanzar a mano, y
+  guardan la salida y el código de la última ejecución. Máximo 30 minutos; si fallan, se notifica.
+
+Los servidores (el del panel y los remotos conectados) avisan cuando el **disco** llega al 90 %,
+o la **memoria** o la **CPU** se mantienen al 90 % durante 5 y 10 minutos, y de nuevo cuando
+vuelven a la normalidad.
 
 #### Copias de las bases de datos
 
@@ -349,6 +361,7 @@ puede escribir en él.
 | Variable | Por defecto | Descripción |
 |---|---|---|
 | `DOCKFLY_DATA_DIR` | `/data` | Base de datos, clave de sesión, config y certificados de Traefik |
+| `DOCKFLY_DATABASE_URL` | — | Base de datos del panel. Sin ella, SQLite en la carpeta de datos. Ver [Base de datos del panel](#base-de-datos-del-panel) |
 | `DOCKFLY_LISTEN` | `:81` | Dirección del panel |
 | `DOCKFLY_ACME_EMAIL` | — | Email para Let's Encrypt (opcional) |
 | `DOCKFLY_ACME_STAGING` | `false` | Usa el entorno de pruebas de Let's Encrypt |
@@ -370,7 +383,7 @@ puede escribir en él.
 ```
 cmd/dockfly        punto de entrada: API, supervisor de Traefik, healthcheck
 internal/api       API REST (chi) + sirve el frontend
-internal/store     modelos y consultas con Bun sobre SQLite (Go puro, sin CGO)
+internal/store     modelos y consultas con Bun sobre SQLite, PostgreSQL o MySQL (Go puro, sin CGO)
   └─ migrations/   migraciones SQL versionadas, incrustadas en el binario
 internal/pages     sitios estáticos: subida segura (zip/carpeta), despliegues y servidor
 internal/apps      apps: despliegues sin corte, salud, volúmenes y ciclo de vida
@@ -390,6 +403,30 @@ La base de datos es la única fuente de verdad: en cada cambio (y al arrancar) s
 
 > ⚠️ Montar el socket de Docker da control total del host. Protege el puerto 81
 > (firewall o VPN, o publica el panel detrás de un proxy host con SSL).
+
+## Base de datos del panel
+
+Dockfly guarda su estado en **SQLite** (`dockfly.db`, en la carpeta de datos) sin configurar nada.
+Para usar un servidor aparte, define `DOCKFLY_DATABASE_URL` antes del primer arranque:
+
+```yaml
+environment:
+  # PostgreSQL (añade ?sslmode=disable si el servidor no usa TLS)
+  DOCKFLY_DATABASE_URL: postgres://dockfly:secreto@db.ejemplo.com:5432/dockfly
+  # MySQL 8 o MariaDB 10.11+ (añade ?tls=true para cifrar la conexión)
+  # DOCKFLY_DATABASE_URL: mysql://dockfly:secreto@db.ejemplo.com:3306/dockfly
+```
+
+La base de datos debe existir y estar vacía; Dockfly crea las tablas al arrancar. Ten en cuenta:
+
+- **Copias de seguridad**: la copia del panel lleva solo los archivos (claves, sitios, certificados).
+  La base de datos se copia con `pg_dump` o `mysqldump`, y la restauración desde el panel no está
+  disponible. Guarda siempre la carpeta de datos junto con la base de datos: sin `encryption.key`
+  los secretos guardados no se pueden leer.
+- **Cambiar de motor** no migra los datos: una instalación que ya usa SQLite empieza vacía si le
+  pones `DOCKFLY_DATABASE_URL`.
+- No uses como base de datos del panel una app desplegada con el propio Dockfly: el panel la
+  necesita para arrancar.
 
 ## Publicar una versión
 
@@ -440,3 +477,7 @@ El build falla si a un idioma le falta alguna traducción. Para añadir otro idi
 3. ✅ Sitios estáticos desde GitHub/GitLab: build en cada push
 4. ✅ Apps en contenedores desde una imagen o un Dockerfile
 5. ✅ Previews por rama y estado del despliegue en los commits
+
+## Licencia
+
+[Apache-2.0](LICENSE).

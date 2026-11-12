@@ -74,6 +74,8 @@ type Config struct {
 	Apply func(ctx context.Context) error
 	// OnFinish se llama al terminar cada despliegue (notificaciones).
 	OnFinish func(ctx context.Context, deploymentID int64)
+	// OnJobFailed se llama cuando una tarea programada termina mal.
+	OnJobFailed func(ctx context.Context, app *store.App, job *store.AppJob, exitCode int)
 }
 
 type Manager struct {
@@ -83,6 +85,7 @@ type Manager struct {
 	mu      sync.Mutex
 	running map[int64]context.CancelCauseFunc
 	appLock map[int64]*sync.Mutex // una operación a la vez por app
+	jobs    map[int64]bool        // tareas programadas en marcha
 }
 
 // Docker es el Docker donde corre la app: el local o el de su servidor.

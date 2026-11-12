@@ -105,7 +105,7 @@ func run(log *slog.Logger) error {
 		log.Warn("copia de seguridad restaurada; los datos anteriores están en "+kept, "dir", kept)
 	}
 
-	st, err := store.Open(ctx, filepath.Join(dataDir, "dockfly.db"))
+	st, err := openStore(ctx, dataDir)
 	if err != nil {
 		return err
 	}
@@ -258,7 +258,7 @@ func run(log *slog.Logger) error {
 		Store: st, Docker: dc, Secrets: box, Providers: srv.Git, LogDir: filepath.Join(dataDir, "builds"),
 		Log: log.With("component", "apps"), Network: opts.DockerNet,
 		HostDockerSocket: env("DOCKFLY_HOST_DOCKER_SOCKET", "/var/run/docker.sock"),
-		Apply:            srv.Apply, OnFinish: srv.OnAppDeployFinished,
+		Apply:            srv.Apply, OnFinish: srv.OnAppDeployFinished, OnJobFailed: srv.OnAppJobFailed,
 	})
 	if dc != nil {
 		ensureNetwork(ctx, log, dc, opts.DockerNet)
@@ -284,6 +284,7 @@ func run(log *slog.Logger) error {
 	wg.Go(func() { srv.Builds.Run(ctx) })
 	wg.Go(func() { srv.RunMonitors(ctx) })
 	wg.Go(func() { srv.Apps.Run(ctx) })
+	wg.Go(func() { srv.Apps.RunJobs(ctx) })
 	if env("DOCKFLY_TRAEFIK", "on") != "off" {
 		collector := &traffic.Collector{
 			URL: "http://" + traefik.MetricsAddr + "/metrics", Bounds: traefik.LatencyBuckets,
@@ -437,12 +438,18 @@ func buildConfig() (builder.Config, error) {
 // backupCommand implementa "dockfly backup [archivo]" (por defecto a la
 // salida estándar) y "dockfly restore <archivo>", para cuando el panel no
 // está disponible.
+// openStore abre la base de datos: la de DOCKFLY_DATABASE_URL (postgres:// o
+// mysql://) o, sin ella, el archivo SQLite de la carpeta de datos.
+func openStore(ctx context.Context, dataDir string) (*store.Store, error) {
+	return store.Open(ctx, env("DOCKFLY_DATABASE_URL", filepath.Join(dataDir, "dockfly.db")))
+}
+
 func backupCommand(cmd string, args []string) int {
 	dataDir := env("DOCKFLY_DATA_DIR", "/data")
 	switch cmd {
 	case "backup":
 		ctx := context.Background()
-		st, err := store.Open(ctx, filepath.Join(dataDir, "dockfly.db"))
+		st, err := openStore(ctx, dataDir)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return 1
@@ -464,6 +471,10 @@ func backupCommand(cmd string, args []string) int {
 		if len(args) != 1 {
 			fmt.Fprintln(os.Stderr, "uso: dockfly restore <copia.tar.gz>")
 			return 2
+		}
+		if os.Getenv("DOCKFLY_DATABASE_URL") != "" {
+			fmt.Fprintln(os.Stderr, "error: con DOCKFLY_DATABASE_URL la base de datos se restaura con las herramientas de su servidor, y la carpeta de datos a mano")
+			return 1
 		}
 		f, err := os.Open(args[0])
 		if err != nil {
@@ -544,7 +555,7 @@ func reset2FACommand(args []string) int {
 		return 2
 	}
 	ctx := context.Background()
-	st, err := store.Open(ctx, filepath.Join(env("DOCKFLY_DATA_DIR", "/data"), "dockfly.db"))
+	st, err := openStore(ctx, env("DOCKFLY_DATA_DIR", "/data"))
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1

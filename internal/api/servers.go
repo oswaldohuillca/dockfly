@@ -162,37 +162,41 @@ func (s *Server) handleServerStats(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if _, online := s.Hub.Online(sv.ID); !online {
-		writeError(w, http.StatusServiceUnavailable, errServerOffline)
+	st, err := s.remoteStats(r.Context(), sv.ID)
+	if err != nil {
+		writeErrorFrom(w, http.StatusServiceUnavailable, err, errServerStats)
 		return
 	}
-	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "http://agente/stats", nil)
-	if err != nil {
-		s.internalError(w, err)
-		return
+	writeJSON(w, http.StatusOK, st)
+}
+
+// remoteStats le pide a un agente los recursos de su servidor.
+func (s *Server) remoteStats(ctx context.Context, id int64) (sysinfo.Stats, error) {
+	var st sysinfo.Stats
+	if _, online := s.Hub.Online(id); !online {
+		return st, errServerOffline
 	}
-	resp, err := s.agentClient(sv.ID).Do(req)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://agente/stats", nil)
 	if err != nil {
-		writeError(w, http.StatusServiceUnavailable, errServerStats)
-		return
+		return st, errServerStats
+	}
+	resp, err := s.agentClient(id).Do(req)
+	if err != nil {
+		return st, errServerStats
 	}
 	defer resp.Body.Close()
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusNotFound:
 		// Un agente anterior a esta versión no tiene /stats.
-		writeError(w, http.StatusServiceUnavailable, errAgentOutdated)
-		return
+		return st, errAgentOutdated
 	default:
-		writeError(w, http.StatusServiceUnavailable, errServerStats)
-		return
+		return st, errServerStats
 	}
-	var st sysinfo.Stats
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<16)).Decode(&st); err != nil {
-		writeError(w, http.StatusServiceUnavailable, errServerStats)
-		return
+		return st, errServerStats
 	}
-	writeJSON(w, http.StatusOK, st)
+	return st, nil
 }
 
 // joinCommand es lo que se ejecuta en el servidor nuevo para conectarlo.

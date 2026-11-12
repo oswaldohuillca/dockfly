@@ -18,7 +18,10 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { AppConsole } from '@/components/app-console';
 import { AppDialog } from '@/components/app-dialog';
+import { AppJobs } from '@/components/app-jobs';
+import { AppUsage } from '@/components/app-usage';
 import { DBBackupsPanel } from '@/components/db-backups';
 import { TrafficCard } from '@/components/traffic';
 import { AppStateDot, DeployStatusBadge } from '@/components/app-status';
@@ -226,6 +229,17 @@ export function AppDetail({ id }: { id: number }) {
           <TabsTrigger value="logs" disabled={!deployed}>
             <Trans>Logs</Trans>
           </TabsTrigger>
+          <TabsTrigger value="usage" disabled={!deployed || app.stopped}>
+            <Trans>Resources</Trans>
+          </TabsTrigger>
+          {canEdit && (
+            <TabsTrigger value="console" disabled={!deployed || app.stopped}>
+              <Trans>Console</Trans>
+            </TabsTrigger>
+          )}
+          <TabsTrigger value="jobs">
+            <Trans>Scheduled tasks</Trans>
+          </TabsTrigger>
           {app.domains.length > 0 && app.port > 0 && (
             <TabsTrigger value="traffic">
               <Trans>Traffic</Trans>
@@ -338,6 +352,22 @@ export function AppDetail({ id }: { id: number }) {
               className="h-[60svh] overflow-auto rounded-md bg-zinc-950 p-4 font-mono text-xs leading-relaxed whitespace-pre-wrap text-zinc-100"
             />
           )}
+        </TabsContent>
+
+        <TabsContent value="jobs">
+          <AppJobs appId={id} canEdit={canEdit} canRun={canEdit && deployed && !app.stopped} />
+        </TabsContent>
+
+        <TabsContent value="console">
+          <AppConsole key={app.current?.container} appId={id} />
+        </TabsContent>
+
+        <TabsContent value="usage">
+          <Card>
+            <CardContent>
+              <AppUsage key={app.current?.container} appId={id} />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
 

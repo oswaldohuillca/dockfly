@@ -350,7 +350,10 @@ export type NotificationEvent =
   | 'container_recovered'
   | 'backup_failed'
   | 'server_down'
-  | 'server_up';
+  | 'server_up'
+  | 'resource_high'
+  | 'resource_normal'
+  | 'job_failed';
 
 export interface NotificationChannel {
   id: number;
@@ -461,6 +464,28 @@ export interface AppInput {
   deploy?: boolean;
   /** Solo al crearla. */
   server_id?: number | null;
+}
+
+export interface AppJobInput {
+  command: string;
+  /** Expresión cron de cinco campos, en UTC. */
+  schedule: string;
+  enabled: boolean;
+}
+
+/** Tarea programada de una app. last_exit_code: null = sin terminar ninguna vez; -1 = no llegó a ejecutarse. */
+export interface AppJob extends AppJobInput {
+  id: number;
+  last_run_at: string | null;
+  last_exit_code: number | null;
+  last_output: string;
+}
+
+/** Consumo del contenedor de una app; cpu_percent es sobre todos los núcleos del servidor. */
+export interface AppUsage {
+  cpu_percent: number;
+  mem_used: number;
+  mem_limit: number;
 }
 
 /** Recursos de un servidor; los tamaños van en bytes. */
@@ -757,6 +782,14 @@ export const api = {
   deployApp: (id: number) => request<AppDeployment>('POST', `/apps/${id}/deploy`),
   redeploy: (id: number, deploymentId: number) =>
     request<AppDeployment>('POST', `/apps/${id}/deployments/${deploymentId}/redeploy`),
+  appExec: (id: number, command: string) =>
+    request<{ exit_code: number; output: string; truncated: boolean }>('POST', `/apps/${id}/exec`, { command }),
+  listAppJobs: (id: number) => request<AppJob[]>('GET', `/apps/${id}/jobs`),
+  saveAppJob: (id: number, job: AppJobInput, jobId?: number) =>
+    request<AppJob>(jobId ? 'PUT' : 'POST', `/apps/${id}/jobs${jobId ? `/${jobId}` : ''}`, job),
+  deleteAppJob: (id: number, jobId: number) => request<void>('DELETE', `/apps/${id}/jobs/${jobId}`),
+  runAppJob: (id: number, jobId: number) => request<void>('POST', `/apps/${id}/jobs/${jobId}/run`),
+  appStats: (id: number) => request<AppUsage>('GET', `/apps/${id}/stats`),
   appAction: (id: number, action: 'stop' | 'start' | 'restart') => request<void>('POST', `/apps/${id}/${action}`),
   cancelAppDeployment: (id: number) => request<void>('POST', `/app-deployments/${id}/cancel`),
   appDeploymentLogsURL: (id: number) => `/api/app-deployments/${id}/logs`,
