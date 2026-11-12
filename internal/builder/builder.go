@@ -19,7 +19,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/dockfly/dockfly/internal/docker"
@@ -192,14 +191,6 @@ var errCanceled = errors.New("cancelado")
 
 // minBuildFreeBytes es el mínimo de disco libre para empezar un build.
 const minBuildFreeBytes = 2 << 30 // 2 GiB
-
-func freeDiskBytes(path string) (uint64, error) {
-	var st syscall.Statfs_t
-	if err := syscall.Statfs(path, &st); err != nil {
-		return 0, err
-	}
-	return st.Bavail * uint64(st.Bsize), nil
-}
 
 func (m *Manager) run(parent context.Context, id int64) {
 	st := m.cfg.Store
