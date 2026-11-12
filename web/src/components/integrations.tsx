@@ -434,7 +434,7 @@ function CopyField({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
   return (
     <div className="mt-1.5 flex items-center gap-2">
-      <code className="min-w-0 flex-1 truncate rounded bg-muted px-2 py-1.5 font-mono text-xs">{value}</code>
+      <code className="min-w-0 flex-1 truncate rounded-none bg-muted px-2 py-1.5 font-mono text-xs">{value}</code>
       <Button
         type="button"
         variant="outline"

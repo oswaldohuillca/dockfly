@@ -143,7 +143,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
                         ))}
                       </TableCell>
                       <TableCell>
-                        <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-xs">
+                        <code className="rounded-none bg-muted px-1.5 py-0.5 font-mono text-xs">
                           {h.forward_scheme}://{h.forward_host}:{h.forward_port}
                         </code>
                         <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
@@ -232,7 +232,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   const canEdit = useCan('admin');
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-      <div className="grid size-12 place-items-center rounded-full bg-primary/10">
+      <div className="grid size-12 place-items-center rounded-none bg-primary/10">
         <Globe className="size-6 text-primary" />
       </div>
       <div>
@@ -259,7 +259,7 @@ export function TrafficCell({ summary, onClick }: { summary?: TrafficSummary; on
   }
   const errors = summary.requests > 0 ? (summary.s5xx / summary.requests) * 100 : 0;
   return (
-    <button type="button" onClick={onClick} className="flex items-center gap-2 rounded px-1 py-0.5 text-left hover:bg-muted">
+    <button type="button" onClick={onClick} className="flex items-center gap-2 rounded-none px-1 py-0.5 text-left hover:bg-muted">
       <Sparkline values={summary.spark} />
       <span className="text-xs leading-tight tabular-nums">
         {compactNumber(summary.requests)}

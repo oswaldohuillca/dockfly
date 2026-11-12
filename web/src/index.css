@@ -78,7 +78,7 @@
     /* Acento arena: gráficos, avisos y detalles; nunca para botones. */
     --highlight: oklch(0.664 0.109 77);
     --highlight-foreground: oklch(0.45 0.09 75);
-    --radius: 0.75rem;
+    --radius: 0rem;
     --sidebar: oklch(1 0 0);
     --sidebar-foreground: oklch(0.17 0.02 115);
     --sidebar-primary: oklch(0.488 0.088 124);

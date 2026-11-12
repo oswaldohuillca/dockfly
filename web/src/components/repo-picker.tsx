@@ -130,7 +130,7 @@ export function RepoPicker({ connections, value, onChange, onError }: Props) {
                     type="button"
                     onClick={() => onChange({ ...value, repo: r.full_name, branch: r.default_branch })}
                     className={cn(
-                      'flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-muted',
+                      'flex w-full items-center gap-2 rounded-none px-2 py-1.5 text-left text-sm hover:bg-muted',
                       r.full_name === value.repo && 'bg-primary/10 font-medium',
                     )}
                   >

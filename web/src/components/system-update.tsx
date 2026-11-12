@@ -98,7 +98,7 @@ export function SystemUpdate() {
           {info.available && info.reason && (
             <div className="space-y-2 text-muted-foreground">
               <p>{reasons[info.reason]}</p>
-              <pre className="overflow-x-auto rounded bg-muted p-3 font-mono text-xs">docker compose pull && docker compose up -d</pre>
+              <pre className="overflow-x-auto rounded-none bg-muted p-3 font-mono text-xs">docker compose pull && docker compose up -d</pre>
             </div>
           )}
           {info.state === 'failed' && info.error && (

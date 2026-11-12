@@ -39,7 +39,7 @@ Escala de Tailwind (4 px). Dentro de un grupo 4–8 px; entre campos 16 px; entr
 Ancho máximo del contenido: `max-w-6xl`.
 
 ## Radius, shadow, border
-- Radio base `--radius: 0.75rem`: botones y campos `rounded-lg`, tarjetas `rounded-2xl`, navegación `rounded-xl`, badges píldora.
+- Sin radio: `--radius: 0`, todas las esquinas rectas (tarjetas, botones, campos, badges, interruptores, puntos de estado y logo). No usar `rounded-full` ni radios fijos.
 - Profundidad por **sombra suave** (`shadow-card`), sin bordes en las tarjetas. En oscuro la sombra se sustituye por
   un contorno interior tenue. El botón primario y el enlace activo llevan sombra teñida de marca.
 

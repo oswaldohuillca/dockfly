@@ -106,8 +106,8 @@ export function Header({ user, status, onLogout }: Props) {
             )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="outline" className="ml-1 rounded-full border-transparent pl-1.5 shadow-card">
-                <span className="grid size-6.5 place-items-center rounded-full bg-primary text-xs text-primary-foreground">
+              <Button variant="outline" className="ml-1 rounded-none border-transparent pl-1.5 shadow-card">
+                <span className="grid size-6.5 place-items-center rounded-none bg-primary text-xs text-primary-foreground">
                   {user.name.charAt(0).toUpperCase()}
                 </span>
                 <span className="hidden sm:inline">{user.name}</span>
@@ -162,7 +162,7 @@ export function Header({ user, status, onLogout }: Props) {
             <Link
               key={l.to}
               to={l.to}
-              className="shrink-0 flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              className="shrink-0 flex items-center gap-1.5 rounded-none px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
               activeProps={{ className: '!bg-primary !text-primary-foreground' }}
             >
               <l.icon className="size-4" /> {l.label}
@@ -177,7 +177,7 @@ export function Header({ user, status, onLogout }: Props) {
 function StatusLine({ ok, detail, children }: { ok: boolean; detail?: string; children: React.ReactNode }) {
   return (
     <div className={cn('flex items-start gap-2', !ok && 'text-destructive')}>
-      <span className={cn('mt-1 size-2 shrink-0 rounded-full', ok ? 'bg-emerald-500 ring-3 ring-emerald-500/20' : 'bg-red-500 ring-3 ring-red-500/20')} />
+      <span className={cn('mt-1 size-2 shrink-0 rounded-none', ok ? 'bg-emerald-500 ring-3 ring-emerald-500/20' : 'bg-red-500 ring-3 ring-red-500/20')} />
       <span className="min-w-0">
         <span className="font-medium">{children}</span>
         {detail && <span className="block break-words text-muted-foreground">{detail}</span>}
@@ -189,7 +189,7 @@ function StatusLine({ ok, detail, children }: { ok: boolean; detail?: string; ch
 function StatusBadge({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   return (
     <Badge variant="outline" className={cn('gap-1.5 bg-background', !ok && 'border-destructive/40 text-destructive')}>
-      <span className={cn('size-1.5 rounded-full', ok ? 'bg-emerald-500' : 'bg-red-500')} />
+      <span className={cn('size-1.5 rounded-none', ok ? 'bg-emerald-500' : 'bg-red-500')} />
       {/* En pantallas estrechas queda solo el punto; el texto sigue para lectores de pantalla. */}
       <span className="sr-only sm:not-sr-only">{children}</span>
     </Badge>

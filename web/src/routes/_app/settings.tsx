@@ -66,7 +66,7 @@ function Settings() {
               <Terminal className="size-3.5" />{' '}
               <Trans>From the terminal (e.g. with a cron job, or if the dashboard won&apos;t start)</Trans>
             </summary>
-            <pre className="mt-2 overflow-x-auto rounded bg-muted p-3 font-mono">
+            <pre className="mt-2 overflow-x-auto rounded-none bg-muted p-3 font-mono">
               {`docker exec dockfly dockfly backup /data/copia.tar.gz
 docker cp dockfly:/data/copia.tar.gz .
 

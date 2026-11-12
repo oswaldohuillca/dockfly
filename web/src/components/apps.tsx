@@ -67,7 +67,7 @@ export function Apps() {
             </Card>
           ) : apps.length === 0 ? (
             <Card className="flex flex-col items-center gap-3 py-16 text-center">
-              <div className="grid size-12 place-items-center rounded-full bg-primary/10">
+              <div className="grid size-12 place-items-center rounded-none bg-primary/10">
                 <Boxes className="size-6 text-primary" />
               </div>
               <div>

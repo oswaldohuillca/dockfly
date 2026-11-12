@@ -32,7 +32,7 @@ export function AppStateDot({ app }: { app: App }) {
   const { label, color } = appState(app);
   return (
     <span className="flex items-center gap-1.5 text-sm">
-      <span className={cn('size-2 rounded-full', color)} />
+      <span className={cn('size-2 rounded-none', color)} />
       {label}
     </span>
   );

@@ -192,7 +192,7 @@ function TwoFactorDialog({ flow, onClose }: { flow: Exclude<Flow, null>; onClose
                 <summary className="cursor-pointer">
                   <Trans>Can't scan it? Enter the key manually</Trans>
                 </summary>
-                <code className="mt-2 block break-all rounded bg-muted p-2 font-mono text-foreground">
+                <code className="mt-2 block break-all rounded-none bg-muted p-2 font-mono text-foreground">
                   {setup.secret.match(/.{1,4}/g)?.join(' ')}
                 </code>
               </details>
