@@ -2,12 +2,14 @@ import { ph } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
 import { useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { Boxes, GitBranch, Lock, Plus } from 'lucide-react';
+import { Boxes, CircleCheck, CircleDashed, GitBranch, Lock, Plus, TriangleAlert } from 'lucide-react';
 
 import { AppDialog } from '@/components/app-dialog';
 import { AppStateDot } from '@/components/app-status';
+import { ResourceState } from '@/components/resource-state';
+import { PageHeader, Stat, StatGrid } from '@/components/page-header';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { api } from '@/lib/api';
 import { useStatus } from '@/lib/status';
 import { useCan } from '@/lib/roles';
@@ -20,28 +22,37 @@ export function Apps() {
   const canEdit = useCan('deployer');
   const navigate = useNavigate();
   const status = useStatus();
-  const { data: apps } = useResource(api.listApps, { interval: 10_000 });
+  const { data: apps, loading, error, reload } = useResource(api.listApps, { interval: 10_000 });
   const [creating, setCreating] = useState(false);
+  const running = apps?.filter((a) => a.current && !a.stopped && a.state === 'running').length ?? 0;
+  const problems = apps?.filter((a) => a.current && !a.stopped && a.state !== 'running').length ?? 0;
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Apps</CardTitle>
-          <CardDescription>
-            <Trans>
-              Containers that Dockfly deploys and manages: APIs, databases, services… from an image or a Dockerfile.
-            </Trans>
-          </CardDescription>
-          <CardAction>
-            {canEdit && (
-              <Button onClick={() => setCreating(true)} disabled={status !== null && !status.docker_available}>
-                <Plus /> <Trans>New app</Trans>
-              </Button>
-            )}
-          </CardAction>
-        </CardHeader>
-        <CardContent>
+      <PageHeader
+        title="Apps"
+        description={
+          <Trans>
+            Containers that Dockfly deploys and manages: APIs, databases, services… from an image or a Dockerfile.
+          </Trans>
+        }
+      >
+        {canEdit && (
+          <Button onClick={() => setCreating(true)} disabled={status !== null && !status.docker_available}>
+            <Plus /> <Trans>New app</Trans>
+          </Button>
+        )}
+      </PageHeader>
+      {apps && apps.length > 0 && (
+        <StatGrid>
+          <Stat icon={Boxes} label={<Trans>Total apps</Trans>} value={apps.length} />
+          <Stat icon={CircleCheck} tone="success" label={<Trans>Running</Trans>} value={running} />
+          <Stat icon={TriangleAlert} tone={problems ? 'danger' : 'neutral'} label={<Trans>With problems</Trans>} value={problems} />
+          <Stat icon={CircleDashed} tone="neutral" label={<Trans>Stopped or not deployed</Trans>} value={apps.length - running - problems} />
+        </StatGrid>
+      )}
+      <div>
+        <div>
           {status && !status.docker_available && (
             <p className="mb-4 text-sm text-destructive">
               <Trans>
@@ -51,13 +62,13 @@ export function Apps() {
             </p>
           )}
           {!apps ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              <Trans>Loading…</Trans>
-            </p>
+            <Card>
+              <ResourceState loading={loading} error={error} onRetry={reload} />
+            </Card>
           ) : apps.length === 0 ? (
-            <div className="flex flex-col items-center gap-3 py-14 text-center">
-              <div className="grid size-12 place-items-center rounded-full bg-muted">
-                <Boxes className="size-6 text-muted-foreground" />
+            <Card className="flex flex-col items-center gap-3 py-16 text-center">
+              <div className="grid size-12 place-items-center rounded-full bg-primary/10">
+                <Boxes className="size-6 text-primary" />
               </div>
               <div>
                 <p className="font-medium">
@@ -67,18 +78,21 @@ export function Apps() {
                   <Trans>Start from a template: PostgreSQL, Redis, n8n…</Trans>
                 </p>
               </div>
-            </div>
+            </Card>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
               {apps.map((a) => (
                 <Link
                   key={a.id}
                   to="/apps/$appId"
                   params={{ appId: a.id }}
-                  className="rounded-lg border p-4 transition-colors hover:border-primary/50 hover:bg-muted/40"
+                  className="rounded-2xl bg-card p-5 shadow-card transition-all duration-150 hover:-translate-y-0.5 hover:shadow-lg"
                 >
-                  <div className="flex items-start justify-between gap-2">
-                    <span className="font-medium">
+                  <div className="flex items-center gap-3">
+                    <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                      <Boxes className="size-5" />
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-base font-semibold tracking-tight">
                       {a.name}
                       {a.server_id && (
                         <span className="ml-1.5 text-xs font-normal text-muted-foreground">
@@ -88,7 +102,7 @@ export function Apps() {
                     </span>
                     <AppStateDot app={a} />
                   </div>
-                  <div className="mt-1 flex items-center gap-1 truncate font-mono text-xs text-muted-foreground">
+                  <div className="mt-4 flex items-center gap-1 truncate font-mono text-xs text-muted-foreground">
                     {a.source !== 'image' ? (
                       <>
                         <GitBranch className="size-3 shrink-0" /> {a.repo}
@@ -114,8 +128,8 @@ export function Apps() {
               ))}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
       {creating && (
         <AppDialog
           onClose={() => setCreating(false)}

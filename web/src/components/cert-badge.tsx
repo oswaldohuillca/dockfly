@@ -17,7 +17,7 @@ const daysLeft = (iso: string) => Math.max(0, Math.ceil((new Date(iso).getTime()
 const look: Record<CertState, { icon: typeof Lock; className: string; label: (c: CertStatus) => string }> = {
   valid: {
     icon: Lock,
-    className: 'text-emerald-600 dark:text-emerald-400',
+    className: 'text-emerald-700 dark:text-emerald-400',
     label: (c) => {
       const date = shortDate(c.not_after!);
       return t`Valid until ${date}`;
@@ -25,7 +25,7 @@ const look: Record<CertState, { icon: typeof Lock; className: string; label: (c:
   },
   expiring: {
     icon: Clock,
-    className: 'text-amber-600 dark:text-amber-400',
+    className: 'text-amber-700 dark:text-amber-400',
     label: (c) => {
       const days = daysLeft(c.not_after!);
       return t`Expires in ${plural(days, { one: '# day', other: '# days' })}`;

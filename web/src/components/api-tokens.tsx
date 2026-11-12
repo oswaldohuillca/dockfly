@@ -4,6 +4,7 @@ import { Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
 
 import { FormDialog } from '@/components/form-dialog';
+import { ResourceState } from '@/components/resource-state';
 import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/confirm';
 import { Button } from '@/components/ui/button';
@@ -21,7 +22,7 @@ import { useAction, useResource } from '@/lib/use-resource';
 /** Tokens de API del usuario, para el CLI y la integración continua. */
 export function APITokens() {
   const { t } = useLingui();
-  const { data: tokens = [], reload } = useResource(api.listTokens);
+  const { data: tokens = [], loading, error, reload } = useResource(api.listTokens);
   const [creating, setCreating] = useState(false);
   const [created, setCreated] = useState<string | null>(null);
   const run = useAction();
@@ -52,7 +53,9 @@ export function APITokens() {
         </CardAction>
       </CardHeader>
       <CardContent className="px-0">
-        {tokens.length === 0 ? (
+        {loading || error ? (
+          <ResourceState loading={loading} error={error} onRetry={reload} />
+        ) : tokens.length === 0 ? (
           <p className="px-6 py-2 text-sm text-muted-foreground">
             <Trans>You don't have any tokens yet.</Trans>
           </p>

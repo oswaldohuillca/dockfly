@@ -174,7 +174,7 @@ function Stat({
       <dd
         className={cn(
           "text-xl font-semibold tabular-nums",
-          tone === "warn" && "text-amber-600 dark:text-amber-400",
+          tone === "warn" && "text-amber-700 dark:text-amber-400",
           tone === "bad" && "text-destructive",
         )}
       >

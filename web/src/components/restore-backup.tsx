@@ -39,9 +39,11 @@ export function RestoreBackup({
   async function restore(file: File) {
     setError('');
     setProgress(0);
+    let uploaded = false;
     try {
       const confirm = fresh ? { setup_token: setupToken } : { password };
       const res = await restoreBackup(file, { ...confirm, encryption_password: encPassword }, setProgress);
+      uploaded = true;
       setPending(null);
       setRestarting(true);
       toast.info(res.message);
@@ -49,7 +51,8 @@ export function RestoreBackup({
       window.location.href = '/login';
     } catch (e) {
       // La contraseña o el código incorrectos se corrigen en el propio diálogo.
-      if (pending) setError(errorMessage(e));
+      setRestarting(false);
+      if (!uploaded) setError(errorMessage(e));
       else toast.error(t`Couldn't restore`, { description: errorMessage(e) });
       setProgress(null);
     }

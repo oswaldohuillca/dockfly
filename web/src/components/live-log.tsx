@@ -29,8 +29,9 @@ export function LiveLog({ url, onStatus, onEnd, emptyText, className }: Props) {
     let retry: ReturnType<typeof setTimeout>;
     let closed = false;
     const connect = () => {
-      setText('');
       es = new EventSource(url);
+      // Al reconectar el servidor reenvía el log entero: se vacía al abrir, no antes.
+      es.onopen = () => setText('');
       es.addEventListener('log', (e) => setText((t) => t + (JSON.parse(e.data) as string).replace(ansi, '')));
       es.addEventListener('status', (e) => handlers.current.onStatus?.(JSON.parse(e.data)));
       es.addEventListener('end', (e) => {
@@ -58,6 +59,9 @@ export function LiveLog({ url, onStatus, onEnd, emptyText, className }: Props) {
   return (
     <pre
       ref={pre}
+      role="log"
+      tabIndex={0}
+      aria-label={t`Log`}
       onScroll={(e) => {
         const el = e.currentTarget;
         stick.current = el.scrollHeight - el.scrollTop - el.clientHeight < 40;

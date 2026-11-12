@@ -53,6 +53,8 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
   const { form, set, setForm } = useForm<AppInput>(() => (app ? appInput(app) : empty));
   const [env, setEnv] = useState<EnvRow[]>([]);
   const [envTouched, setEnvTouched] = useState(false);
+  // Sin las variables actuales cargadas, guardar las pisaría con lo poco que haya en pantalla.
+  const [envLoaded, setEnvLoaded] = useState(isNew);
   const [connections, setConnections] = useState<GitConnection[]>([]);
   const [servers, setServers] = useState<RemoteServer[]>([]);
   const [advanced, setAdvanced] = useState(!!app && (app.command !== '' || app.memory_mb > 0 || app.cpus > 0));
@@ -60,7 +62,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
   const { submit, busy, error, setError } = useSubmit(async () => {
     const payload: AppInput = {
       ...form,
-      env: envTouched || isNew ? rowsToEnv(env) : null,
+      env: isNew || (envTouched && envLoaded) ? rowsToEnv(env) : null,
       port: Number(form.port) || 0,
       memory_mb: Number(form.memory_mb) || 0,
       cpus: Number(form.cpus) || 0,
@@ -98,7 +100,10 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
     if (appId)
       api
         .getAppEnv(appId)
-        .then((e) => setEnv(envToRows(e)))
+        .then((e) => {
+          setEnv(envToRows(e));
+          setEnvLoaded(true);
+        })
         .catch((e) => setError(errorMessage(e)));
     else
       api
@@ -365,6 +370,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
 
           <button
             type="button"
+            aria-expanded={advanced}
             onClick={() => setAdvanced((a) => !a)}
             className="flex w-fit items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
           >
@@ -423,13 +429,19 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
           <p className="text-xs text-muted-foreground">
             <Trans>Stored encrypted and applied on the next deploy.</Trans>
           </p>
-          <EnvEditor
-            rows={env}
-            onChange={(rows) => {
-              setEnv(rows);
-              setEnvTouched(true);
-            }}
-          />
+          {envLoaded ? (
+            <EnvEditor
+              rows={env}
+              onChange={(rows) => {
+                setEnv(rows);
+                setEnvTouched(true);
+              }}
+            />
+          ) : (
+            <p className="py-4 text-sm text-muted-foreground">
+              <Trans>Loading…</Trans>
+            </p>
+          )}
         </TabsContent>
 
         <TabsContent value="volumes" className="space-y-3 pt-3">
@@ -455,7 +467,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
                 value={v.path}
                 onChange={(e) => set('volumes', form.volumes.map((x, j) => (j === i ? { ...x, path: e.target.value } : x)))}
               />
-              <Button type="button" variant="ghost" size="icon" onClick={() => set('volumes', form.volumes.filter((_, j) => j !== i))}>
+              <Button type="button" variant="ghost" size="icon" aria-label={t`Remove volume`} onClick={() => set('volumes', form.volumes.filter((_, j) => j !== i))}>
                 <X />
               </Button>
             </div>

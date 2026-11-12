@@ -132,7 +132,7 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
 
   return (
     <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-xl">
+      <DialogContent className="sm:max-w-xl" onInteractOutside={(e) => e.preventDefault()}>
         <form onSubmit={save} className="contents">
           <DialogHeader>
             <DialogTitle>{isNew ? <Trans>New proxy host</Trans> : <Trans>Edit proxy host</Trans>}</DialogTitle>

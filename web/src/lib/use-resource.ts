@@ -4,21 +4,28 @@ import { toast } from 'sonner';
 import { errorMessage } from '@/lib/api';
 
 /**
- * Datos de la API: los carga al montar, los refresca cada interval ms y avisa
- * con un toast si falla la carga (los refrescos en segundo plano fallan en
- * silencio, para no repetir el aviso en cada tick). reload() vuelve a pedirlos.
+ * Datos de la API: los carga al montar y los refresca cada interval ms.
+ * Si la carga falla sin datos previos devuelve error (la pantalla lo pinta con
+ * ResourceState: no es lo mismo «vacío» que «no se pudo cargar»); con datos
+ * ya en pantalla avisa con un toast y los conserva. Los refrescos en segundo
+ * plano fallan en silencio. reload() vuelve a pedirlos.
  */
 export function useResource<T>(fetch: () => Promise<T>, opts: { interval?: number } = {}) {
   const [data, setData] = useState<T>();
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>();
+  const loaded = useRef(false);
   const fetchRef = useRef(fetch);
   fetchRef.current = fetch;
 
   const load = useCallback(async (quiet: boolean) => {
     try {
       setData(await fetchRef.current());
+      loaded.current = true;
+      setError(undefined);
     } catch (e) {
-      if (!quiet) toast.error(errorMessage(e));
+      if (!loaded.current) setError(errorMessage(e));
+      else if (!quiet) toast.error(errorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -34,7 +41,7 @@ export function useResource<T>(fetch: () => Promise<T>, opts: { interval?: numbe
     return () => clearInterval(id);
   }, [interval, load]);
 
-  return { data, setData, loading, reload };
+  return { data, setData, loading, error, reload };
 }
 
 /**

@@ -71,7 +71,7 @@ export function AuthForm({ setup, setupCodeRequired, onAuthenticated }: Props) {
 
   if (ticket) {
     return (
-      <div className="grid min-h-svh place-items-center bg-muted/40 p-4">
+      <div className="grid min-h-svh place-items-center bg-background p-4">
         <div className="w-full max-w-sm space-y-6">
           <Logo className="justify-center text-2xl" />
           <Card>
@@ -147,7 +147,7 @@ export function AuthForm({ setup, setupCodeRequired, onAuthenticated }: Props) {
   }
 
   return (
-    <div className="grid min-h-svh place-items-center bg-muted/40 p-4">
+    <div className="grid min-h-svh place-items-center bg-background p-4">
       <div className="w-full max-w-sm space-y-6">
         <Logo className="justify-center text-2xl" />
         <Card>

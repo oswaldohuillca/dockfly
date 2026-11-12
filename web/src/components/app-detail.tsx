@@ -35,6 +35,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { ResourceState } from '@/components/resource-state';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -58,6 +59,7 @@ export function AppDetail({ id }: { id: number }) {
   const [app, setApp] = useState<App | null>(null);
   const [deployments, setDeployments] = useState<AppDeployment[]>([]);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState<string>();
   const [editing, setEditing] = useState(false);
   const [viewing, setViewing] = useState<AppDeployment | null>(null);
   const [deleting, setDeleting] = useState(false);
@@ -79,9 +81,11 @@ export function AppDetail({ id }: { id: number }) {
       const res = await api.getApp(id);
       setApp(res.app);
       setDeployments(res.deployments);
+      setLoadError(undefined);
     } catch (e) {
+      // Sin toast: se repite en cada tick; el siguiente lo reintenta solo.
       if (e instanceof ApiError && e.status === 404) setNotFound(true);
-      else toast.error(errorMessage(e));
+      else setLoadError(errorMessage(e));
     }
   }, [id]);
 
@@ -130,12 +134,7 @@ export function AppDetail({ id }: { id: number }) {
       </div>
     );
   }
-  if (!app)
-    return (
-      <p className="py-20 text-center text-sm text-muted-foreground">
-        <Trans>Loading…</Trans>
-      </p>
-    );
+  if (!app) return <ResourceState loading error={loadError} onRetry={load} className="py-20" />;
 
   const deployed = !!app.current;
   const volumeNames = app.volumes.map((v) => v.name).join(', ');
@@ -211,7 +210,7 @@ export function AppDetail({ id }: { id: number }) {
               <Button size="sm" variant="outline" onClick={() => setEditing(true)}>
                 <Pencil /> <Trans>Configure</Trans>
               </Button>
-              <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleting(true)}>
+              <Button size="sm" variant="outline" className="text-destructive hover:text-destructive" onClick={() => setDeleting(true)} aria-label={t`Delete ${ph({ name: app.name })}`}>
                 <Trash2 />
               </Button>
             </div>
@@ -270,7 +269,9 @@ export function AppDetail({ id }: { id: number }) {
                       <TableRow key={d.id} className="cursor-pointer" onClick={() => setViewing(d)}>
                         <TableCell className="pl-6">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-sm">#{d.id}</span>
+                            <button type="button" className="rounded-sm font-mono text-sm underline-offset-4 hover:underline" onClick={() => setViewing(d)}>
+                              #{d.id}
+                            </button>
                             <DeployStatusBadge status={d.status} />
                           </div>
                         </TableCell>
@@ -352,7 +353,13 @@ export function AppDetail({ id }: { id: number }) {
       )}
       {viewing && <DeploymentLog deployment={viewing} onClose={() => setViewing(null)} onChange={load} />}
 
-      <AlertDialog open={deleting} onOpenChange={setDeleting}>
+      <AlertDialog
+        open={deleting}
+        onOpenChange={(open) => {
+          setDeleting(open);
+          if (!open) setRemoveData(false);
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t`Delete ${ph({ name: app.name })}?`}</AlertDialogTitle>
@@ -374,7 +381,7 @@ export function AppDetail({ id }: { id: number }) {
               <Trans>Cancel</Trans>
             </AlertDialogCancel>
             <AlertDialogAction variant="destructive" onClick={remove}>
-              <Trans>Delete</Trans>
+              {removeData ? <Trans>Delete app and data</Trans> : <Trans>Delete</Trans>}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

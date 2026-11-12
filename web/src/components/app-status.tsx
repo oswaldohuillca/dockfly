@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 const deploy: Record<AppDeployStatus, { label: MessageDescriptor; icon: typeof CircleCheck; className: string }> = {
   queued: { label: msg`Queued`, icon: CircleDashed, className: 'text-muted-foreground' },
   running: { label: msg`Deploying`, icon: Loader2, className: 'text-blue-600 dark:text-blue-400 [&_svg]:animate-spin' },
-  live: { label: msg`Live`, icon: CircleCheck, className: 'text-emerald-600 dark:text-emerald-400' },
+  live: { label: msg`Live`, icon: CircleCheck, className: 'text-emerald-700 dark:text-emerald-400' },
   replaced: { label: msg`Replaced`, icon: History, className: 'text-muted-foreground' },
   failed: { label: msg`Failed`, icon: CircleX, className: 'text-destructive' },
   canceled: { label: msg`Canceled`, icon: CircleSlash, className: 'text-muted-foreground' },
@@ -45,7 +45,7 @@ export function appState(app: App): { label: string; color: string } {
     case 'offline':
       return { label: t`Server offline`, color: 'bg-amber-500' };
     case 'running':
-      return { label: t`Running`, color: 'bg-emerald-500' };
+      return { label: t`Running`, color: 'bg-emerald-500 ring-3 ring-emerald-500/20' };
     case 'restarting':
       return { label: t`Restart loop`, color: 'bg-amber-500' };
     case 'missing':

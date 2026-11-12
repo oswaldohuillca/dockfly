@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Trans, useLingui } from '@lingui/react/macro';
 
 import { FormDialog } from '@/components/form-dialog';
+import { ResourceState } from '@/components/resource-state';
 import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/confirm';
 import { Button } from '@/components/ui/button';
@@ -29,7 +30,7 @@ import { useAction, useResource } from '@/lib/use-resource';
 export function Users() {
   const { t } = useLingui();
   const me = useContext(UserContext);
-  const { data: users = [], reload } = useResource(api.listUsers);
+  const { data: users = [], loading, error, reload } = useResource(api.listUsers);
   const [editing, setEditing] = useState<UserEntry | 'new' | null>(null);
   const [link, setLink] = useState<(PasswordLink & { user: UserEntry; invite: boolean }) | null>(null);
   const run = useAction();
@@ -63,6 +64,7 @@ export function Users() {
         </CardAction>
       </CardHeader>
       <CardContent className="px-0">
+        <ResourceState loading={loading} error={error} onRetry={reload} />
         <ul className="divide-y">
           {users.map((u) => {
             const name = u.name;

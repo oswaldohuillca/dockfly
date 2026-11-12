@@ -5,6 +5,7 @@ import { Plural, Trans, useLingui } from '@lingui/react/macro';
 
 import { useConfirm } from '@/components/confirm';
 import { FormDialog } from '@/components/form-dialog';
+import { ResourceState } from '@/components/resource-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -16,7 +17,7 @@ import { useAction, useResource } from '@/lib/use-resource';
 
 export function AccessLists() {
   const { t } = useLingui();
-  const { data: lists = [], reload } = useResource(api.listAccessLists);
+  const { data: lists = [], loading, error, reload } = useResource(api.listAccessLists);
   const [editing, setEditing] = useState<AccessList | 'new' | null>(null);
   const run = useAction();
   const { confirm, dialog } = useConfirm();
@@ -41,13 +42,15 @@ export function AccessLists() {
           </Trans>
         </CardDescription>
         <CardAction>
-          <Button size="sm" onClick={() => setEditing('new')}>
+          <Button variant="outline" onClick={() => setEditing('new')}>
             <Plus /> <Trans>New list</Trans>
           </Button>
         </CardAction>
       </CardHeader>
       <CardContent>
-        {lists.length === 0 ? (
+        {loading || error ? (
+          <ResourceState loading={loading} error={error} onRetry={reload} />
+        ) : lists.length === 0 ? (
           <p className="py-4 text-center text-sm text-muted-foreground">
             <Trans>No access lists yet.</Trans>
           </p>
@@ -161,7 +164,7 @@ function AccessListDialog({ list, onClose, onSaved }: { list?: AccessList; onClo
               onChange={(e) => setUsers(users.map((x, j) => (j === i ? { ...x, password: e.target.value } : x)))}
               autoComplete="new-password"
             />
-            <Button type="button" variant="ghost" size="icon" onClick={() => setUsers(users.filter((_, j) => j !== i))}>
+            <Button type="button" variant="ghost" size="icon" aria-label={t`Remove user ${u.username}`} onClick={() => setUsers(users.filter((_, j) => j !== i))}>
               <X />
             </Button>
           </div>

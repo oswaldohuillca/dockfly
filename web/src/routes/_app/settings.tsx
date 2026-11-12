@@ -2,6 +2,7 @@ import { createFileRoute, redirect } from '@tanstack/react-router';
 import { Terminal } from 'lucide-react';
 import { Trans } from '@lingui/react/macro';
 
+import { PageHeader } from '@/components/page-header';
 import { AccessLists } from '@/components/access-lists';
 import { BackupDownload } from '@/components/backup-download';
 import { BackupStorageSettings } from '@/components/backup-storage';
@@ -27,7 +28,8 @@ export const Route = createFileRoute('/_app/settings')({
 
 function Settings() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <PageHeader title={<Trans>Settings</Trans>} />
       <SystemUpdate />
       <Users />
       <Notifications />

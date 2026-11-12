@@ -13,6 +13,7 @@ import { SiteDialog } from '@/components/site-dialog';
 import { SiteGit } from '@/components/site-git';
 import { SitePreviews } from '@/components/site-previews';
 import { TrafficCard } from '@/components/traffic';
+import { ResourceState } from '@/components/resource-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +32,7 @@ export function SiteDetail({ id }: { id: number }) {
   const [site, setSite] = useState<Site | null>(null);
   const [deployments, setDeployments] = useState<Deployment[]>([]);
   const [notFound, setNotFound] = useState(false);
+  const [loadError, setLoadError] = useState<string>();
   const [editing, setEditing] = useState(false);
   const [progress, setProgress] = useState<number | null>(null);
   const [uploading, setUploading] = useState('');
@@ -44,9 +46,13 @@ export function SiteDetail({ id }: { id: number }) {
       const res = await api.getSite(id);
       setSite(res.site);
       setDeployments(res.deployments);
+      setLoadError(undefined);
     } catch (e) {
       if (e instanceof ApiError && e.status === 404) setNotFound(true);
-      else toast.error(errorMessage(e));
+      else {
+        setLoadError(errorMessage(e));
+        toast.error(errorMessage(e));
+      }
     }
   }, [id]);
 
@@ -114,12 +120,7 @@ export function SiteDetail({ id }: { id: number }) {
       </div>
     );
   }
-  if (!site)
-    return (
-      <p className="py-20 text-center text-sm text-muted-foreground">
-        <Trans>Loading…</Trans>
-      </p>
-    );
+  if (!site) return <ResourceState loading error={loadError} onRetry={load} className="py-20" />;
 
   const url = (d: string) => `${site.ssl ? 'https' : 'http'}://${d}`;
 
@@ -225,7 +226,7 @@ export function SiteDetail({ id }: { id: number }) {
                         <div className="flex items-center gap-2">
                           <span className="font-mono text-sm">#{dep.id}</span>
                           {active && (
-                            <Badge variant="secondary" className="text-emerald-600 dark:text-emerald-400">
+                            <Badge variant="secondary" className="text-emerald-700 dark:text-emerald-400">
                               <Trans context="deployment">Live</Trans>
                             </Badge>
                           )}

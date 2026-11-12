@@ -9,6 +9,7 @@ import { Trans, useLingui as useLinguiMacro } from '@lingui/react/macro';
 import { CheckField } from '@/components/check-field';
 import { useConfirm } from '@/components/confirm';
 import { FormDialog } from '@/components/form-dialog';
+import { ResourceState } from '@/components/resource-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -114,7 +115,7 @@ function ChannelIcon({ type }: { type: ChannelType }) {
 export function Notifications() {
   const { i18n } = useLingui();
   const { t } = useLinguiMacro();
-  const { data: channels, reload: load } = useResource(api.listChannels);
+  const { data: channels, loading, error, reload: load } = useResource(api.listChannels);
   const [editing, setEditing] = useState<NotificationChannel | 'new' | null>(null);
   const [testing, setTesting] = useState<number | null>(null);
   const run = useAction();
@@ -160,12 +161,13 @@ export function Notifications() {
           </Trans>
         </CardDescription>
         <CardAction>
-          <Button size="sm" onClick={() => setEditing('new')}>
+          <Button variant="outline" onClick={() => setEditing('new')}>
             <Plus /> <Trans>Add channel</Trans>
           </Button>
         </CardAction>
       </CardHeader>
       <CardContent>
+        <ResourceState loading={loading} error={error} onRetry={load} />
         {channels && channels.length === 0 && (
           <p className="py-4 text-center text-sm text-muted-foreground">
             <Trans>No notification channels yet.</Trans>

@@ -3,9 +3,11 @@ import { Check, ChevronDown, Copy, ExternalLink, Loader2, Plus, Trash2, Triangle
 import { toast } from 'sonner';
 import { Trans, useLingui } from '@lingui/react/macro';
 
+import { PageHeader } from '@/components/page-header';
 import { ProviderIcon, providerName } from '@/components/brand-icons';
 import { useConfirm } from '@/components/confirm';
 import { FormDialog } from '@/components/form-dialog';
+import { ResourceState } from '@/components/resource-state';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,7 +22,7 @@ import { useAction, useResource } from '@/lib/use-resource';
 
 export function Integrations() {
   const { t } = useLingui();
-  const { data, reload: load } = useResource(async () => {
+  const { data, loading, error, reload: load } = useResource(async () => {
     const [connections, apps, settings] = await Promise.all([api.listConnections(), api.listGitApps(), api.getSettings()]);
     return { connections, apps, publicURL: settings.public_url };
   });
@@ -34,13 +36,12 @@ export function Integrations() {
     }
   }
 
-  if (!data) return <p className="py-20 text-center text-sm text-muted-foreground">
-        <Trans>Loading…</Trans>
-      </p>;
+  if (!data) return <ResourceState loading={loading} error={error} onRetry={load} className="py-20" />;
 
   const { connections, apps, publicURL } = data;
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <PageHeader title={<Trans>Integrations</Trans>} />
       {dialog}
       <PublicURLCard value={publicURL} onSaved={load} />
       <GitHubCard apps={apps.github} connections={connections} hasPublicURL={!!publicURL} onChange={load} onRemove={remove} />
@@ -232,7 +233,7 @@ function GitHubCard({ apps, connections, hasPublicURL, onChange, onRemove }: Git
                   </a>
                 </Button>
                 {!app.webhook_active && (
-                  <span className="text-xs text-amber-600">
+                  <span className="text-xs text-amber-700">
                     <Trans>No webhook: set the public URL to deploy on every push.</Trans>
                   </span>
                 )}

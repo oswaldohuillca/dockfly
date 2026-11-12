@@ -29,8 +29,9 @@ export function FormDialog({
   title, description, onClose, onSubmit, busy, error, submitLabel, submitDisabled, footer, className, children,
 }: Props) {
   return (
-    <Dialog open onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className={className}>
+    <Dialog open onOpenChange={(open) => !open && !busy && onClose()}>
+      {/* Un clic fuera no cierra: se perdería lo escrito. */}
+      <DialogContent className={className} onInteractOutside={(e) => e.preventDefault()}>
         <form onSubmit={onSubmit} className="contents">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
@@ -45,7 +46,7 @@ export function FormDialog({
           )}
           <DialogFooter>
             {footer}
-            <Button type="button" variant="outline" onClick={onClose}>
+            <Button type="button" variant="outline" onClick={onClose} disabled={busy}>
               <Trans>Cancel</Trans>
             </Button>
             <Button type="submit" disabled={busy || submitDisabled}>

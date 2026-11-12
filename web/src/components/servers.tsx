@@ -1,15 +1,17 @@
 import { ph } from '@lingui/core/macro';
 import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import { useState } from 'react';
-import { Copy, KeyRound, Loader2, Plus, Server, Trash2, TriangleAlert } from 'lucide-react';
+import { Boxes, CircleCheck, Copy, KeyRound, Loader2, Plus, Server, Trash2, TriangleAlert } from 'lucide-react';
 import { toast } from 'sonner';
 
+import { ResourceState } from '@/components/resource-state';
+import { PageHeader, Stat, StatGrid } from '@/components/page-header';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FormDialog } from '@/components/form-dialog';
 import { Badge } from '@/components/ui/badge';
 import { useConfirm } from '@/components/confirm';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -29,7 +31,7 @@ import { useAction, useResource } from '@/lib/use-resource';
 export function Servers() {
   const { t } = useLingui();
   // El estado de conexión cambia solo: se refresca cada pocos segundos.
-  const { data: servers = [], reload } = useResource(api.listServers, { interval: 5000 });
+  const { data: servers = [], loading, error, reload } = useResource(api.listServers, { interval: 5000 });
   const [adding, setAdding] = useState(false);
   const [join, setJoin] = useState<{ name: string; command: string; warning: string } | null>(null);
   const run = useAction();
@@ -41,29 +43,35 @@ export function Servers() {
       setJoin({ name: s.name, command: res.command, warning: res.warning });
     });
 
+  const offline = servers.filter((s) => !s.online && s.last_seen_at).length;
+
   async function remove(s: RemoteServer) {
     if (!(await confirm({ title: t`Delete the server ${ph({ name: s.name })}?` }))) return;
     await run(() => api.deleteServer(s.id), { success: t`${ph({ name: s.name })} deleted`, then: reload });
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-lg">
-          <Trans>Servers</Trans>
-        </CardTitle>
-        <CardDescription>
-          <Trans>
-            Deploy apps to other machines. Each server runs a Dockfly agent with its own Traefik: the agent connects to
-            this panel (no open ports needed) and, if the panel goes down, its apps keep running.
-          </Trans>
-        </CardDescription>
-        <CardAction>
-          <Button onClick={() => setAdding(true)}>
-            <Plus /> <Trans>Add server</Trans>
-          </Button>
-        </CardAction>
-      </CardHeader>
+    <>
+    <PageHeader
+      title={<Trans>Servers</Trans>}
+      description={
+        <Trans>
+          Deploy apps to other machines. Each server runs a Dockfly agent with its own Traefik: the agent connects to
+          this panel (no open ports needed) and, if the panel goes down, its apps keep running.
+        </Trans>
+      }
+    >
+      <Button onClick={() => setAdding(true)}>
+        <Plus /> <Trans>Add server</Trans>
+      </Button>
+    </PageHeader>
+    <StatGrid>
+      <Stat icon={Server} label={<Trans>Total servers</Trans>} value={servers.length + 1} />
+      <Stat icon={CircleCheck} tone="success" label={<Trans>Connected</Trans>} value={servers.filter((s) => s.online).length + 1} />
+      <Stat icon={TriangleAlert} tone={offline ? 'danger' : 'neutral'} label={<Trans>Disconnected</Trans>} value={offline} />
+      <Stat tone="accent" icon={Boxes} label={<Trans>Remote apps</Trans>} value={servers.reduce((n, s) => n + s.apps, 0)} />
+    </StatGrid>
+    <Card className="py-2">
       <CardContent className="px-0">
         <ul className="divide-y">
           <li className="flex flex-wrap items-center gap-3 px-6 py-3">
@@ -76,7 +84,7 @@ export function Servers() {
                 <Trans>The panel's own server. Proxy hosts, sites and Compose apps.</Trans>
               </div>
             </div>
-            <Badge variant="secondary" className="text-emerald-600 dark:text-emerald-400">
+            <Badge variant="secondary" className="text-emerald-700 dark:text-emerald-400">
               <Trans>Connected</Trans>
             </Badge>
           </li>
@@ -94,7 +102,7 @@ export function Servers() {
                 </div>
               </div>
               {s.online ? (
-                <Badge variant="secondary" className="text-emerald-600 dark:text-emerald-400">
+                <Badge variant="secondary" className="text-emerald-700 dark:text-emerald-400">
                   <Trans>Connected</Trans>
                 </Badge>
               ) : s.last_seen_at ? (
@@ -127,6 +135,7 @@ export function Servers() {
             </li>
           ))}
         </ul>
+        <ResourceState loading={loading} error={error} onRetry={reload} />
       </CardContent>
       {adding && (
         <AddServerDialog
@@ -141,6 +150,7 @@ export function Servers() {
       {join && <JoinDialog {...join} onClose={() => setJoin(null)} />}
       {dialog}
     </Card>
+    </>
   );
 }
 

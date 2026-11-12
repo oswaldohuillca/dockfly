@@ -197,7 +197,9 @@ export function SiteGit({ site, onChange }: Props) {
                     <TableRow key={b.id} className="cursor-pointer" onClick={() => setViewing(b)}>
                       <TableCell className="pl-6">
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-sm">#{b.id}</span>
+                          <button type="button" className="rounded-sm font-mono text-sm underline-offset-4 hover:underline" onClick={() => setViewing(b)}>
+                            #{b.id}
+                          </button>
                           <BuildStatusBadge status={b.status} />
                         </div>
                         {b.preview && <div className="mt-0.5 text-xs text-muted-foreground"><Trans>Preview · {b.branch}</Trans></div>}

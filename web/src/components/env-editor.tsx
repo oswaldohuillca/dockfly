@@ -22,6 +22,7 @@ export function EnvEditor({ rows, onChange }: { rows: EnvRow[]; onChange: (rows:
           <Input
             className="font-mono"
             placeholder={t`NAME`}
+            aria-label={t`Variable name`}
             value={row.key}
             onChange={(e) => {
               // Pegar KEY=foo:bar rellena las dos casillas; el valor va entero.
@@ -33,10 +34,11 @@ export function EnvEditor({ rows, onChange }: { rows: EnvRow[]; onChange: (rows:
           <Input
             className="font-mono"
             placeholder={t`value`}
+            aria-label={t`Value of ${row.key}`}
             value={row.value}
             onChange={(e) => onChange(rows.map((r, j) => (j === i ? { ...r, value: e.target.value } : r)))}
           />
-          <Button type="button" variant="ghost" size="icon" onClick={() => onChange(rows.filter((_, j) => j !== i))}>
+          <Button type="button" variant="ghost" size="icon" aria-label={t`Remove variable ${row.key}`} onClick={() => onChange(rows.filter((_, j) => j !== i))}>
             <X />
           </Button>
         </div>

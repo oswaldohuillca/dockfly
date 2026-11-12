@@ -10,7 +10,7 @@ import { cn } from '@/lib/utils';
 const styles: Record<BuildStatus, { label: MessageDescriptor; icon: typeof CircleCheck; className: string }> = {
   queued: { label: msg`Queued`, icon: CircleDashed, className: 'text-muted-foreground' },
   running: { label: msg`Building`, icon: Loader2, className: 'text-blue-600 dark:text-blue-400 [&_svg]:animate-spin' },
-  success: { label: msg`Published`, icon: CircleCheck, className: 'text-emerald-600 dark:text-emerald-400' },
+  success: { label: msg`Published`, icon: CircleCheck, className: 'text-emerald-700 dark:text-emerald-400' },
   failed: { label: msg`Failed`, icon: CircleX, className: 'text-destructive' },
   canceled: { label: msg`Canceled`, icon: CircleSlash, className: 'text-muted-foreground' },
 };

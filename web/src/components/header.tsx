@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router';
-import { Languages, LogOut, Monitor, Moon, Sun, UserRound } from 'lucide-react';
-import { Trans } from '@lingui/react/macro';
+import { Boxes, FileCode2, GitBranch, Globe, Languages, LogOut, Monitor, Moon, Server, Settings, Sun, UserRound } from 'lucide-react';
+import { Trans, useLingui as useLinguiMacro } from '@lingui/react/macro';
 import { useLingui } from '@lingui/react';
 import { useTheme } from 'next-themes';
 
@@ -17,7 +17,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import type { Status, User } from '@/lib/api';
 import { activateLocale, locales, type Locale } from '@/lib/i18n';
 import { can } from '@/lib/roles';
@@ -32,61 +31,83 @@ interface Props {
 export function Header({ user, status, onLogout }: Props) {
   const { theme, setTheme } = useTheme();
   const { i18n } = useLingui();
+  const { t } = useLinguiMacro();
+
+  const links = [
+    { to: '/proxy-hosts', icon: Globe, label: 'Proxy Hosts' },
+    { to: '/sites', icon: FileCode2, label: t`Sites` },
+    { to: '/apps', icon: Boxes, label: t`Apps` },
+    ...(can(user, 'admin')
+      ? ([
+          { to: '/servers', icon: Server, label: t`Servers` },
+          { to: '/integrations', icon: GitBranch, label: t`Integrations` },
+          { to: '/settings', icon: Settings, label: t`Settings` },
+        ] as const)
+      : []),
+  ] as const;
 
   return (
-    <header className="border-b bg-background">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-        <div className="flex items-center gap-6">
-          <Link to="/">
-            <Logo className="text-lg" />
-          </Link>
-          <nav className="flex gap-1">
-            <NavLink to="/proxy-hosts">Proxy Hosts</NavLink>
-            <NavLink to="/sites">
-              <Trans>Sites</Trans>
-            </NavLink>
-            <NavLink to="/apps">
-              <Trans>Apps</Trans>
-            </NavLink>
-            {can(user, 'admin') && (
-              <>
-                <NavLink to="/servers">
-                  <Trans>Servers</Trans>
-                </NavLink>
-                <NavLink to="/integrations">
-                  <Trans>Integrations</Trans>
-                </NavLink>
-                <NavLink to="/settings">
-                  <Trans>Settings</Trans>
-                </NavLink>
-              </>
+    <>
+      {/* Escritorio: barra lateral fija. */}
+      <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-card shadow-card lg:flex">
+        <Link to="/" className="mx-6 mt-7 mb-8 w-fit rounded-md">
+          <Logo className="text-xl" />
+        </Link>
+        <nav aria-label={t`Main`} className="flex flex-1 flex-col gap-1 overflow-y-auto px-4">
+          {links.map((l) => (
+            <Link
+              key={l.to}
+              to={l.to}
+              className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              activeProps={{
+                className: '!bg-primary !text-primary-foreground shadow-md shadow-primary/30',
+              }}
+            >
+              <l.icon className="size-[1.125rem]" /> {l.label}
+            </Link>
+          ))}
+        </nav>
+        {status && (
+          <div className="m-4 space-y-2 rounded-xl bg-muted/60 p-4 text-xs">
+            <p className="font-medium text-muted-foreground">
+              <Trans>System</Trans>
+            </p>
+            <StatusLine ok={status.traefik.running} detail={status.traefik.last_error}>
+              {status.traefik.running ? <Trans>Traefik running</Trans> : <Trans>Traefik stopped</Trans>}
+            </StatusLine>
+            <StatusLine ok={status.docker_available}>
+              {status.docker_available ? <Trans>Docker connected</Trans> : <Trans>Docker unavailable</Trans>}
+            </StatusLine>
+            <p className="pt-1 text-muted-foreground">Dockfly {status.version}</p>
+          </div>
+        )}
+      </aside>
+
+      <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 lg:px-8">
+          {/* Móvil y tablet: el logo y la navegación van arriba. */}
+          <div className="flex min-w-0 items-center gap-3 lg:hidden">
+            <Link to="/" className="shrink-0 rounded-md">
+              <Logo className="text-lg" />
+            </Link>
+          </div>
+          <div className="hidden lg:block" />
+
+          <div className="flex shrink-0 items-center gap-2">
+            {status && (
+              <div className="flex items-center gap-2 lg:hidden">
+                <StatusBadge ok={status.traefik.running}>
+                  {status.traefik.running ? <Trans>Traefik running</Trans> : <Trans>Traefik stopped</Trans>}
+                </StatusBadge>
+                <StatusBadge ok={status.docker_available}>
+                  {status.docker_available ? <Trans>Docker connected</Trans> : <Trans>Docker unavailable</Trans>}
+                </StatusBadge>
+              </div>
             )}
-          </nav>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {status && (
-            <>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    <StatusBadge ok={status.traefik.running}>
-                      {status.traefik.running ? <Trans>Traefik running</Trans> : <Trans>Traefik stopped</Trans>}
-                    </StatusBadge>
-                  </span>
-                </TooltipTrigger>
-                {status.traefik.last_error && <TooltipContent>{status.traefik.last_error}</TooltipContent>}
-              </Tooltip>
-              <StatusBadge ok={status.docker_available}>
-                {status.docker_available ? <Trans>Docker connected</Trans> : <Trans>Docker unavailable</Trans>}
-              </StatusBadge>
-            </>
-          )}
-
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="ml-1">
-                <span className="grid size-6 place-items-center rounded-full bg-primary text-xs text-primary-foreground">
+              <Button variant="outline" className="ml-1 rounded-full border-transparent pl-1.5 shadow-card">
+                <span className="grid size-6.5 place-items-center rounded-full bg-primary text-xs text-primary-foreground">
                   {user.name.charAt(0).toUpperCase()}
                 </span>
                 <span className="hidden sm:inline">{user.name}</span>
@@ -134,36 +155,43 @@ export function Header({ user, status, onLogout }: Props) {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
+          </div>
         </div>
-      </div>
-    </header>
+        <nav aria-label={t`Main`} className="flex gap-1 overflow-x-auto px-4 pb-3 lg:hidden">
+          {links.map((l) => (
+            <Link
+              key={l.to}
+              to={l.to}
+              className="shrink-0 flex items-center gap-1.5 rounded-full px-3.5 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
+              activeProps={{ className: '!bg-primary !text-primary-foreground' }}
+            >
+              <l.icon className="size-4" /> {l.label}
+            </Link>
+          ))}
+        </nav>
+      </header>
+    </>
+  );
+}
+
+function StatusLine({ ok, detail, children }: { ok: boolean; detail?: string; children: React.ReactNode }) {
+  return (
+    <div className={cn('flex items-start gap-2', !ok && 'text-destructive')}>
+      <span className={cn('mt-1 size-2 shrink-0 rounded-full', ok ? 'bg-emerald-500 ring-3 ring-emerald-500/20' : 'bg-red-500 ring-3 ring-red-500/20')} />
+      <span className="min-w-0">
+        <span className="font-medium">{children}</span>
+        {detail && <span className="block break-words text-muted-foreground">{detail}</span>}
+      </span>
+    </div>
   );
 }
 
 function StatusBadge({ ok, children }: { ok: boolean; children: React.ReactNode }) {
   return (
-    <Badge variant="outline" className="gap-1.5">
+    <Badge variant="outline" className={cn('gap-1.5 bg-background', !ok && 'border-destructive/40 text-destructive')}>
       <span className={cn('size-1.5 rounded-full', ok ? 'bg-emerald-500' : 'bg-red-500')} />
-      {children}
+      {/* En pantallas estrechas queda solo el punto; el texto sigue para lectores de pantalla. */}
+      <span className="sr-only sm:not-sr-only">{children}</span>
     </Badge>
-  );
-}
-
-function NavLink({
-  to,
-  children,
-}: {
-  to: '/proxy-hosts' | '/sites' | '/apps' | '/servers' | '/integrations' | '/settings';
-  children: React.ReactNode;
-}) {
-  // activeProps se aplica también en las subrutas (/sites/3 marca «Sites»).
-  return (
-    <Link
-      to={to}
-      className="rounded-md px-3 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
-      activeProps={{ className: 'bg-muted !text-foreground' }}
-    >
-      {children}
-    </Link>
   );
 }

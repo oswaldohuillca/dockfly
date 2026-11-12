@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Box, ExternalLink, Globe, Pencil, Plus, Search, Server, Trash2 } from 'lucide-react';
+import { Box, CircleCheck, CircleDashed, ExternalLink, Globe, Lock, Pencil, Plus, Search, Server, Trash2 } from 'lucide-react';
 import type { MessageDescriptor } from '@lingui/core';
 import { msg } from '@lingui/core/macro';
 import { Trans, useLingui } from '@lingui/react/macro';
@@ -8,9 +8,11 @@ import { CertBadge } from '@/components/cert-badge';
 import { useConfirm } from '@/components/confirm';
 import { ProxyHostDialog } from '@/components/proxy-host-dialog';
 import { compactNumber, formatMs, Sparkline, TrafficCard, useTrafficSummary } from '@/components/traffic';
+import { ResourceState } from '@/components/resource-state';
+import { PageHeader, Stat, StatGrid } from '@/components/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -37,7 +39,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
   const traffic = useTrafficSummary();
   const [trafficOf, setTrafficOf] = useState<ProxyHost | null>(null);
   const canEdit = useCan('admin');
-  const { data: hosts = [], setData: setHosts, loading, reload: load } = useResource(api.listProxyHosts);
+  const { data: hosts = [], setData: setHosts, loading, error, reload: load } = useResource(api.listProxyHosts);
   const [filter, setFilter] = useState('');
   // null = cerrado, {} = nuevo, host = editar
   const [editing, setEditing] = useState<Partial<ProxyHost> | null>(null);
@@ -69,19 +71,14 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
 
   return (
     <>
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Proxy Hosts</CardTitle>
-          <CardDescription>
-            <Trans>Publish containers, apps on this server or external services.</Trans>
-          </CardDescription>
-          <CardAction className="flex gap-2">
-            <div className="relative hidden sm:block">
+      <PageHeader title="Proxy Hosts" description={<Trans>Publish containers, apps on this server or external services.</Trans>}>
+            <div className="relative">
               <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder={t`Search…`}
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
+                aria-label={t`Search proxy hosts`}
                 className="w-56 pl-8"
               />
             </div>
@@ -90,14 +87,20 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
                 <Plus /> <Trans>Add</Trans>
               </Button>
             )}
-          </CardAction>
-        </CardHeader>
+      </PageHeader>
+      {hosts.length > 0 && (
+        <StatGrid>
+          <Stat icon={Globe} label={<Trans>Total hosts</Trans>} value={hosts.length} />
+          <Stat icon={CircleCheck} tone="success" label={<Trans>Enabled</Trans>} value={hosts.filter((h) => h.enabled).length} />
+          <Stat tone="accent" icon={Lock} label={<Trans>With SSL</Trans>} value={hosts.filter((h) => h.ssl).length} />
+          <Stat icon={CircleDashed} tone="neutral" label={<Trans>Disabled</Trans>} value={hosts.filter((h) => !h.enabled).length} />
+        </StatGrid>
+      )}
+      <Card className="py-2">
 
         <CardContent className="px-0">
-          {loading ? (
-            <p className="px-6 py-8 text-center text-sm text-muted-foreground">
-              <Trans>Loading…</Trans>
-            </p>
+          {loading || error ? (
+            <ResourceState loading={loading} error={error} onRetry={load} />
           ) : hosts.length === 0 ? (
             <EmptyState onCreate={() => setEditing({})} />
           ) : (
@@ -229,8 +232,8 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   const canEdit = useCan('admin');
   return (
     <div className="flex flex-col items-center gap-3 px-6 py-14 text-center">
-      <div className="grid size-12 place-items-center rounded-full bg-muted">
-        <Globe className="size-6 text-muted-foreground" />
+      <div className="grid size-12 place-items-center rounded-full bg-primary/10">
+        <Globe className="size-6 text-primary" />
       </div>
       <div>
         <p className="font-medium">
@@ -260,7 +263,7 @@ export function TrafficCell({ summary, onClick }: { summary?: TrafficSummary; on
       <Sparkline values={summary.spark} />
       <span className="text-xs leading-tight tabular-nums">
         {compactNumber(summary.requests)}
-        <span className={cn('block', errors >= 5 ? 'text-destructive' : errors >= 1 ? 'text-amber-600' : 'text-muted-foreground')}>
+        <span className={cn('block', errors >= 5 ? 'text-destructive' : errors >= 1 ? 'text-amber-700' : 'text-muted-foreground')}>
           {errors > 0 ? `${errors.toFixed(1)} % 5xx` : formatMs(summary.p95_ms) + ' p95'}
         </span>
       </span>

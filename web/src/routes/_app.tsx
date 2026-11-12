@@ -33,20 +33,24 @@ function AppLayout() {
   }, [refreshStatus]);
 
   async function logout() {
-    await api.logout();
-    setUser(null);
-    navigate({ to: '/login' });
+    try {
+      await api.logout();
+    } finally {
+      // Aunque falle la petición, este navegador deja de usar la sesión.
+      setUser(null);
+      navigate({ to: '/login' });
+    }
   }
 
   return (
     <UserContext.Provider value={user}>
     <StatusContext.Provider value={status}>
-      <div className="flex min-h-svh flex-col bg-muted/40">
+      <div className="flex min-h-svh flex-col bg-background lg:pl-64">
         <Header user={user} status={status} onLogout={logout} />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-2 pb-10 lg:px-8">
           <Outlet />
         </main>
-        <footer className="py-4 text-center text-xs text-muted-foreground">Dockfly {status?.version}</footer>
+        <footer className="py-4 text-center text-xs text-muted-foreground lg:hidden">Dockfly {status?.version}</footer>
       </div>
     </StatusContext.Provider>
     </UserContext.Provider>

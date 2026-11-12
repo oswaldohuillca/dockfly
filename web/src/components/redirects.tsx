@@ -8,6 +8,7 @@ import { CheckField } from '@/components/check-field';
 import { useConfirm } from '@/components/confirm';
 import { DomainsInput } from '@/components/domains-input';
 import { FormDialog } from '@/components/form-dialog';
+import { ResourceState } from '@/components/resource-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,7 +26,7 @@ import { useCan } from '@/lib/roles';
 export function Redirects() {
   const { t } = useLingui();
   const canEdit = useCan('admin');
-  const { data: list = [], reload } = useResource(api.listRedirects);
+  const { data: list = [], loading, error, reload } = useResource(api.listRedirects);
   const [editing, setEditing] = useState<RedirectHost | 'new' | null>(null);
   const certs = useCertificates();
   const run = useAction();
@@ -58,6 +59,11 @@ export function Redirects() {
           )}
         </CardAction>
       </CardHeader>
+      {(loading || error) && (
+        <CardContent>
+          <ResourceState loading={loading} error={error} onRetry={reload} />
+        </CardContent>
+      )}
       {list.length > 0 && (
         <CardContent className="px-0">
           <Table>

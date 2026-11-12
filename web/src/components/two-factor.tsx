@@ -3,6 +3,7 @@ import { Copy, Download, Loader2, ShieldCheck, ShieldOff } from 'lucide-react';
 import { Plural, Trans, useLingui } from '@lingui/react/macro';
 import { toast } from 'sonner';
 
+import { ResourceState } from '@/components/resource-state';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,10 +19,10 @@ type Flow = 'enable' | 'disable' | 'regenerate' | null;
 
 /** Verificación en dos pasos de la cuenta (TOTP + códigos de recuperación). */
 export function TwoFactor() {
-  const { data: status, reload } = useResource(api.get2FA);
+  const { data: status, loading, error, reload } = useResource(api.get2FA);
   const [flow, setFlow] = useState<Flow>(null);
 
-  if (!status) return null;
+  if (!status) return <ResourceState loading={loading} error={error} onRetry={reload} />;
 
   return (
     <Card>
@@ -29,7 +30,7 @@ export function TwoFactor() {
         <CardTitle className="flex items-center gap-2 text-lg">
           <Trans>Two-step verification</Trans>
           {status.enabled ? (
-            <Badge variant="secondary" className="text-emerald-600 dark:text-emerald-400">
+            <Badge variant="secondary" className="text-emerald-700 dark:text-emerald-400">
               <Trans context="2fa">Enabled</Trans>
             </Badge>
           ) : (

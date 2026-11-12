@@ -7,6 +7,7 @@ import { Trans, useLingui } from '@lingui/react/macro';
 
 import { useConfirm } from '@/components/confirm';
 import { FormDialog } from '@/components/form-dialog';
+import { ResourceState } from '@/components/resource-state';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -36,7 +37,7 @@ function restartedToast(res: { traefik_restarted: boolean }) {
 export function Streams() {
   const { t } = useLingui();
   const canEdit = useCan('admin');
-  const { data: list = [], reload } = useResource(api.listStreams);
+  const { data: list = [], loading, error, reload } = useResource(api.listStreams);
   const [editing, setEditing] = useState<Stream | 'new' | null>(null);
   const run = useAction();
   const { confirm, dialog } = useConfirm();
@@ -71,6 +72,11 @@ export function Streams() {
           )}
         </CardAction>
       </CardHeader>
+      {(loading || error) && (
+        <CardContent>
+          <ResourceState loading={loading} error={error} onRetry={reload} />
+        </CardContent>
+      )}
       {list.length > 0 && (
         <CardContent className="px-0">
           <Table>
@@ -110,13 +116,13 @@ export function Streams() {
                     {s.published === null ? (
                       <span className="text-xs text-muted-foreground">—</span>
                     ) : s.published ? (
-                      <Badge variant="secondary" className="text-emerald-600 dark:text-emerald-400">
+                      <Badge variant="secondary" className="text-emerald-700 dark:text-emerald-400">
                         <Trans>Yes</Trans>
                       </Badge>
                     ) : (
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <Badge variant="secondary" className="gap-1 text-amber-600">
+                          <Badge variant="secondary" className="gap-1 text-amber-700">
                             <TriangleAlert /> <Trans>No</Trans>
                           </Badge>
                         </TooltipTrigger>
