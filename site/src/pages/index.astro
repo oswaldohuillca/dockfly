@@ -7,8 +7,24 @@ import Install from '../components/Install.astro'
 import Footer from '../components/Footer.astro'
 import '../styles/global.css'
 
+import { repo } from '../consts'
+
+const title = 'Dockfly — self-hosted PaaS for Docker, on your own server'
 const description =
   'Dockfly is a self-hosted panel to deploy apps, static sites and databases on your own server, with automatic SSL and a deploy on every push.'
+// Canonical, og:url and og:image need absolute URLs: they appear once `site` is set in astro.config.mjs.
+const url = Astro.site && new URL(Astro.url.pathname, Astro.site).href
+const image = Astro.site && new URL('/og.png', Astro.site).href
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Dockfly',
+  description,
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Linux',
+  url,
+  sameAs: repo,
+}
 ---
 
 <!doctype html>
@@ -16,11 +32,20 @@ const description =
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Dockfly — deploy on your own server</title>
+    <title>{title}</title>
     <meta name="description" content={description} />
-    <meta property="og:title" content="Dockfly — deploy on your own server" />
+    {url && <link rel="canonical" href={url} />}
+    <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Dockfly" />
+    {url && <meta property="og:url" content={url} />}
+    {image && <meta property="og:image" content={image} />}
+    {image && <meta property="og:image:width" content="1200" />}
+    {image && <meta property="og:image:height" content="630" />}
+    <meta name="twitter:card" content={image ? 'summary_large_image' : 'summary'} />
+    <meta name="theme-color" content="#1a1f12" />
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
   </head>
   <body>

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://dockfly.dev/sitemap.xml
