@@ -60,7 +60,12 @@ func Create(ctx context.Context, db Snapshotter, dataDir, dockflyVersion string,
 	snap.Close()
 	os.Remove(snapPath) // VACUUM INTO exige que el destino no exista
 	defer os.Remove(snapPath)
-	if err := db.Snapshot(ctx, snapPath); err != nil {
+	// Con PostgreSQL o MySQL la copia lleva solo los archivos (claves, sitios,
+	// certificados): la base de datos se copia con las herramientas de su servidor.
+	hasDB := true
+	if err := db.Snapshot(ctx, snapPath); errors.Is(err, errors.ErrUnsupported) {
+		hasDB = false
+	} else if err != nil {
 		return fmt.Errorf("copiando la base de datos: %w", err)
 	}
 
@@ -70,8 +75,10 @@ func Create(ctx context.Context, db Snapshotter, dataDir, dockflyVersion string,
 	if err := writeBytes(tw, manifestName, manifest, 0o644); err != nil {
 		return err
 	}
-	if err := writeFile(tw, snapPath, "dockfly.db"); err != nil {
-		return err
+	if hasDB {
+		if err := writeFile(tw, snapPath, "dockfly.db"); err != nil {
+			return err
+		}
 	}
 	for _, f := range files {
 		if err := writeFile(tw, filepath.Join(dataDir, f), f); err != nil && !errors.Is(err, fs.ErrNotExist) {

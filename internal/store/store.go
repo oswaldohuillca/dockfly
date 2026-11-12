@@ -1,4 +1,5 @@
-// Package store persiste el estado de Dockfly en SQLite usando Bun.
+// Package store persiste el estado de Dockfly con Bun: en SQLite (por
+// defecto), PostgreSQL o MySQL/MariaDB.
 package store
 
 import (
@@ -7,21 +8,31 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"io/fs"
+	"net"
+	"net/url"
 	"slices"
+	"strings"
 	"time"
 
+	"github.com/go-sql-driver/mysql"
 	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect"
+	"github.com/uptrace/bun/dialect/mysqldialect"
+	"github.com/uptrace/bun/dialect/pgdialect"
 	"github.com/uptrace/bun/dialect/sqlitedialect"
+	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/migrate"
 	_ "modernc.org/sqlite" // driver SQLite en Go puro: sin CGO
 )
 
 var ErrNotFound = errors.New("no encontrado")
 
-// migrationsFS contiene las migraciones SQL versionadas. Nunca edites una
-// migración publicada: añade un archivo nuevo con un timestamp posterior.
+// migrationsFS contiene las migraciones SQL versionadas, una carpeta por
+// motor. Nunca edites una migración publicada: añade un archivo nuevo con un
+// timestamp posterior, en las tres carpetas.
 //
-//go:embed migrations/*.sql
+//go:embed migrations/*.sql migrations_postgres/*.sql migrations_mysql/*.sql
 var migrationsFS embed.FS
 
 // Tipos de destino de un proxy host.
@@ -117,27 +128,96 @@ type Store struct {
 	db *bun.DB
 }
 
-func Open(ctx context.Context, path string) (*Store, error) {
-	sqldb, err := sql.Open("sqlite", "file:"+path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)")
+// Open abre la base de datos y aplica las migraciones pendientes. dsn es la
+// ruta de un archivo SQLite o una URL postgres:// o mysql://.
+func Open(ctx context.Context, dsn string) (*Store, error) {
+	db, dir, err := connect(dsn)
 	if err != nil {
 		return nil, err
 	}
-	// SQLite admite un solo escritor; evita errores SQLITE_BUSY.
-	sqldb.SetMaxOpenConns(1)
-
-	db := bun.NewDB(sqldb, sqlitedialect.New())
-	if err := migrateUp(ctx, db); err != nil {
+	if err := migrateUp(ctx, db, dir); err != nil {
 		db.Close()
 		return nil, err
 	}
 	return &Store{db: db}, nil
 }
 
+// connect devuelve la conexión y la carpeta de migraciones de su motor.
+func connect(dsn string) (*bun.DB, string, error) {
+	scheme, _, isURL := strings.Cut(dsn, "://")
+	switch scheme {
+	case "postgres", "postgresql":
+		// Con el reloj de la sesión en UTC las fechas se leen como se guardaron.
+		conn := pgdriver.NewConnector(pgdriver.WithDSN(dsn), pgdriver.WithConnParams(map[string]any{"timezone": "UTC"}))
+		return bun.NewDB(sql.OpenDB(conn), pgdialect.New()), "migrations_postgres", nil
+	case "mysql", "mariadb":
+		u, err := url.Parse(dsn)
+		if err != nil {
+			return nil, "", fmt.Errorf("URL de MySQL inválida: %w", err)
+		}
+		cfg := mysql.NewConfig()
+		cfg.User = u.User.Username()
+		cfg.Passwd, _ = u.User.Password()
+		cfg.Net, cfg.Addr = "tcp", u.Host
+		if u.Port() == "" {
+			cfg.Addr = net.JoinHostPort(u.Hostname(), "3306")
+		}
+		cfg.DBName = strings.TrimPrefix(u.Path, "/")
+		cfg.TLSConfig = u.Query().Get("tls")
+		cfg.ParseTime, cfg.Loc = true, time.UTC
+		// Sin esto un UPDATE que no cambia nada cuenta 0 filas y mustAffect
+		// lo tomaría por "no encontrado".
+		cfg.ClientFoundRows = true
+		conn, err := mysql.NewConnector(cfg)
+		if err != nil {
+			return nil, "", err
+		}
+		// DATETIME no guarda zona: todo se escribe y se lee en UTC.
+		return bun.NewDB(sql.OpenDB(conn), mysqldialect.New(mysqldialect.WithTimeLocation("UTC"))), "migrations_mysql", nil
+	}
+	if isURL {
+		return nil, "", fmt.Errorf("base de datos %q no admitida: usa postgres:// o mysql://", scheme)
+	}
+	sqldb, err := sql.Open("sqlite", "file:"+dsn+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)")
+	if err != nil {
+		return nil, "", err
+	}
+	// SQLite admite un solo escritor; evita errores SQLITE_BUSY.
+	sqldb.SetMaxOpenConns(1)
+	return bun.NewDB(sqldb, sqlitedialect.New()), "migrations", nil
+}
+
+// sqlite indica si los datos están en el archivo local y no en un servidor.
+func (s *Store) sqlite() bool { return s.db.Dialect().Name() == dialect.SQLite }
+
+// External indica si la base de datos es un servidor aparte (PostgreSQL o
+// MySQL): sus copias de seguridad no las hace Dockfly.
+func (s *Store) External() bool { return !s.sqlite() }
+
+// upsert hace que un INSERT actualice cols si la fila ya existe. conflict es
+// la clave que choca (MySQL la deduce sola).
+func (s *Store) upsert(q *bun.InsertQuery, conflict string, cols ...string) *bun.InsertQuery {
+	set := "? = EXCLUDED.?"
+	if s.db.Dialect().Name() == dialect.MySQL {
+		q, set = q.On("DUPLICATE KEY UPDATE"), "? = VALUES(?)"
+	} else {
+		q = q.On("CONFLICT (" + conflict + ") DO UPDATE")
+	}
+	for _, c := range cols {
+		q = q.Set(set, bun.Ident(c), bun.Ident(c))
+	}
+	return q
+}
+
 func (s *Store) Close() error { return s.db.Close() }
 
-func migrateUp(ctx context.Context, db *bun.DB) error {
+func migrateUp(ctx context.Context, db *bun.DB, dir string) error {
+	files, err := fs.Sub(migrationsFS, dir)
+	if err != nil {
+		return err
+	}
 	migrations := migrate.NewMigrations()
-	if err := migrations.Discover(migrationsFS); err != nil {
+	if err := migrations.Discover(files); err != nil {
 		return fmt.Errorf("leyendo migraciones: %w", err)
 	}
 	m := migrate.NewMigrator(db, migrations,
@@ -154,8 +234,10 @@ func migrateUp(ctx context.Context, db *bun.DB) error {
 		return err
 	}
 	defer m.Unlock(ctx) //nolint:errcheck
-	if err := adoptLegacy(ctx, db, m, migrations); err != nil {
-		return fmt.Errorf("adoptando base de datos anterior: %w", err)
+	if db.Dialect().Name() == dialect.SQLite {
+		if err := adoptLegacy(ctx, db, m, migrations); err != nil {
+			return fmt.Errorf("adoptando base de datos anterior: %w", err)
+		}
 	}
 	if _, err := m.Migrate(ctx); err != nil {
 		return fmt.Errorf("aplicando migraciones: %w", err)
@@ -199,6 +281,22 @@ func adoptLegacy(ctx context.Context, db *bun.DB, m *migrate.Migrator, migration
 
 	initial := migrations.Sorted()[0]
 	return m.MarkApplied(ctx, &initial)
+}
+
+// IsDuplicate indica si err es el rechazo de un valor repetido en una columna
+// única (cada motor lo dice a su manera).
+func IsDuplicate(err error) bool {
+	var pg pgdriver.Error
+	var my *mysql.MySQLError
+	switch {
+	case err == nil:
+		return false
+	case errors.As(err, &pg):
+		return pg.Field('C') == "23505"
+	case errors.As(err, &my):
+		return my.Number == 1062
+	}
+	return strings.Contains(err.Error(), "UNIQUE constraint failed")
 }
 
 // now devuelve la hora actual con la precisión que guarda SQLite vía Bun
@@ -293,10 +391,16 @@ func (s *Store) UpdateUserProfile(ctx context.Context, u *User) error {
 // demás sesiones). Devuelve la versión nueva.
 func (s *Store) SetPassword(ctx context.Context, id int64, hash string) (int64, error) {
 	var version int64
-	err := s.db.NewUpdate().Model((*User)(nil)).
-		Set("password_hash = ?", hash).Set("session_version = session_version + 1").
-		Where("id = ?", id).Returning("session_version").Scan(ctx, &version)
-	return version, notFound(err)
+	// En una transacción y no con RETURNING, que MySQL no tiene.
+	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if err := mustAffect(tx.NewUpdate().Model((*User)(nil)).
+			Set("password_hash = ?", hash).Set("session_version = session_version + 1").
+			Where("id = ?", id).Exec(ctx)); err != nil {
+			return err
+		}
+		return tx.NewSelect().Model((*User)(nil)).Column("session_version").Where("id = ?", id).Scan(ctx, &version)
+	})
+	return version, err
 }
 
 // BumpSessionVersion sube la versión de sesión del usuario (cierra todas sus
@@ -395,8 +499,12 @@ func (s *Store) DeleteProxyHost(ctx context.Context, id int64) error {
 
 // Snapshot escribe en path una copia consistente de la base de datos,
 // incluidos los cambios que aún están en el WAL (copiar dockfly.db a mano
-// los perdería).
+// los perdería). Con PostgreSQL o MySQL devuelve errors.ErrUnsupported: esa
+// base de datos se copia con las herramientas de su servidor.
 func (s *Store) Snapshot(ctx context.Context, path string) error {
+	if !s.sqlite() {
+		return errors.ErrUnsupported
+	}
 	_, err := s.db.ExecContext(ctx, "VACUUM INTO ?", path)
 	return err
 }

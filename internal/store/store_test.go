@@ -2,15 +2,47 @@ package store
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"errors"
+	"net/url"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
 )
 
+// testDSN permite pasar estos tests contra otro motor: con
+// DOCKFLY_TEST_DATABASE_URL (postgres://… o mysql://…, un usuario que pueda
+// crear bases de datos) cada ruta de archivo se convierte en una base de datos
+// propia de ese servidor.
+func testDSN(path string) string {
+	base := os.Getenv("DOCKFLY_TEST_DATABASE_URL")
+	if base == "" {
+		return path
+	}
+	sum := sha1.Sum([]byte(path))
+	name := "t_" + hex.EncodeToString(sum[:8])
+	admin, _, err := connect(base)
+	if err != nil {
+		panic(err)
+	}
+	defer admin.Close()
+	admin.ExecContext(context.Background(), "CREATE DATABASE "+name) //nolint:errcheck // ya existe al reabrir
+	u, _ := url.Parse(base)
+	u.Path = "/" + name
+	return u.String()
+}
+
+func TestConnectRejectsUnknownEngine(t *testing.T) {
+	if _, _, err := connect("oracle://u:p@host/db"); err == nil {
+		t.Fatal("un motor desconocido no debe abrirse como archivo SQLite")
+	}
+}
+
 func openTest(t *testing.T, path string) *Store {
 	t.Helper()
-	s, err := Open(context.Background(), path)
+	s, err := Open(context.Background(), testDSN(path))
 	if err != nil {
 		t.Fatal(err)
 	}

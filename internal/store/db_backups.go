@@ -69,10 +69,7 @@ func (s *Store) GetDBBackupPolicy(ctx context.Context, appID int64) (*DBBackupPo
 
 func (s *Store) SaveDBBackupPolicy(ctx context.Context, p *DBBackupPolicy) error {
 	p.UpdatedAt = now()
-	_, err := s.db.NewInsert().Model(p).
-		On("CONFLICT (app_id) DO UPDATE").
-		Set("enabled = EXCLUDED.enabled, interval_hours = EXCLUDED.interval_hours, keep = EXCLUDED.keep, updated_at = EXCLUDED.updated_at").
-		Exec(ctx)
+	_, err := s.upsert(s.db.NewInsert().Model(p), "app_id", "enabled", "interval_hours", "keep", "updated_at").Exec(ctx)
 	return err
 }
 

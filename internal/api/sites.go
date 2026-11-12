@@ -444,7 +444,7 @@ func (s *Server) applyAndRespond(w http.ResponseWriter, r *http.Request, status 
 }
 
 func isUniqueViolation(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+	return store.IsDuplicate(err)
 }
 
 // isMultipartUpload indica si la petición es una subida legítima del panel.

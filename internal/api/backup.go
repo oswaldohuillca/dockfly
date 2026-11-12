@@ -19,11 +19,12 @@ const maxBackupBytes = 10 << 30
 
 // Errores de la restauración de copias.
 var (
-	errBackupMultipart = newError("backup_multipart_required", "The backup must be sent as multipart/form-data")
-	errBackupNoFile    = newError("backup_missing", "No backup was received")
-	errBackupUpload    = newError("backup_upload_failed", "Couldn't read the upload: {detail}")
-	errBackupInvalid   = newError("backup_invalid", "Invalid backup: {detail}")
-	errBackupEncrypted = newError("backup_encrypted", "This backup is encrypted: enter its password")
+	errBackupMultipart  = newError("backup_multipart_required", "The backup must be sent as multipart/form-data")
+	errBackupNoFile     = newError("backup_missing", "No backup was received")
+	errBackupUpload     = newError("backup_upload_failed", "Couldn't read the upload: {detail}")
+	errBackupInvalid    = newError("backup_invalid", "Invalid backup: {detail}")
+	errBackupEncrypted  = newError("backup_encrypted", "This backup is encrypted: enter its password")
+	errBackupExternalDB = newError("backup_external_db", "Backups can't be restored from the panel when Dockfly uses PostgreSQL or MySQL: restore the database with its own tools and the data folder by hand")
 )
 
 func (s *Server) handleDownloadBackup(w http.ResponseWriter, r *http.Request) {
@@ -88,6 +89,10 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		admin = u
+	}
+	if s.Store.External() {
+		writeError(w, http.StatusConflict, errBackupExternalDB)
+		return
 	}
 	if !isMultipartUpload(r) {
 		writeError(w, http.StatusBadRequest, errBackupMultipart)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"testing"
 	"time"
@@ -71,6 +72,9 @@ func createLegacyDB(t *testing.T, withPreserveHost bool) (string, time.Time) {
 }
 
 func TestAdoptLegacyDatabase(t *testing.T) {
+	if os.Getenv("DOCKFLY_TEST_DATABASE_URL") != "" {
+		t.Skip("las bases de datos anteriores a Bun solo existen en SQLite")
+	}
 	for _, withPreserveHost := range []bool{true, false} {
 		name := "sin preserve_host"
 		if withPreserveHost {

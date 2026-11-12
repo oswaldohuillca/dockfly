@@ -38,9 +38,8 @@ func (s *Store) AddTraffic(ctx context.Context, rows []*TrafficMinute) error {
 					}
 				}
 			}
-			if _, err := tx.NewInsert().Model(r).On("CONFLICT (owner, minute) DO UPDATE").
-				Set("requests = EXCLUDED.requests, s4xx = EXCLUDED.s4xx, s5xx = EXCLUDED.s5xx").
-				Set("duration_sum = EXCLUDED.duration_sum, buckets = EXCLUDED.buckets").Exec(ctx); err != nil {
+			if _, err := s.upsert(tx.NewInsert().Model(r), "owner, minute",
+				"requests", "s4xx", "s5xx", "duration_sum", "buckets").Exec(ctx); err != nil {
 				return err
 			}
 		}

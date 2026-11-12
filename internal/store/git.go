@@ -194,8 +194,7 @@ func (s *Store) GetSetting(ctx context.Context, key string) (string, error) {
 }
 
 func (s *Store) SetSetting(ctx context.Context, key, value string) error {
-	_, err := s.db.NewInsert().Model(&setting{Key: key, Value: value}).
-		On("CONFLICT (key) DO UPDATE").Set("value = EXCLUDED.value").Exec(ctx)
+	_, err := s.upsert(s.db.NewInsert().Model(&setting{Key: key, Value: value}), "key", "value").Exec(ctx)
 	return err
 }
 
@@ -379,11 +378,11 @@ func (s *Store) GetGitLabApp(ctx context.Context, id int64) (*GitLabApp, error) 
 // SaveGitLabApp crea la app o, si ya hay una para esa instancia, la reemplaza.
 func (s *Store) SaveGitLabApp(ctx context.Context, a *GitLabApp) error {
 	a.CreatedAt = now()
-	_, err := s.db.NewInsert().Model(a).
-		On("CONFLICT (web_url) DO UPDATE").
-		Set("client_id = EXCLUDED.client_id").Set("client_secret_enc = EXCLUDED.client_secret_enc").
-		Returning("id").Exec(ctx)
-	return err
+	if _, err := s.upsert(s.db.NewInsert().Model(a), "web_url", "client_id", "client_secret_enc").Exec(ctx); err != nil {
+		return err
+	}
+	// El id de la fila que quedó (al reemplazar, el INSERT no lo devuelve en MySQL).
+	return s.db.NewSelect().Model(a).Column("id").Where("web_url = ?", a.WebURL).Scan(ctx)
 }
 
 func (s *Store) DeleteGitLabApp(ctx context.Context, id int64) error {

@@ -184,3 +184,32 @@ func TestApplyPendingResumes(t *testing.T) {
 		t.Error("la copia pendiente debe desaparecer")
 	}
 }
+
+type noSnapshot struct{}
+
+func (noSnapshot) Snapshot(context.Context, string) error { return errors.ErrUnsupported }
+
+// Con PostgreSQL o MySQL la copia lleva los archivos pero no la base de datos.
+func TestBackupWithoutLocalDatabase(t *testing.T) {
+	dir := t.TempDir()
+	write(t, filepath.Join(dir, "secret.key"), "clave")
+	var buf bytes.Buffer
+	if err := Create(context.Background(), noSnapshot{}, dir, "test", &buf); err != nil {
+		t.Fatal(err)
+	}
+	gz, err := gzip.NewReader(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := map[string]bool{}
+	for tr := tar.NewReader(gz); ; {
+		hdr, err := tr.Next()
+		if err != nil {
+			break
+		}
+		names[hdr.Name] = true
+	}
+	if !names["secret.key"] || names["dockfly.db"] {
+		t.Fatalf("contenido inesperado: %v", names)
+	}
+}
