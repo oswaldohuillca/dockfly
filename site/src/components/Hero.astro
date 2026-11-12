@@ -1,0 +1,31 @@
+---
+import PanelDemo from './PanelDemo.astro'
+import { repo } from '../consts'
+
+const btn = 'inline-flex h-11 items-center justify-center px-5 text-sm font-medium transition-colors duration-150'
+const btnPrimary = `${btn} bg-primary text-primary-foreground hover:bg-primary/90`
+const btnOutline = `${btn} border border-white/25 hover:bg-white/10`
+---
+
+<section class="bg-ink text-ink-foreground">
+  <div class="mx-auto max-w-6xl px-4 pt-10 text-center lg:pt-16">
+    <p class="font-mono text-xs uppercase tracking-widest text-highlight">Self-hosted panel for Docker</p>
+    <h1 class="mx-auto mt-5 max-w-4xl text-balance text-4xl font-semibold leading-[1.05] tracking-tight sm:text-5xl lg:text-6xl">
+      Deploy on your own server like it's a PaaS.
+    </h1>
+    <p class="mx-auto mt-6 max-w-2xl text-pretty text-lg leading-relaxed text-ink-muted">
+      Dockfly publishes your apps, sites and databases with automatic SSL and rebuilds them on every push.
+      All in a single Docker image, on a machine you own.
+    </p>
+    <div class="mt-8 flex flex-wrap justify-center gap-3">
+      <a href="#install" class={btnPrimary}>Install on your server</a>
+      <a href={repo} class={btnOutline}>View the code on GitHub</a>
+    </div>
+    <p class="mt-5 font-mono text-xs text-ink-muted">one compose.yml · docker compose up -d · done</p>
+  </div>
+
+  <div class="mx-auto max-w-6xl px-4">
+    <!-- Overhangs the dark block; the next section's top padding makes room for it. -->
+    <PanelDemo />
+  </div>
+</section>

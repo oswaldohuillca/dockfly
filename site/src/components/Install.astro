@@ -1,0 +1,78 @@
+---
+import { Code } from 'astro:components'
+import { repo } from '../consts'
+
+const compose = `services:
+  dockfly:
+    image: 'ghcr.io/oswaldohuillca/dockfly:latest'
+    container_name: dockfly
+    restart: unless-stopped
+    ports:
+      - '80:80'
+      - '443:443'
+      - '127.0.0.1:81:81'
+    environment:
+      DOCKFLY_NETWORK: 'dockfly'
+    volumes:
+      - ./data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'`
+---
+
+<section id="install" class="scroll-mt-0 bg-ink text-ink-foreground">
+  <div class="mx-auto grid max-w-6xl gap-12 px-4 py-20 lg:grid-cols-[1fr_1.1fr] lg:py-24">
+    <div class="min-w-0">
+      <h2 class="text-3xl font-semibold tracking-tight sm:text-4xl">Installed in two minutes.</h2>
+      <p class="mt-4 max-w-md text-ink-muted">All you need is a server with Docker and a domain pointing at it.</p>
+      <ol class="mt-10 space-y-7">
+        <li class="flex gap-4">
+          <span class="font-mono text-sm text-highlight">01</span>
+          <p>Save this <code class="font-mono text-sm">compose.yml</code> on your server.</p>
+        </li>
+        <li class="flex gap-4">
+          <span class="font-mono text-sm text-highlight">02</span>
+          <div class="min-w-0">
+            <p>Start it.</p>
+            <pre class="mt-2 overflow-x-auto font-mono text-sm text-ink-muted"><code>docker compose up -d</code></pre>
+          </div>
+        </li>
+        <li class="flex gap-4">
+          <span class="font-mono text-sm text-highlight">03</span>
+          <div class="min-w-0">
+            <p>Open an SSH tunnel and create your admin account at <span class="font-mono text-sm">127.0.0.1:8081</span>.</p>
+            <pre class="mt-2 overflow-x-auto font-mono text-sm text-ink-muted"><code>ssh -L 8081:127.0.0.1:81 user@your-server</code></pre>
+          </div>
+        </li>
+      </ol>
+      <p class="mt-10 text-sm text-ink-muted">
+        The panel only listens locally on purpose.{' '}
+        <a href={`${repo}#instalación`} class="text-ink-foreground underline underline-offset-4 hover:no-underline">The full guide</a>{' '}
+        covers publishing it over HTTPS and every option.
+      </p>
+    </div>
+
+    <div class="min-w-0 self-start border border-white/10">
+      <div class="flex items-center justify-between border-b border-white/10 px-4 py-2">
+        <span class="font-mono text-xs text-ink-muted">compose.yml</span>
+        <button type="button" id="copy" class="px-2 py-1 text-xs font-medium text-ink-foreground hover:bg-white/10">Copy</button>
+      </div>
+      <div id="compose">
+        <Code code={compose} lang="yaml" theme="css-variables" class="p-4 font-mono text-xs leading-6 sm:text-sm sm:leading-6" />
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+  const button = document.getElementById('copy')!
+  button.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(document.getElementById('compose')!.textContent ?? '')
+      button.textContent = 'Copied'
+    } catch {
+      button.textContent = 'Could not copy'
+    }
+    setTimeout(() => (button.textContent = 'Copy'), 2000)
+  })
+</script>

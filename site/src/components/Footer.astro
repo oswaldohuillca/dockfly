@@ -1,0 +1,15 @@
+---
+import { repo } from '../consts'
+---
+
+<footer class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-muted-foreground">
+  <p class="flex items-center gap-2">
+    <img src="/favicon.svg" alt="" width="20" height="20" />
+    Dockfly, for people who run their own infrastructure.
+  </p>
+  <nav aria-label="Footer" class="flex gap-5">
+    <a href={repo} class="hover:text-foreground">GitHub</a>
+    <a href={`${repo}/releases`} class="hover:text-foreground">Releases</a>
+    <a href={`${repo}#readme`} class="hover:text-foreground">Documentation</a>
+  </nav>
+</footer>

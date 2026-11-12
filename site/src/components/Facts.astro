@@ -1,0 +1,21 @@
+---
+const facts = [
+  { value: '1 image', label: 'panel and Traefik together, ~54 MB' },
+  { value: 'amd64 · arm64', label: 'runs on a Raspberry Pi too' },
+  { value: 'Automatic SSL', label: "Let's Encrypt certificates" },
+  { value: 'Just Docker', label: 'nothing else to install' },
+]
+---
+
+<section aria-label="At a glance" class="border-b border-border">
+  <dl class="mx-auto grid max-w-6xl grid-cols-2 gap-x-6 gap-y-8 px-4 pb-12 pt-40 lg:grid-cols-4 lg:pt-48">
+    {
+      facts.map((f) => (
+        <div class="border-l-2 border-primary pl-4">
+          <dt class="text-xl font-semibold tracking-tight">{f.value}</dt>
+          <dd class="mt-1 text-sm text-muted-foreground">{f.label}</dd>
+        </div>
+      ))
+    }
+  </dl>
+</section>

@@ -1,0 +1,383 @@
+---
+// 270° arc meter, same as the panel's (web/src/components/gauge.tsx).
+const R = 34
+const C = 2 * Math.PI * R
+const ARC = C * 0.75
+const gauges = [
+  { label: 'CPU', value: 23, detail: '4 cores' },
+  { label: 'Memory', value: 61, detail: '4.9 of 8 GB' },
+  { label: 'Disk', value: 38, detail: '27 of 72 GB' },
+]
+
+// Hero demo: the panel's real screens with invented data. Menu as in web/src/components/header.tsx;
+// the second item is the demo scene that entry opens.
+const nav = [['Proxy Hosts'], ['Sites', 'sites'], ['Apps', 'apps'], ['Servers', 'servers'], ['Integrations'], ['Settings']]
+const tiles = {
+  sites: [['Total sites', '6'], ['Published', '6'], ['Not deployed', '0'], ['With SSL', '6']],
+  apps: [['Total apps', '6'], ['Running', '5'], ['With problems', '0'], ['Stopped', '0']],
+}
+const sites = [
+  { name: 'storefront', domain: 'shop.acme.dev', last: 'Deployment #8 · 2 days ago' },
+  { name: 'docs', domain: 'docs.acme.dev', last: 'Deployment #23 · 5 days ago' },
+  { name: 'blog', domain: 'acme.dev/blog', last: 'Deployment #41 · 1 hour ago' },
+  { name: 'landing', domain: 'acme.dev', last: 'Deployment #12 · 3 days ago' },
+  { name: 'status', domain: 'status.acme.dev', last: 'Deployment #4 · 2 weeks ago' },
+  { name: 'admin', domain: 'admin.acme.dev', last: 'Deployment #57 · yesterday' },
+]
+const builds = [
+  { n: 8, commit: '9cb2ade', msg: 'Add order tracking page', source: 'Push', date: '2 days ago' },
+  { n: 7, commit: '675b451', msg: 'Cache product images', source: 'Manual', date: '3 days ago' },
+]
+const demoApps = [
+  { name: 'api', meta: 'acme/api', domain: 'api.acme.dev' },
+  { name: 'worker', meta: 'acme/worker', domain: 'internal only', deploying: true },
+  { name: 'postgres', meta: 'postgres:17', domain: 'internal only' },
+  { name: 'redis', meta: 'redis:8', domain: 'internal only' },
+  { name: 'n8n', meta: 'n8nio/n8n', domain: 'auto.acme.dev' },
+  { name: 'uptime-kuma', meta: 'louislam/uptime-kuma', domain: 'uptime.acme.dev' },
+]
+const badge = 'shrink-0 border px-1.5 py-0.5 text-[11px] font-medium'
+const ok = `${badge} border-emerald-400/30 bg-emerald-400/10 text-emerald-400`
+const busy = `${badge} border-amber-400/30 bg-amber-400/10 text-amber-400`
+const card = 'min-w-0 border border-border bg-card p-4'
+const listCard = `${card} max-sm:nth-[n+3]:hidden`
+const tile = 'border border-border bg-card px-4 py-3'
+const btnSm = 'shrink-0 bg-primary px-2.5 py-1.5 text-xs font-medium text-primary-foreground'
+const row = 'grid grid-cols-[7.5rem_1fr] items-center gap-3 border-b border-border px-4 py-2.5 last:border-b-0 sm:grid-cols-[7.5rem_1fr_4rem_6rem]'
+---
+
+<figure id="demo" class="demo relative z-10 -mb-28 mt-14 border border-border bg-background text-left text-foreground shadow-card lg:-mb-36">
+  <figcaption class="sr-only">
+    Animated preview of the Dockfly panel: a push to main builds and publishes a site, then the apps list and
+    the server's CPU, memory and disk usage.
+  </figcaption>
+  <div class="flex items-center justify-between gap-3 border-b border-border bg-card px-4 py-1.5">
+    <p aria-hidden="true" class="truncate font-mono text-xs text-muted-foreground">
+      dockfly.acme.dev<span data-t="path">/sites</span>
+    </p>
+    <button type="button" data-t="toggle" class="min-w-14 px-2 py-1.5 text-xs font-medium hover:bg-muted">Pause</button>
+  </div>
+
+  <div data-t="stage" aria-hidden="true" class="relative grid h-[34rem] grid-rows-[minmax(0,1fr)] overflow-hidden md:grid-cols-[11rem_1fr] lg:h-[32rem]">
+    <div class="hidden flex-col border-r border-border bg-card p-3 md:flex">
+      <p class="flex items-center gap-2 px-1 pt-1 font-semibold tracking-tight">
+        <img src="/favicon.svg" alt="" width="22" height="22" />Dockfly
+      </p>
+      <ul class="mt-5 space-y-1 text-sm">
+        {
+          nav.map(([label, scene]) => (
+            <li
+              data-nav={scene}
+              data-on={scene === 'sites' ? 'true' : undefined}
+              class="px-2.5 py-2 text-muted-foreground data-[on]:bg-primary data-[on]:font-medium data-[on]:text-primary-foreground"
+            >
+              {label}
+            </li>
+          ))
+        }
+      </ul>
+      <div class="mt-auto space-y-1.5 border border-border bg-background p-3 text-xs">
+        <p class="text-muted-foreground">System</p>
+        <p class="flex items-center gap-2"><span class="size-2 bg-emerald-500"></span>Traefik running</p>
+        <p class="flex items-center gap-2"><span class="size-2 bg-emerald-500"></span>Docker connected</p>
+      </div>
+    </div>
+
+    <div class="min-w-0 p-4 sm:p-6">
+      <div data-scene="sites">
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-lg font-semibold tracking-tight">Sites</p>
+            <p class="text-xs text-muted-foreground">Publish static sites by uploading your build folder.</p>
+          </div>
+          <span class={btnSm}>+ New site</span>
+        </div>
+        <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {
+            tiles.sites.map(([label, value]) => (
+              <div class={tile}>
+                <p class="text-xs text-muted-foreground">{label}</p>
+                <p class="text-lg font-semibold tabular-nums">{value}</p>
+              </div>
+            ))
+          }
+        </div>
+        <div class="mt-3 grid gap-3 sm:grid-cols-3">
+          {
+            sites.map((s, i) => (
+              <div data-t={i === 0 ? 'site-card' : undefined} class={listCard}>
+                <div class="flex items-center justify-between gap-2">
+                  <p class="truncate text-sm font-semibold">{s.name}</p>
+                  <span class={ok}>Published</span>
+                </div>
+                <p class="mt-3 truncate font-mono text-xs text-muted-foreground">{s.domain}</p>
+                <p class="mt-1 text-xs text-muted-foreground">{s.last}</p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+
+      <div data-scene="sites-detail" hidden>
+        <p class="text-xs text-muted-foreground">← Sites</p>
+        <div class={`mt-3 ${card}`}>
+          <div class="flex flex-wrap items-center gap-2">
+            <p class="text-lg font-semibold tracking-tight">storefront</p>
+            <span class={`${badge} border-border`}>SPA</span>
+            <span class={ok}>SSL valid until Jan 21</span>
+          </div>
+          <div class="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-3">
+            <p class="font-mono text-xs text-muted-foreground">
+              acme/storefront · main · <span class="text-foreground">deploy on every push</span>
+            </p>
+            <span class={btnSm}>Deploy now</span>
+          </div>
+        </div>
+        <div class="mt-3 border border-border bg-card text-xs">
+          <div class={`${row} text-[11px] uppercase tracking-wider text-muted-foreground`}>
+            <p>Build</p>
+            <p>Commit</p>
+            <p class="hidden sm:block">Source</p>
+            <p class="hidden sm:block">Date</p>
+          </div>
+          <div data-t="build" hidden class={row}>
+            <p data-flip="build" class="flex items-center gap-2">
+              <span class="tabular-nums">#9</span>
+              <span class={busy}>Building</span>
+              <span class={ok} hidden>Published</span>
+            </p>
+            <p class="min-w-0 truncate"><span class="font-mono text-muted-foreground">a3f9c1e</span> Fix checkout totals</p>
+            <p class="hidden sm:block">Push</p>
+            <p class="hidden text-muted-foreground sm:block">just now</p>
+          </div>
+          {
+            builds.map((b) => (
+              <div class={row}>
+                <p class="flex items-center gap-2">
+                  <span class="tabular-nums">#{b.n}</span>
+                  <span class={ok}>Published</span>
+                </p>
+                <p class="min-w-0 truncate"><span class="font-mono text-muted-foreground">{b.commit}</span> {b.msg}</p>
+                <p class="hidden sm:block">{b.source}</p>
+                <p class="hidden text-muted-foreground sm:block">{b.date}</p>
+              </div>
+            ))
+          }
+        </div>
+        <pre data-t="log" hidden class="mt-3 h-36 overflow-hidden border border-border bg-black/40 p-3 font-mono text-[11px] leading-5 text-muted-foreground"></pre>
+      </div>
+
+      <div data-scene="apps" hidden>
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-lg font-semibold tracking-tight">Apps</p>
+            <p class="text-xs text-muted-foreground">Containers from an image, a Dockerfile or a compose file.</p>
+          </div>
+          <span class={btnSm}>+ New app</span>
+        </div>
+        <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {
+            tiles.apps.map(([label, value]) => (
+              <div class={tile}>
+                <p class="text-xs text-muted-foreground">{label}</p>
+                <p data-t={label} class="text-lg font-semibold tabular-nums">{value}</p>
+              </div>
+            ))
+          }
+        </div>
+        <div class="mt-3 grid gap-3 sm:grid-cols-3">
+          {
+            demoApps.map((a) => (
+              <div class={listCard}>
+                <div data-flip={a.deploying ? 'worker' : undefined} class="flex items-center justify-between gap-2">
+                  <p class="order-first truncate text-sm font-semibold">{a.name}</p>
+                  {a.deploying && <span class={busy}>Health check</span>}
+                  <span class={ok} hidden={a.deploying}>Running</span>
+                </div>
+                <p class="mt-3 truncate font-mono text-xs text-muted-foreground">{a.meta}</p>
+                <p class="mt-1 text-xs text-muted-foreground">{a.domain}</p>
+              </div>
+            ))
+          }
+        </div>
+      </div>
+
+      <div data-scene="servers" hidden>
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <p class="text-lg font-semibold tracking-tight">Servers</p>
+            <p class="text-xs text-muted-foreground">Each server runs an agent that connects out to this panel.</p>
+          </div>
+          <span class={btnSm}>+ Add server</span>
+        </div>
+        <div class={`mt-4 ${card}`}>
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-sm font-semibold">This server</p>
+            <span class={ok}>Connected</span>
+          </div>
+          <div class="mt-4 grid items-center gap-6 lg:grid-cols-[1.4fr_1fr]">
+            <div class="grid grid-cols-3 gap-2">
+              {
+                gauges.map((g) => (
+                  <div class="text-center">
+                    <div class="relative mx-auto w-full max-w-28">
+                      <svg viewBox="0 0 80 80" class="w-full" fill="none" stroke-width="7">
+                        <g transform="rotate(135 40 40)">
+                          <circle cx="40" cy="40" r={R} class="text-muted" stroke="currentColor" stroke-dasharray={`${ARC} ${C}`} />
+                          <circle
+                            cx="40"
+                            cy="40"
+                            r={R}
+                            class="text-primary transition-[stroke-dasharray] duration-1000"
+                            stroke="currentColor"
+                            stroke-dasharray={`0 ${C}`}
+                            data-gauge={`${(ARC * g.value) / 100} ${C}`}
+                          />
+                        </g>
+                      </svg>
+                      <p class="absolute inset-0 flex items-center justify-center text-xl font-semibold tabular-nums tracking-tight">
+                        {g.value}%
+                      </p>
+                    </div>
+                    <p class="text-sm font-medium">{g.label}</p>
+                    <p class="text-xs text-muted-foreground">{g.detail}</p>
+                  </div>
+                ))
+              }
+            </div>
+            <div class="hidden space-y-3 text-xs lg:block">
+              {
+                [['Load average', '0.42 · 0.31 · 0.28'], ['Uptime', '12 d 4 h'], ['Swap', 'none']].map(([k, v]) => (
+                  <p class="flex justify-between gap-3 border-b border-border pb-3 last:border-b-0">
+                    <span class="text-muted-foreground">{k}</span>
+                    <span class="font-medium tabular-nums">{v}</span>
+                  </p>
+                ))
+              }
+            </div>
+          </div>
+        </div>
+        <div class={`mt-3 flex items-center justify-between gap-2 ${card}`}>
+          <div class="min-w-0">
+            <p class="text-sm font-semibold">fra-1</p>
+            <p class="truncate font-mono text-xs text-muted-foreground">agent · 3 remote apps</p>
+          </div>
+          <span class={ok}>Connected</span>
+        </div>
+      </div>
+    </div>
+
+    <p data-t="push" hidden class="absolute bottom-4 right-4 border border-border bg-black px-3 py-2 font-mono text-xs shadow-card">
+      <span class="text-primary">$</span> <span></span>
+    </p>
+    <svg data-t="cursor" viewBox="0 0 24 24" style="transform: translate(55vw, 16rem)" class="pointer-events-none absolute left-0 top-0 size-5 transition-transform duration-700 ease-in-out motion-reduce:transition-none">
+      <path d="M4 2l15 9-7 1.5L9 20z" fill="white" stroke="black" stroke-width="1.5" stroke-linejoin="round" />
+    </svg>
+  </div>
+</figure>
+
+<script>
+  // Hero demo: one scripted loop over the scenes. Pauses off-screen, on the button and with reduced motion.
+  const demo = document.getElementById('demo')!
+  const $ = (s: string) => demo.querySelector<HTMLElement>(s)!
+  const stage = $('[data-t=stage]')
+  const toggle = $('[data-t=toggle]')
+  const cursor = $('[data-t=cursor]')
+  const build = $('[data-t=build]')
+  const log = $('[data-t=log]')
+  const push = $('[data-t=push]')
+  const typed = push.lastElementChild!
+  const gaugeArcs = demo.querySelectorAll<SVGElement>('[data-gauge]')
+  const LOG = [
+    '$ git clone acme/storefront · a3f9c1e',
+    '$ bun install',
+    '  dependencies restored from cache',
+    '$ bun run build',
+    '  dist/ ready · 89 files, 3.2 MB',
+    '✓ Published to shop.acme.dev',
+  ]
+
+  let paused = matchMedia('(prefers-reduced-motion: reduce)').matches
+  let visible = true
+  new IntersectionObserver(([e]) => (visible = e.isIntersecting)).observe(demo)
+  const label = () => (toggle.textContent = paused ? 'Play' : 'Pause')
+  toggle.addEventListener('click', () => {
+    paused = !paused
+    label()
+  })
+  label()
+
+  const tick = (ms: number) => new Promise((r) => setTimeout(r, ms))
+  const sleep = async (ms: number) => {
+    await tick(ms)
+    while (paused || !visible) await tick(200)
+  }
+  const show = (scene: string, path: string) => {
+    demo.querySelectorAll<HTMLElement>('[data-scene]').forEach((el) => (el.hidden = el.dataset.scene !== scene))
+    demo.querySelectorAll<HTMLElement>('[data-nav]').forEach((el) => el.toggleAttribute('data-on', scene.startsWith(el.dataset.nav!)))
+    $('[data-t=path]').textContent = path
+  }
+  // Each flip holds two badges after its label: in progress, then done.
+  const flip = (name: string, done: boolean) => {
+    const [, doing, finished] = $(`[data-flip=${name}]`).children as unknown as HTMLElement[]
+    doing.hidden = done
+    finished.hidden = !done
+  }
+  const click = async (sel: string) => {
+    const el = $(sel)
+    if (el.offsetParent) {
+      const a = el.getBoundingClientRect()
+      const b = stage.getBoundingClientRect()
+      cursor.style.transform = `translate(${a.left - b.left + a.width / 2}px, ${a.top - b.top + a.height / 2}px)`
+    }
+    await sleep(950)
+  }
+
+  ;(async () => {
+    for (;;) {
+      show('sites', '/sites')
+      flip('build', false)
+      flip('worker', false)
+      build.hidden = log.hidden = push.hidden = true
+      log.textContent = typed.textContent = ''
+      $('[data-t=Running]').textContent = '5'
+      gaugeArcs.forEach((g) => (g.style.strokeDasharray = ''))
+      await sleep(1600)
+
+      await click('[data-t=site-card]')
+      show('sites-detail', '/sites/2')
+      await sleep(900)
+      push.hidden = false
+      for (const ch of 'git push origin main') {
+        typed.textContent += ch
+        await tick(45)
+      }
+      await sleep(600)
+      push.hidden = true
+      build.hidden = log.hidden = false
+      for (const line of LOG) {
+        const span = document.createElement('span')
+        span.textContent = line + '\n'
+        if (line.startsWith('✓')) span.className = 'text-primary'
+        log.append(span)
+        await sleep(550)
+      }
+      flip('build', true)
+      await sleep(2400)
+
+      await click('[data-nav=apps]')
+      show('apps', '/apps')
+      await sleep(1300)
+      flip('worker', true)
+      $('[data-t=Running]').textContent = '6'
+      await sleep(1900)
+
+      await click('[data-nav=servers]')
+      show('servers', '/servers')
+      await tick(50)
+      gaugeArcs.forEach((g) => (g.style.strokeDasharray = g.dataset.gauge!))
+      await sleep(3400)
+      await click('[data-nav=sites]')
+    }
+  })()
+</script>

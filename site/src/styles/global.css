@@ -57,6 +57,10 @@
 
 @utility shadow-card {
     box-shadow: 0 1px 2px oklch(0.2 0.03 122 / 6%), 0 12px 32px -12px oklch(0.2 0.03 122 / 18%);
+    /* En oscuro la sombra no se ve: contorno interior tenue, como en el panel. */
+    @media (prefers-color-scheme: dark) {
+        box-shadow: inset 0 0 0 1px oklch(1 0 0 / 8%);
+    }
 }
 
 @layer base {
@@ -71,9 +75,51 @@
         outline: 2px solid var(--primary);
         outline-offset: 2px;
     }
+    /* El oliva del foco no contrasta sobre --ink en claro. */
+    .bg-ink :focus-visible {
+        outline-color: var(--ink-foreground);
+    }
     @media (prefers-reduced-motion: reduce) {
         html {
             scroll-behavior: auto;
         }
     }
+}
+
+/* Demo del hero: el panel siempre en oscuro, con los mismos valores que el bloque de arriba. */
+.demo {
+    color-scheme: dark;
+    --background: oklch(0.155 0.015 115);
+    --foreground: oklch(0.97 0.005 115);
+    --card: oklch(0.2 0.018 115);
+    --primary: oklch(0.809 0.11 122);
+    --primary-foreground: oklch(0.18 0.03 122);
+    --muted: oklch(0.27 0.015 115);
+    --muted-foreground: oklch(0.72 0.02 115);
+    --border: oklch(1 0 0 / 10%);
+}
+
+/* Cambio de escena de la demo: entrada corta, sin retrasar nada. */
+@media (prefers-reduced-motion: no-preference) {
+    .demo [data-scene]:not([hidden]) {
+        animation: scene-in 150ms ease-out;
+    }
+}
+@keyframes scene-in {
+    from {
+        opacity: 0;
+        translate: 0 4px;
+    }
+}
+
+/* Shiki (tema css-variables) con la paleta: claves en arena, valores en oliva claro, sobre --ink. */
+.astro-code {
+    --astro-code-background: transparent;
+    --astro-code-foreground: var(--ink-foreground);
+    --astro-code-token-keyword: oklch(0.842 0.067 80);
+    --astro-code-token-string-expression: oklch(0.809 0.11 122);
+    --astro-code-token-string: oklch(0.809 0.11 122);
+    --astro-code-token-constant: var(--ink-foreground);
+    --astro-code-token-punctuation: var(--ink-muted);
+    --astro-code-token-comment: var(--ink-muted);
 }

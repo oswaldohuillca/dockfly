@@ -64,8 +64,14 @@ Ancho máximo del contenido: `max-w-6xl`.
 
 ## Landing (`site/`)
 Sitio Astro estático con los mismos tokens (copiados en `site/src/styles/global.css`). Añade `--ink` (`oklch(0.2 0.03 122)`),
-un oliva casi negro para el bloque de instalación y los bloques de código, igual en claro y en oscuro. Escala tipográfica
-más amplia que el panel (titular hasta 60 px); el resto de reglas (sin radio, sin degradados, un botón primario) se mantienen.
+un oliva casi negro para la cabecera, el hero, el bloque de instalación y los bloques de código, igual en claro y en oscuro.
+Sobre `--ink` el foco usa `--ink-foreground` y el botón secundario lleva borde `white/25`. La demo del hero (`#demo`) reproduce
+pantallas reales del panel con datos inventados (`acme.dev`), siempre en oscuro (clase `.demo`), y las recorre con un guion
+en bucle: sitios, push, build, publicado, apps, servidores. Se pausa con su botón, fuera de pantalla y con
+`prefers-reduced-motion`. Sobresale del bloque oscuro (margen negativo; la sección siguiente compensa con su padding superior). Escala tipográfica
+más amplia que el panel (titular hasta 60 px, titulares con `text-balance`). El código resaltado (Shiki, tema `css-variables`)
+usa la paleta: claves en arena, valores en oliva claro, puntuación en `--ink-muted`. `shadow-card` pasa a contorno interior
+en oscuro, y los bloques `--ink` dentro de una tarjeta llevan borde `white/10` para no fundirse con ella. El resto de reglas (sin radio, sin degradados, un botón primario) se mantienen.
 
 ## Do / Don't
 - Sí: oliva solo en la acción principal, navegación activa, enlaces y foco; arena con moderación.

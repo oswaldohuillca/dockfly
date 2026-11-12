@@ -1,0 +1,17 @@
+---
+import { repo } from '../consts'
+---
+
+<header class="bg-ink text-ink-foreground">
+  <div class="mx-auto flex max-w-6xl items-center justify-between px-4 py-5">
+    <a href="/" class="flex items-center gap-2.5 text-lg font-semibold tracking-tight">
+      <img src="/favicon.svg" alt="" width="32" height="32" />
+      Dockfly
+    </a>
+    <nav aria-label="Main" class="flex items-center gap-1 text-sm">
+      <a href="#features" class="hidden px-3 py-2 text-ink-muted hover:text-ink-foreground sm:block">Features</a>
+      <a href="#install" class="hidden px-3 py-2 text-ink-muted hover:text-ink-foreground sm:block">Install</a>
+      <a href={repo} class="px-3 py-2 text-ink-muted hover:text-ink-foreground">GitHub</a>
+    </nav>
+  </div>
+</header>
