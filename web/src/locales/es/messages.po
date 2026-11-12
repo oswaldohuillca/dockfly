@@ -701,7 +701,7 @@ msgstr "Códigos copiados"
 msgid "Coming from another server?"
 msgstr "¿Vienes de otro servidor?"
 
-#: src/components/app-console.tsx:74
+#: src/components/app-console.tsx:83
 #: src/components/app-dialog.tsx:384
 #: src/components/app-jobs.tsx:175
 msgid "Command"
@@ -711,7 +711,7 @@ msgstr "Comando"
 msgid "Command copied"
 msgstr "Comando copiado"
 
-#: src/components/app-console.tsx:49
+#: src/components/app-console.tsx:53
 msgid "Command output"
 msgstr "Salida de los comandos"
 
@@ -1647,7 +1647,7 @@ msgid "Failed (code {0})"
 msgstr "Falló (código {0})"
 
 #. placeholder {0}: r.exitCode
-#: src/components/app-console.tsx:65
+#: src/components/app-console.tsx:74
 msgid "Failed (exit code {0})"
 msgstr "Falló (código de salida {0})"
 
@@ -1655,7 +1655,7 @@ msgstr "Falló (código de salida {0})"
 msgid "Files"
 msgstr "Archivos"
 
-#: src/components/app-console.tsx:63
+#: src/components/app-console.tsx:72
 msgid "Finished (exit code 0)"
 msgstr "Terminó bien (código de salida 0)"
 
@@ -2648,7 +2648,7 @@ msgstr "Otro (cualquier proveedor de lego)"
 msgid "Other apps reach it at <0>{internalHost}</0>."
 msgstr "Otras apps la encuentran en <0>{internalHost}</0>."
 
-#: src/components/app-console.tsx:61
+#: src/components/app-console.tsx:70
 msgid "Output cut: it was too long."
 msgstr "Salida cortada: era demasiado larga."
 
@@ -3121,11 +3121,11 @@ msgctxt "api:route_not_found"
 msgid "Route not found"
 msgstr "Ruta no encontrada"
 
-#: src/components/app-console.tsx:87
+#: src/components/app-console.tsx:96
 msgid "Run"
 msgstr "Ejecutar"
 
-#: src/components/app-console.tsx:54
+#: src/components/app-console.tsx:58
 msgid "Run a command inside the app's container: a migration, a quick look at a file. Each command starts from scratch, so cd and variables don't carry over."
 msgstr "Ejecuta un comando dentro del contenedor de la app: una migración, un vistazo a un archivo. Cada comando empieza de cero, así que cd y las variables no se conservan."
 
@@ -3143,7 +3143,7 @@ msgstr "Ejecuta esto en el servidor (con Docker instalado). El agente se conecta
 msgid "Running"
 msgstr "En marcha"
 
-#: src/components/app-console.tsx:87
+#: src/components/app-console.tsx:96
 #: src/components/app-jobs.tsx:79
 msgid "Running…"
 msgstr "En marcha…"
@@ -3922,6 +3922,10 @@ msgstr "Este contenedor no está en la red de Dockfly. Al guardar se conectará 
 msgctxt "api:deploy_hook_not_found"
 msgid "This deploy hook doesn't exist or was regenerated"
 msgstr "Este deploy hook no existe o fue regenerado"
+
+#: src/components/app-console.tsx:66
+msgid "This image has no shell: the command ran directly, so pipes, quotes and variables don't work."
+msgstr "Esta imagen no tiene shell: el comando se ejecutó directamente, así que las tuberías, las comillas y las variables no funcionan."
 
 #: src/lib/api-errors.gen.ts:19
 msgctxt "api:already_set_up"

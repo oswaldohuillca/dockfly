@@ -707,7 +707,7 @@ msgstr "Codes copied"
 msgid "Coming from another server?"
 msgstr "Coming from another server?"
 
-#: src/components/app-console.tsx:74
+#: src/components/app-console.tsx:83
 #: src/components/app-dialog.tsx:384
 #: src/components/app-jobs.tsx:175
 msgid "Command"
@@ -717,7 +717,7 @@ msgstr "Command"
 msgid "Command copied"
 msgstr "Command copied"
 
-#: src/components/app-console.tsx:49
+#: src/components/app-console.tsx:53
 msgid "Command output"
 msgstr "Command output"
 
@@ -1653,7 +1653,7 @@ msgid "Failed (code {0})"
 msgstr "Failed (code {0})"
 
 #. placeholder {0}: r.exitCode
-#: src/components/app-console.tsx:65
+#: src/components/app-console.tsx:74
 msgid "Failed (exit code {0})"
 msgstr "Failed (exit code {0})"
 
@@ -1661,7 +1661,7 @@ msgstr "Failed (exit code {0})"
 msgid "Files"
 msgstr "Files"
 
-#: src/components/app-console.tsx:63
+#: src/components/app-console.tsx:72
 msgid "Finished (exit code 0)"
 msgstr "Finished (exit code 0)"
 
@@ -2654,7 +2654,7 @@ msgstr "Other (any lego provider)"
 msgid "Other apps reach it at <0>{internalHost}</0>."
 msgstr "Other apps reach it at <0>{internalHost}</0>."
 
-#: src/components/app-console.tsx:61
+#: src/components/app-console.tsx:70
 msgid "Output cut: it was too long."
 msgstr "Output cut: it was too long."
 
@@ -3127,11 +3127,11 @@ msgctxt "api:route_not_found"
 msgid "Route not found"
 msgstr "Route not found"
 
-#: src/components/app-console.tsx:87
+#: src/components/app-console.tsx:96
 msgid "Run"
 msgstr "Run"
 
-#: src/components/app-console.tsx:54
+#: src/components/app-console.tsx:58
 msgid "Run a command inside the app's container: a migration, a quick look at a file. Each command starts from scratch, so cd and variables don't carry over."
 msgstr "Run a command inside the app's container: a migration, a quick look at a file. Each command starts from scratch, so cd and variables don't carry over."
 
@@ -3149,7 +3149,7 @@ msgstr "Run this on the server (with Docker installed). The agent connects to th
 msgid "Running"
 msgstr "Running"
 
-#: src/components/app-console.tsx:87
+#: src/components/app-console.tsx:96
 #: src/components/app-jobs.tsx:79
 msgid "Running…"
 msgstr "Running…"
@@ -3928,6 +3928,10 @@ msgstr "This container isn't on the Dockfly network. Saving will connect it auto
 msgctxt "api:deploy_hook_not_found"
 msgid "This deploy hook doesn't exist or was regenerated"
 msgstr "This deploy hook doesn't exist or was regenerated"
+
+#: src/components/app-console.tsx:66
+msgid "This image has no shell: the command ran directly, so pipes, quotes and variables don't work."
+msgstr "This image has no shell: the command ran directly, so pipes, quotes and variables don't work."
 
 #: src/lib/api-errors.gen.ts:19
 msgctxt "api:already_set_up"

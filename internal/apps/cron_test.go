@@ -46,3 +46,13 @@ func TestSchedule(t *testing.T) {
 		}
 	}
 }
+
+func TestNoShell(t *testing.T) {
+	const missing = "OCI runtime exec failed: exec failed: unable to start container process: exec: \"sh\": executable file not found in $PATH\r\n"
+	if !noShell(127, missing) {
+		t.Error("una imagen sin sh debe reconocerse")
+	}
+	if noShell(127, "sh: 1: foo: not found\n") || noShell(0, missing) {
+		t.Error("un comando que no existe o que terminó bien no es una imagen sin sh")
+	}
+}

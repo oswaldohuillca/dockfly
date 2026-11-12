@@ -783,7 +783,7 @@ export const api = {
   redeploy: (id: number, deploymentId: number) =>
     request<AppDeployment>('POST', `/apps/${id}/deployments/${deploymentId}/redeploy`),
   appExec: (id: number, command: string) =>
-    request<{ exit_code: number; output: string; truncated: boolean }>('POST', `/apps/${id}/exec`, { command }),
+    request<{ exit_code: number; output: string; truncated: boolean; no_shell?: boolean }>('POST', `/apps/${id}/exec`, { command }),
   listAppJobs: (id: number) => request<AppJob[]>('GET', `/apps/${id}/jobs`),
   saveAppJob: (id: number, job: AppJobInput, jobId?: number) =>
     request<AppJob>(jobId ? 'PUT' : 'POST', `/apps/${id}/jobs${jobId ? `/${jobId}` : ''}`, job),

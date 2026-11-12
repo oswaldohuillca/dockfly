@@ -13,6 +13,7 @@ interface Run {
   /** Sin código: el comando no llegó a ejecutarse (error de la API). */
   exitCode?: number;
   truncated?: boolean;
+  noShell?: boolean;
 }
 
 /** Ejecuta comandos sueltos en el contenedor de la app. No es una terminal: cada comando empieza de cero. */
@@ -23,7 +24,10 @@ export function AppConsole({ appId }: { appId: number }) {
   const [runs, setRuns] = useState<Run[]>([]);
   const end = useRef<HTMLDivElement>(null);
 
-  useEffect(() => end.current?.scrollIntoView({ block: 'nearest' }), [runs]);
+  // Con llaves: scrollIntoView devuelve una promesa en Chrome y React la tomaría por la limpieza del efecto.
+  useEffect(() => {
+    end.current?.scrollIntoView({ block: 'nearest' });
+  }, [runs]);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -32,7 +36,7 @@ export function AppConsole({ appId }: { appId: number }) {
     setRunning(true);
     try {
       const res = await api.appExec(appId, cmd);
-      setRuns((r) => [...r, { command: cmd, output: res.output, exitCode: res.exit_code, truncated: res.truncated }]);
+      setRuns((r) => [...r, { command: cmd, output: res.output, exitCode: res.exit_code, truncated: res.truncated, noShell: res.no_shell }]);
       setCommand('');
     } catch (err) {
       setRuns((r) => [...r, { command: cmd, output: errorMessage(err) }]);
@@ -57,6 +61,11 @@ export function AppConsole({ appId }: { appId: number }) {
         {runs.map((r, i) => (
           <div key={i} className="mb-3">
             <p className="text-zinc-400">$ {r.command}</p>
+            {r.noShell && (
+              <p className="text-amber-400">
+                <Trans>This image has no shell: the command ran directly, so pipes, quotes and variables don't work.</Trans>
+              </p>
+            )}
             {r.output}
             {r.truncated && <p className="text-amber-400"><Trans>Output cut: it was too long.</Trans></p>}
             {r.exitCode === undefined ? null : r.exitCode === 0 ? (

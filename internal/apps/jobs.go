@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/dockfly/dockfly/internal/store"
@@ -40,9 +41,19 @@ type ExecResult struct {
 	ExitCode  int    `json:"exit_code"`
 	Output    string `json:"output"`
 	Truncated bool   `json:"truncated"`
+	// NoShell: la imagen no tiene sh y el comando se ejecutó directamente,
+	// sin tuberías, comillas ni variables.
+	NoShell bool `json:"no_shell,omitempty"`
 }
 
-// Exec ejecuta command con sh en el contenedor actual de la app, con un
+// noShell reconoce el error del runtime cuando la imagen no trae sh
+// (distroless, scratch): el comando ni siquiera llegó a empezar.
+func noShell(code int, output string) bool {
+	return (code == 126 || code == 127) && strings.Contains(output, `exec: "sh": executable file not found`)
+}
+
+// Exec ejecuta command con sh (o directamente, si la imagen no tiene sh) en
+// el contenedor actual de la app, con un
 // tiempo y una salida máximos. Si se agota el tiempo devuelve
 // context.DeadlineExceeded.
 func (m *Manager) Exec(ctx context.Context, app *store.App, command string, timeout time.Duration, maxOutput int) (ExecResult, error) {
@@ -54,7 +65,14 @@ func (m *Manager) Exec(ctx context.Context, app *store.App, command string, time
 	defer cancel()
 	out := &cappedBuffer{max: maxOutput}
 	code, err := dc.ExecStream(ctx, app.Current.Container, []string{"sh", "-c", command}, nil, out, out)
-	res := ExecResult{ExitCode: code, Output: out.String(), Truncated: out.truncated}
+	direct := noShell(code, out.String())
+	if direct {
+		// shortcut: sin sh se separa por espacios, así que las comillas no
+		// agrupan; analizar el comando solo si alguien lo necesita.
+		out.Reset()
+		code, err = dc.ExecStream(ctx, app.Current.Container, strings.Fields(command), nil, out, out)
+	}
+	res := ExecResult{ExitCode: code, Output: out.String(), Truncated: out.truncated, NoShell: direct}
 	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return res, context.DeadlineExceeded
 	}
