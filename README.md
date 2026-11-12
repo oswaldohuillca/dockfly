@@ -408,6 +408,9 @@ cd web && npm run dev     # frontend con recarga en caliente (proxy /api → :81
 make test
 ```
 
+La landing está en `site/` (Astro, salida estática): `cd site && bun install && bun run dev`.
+`bun run build` deja el sitio en `site/dist/`, listo para cualquier alojamiento estático.
+
 ### Idiomas
 
 El panel está en **inglés** (por defecto) y **español**; cada usuario lo cambia en su menú. Los

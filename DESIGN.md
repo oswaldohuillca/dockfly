@@ -62,6 +62,11 @@ Ancho máximo del contenido: `max-w-6xl`.
 - **Estado vacío**: icono en círculo `bg-primary/10 text-primary`, título, una línea y la acción de crear.
 - **Tablas**: cabecera pequeña en mayúsculas y atenuada; filas clicables llevan además un botón enfocable.
 
+## Landing (`site/`)
+Sitio Astro estático con los mismos tokens (copiados en `site/src/styles/global.css`). Añade `--ink` (`oklch(0.2 0.03 122)`),
+un oliva casi negro para el bloque de instalación y los bloques de código, igual en claro y en oscuro. Escala tipográfica
+más amplia que el panel (titular hasta 60 px); el resto de reglas (sin radio, sin degradados, un botón primario) se mantienen.
+
 ## Do / Don't
 - Sí: oliva solo en la acción principal, navegación activa, enlaces y foco; arena con moderación.
 - No: degradados de color, texto con degradado, colores de Tailwind sueltos para decorar.
