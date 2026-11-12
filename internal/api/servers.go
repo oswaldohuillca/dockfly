@@ -3,8 +3,10 @@ package api
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/url"
@@ -18,6 +20,7 @@ import (
 
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/store"
+	"github.com/dockfly/dockfly/internal/sysinfo"
 	"github.com/dockfly/dockfly/internal/traefik"
 	"github.com/dockfly/dockfly/internal/tunnel"
 )
@@ -33,6 +36,9 @@ var (
 	errServerNameTaken   = newError("server_name_taken", "A server with that name already exists")
 	errServerNotFound    = newError("server_not_found", "Server not found")
 	errServerHasApps     = newError("server_has_apps", "The server has {count} apps: delete them first")
+	errServerOffline     = newError("server_offline", "The server is not connected")
+	errServerStats       = newError("server_stats_unavailable", "Couldn't read the server's resources")
+	errAgentOutdated     = newError("agent_outdated", "The server's agent is too old to report resources: update it")
 	errAgentTokenMissing = newError("agent_token_missing", "The server token is missing")
 	errAgentTokenInvalid = newError("agent_token_invalid", "Invalid server token: generate a new one in the panel")
 )
@@ -138,6 +144,55 @@ func (s *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
 		out[i] = serverView{Server: sv, Online: online, Apps: n}
 	}
 	writeJSON(w, http.StatusOK, out)
+}
+
+// handleServerStats devuelve el uso de CPU, memoria y disco de un servidor.
+// El id 0 es el del propio panel; los remotos se le piden a su agente.
+func (s *Server) handleServerStats(w http.ResponseWriter, r *http.Request) {
+	if chi.URLParam(r, "id") == "0" {
+		st, err := sysinfo.Read(r.Context(), s.DataDir)
+		if err != nil {
+			writeError(w, http.StatusServiceUnavailable, errServerStats)
+			return
+		}
+		writeJSON(w, http.StatusOK, st)
+		return
+	}
+	sv, ok := s.loadServer(w, r)
+	if !ok {
+		return
+	}
+	if _, online := s.Hub.Online(sv.ID); !online {
+		writeError(w, http.StatusServiceUnavailable, errServerOffline)
+		return
+	}
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "http://agente/stats", nil)
+	if err != nil {
+		s.internalError(w, err)
+		return
+	}
+	resp, err := s.agentClient(sv.ID).Do(req)
+	if err != nil {
+		writeError(w, http.StatusServiceUnavailable, errServerStats)
+		return
+	}
+	defer resp.Body.Close()
+	switch resp.StatusCode {
+	case http.StatusOK:
+	case http.StatusNotFound:
+		// Un agente anterior a esta versión no tiene /stats.
+		writeError(w, http.StatusServiceUnavailable, errAgentOutdated)
+		return
+	default:
+		writeError(w, http.StatusServiceUnavailable, errServerStats)
+		return
+	}
+	var st sysinfo.Stats
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<16)).Decode(&st); err != nil {
+		writeError(w, http.StatusServiceUnavailable, errServerStats)
+		return
+	}
+	writeJSON(w, http.StatusOK, st)
 }
 
 // joinCommand es lo que se ejecuta en el servidor nuevo para conectarlo.

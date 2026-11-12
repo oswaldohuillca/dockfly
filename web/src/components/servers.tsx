@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 
 import { ResourceState } from '@/components/resource-state';
 import { PageHeader, Stat, StatGrid } from '@/components/page-header';
+import { ServerResources } from '@/components/server-resources';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { FormDialog } from '@/components/form-dialog';
 import { Badge } from '@/components/ui/badge';
@@ -71,13 +72,15 @@ export function Servers() {
       <Stat icon={TriangleAlert} tone={offline ? 'danger' : 'neutral'} label={<Trans>Disconnected</Trans>} value={offline} />
       <Stat tone="accent" icon={Boxes} label={<Trans>Remote apps</Trans>} value={servers.reduce((n, s) => n + s.apps, 0)} />
     </StatGrid>
-    <Card className="py-2">
-      <CardContent className="px-0">
-        <ul className="divide-y">
-          <li className="flex flex-wrap items-center gap-3 px-6 py-3">
-            <Server className="size-4 text-muted-foreground" />
+    <div className="space-y-5">
+          <Card>
+            <CardContent className="space-y-6">
+          <div className="flex flex-wrap items-center gap-3">
+            <span className="grid size-10 shrink-0 place-items-center bg-primary/10 text-primary">
+              <Server className="size-5" />
+            </span>
             <div className="min-w-0 flex-1">
-              <div className="font-medium">
+              <div className="text-base font-semibold tracking-tight">
                 <Trans>This server</Trans>
               </div>
               <div className="text-xs text-muted-foreground">
@@ -87,12 +90,19 @@ export function Servers() {
             <Badge variant="secondary" className="text-emerald-700 dark:text-emerald-400">
               <Trans>Connected</Trans>
             </Badge>
-          </li>
+          </div>
+          <ServerResources serverId={0} />
+            </CardContent>
+          </Card>
           {servers.map((s) => (
-            <li key={s.id} className="flex flex-wrap items-center gap-3 px-6 py-3">
-              <Server className="size-4 text-muted-foreground" />
+            <Card key={s.id}>
+              <CardContent className="space-y-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <span className="grid size-10 shrink-0 place-items-center bg-primary/10 text-primary">
+                <Server className="size-5" />
+              </span>
               <div className="min-w-0 flex-1">
-                <div className="font-medium">{s.name}</div>
+                <div className="text-base font-semibold tracking-tight">{s.name}</div>
                 <div className="text-xs text-muted-foreground">
                   {s.last_seen_at
                     ? `${s.last_addr} · Dockfly ${s.version || '?'} · ${s.online ? t`connected` : t`seen ${ph({ ago: timeAgo(s.last_seen_at) })}`}`
@@ -132,11 +142,13 @@ export function Servers() {
               >
                 <Trash2 />
               </Button>
-            </li>
+            </div>
+            {s.online && <ServerResources serverId={s.id} />}
+              </CardContent>
+            </Card>
           ))}
-        </ul>
         <ResourceState loading={loading} error={error} onRetry={reload} />
-      </CardContent>
+      </div>
       {adding && (
         <AddServerDialog
           onClose={() => setAdding(false)}
@@ -149,7 +161,6 @@ export function Servers() {
       )}
       {join && <JoinDialog {...join} onClose={() => setJoin(null)} />}
       {dialog}
-    </Card>
     </>
   );
 }

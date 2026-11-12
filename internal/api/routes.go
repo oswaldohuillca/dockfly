@@ -191,6 +191,7 @@ func (s *Server) Handler() http.Handler {
 			r.Route("/servers", func(r chi.Router) {
 				r.Get("/", s.handleListServers)
 				r.Post("/", s.handleCreateServer)
+				r.Get("/{id}/stats", s.handleServerStats)
 				r.Post("/{id}/token", s.handleServerToken)
 				r.Delete("/{id}", s.handleDeleteServer)
 			})

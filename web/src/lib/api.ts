@@ -463,6 +463,22 @@ export interface AppInput {
   server_id?: number | null;
 }
 
+/** Recursos de un servidor; los tamaños van en bytes. */
+export interface ServerStats {
+  cpu_percent: number;
+  cores: number;
+  load1: number;
+  load5: number;
+  load15: number;
+  mem_total: number;
+  mem_used: number;
+  swap_total: number;
+  swap_used: number;
+  disk_total: number;
+  disk_used: number;
+  uptime_seconds: number;
+}
+
 export interface RemoteServer {
   id: number;
   name: string;
@@ -638,6 +654,8 @@ export const api = {
     ),
   trafficSummary: () => request<Record<string, TrafficSummary>>('GET', '/traffic'),
   listServers: () => request<RemoteServer[]>('GET', '/servers'),
+  /** id 0 = el servidor del panel. */
+  serverStats: (id: number) => request<ServerStats>('GET', `/servers/${id}/stats`),
   createServer: (name: string) =>
     request<{ server: RemoteServer; token: string; command: string; warning: string }>('POST', '/servers', { name }),
   rotateServerToken: (id: number) =>

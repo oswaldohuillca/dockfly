@@ -26,7 +26,7 @@ export function formatDate(iso: string): string {
 
 export function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
-  const units = ['KB', 'MB', 'GB'];
+  const units = ['KB', 'MB', 'GB', 'TB'];
   let v = bytes / 1024;
   let i = 0;
   while (v >= 1024 && i < units.length - 1) {
@@ -34,4 +34,14 @@ export function formatBytes(bytes: number): string {
     i++;
   }
   return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
+}
+
+/** "12 d 4 h", "3 h 20 min", "45 min": lo que lleva encendido un servidor. */
+export function formatDuration(seconds: number): string {
+  const d = Math.floor(seconds / 86400);
+  const h = Math.floor((seconds % 86400) / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  if (d > 0) return `${d} d ${h} h`;
+  if (h > 0) return `${h} h ${m} min`;
+  return `${m} min`;
 }

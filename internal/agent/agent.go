@@ -20,6 +20,7 @@ import (
 
 	"github.com/dockfly/dockfly/internal/docker"
 	"github.com/dockfly/dockfly/internal/probe"
+	"github.com/dockfly/dockfly/internal/sysinfo"
 	"github.com/dockfly/dockfly/internal/traefik"
 	"github.com/dockfly/dockfly/internal/tunnel"
 )
@@ -112,6 +113,16 @@ func (a *localAPI) handler() http.Handler {
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(info)
+	})
+	// Recursos de este servidor (CPU, memoria, disco), para el panel.
+	mux.HandleFunc("GET /stats", func(w http.ResponseWriter, r *http.Request) {
+		st, err := sysinfo.Read(r.Context(), a.cfg.Traefik.DataDir)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(st)
 	})
 	// El panel comprueba desde aquí si una app está lista: la IP de su
 	// contenedor solo se alcanza dentro de este servidor.
