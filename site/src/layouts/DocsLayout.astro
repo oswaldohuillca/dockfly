@@ -1,0 +1,58 @@
+---
+import Base from './Base.astro'
+import DocsNav from '../components/DocsNav.astro'
+import { docs } from '../docs'
+import { repo } from '../consts'
+
+// Layout of the Markdown pages in src/pages/docs: they set `title` and `description` in their frontmatter.
+const { title, description } = Astro.props.frontmatter
+const current = Astro.url.pathname.replace(/\/?$/, '/')
+const i = docs.findIndex((d) => d.href === current)
+const prev = docs[i - 1]
+const next = docs[i + 1]
+---
+
+<Base title={`${title} · Dockfly docs`} {description} ogType="article">
+  <div class="mx-auto max-w-6xl px-4 lg:grid lg:grid-cols-[15rem_minmax(0,1fr)] lg:gap-12">
+    <details class="border-b border-border py-2 lg:hidden">
+      <summary class="cursor-pointer py-2 text-sm font-medium">Documentation menu</summary>
+      <div class="pb-2"><DocsNav {current} /></div>
+    </details>
+    <aside class="sticky top-0 hidden max-h-screen self-start overflow-y-auto py-10 lg:block">
+      <p class="px-3 pb-2 text-xs font-medium uppercase tracking-wider text-muted-foreground">Documentation</p>
+      <DocsNav {current} />
+    </aside>
+
+    <main id="content" class="min-w-0 max-w-3xl py-8 lg:py-10">
+      <h1 class="text-balance text-3xl font-semibold tracking-tight sm:text-4xl">{title}</h1>
+      <p class="mt-3 text-lg text-muted-foreground">{description}</p>
+      <div class="prose mt-8">
+        <slot />
+      </div>
+
+      <nav aria-label="Previous and next page" class="mt-12 grid gap-4 border-t border-border pt-6 text-sm sm:grid-cols-2">
+        {
+          prev ? (
+            <a href={prev.href} class="group bg-card p-4 shadow-card">
+              <span class="block text-xs text-muted-foreground">Previous</span>
+              <span class="font-medium group-hover:text-primary">{prev.title}</span>
+            </a>
+          ) : (
+            <span class="hidden sm:block" />
+          )
+        }
+        {
+          next && (
+            <a href={next.href} class="group bg-card p-4 shadow-card sm:text-right">
+              <span class="block text-xs text-muted-foreground">Next</span>
+              <span class="font-medium group-hover:text-primary">{next.title}</span>
+            </a>
+          )
+        }
+      </nav>
+      <p class="mt-8 text-sm text-muted-foreground">
+        Something missing or wrong? <a href={`${repo}/issues`} class="text-primary underline underline-offset-4 hover:no-underline">Open an issue on GitHub</a>.
+      </p>
+    </main>
+  </div>
+</Base>

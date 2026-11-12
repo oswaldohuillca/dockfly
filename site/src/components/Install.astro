@@ -1,6 +1,5 @@
 ---
 import { Code } from 'astro:components'
-import { repo } from '../consts'
 
 const compose = `services:
   dockfly:
@@ -47,7 +46,7 @@ const compose = `services:
       </ol>
       <p class="mt-10 text-sm text-ink-muted">
         The panel only listens locally on purpose.{' '}
-        <a href={`${repo}#instalación`} class="text-ink-foreground underline underline-offset-4 hover:no-underline">The full guide</a>{' '}
+        <a href="/docs/" class="text-ink-foreground underline underline-offset-4 hover:no-underline">The full guide</a>{' '}
         covers publishing it over HTTPS and every option.
       </p>
     </div>

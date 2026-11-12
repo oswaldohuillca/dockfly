@@ -1,4 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://dockfly.dev/</loc></url>
+  <url><loc>https://dockfly.dev/docs/</loc></url>
+  <url><loc>https://dockfly.dev/docs/proxy-hosts/</loc></url>
+  <url><loc>https://dockfly.dev/docs/static-sites/</loc></url>
+  <url><loc>https://dockfly.dev/docs/git-deploys/</loc></url>
+  <url><loc>https://dockfly.dev/docs/apps/</loc></url>
+  <url><loc>https://dockfly.dev/docs/databases-and-backups/</loc></url>
+  <url><loc>https://dockfly.dev/docs/servers/</loc></url>
+  <url><loc>https://dockfly.dev/docs/users-and-security/</loc></url>
+  <url><loc>https://dockfly.dev/docs/cli/</loc></url>
+  <url><loc>https://dockfly.dev/docs/notifications/</loc></url>
+  <url><loc>https://dockfly.dev/docs/traffic-and-resources/</loc></url>
+  <url><loc>https://dockfly.dev/docs/configuration/</loc></url>
+  <url><loc>https://dockfly.dev/docs/architecture/</loc></url>
 </urlset>

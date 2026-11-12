@@ -1,0 +1,22 @@
+---
+import { docs } from '../docs'
+const { current } = Astro.props
+---
+
+<nav aria-label="Documentation">
+  <ul class="space-y-px text-sm">
+    {
+      docs.map((d) => (
+        <li>
+          <a
+            href={d.href}
+            aria-current={d.href === current ? 'page' : undefined}
+            class="block border-l-2 border-transparent px-3 py-2 text-muted-foreground hover:text-foreground aria-[current]:border-primary aria-[current]:bg-muted aria-[current]:font-medium aria-[current]:text-foreground"
+          >
+            {d.title}
+          </a>
+        </li>
+      ))
+    }
+  </ul>
+</nav>

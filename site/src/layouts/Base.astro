@@ -1,0 +1,50 @@
+---
+import Header from '../components/Header.astro'
+import Footer from '../components/Footer.astro'
+import '../styles/global.css'
+
+interface Props {
+  title: string
+  description: string
+  ogType?: string
+  jsonLd?: (url?: string) => object
+}
+const { title, description, ogType = 'website', jsonLd } = Astro.props
+// Canonical, og:url and og:image need absolute URLs: they appear once `site` is set in astro.config.mjs.
+const url = Astro.site && new URL(Astro.url.pathname, Astro.site).href
+const image = Astro.site && new URL('/og.png', Astro.site).href
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    {url && <link rel="canonical" href={url} />}
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:type" content={ogType} />
+    <meta property="og:site_name" content="Dockfly" />
+    {url && <meta property="og:url" content={url} />}
+    {image && <meta property="og:image" content={image} />}
+    {image && <meta property="og:image:width" content="1200" />}
+    {image && <meta property="og:image:height" content="630" />}
+    <meta name="twitter:card" content={image ? 'summary_large_image' : 'summary'} />
+    <meta name="theme-color" content="#1a1f12" />
+    {jsonLd && <script type="application/ld+json" set:html={JSON.stringify(jsonLd(url))} />}
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  </head>
+  <body>
+    <a href="#content" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-10 focus:bg-card focus:px-3 focus:py-2">
+      Skip to content
+    </a>
+
+    <Header />
+
+    <slot />
+
+    <Footer />
+  </body>
+</html>
