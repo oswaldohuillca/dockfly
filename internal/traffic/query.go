@@ -6,18 +6,18 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Point es el tráfico de un intervalo de una gráfica.
+// Point is the traffic of one interval of a chart.
 type Point struct {
 	T        time.Time `json:"t"`
 	Requests int64     `json:"requests"`
 	S4xx     int64     `json:"s4xx"`
 	S5xx     int64     `json:"s5xx"`
-	// Latencia en milisegundos (0 sin peticiones).
+	// Latency in milliseconds (0 when there are no requests).
 	P50 float64 `json:"p50_ms"`
 	P95 float64 `json:"p95_ms"`
 }
 
-// Totals resume un periodo.
+// Totals summarizes a period.
 type Totals struct {
 	Requests int64   `json:"requests"`
 	S4xx     int64   `json:"s4xx"`
@@ -56,8 +56,8 @@ func (a *acc) totals(bounds []float64) Totals {
 	return t
 }
 
-// Series reparte los minutos en n intervalos iguales desde from y devuelve
-// también el total del periodo.
+// Series spreads the minutes over n equal intervals starting at from and
+// also returns the total for the period.
 func Series(rows []*store.TrafficMinute, from time.Time, step time.Duration, n int, bounds []float64) ([]Point, Totals) {
 	accs := make([]acc, n)
 	var all acc
@@ -81,14 +81,15 @@ func Series(rows []*store.TrafficMinute, from time.Time, step time.Duration, n i
 	return points, all.totals(bounds)
 }
 
-// OwnerSummary es el resumen de un dueño para las listas.
+// OwnerSummary is an owner's summary for the lists.
 type OwnerSummary struct {
 	Totals
-	// Spark son las peticiones de cada hora (de la más antigua a la actual).
+	// Spark holds the requests of each hour (from the oldest to the current).
 	Spark []int64 `json:"spark"`
 }
 
-// Summaries resume el tráfico de cada dueño en hours horas desde from.
+// Summaries summarizes each owner's traffic over hours hours starting at
+// from.
 func Summaries(rows []*store.TrafficMinute, from time.Time, hours int, bounds []float64) map[string]OwnerSummary {
 	byOwner := map[string][]*store.TrafficMinute{}
 	for _, r := range rows {

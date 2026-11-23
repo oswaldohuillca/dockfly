@@ -1,5 +1,5 @@
-// Package objstore guarda las copias de seguridad: en un bucket compatible
-// con S3 (AWS, Cloudflare R2, Backblaze B2, MinIO…) o, sin él, en disco.
+// Package objstore stores the backups: in an S3-compatible bucket (AWS,
+// Cloudflare R2, Backblaze B2, MinIO…) or, without one, on disk.
 package objstore
 
 import (
@@ -11,21 +11,21 @@ import (
 	"strings"
 )
 
-// ErrNotFound indica que el objeto no existe.
-var ErrNotFound = errors.New("la copia no existe")
+// ErrNotFound means the object does not exist.
+var ErrNotFound = errors.New("the backup does not exist")
 
 type Store interface {
-	// Put sube size bytes de r con la clave key.
+	// Put uploads size bytes from r under the key key.
 	Put(ctx context.Context, key string, r io.Reader, size int64) error
 	Get(ctx context.Context, key string) (io.ReadCloser, error)
 	Delete(ctx context.Context, key string) error
-	// Check comprueba que se puede escribir (para el botón «Probar»).
+	// Check verifies that writing works (for the "Test" button).
 	Check(ctx context.Context) error
-	// Describe dice dónde se guardan las copias ("s3://bucket/prefijo").
+	// Describe says where the backups are stored ("s3://bucket/prefix").
 	Describe() string
 }
 
-// Local guarda los objetos en una carpeta.
+// Local stores the objects in a directory.
 type Local struct {
 	Dir string
 }
@@ -33,7 +33,7 @@ type Local struct {
 func (l *Local) path(key string) (string, error) {
 	clean := filepath.Clean("/" + key)
 	if strings.Contains(key, "..") {
-		return "", errors.New("clave inválida")
+		return "", errors.New("invalid key")
 	}
 	return filepath.Join(l.Dir, clean), nil
 }

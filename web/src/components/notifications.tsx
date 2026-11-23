@@ -103,7 +103,7 @@ const fields: Record<ChannelType, FieldDef[]> = {
   ],
 };
 
-// Etiquetas de los campos: algunas son literales (URL, Chat ID) y otras se traducen.
+// Field labels: some are literals (URL, Chat ID) and others are translated.
 function fieldText(i18n: ReturnType<typeof useLingui>['i18n'], v: MessageDescriptor | string) {
   return typeof v === 'string' ? v : i18n._(v);
 }
@@ -249,7 +249,7 @@ function ChannelDialog({ channel, onClose, onSaved }: { channel?: NotificationCh
   const [events, setEvents] = useState<NotificationEvent[]>(
     channel?.events ?? ['build_failed', 'cert_error', 'cert_expiring', 'container_down', 'container_recovered', 'backup_failed', 'server_down', 'server_up', 'resource_high', 'resource_normal', 'job_failed'],
   );
-  // Los campos se editan como texto; "to" (lista) y "port" (número) se convierten al guardar.
+  // Fields are edited as text; "to" (a list) and "port" (a number) are converted on save.
   const [config, setConfig] = useState<Record<string, string>>(() => {
     const c = channel?.config ?? {};
     return Object.fromEntries(

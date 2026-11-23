@@ -13,7 +13,7 @@ interface Props<T extends SSLValue> {
   onChange: (key: keyof SSLValue, checked: boolean) => void;
 }
 
-/** Opciones de SSL comunes a proxy hosts y sitios. */
+/** The SSL options shared by proxy hosts and sites. */
 export function SSLFields<T extends SSLValue>({ value, onChange }: Props<T>) {
   const { t } = useLingui();
   return (

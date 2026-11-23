@@ -71,15 +71,15 @@ type appInput struct {
 	SSL          bool              `json:"ssl"`
 	ForceHTTPS   bool              `json:"force_https"`
 	HSTS         bool              `json:"hsts"`
-	Env          map[string]string `json:"env"` // null = conservar las actuales
+	Env          map[string]string `json:"env"` // null = keep the current ones
 	Volumes      []store.AppVolume `json:"volumes"`
 	Command      string            `json:"command"`
 	MemoryMB     int               `json:"memory_mb"`
 	CPUs         float64           `json:"cpus"`
 	HealthPath   string            `json:"health_path"`
 	AccessListID *int64            `json:"access_list_id"`
-	Deploy       bool              `json:"deploy"` // desplegar nada más crearla
-	// ServerID: servidor remoto donde crearla (solo al crearla; nil = este).
+	Deploy       bool              `json:"deploy"` // deploy right after creating it
+	// ServerID: remote server to create it on (only on create; nil = this one).
 	ServerID *int64 `json:"server_id"`
 }
 
@@ -107,15 +107,15 @@ func (in *appInput) toApp() (*store.App, error) {
 		a.GitConnectionID = &in.ConnectionID
 		a.Repo, a.Branch = strings.Trim(strings.TrimSpace(in.Repo), "/"), strings.TrimSpace(in.Branch)
 		var err error
-		// relDir solo falla si el directorio contiene "..".
-		if a.RootDir, err = relDir("el directorio raíz", in.RootDir); err != nil {
+		// relDir only fails if the directory contains "..".
+		if a.RootDir, err = relDir("the root directory", in.RootDir); err != nil {
 			return nil, errAppRootDirDotDot
 		}
-		if a.Dockerfile, err = relDir("el Dockerfile", in.Dockerfile); err != nil {
+		if a.Dockerfile, err = relDir("the Dockerfile", in.Dockerfile); err != nil {
 			return nil, errAppDockerfileDotDot
 		}
 		if a.Source == store.AppSourceCompose {
-			if a.ComposeFile, err = relDir("el archivo de Compose", in.ComposeFile); err != nil {
+			if a.ComposeFile, err = relDir("the Compose file", in.ComposeFile); err != nil {
 				return nil, errAppComposeFileDotDot
 			}
 			a.ComposeService = strings.TrimSpace(in.Service)
@@ -166,15 +166,15 @@ func (in *appInput) toApp() (*store.App, error) {
 		}
 	}
 	if _, err := apps.SplitCommand(a.Command); err != nil {
-		return nil, errAppCommandUnclosedQuote // el único error de SplitCommand
+		return nil, errAppCommandUnclosedQuote // SplitCommand's only error
 	}
 	return a, nil
 }
 
-// appView añade a la app el estado real de su contenedor.
+// appView adds the real state of its container to the app.
 type appView struct {
 	*store.App
-	State string `json:"state"` // running, exited, restarting… o "" si no se ha desplegado
+	State string `json:"state"` // running, exited, restarting… or "" if not deployed yet
 }
 
 func (s *Server) appState(ctx context.Context, a *store.App) string {
@@ -184,7 +184,7 @@ func (s *Server) appState(ctx context.Context, a *store.App) string {
 	}
 	if a.ServerID != nil {
 		if _, online := s.Hub.Online(*a.ServerID); !online {
-			return "offline" // su servidor no está conectado: no se sabe
+			return "offline" // its server isn't connected: no way to tell
 		}
 	}
 	info, err := dc.InspectContainer(ctx, a.Current.Container)
@@ -303,7 +303,7 @@ func (s *Server) handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 	if !decode(w, r, &in) {
 		return
 	}
-	in.Name = existing.Name // el nombre no cambia: de él dependen volúmenes y red
+	in.Name = existing.Name // the name never changes: volumes and network depend on it
 	a, err := in.toApp()
 	if err != nil {
 		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
@@ -319,8 +319,8 @@ func (s *Server) handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 		!s.checkSSL(w, r, a.Domains, a.SSL) {
 		return
 	}
-	// Cambiar la lista de acceso (protege la app) es cosa del admin, igual que
-	// en los sitios: si no, un deployer la quitaría y la app quedaría pública.
+	// Changing the access list (it protects the app) is the admin's business,
+	// as with sites: otherwise a deployer could drop it and leave the app public.
 	if !sameID(existing.AccessListID, a.AccessListID) && !isAdmin(r) {
 		writeError(w, http.StatusForbidden, errAppAccessAdmin)
 		return
@@ -341,8 +341,8 @@ func (s *Server) handleUpdateApp(w http.ResponseWriter, r *http.Request) {
 		updated.WebhookID, updated.WebhookSecret = "", ""
 	}
 	warn := s.syncAppWebhook(r.Context(), updated)
-	// Los dominios y el SSL se aplican ya; lo demás (imagen, variables,
-	// volúmenes…) en el próximo despliegue.
+	// The domains and SSL take effect now; everything else (image, variables,
+	// volumes…) on the next deployment.
 	if err := s.Apply(r.Context()); err != nil {
 		s.internalError(w, err)
 		return
@@ -400,8 +400,8 @@ func (s *Server) handleDeployApp(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, d)
 }
 
-// handleRedeploy vuelve a desplegar la imagen de un despliegue anterior
-// (volver atrás) sin construir de nuevo.
+// handleRedeploy deploys the image of an earlier deployment again (a
+// rollback) without building anything.
 func (s *Server) handleRedeploy(w http.ResponseWriter, r *http.Request) {
 	a, ok := s.loadApp(w, r)
 	if !ok {
@@ -471,8 +471,8 @@ func (s *Server) handleCancelAppDeployment(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleAppDeploymentLogs transmite el log de un despliegue por SSE, como
-// el de los builds de sitios.
+// handleAppDeploymentLogs streams a deployment's log over SSE, just like the
+// one for site builds.
 func (s *Server) handleAppDeploymentLogs(w http.ResponseWriter, r *http.Request) {
 	d, ok := s.loadAppDeployment(w, r, "deploymentID")
 	if !ok {
@@ -506,8 +506,8 @@ func (s *Server) handleAppDeploymentLogs(w http.ResponseWriter, r *http.Request)
 				}
 			}
 		}
-		// "live" llega antes de terminar la limpieza: el final de verdad lo
-		// marca el log, así que se sigue leyendo un poco más.
+		// "live" arrives before the cleanup is done: the log is what marks the
+		// real end, so we keep reading a little longer.
 		if d.Finished() {
 			if logDone(f) {
 				sse.send("end", d)
@@ -530,7 +530,7 @@ func (s *Server) handleAppDeploymentLogs(w http.ResponseWriter, r *http.Request)
 	}
 }
 
-// logDone indica si el log ya tiene la línea final (✔ o ✘).
+// logDone reports whether the log already has its final line (✔ or ✘).
 func logDone(f *os.File) bool {
 	if f == nil {
 		return false
@@ -547,7 +547,7 @@ func logDone(f *os.File) bool {
 	return strings.Contains(t, "\n✔ ") || strings.Contains(t, "\n✘ ")
 }
 
-// handleAppLogs sigue en vivo los logs del contenedor activo.
+// handleAppLogs follows the active container's logs live.
 func (s *Server) handleAppLogs(w http.ResponseWriter, r *http.Request) {
 	a, ok := s.loadApp(w, r)
 	if !ok {
@@ -568,10 +568,10 @@ func (s *Server) handleAppLogs(w http.ResponseWriter, r *http.Request) {
 	sse.send("end", nil)
 }
 
-// handleAppStats devuelve la CPU y la memoria que usa ahora el contenedor
-// de la app.
-// shortcut: en una app de Compose solo mide el servicio que recibe el tráfico;
-// sumar el resto cuando haga falta ver el proyecto entero.
+// handleAppStats returns the CPU and memory the app's container is using
+// right now.
+// shortcut: on a Compose app it only measures the service that takes the
+// traffic; add up the rest when seeing the whole project becomes necessary.
 func (s *Server) handleAppStats(w http.ResponseWriter, r *http.Request) {
 	a, ok := s.loadApp(w, r)
 	if !ok {
@@ -589,16 +589,16 @@ func (s *Server) handleAppStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, usage)
 }
 
-// Límites de un comando lanzado desde el panel.
+// Limits for a command launched from the panel.
 const (
 	execTimeout   = 2 * time.Minute
 	execMaxOutput = 256 << 10
 )
 
-// handleAppExec ejecuta un comando en el contenedor de la app (una
-// migración, mirar un archivo) y devuelve su salida y su código.
-// shortcut: no es una terminal interactiva (sin TTY ni estado entre
-// comandos); pasar a websocket + emulador si hace falta un shell de verdad.
+// handleAppExec runs a command in the app's container (a migration, looking
+// at a file) and returns its output and its exit code.
+// shortcut: this isn't an interactive terminal (no TTY, no state between
+// commands); move to websocket + emulator if a real shell becomes necessary.
 func (s *Server) handleAppExec(w http.ResponseWriter, r *http.Request) {
 	a, ok := s.loadApp(w, r)
 	if !ok {
@@ -649,7 +649,7 @@ func (s *sse) send(event string, data any) bool {
 	return s.rc.Flush() == nil
 }
 
-// sseWriter manda cada escritura como un evento "log".
+// sseWriter sends every write as a "log" event.
 type sseWriter struct{ s *sse }
 
 func (w sseWriter) Write(p []byte) (int, error) {
@@ -659,10 +659,10 @@ func (w sseWriter) Write(p []byte) (int, error) {
 	return len(p), nil
 }
 
-// --- Webhooks de apps desde Git ---
+// --- App webhooks from Git ---
 
-// syncAppWebhook deja el webhook de la app como debe estar (ver
-// ensureWebhook) y devuelve el aviso, si lo hay.
+// syncAppWebhook leaves the app's webhook as it should be (see ensureWebhook)
+// and returns the warning, if there is one.
 func (s *Server) syncAppWebhook(ctx context.Context, a *store.App) *apiError {
 	t := appHook(a)
 	hook, warn := s.ensureWebhook(ctx, t)
@@ -673,7 +673,7 @@ func (s *Server) syncAppWebhook(ctx context.Context, a *store.App) *apiError {
 	return warn
 }
 
-// handleAppWebhook recibe los pushes de un repo con webhook propio.
+// handleAppWebhook receives the pushes of a repo with its own webhook.
 func (s *Server) handleAppWebhook(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -709,7 +709,7 @@ func (s *Server) handleAppWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !isPush || push.Deleted || push.Branch != a.Branch {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ignorado"})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ignored"})
 		return
 	}
 	d, err := s.Apps.Enqueue(r.Context(), a.ID, store.TriggerPush, push.Commit, "")
@@ -717,12 +717,12 @@ func (s *Server) handleAppWebhook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusServiceUnavailable, errUnexpected.With("detail", err.Error()))
 		return
 	}
-	writeJSON(w, http.StatusAccepted, map[string]any{"status": "en cola", "deployment_id": d.ID})
+	writeJSON(w, http.StatusAccepted, map[string]any{"status": "queued", "deployment_id": d.ID})
 }
 
-// checkVolumes evita que dos apps compartan datos: el volumen de Docker se
-// llama dockfly-app-<app>-<volumen>, así que la app "shop" con "db-data" y
-// la app "shop-db" con "data" acabarían en el mismo.
+// checkVolumes keeps two apps from sharing data: the Docker volume is named
+// dockfly-app-<app>-<volume>, so the app "shop" with "db-data" and the app
+// "shop-db" with "data" would end up on the same one.
 func (s *Server) checkVolumes(w http.ResponseWriter, r *http.Request, a *store.App, selfID int64) bool {
 	if len(a.Volumes) == 0 {
 		return true

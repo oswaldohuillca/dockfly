@@ -22,10 +22,10 @@ function newLocation(): ProxyLocation {
   };
 }
 
-/** De quién son las ubicaciones: cambia cómo se explican. */
+/** Who the locations belong to: it changes how they are explained. */
 type LocationsOwner = 'proxy-host' | 'site';
 
-/** Ubicaciones personalizadas de un proxy host o de un sitio (como en Nginx Proxy Manager). */
+/** Custom locations of a proxy host or a site (as in Nginx Proxy Manager). */
 export function ProxyLocations({
   value,
   onChange,
@@ -34,11 +34,11 @@ export function ProxyLocations({
 }: {
   value: ProxyLocation[];
   onChange: (locations: ProxyLocation[]) => void;
-  /** Nombres de los contenedores, para sugerirlos. */
+  /** Container names, to offer them as suggestions. */
   containers: string[];
   owner?: LocationsOwner;
 }) {
-  // La ubicación desplegada (una a la vez); las nuevas se abren solas.
+  // The expanded location (one at a time); new ones open by themselves.
   const [open, setOpen] = useState<number | null>(null);
   const [lists, setLists] = useState<AccessList[]>([]);
   useEffect(() => {
@@ -156,7 +156,7 @@ function LocationCard({
         </Button>
       </div>
 
-      {/* Plegada no se pinta: sus campos obligatorios ocultos bloquearían el envío. */}
+      {/* A collapsed one is not rendered: its hidden required fields would block submission. */}
       {expanded && (
         <div className="space-y-4 border-t px-3 py-3">
           <div className="grid gap-3 sm:grid-cols-[1fr_11rem]">

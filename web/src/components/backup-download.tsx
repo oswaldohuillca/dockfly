@@ -8,9 +8,9 @@ import { Input } from '@/components/ui/input';
 import { downloadBackup, errorMessage } from '@/lib/api';
 
 /**
- * Descarga la copia completa. Con una contraseña (opcional), el servidor la
- * cifra antes de enviarla: la copia incluye las claves, así que cifrarla al
- * sacarla del servidor es recomendable.
+ * Downloads the full backup. Given a password (optional), the server encrypts
+ * it before sending it: the backup contains the keys, so encrypting it before
+ * it leaves the server is recommended.
  */
 export function BackupDownload() {
   const { t } = useLingui();

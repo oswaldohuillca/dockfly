@@ -11,15 +11,15 @@ import (
 	"strings"
 )
 
-// Código de instalación: mientras no hay usuarios, crear el administrador o
-// restaurar una copia exige un código que solo conoce quien tiene acceso al
-// servidor (está en el log y en /data/setup-token). Así nadie se adelanta al
-// dueño en un panel recién instalado y expuesto a internet.
+// Setup code: while there are no users, creating the administrator or
+// restoring a backup requires a code only someone with access to the server
+// knows (it is in the log and in /data/setup-token). That way nobody can get
+// ahead of the owner on a freshly installed panel exposed to the internet.
 
 const setupTokenFile = "setup-token"
 
-// PrepareSetupToken genera (o reutiliza) el código si la instalación aún no
-// tiene usuarios. Devuelve el código ("" si ya está configurada).
+// PrepareSetupToken generates (or reuses) the code if the installation has
+// no users yet. It returns the code ("" when it is already set up).
 func (s *Server) PrepareSetupToken(ctx context.Context) (string, error) {
 	n, err := s.Store.CountUsers(ctx)
 	if err != nil || n > 0 {
@@ -36,7 +36,7 @@ func (s *Server) PrepareSetupToken(ctx context.Context) (string, error) {
 	if _, err := rand.Read(b); err != nil {
 		return "", err
 	}
-	raw := strings.ToLower(base32.StdEncoding.EncodeToString(b)) // 24 caracteres
+	raw := strings.ToLower(base32.StdEncoding.EncodeToString(b)) // 24 characters
 	token := raw[:6] + "-" + raw[6:12] + "-" + raw[12:18] + "-" + raw[18:]
 	if err := os.WriteFile(path, []byte(token+"\n"), 0o600); err != nil {
 		return "", err
@@ -45,8 +45,8 @@ func (s *Server) PrepareSetupToken(ctx context.Context) (string, error) {
 	return token, nil
 }
 
-// checkSetupToken comprueba el código del alta inicial. Sin código preparado
-// (tests, o Dockfly arrancado con usuarios) no se exige.
+// checkSetupToken checks the code for the initial signup. With no code
+// prepared (tests, or Dockfly started with users already) none is required.
 func (s *Server) checkSetupToken(token string) bool {
 	if s.SetupToken == "" {
 		return true
@@ -55,7 +55,7 @@ func (s *Server) checkSetupToken(token string) bool {
 	return subtle.ConstantTimeCompare([]byte(norm(token)), []byte(norm(s.SetupToken))) == 1
 }
 
-// clearSetupToken borra el código cuando ya hay administrador.
+// clearSetupToken deletes the code once there is an administrator.
 func (s *Server) clearSetupToken() {
 	s.SetupToken = ""
 	_ = os.Remove(filepath.Join(s.DataDir, setupTokenFile))

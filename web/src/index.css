@@ -51,7 +51,7 @@
 }
 
 :root {
-    /* Neutros fríos (tono 255) y el oliva de la marca más un acento arena: ver DESIGN.md. */
+    /* Cool neutrals (hue 255) plus the brand olive and a sand accent: see DESIGN.md. */
     --background: oklch(0.972 0.008 115);
     --foreground: oklch(0.17 0.02 115);
     --card: oklch(1 0 0);
@@ -75,7 +75,7 @@
     --chart-3: oklch(0.6 0.095 123);
     --chart-4: oklch(0.488 0.088 124);
     --chart-5: oklch(0.38 0.07 125);
-    /* Acento arena: gráficos, avisos y detalles; nunca para botones. */
+    /* Sand accent: charts, warnings and details; never for buttons. */
     --highlight: oklch(0.664 0.109 77);
     --highlight-foreground: oklch(0.45 0.09 75);
     --radius: 0rem;
@@ -140,7 +140,7 @@
     }
 }
 
-/* Tarjetas que flotan sobre el fondo: sin borde, con sombra suave teñida de marca. */
+/* Cards floating over the background: no border, with a soft brand-tinted shadow. */
 @utility shadow-card {
     box-shadow:
         0 1px 2px oklch(0.35 0.04 120 / 5%),

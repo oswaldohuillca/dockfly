@@ -1,7 +1,7 @@
-// Package agent es Dockfly en un servidor remoto: ejecuta su propio Traefik
-// (con sus certificados) y deja que el panel use su Docker y le envíe la
-// configuración de las rutas, todo por el túnel que el agente abre hacia el
-// panel. Si el panel se cae, las apps del servidor siguen sirviendo.
+// Package agent is Dockfly on a remote server: it runs its own Traefik
+// (with its certificates) and lets the panel use its Docker and push the
+// route configuration to it, all over the tunnel the agent opens towards the
+// panel. If the panel goes down, the server's apps keep serving.
 package agent
 
 import (
@@ -31,12 +31,12 @@ type Config struct {
 	Version  string
 	Docker   *docker.Client
 	Traefik  traefik.Options
-	// TraefikBin es el ejecutable de Traefik ("" = no lanzarlo, en los tests).
+	// TraefikBin is the Traefik binary ("" = do not launch it, in the tests).
 	TraefikBin string
 	Log        *slog.Logger
 }
 
-// Info es lo que el agente cuenta al panel.
+// Info is what the agent reports to the panel.
 type Info struct {
 	Version  string `json:"version"`
 	Hostname string `json:"hostname"`
@@ -44,13 +44,13 @@ type Info struct {
 	Docker   bool   `json:"docker_available"`
 }
 
-// Run arranca el agente y lo mantiene hasta que ctx se cancela.
+// Run starts the agent and keeps it running until ctx is cancelled.
 func Run(ctx context.Context, cfg Config) error {
 	if err := traefik.WriteStatic(cfg.Traefik); err != nil {
 		return err
 	}
-	// Hasta que el panel envíe las rutas, una configuración vacía (pero
-	// válida): Traefik ya puede arrancar.
+	// Until the panel sends the routes, an empty (but valid) configuration:
+	// Traefik can already start.
 	if _, err := os.Stat(cfg.Traefik.DynamicDir() + "/dockfly.yml"); errors.Is(err, os.ErrNotExist) {
 		if err := traefik.WriteDynamic(cfg.Traefik, traefik.Dynamic{}); err != nil {
 			return err
@@ -58,7 +58,7 @@ func Run(ctx context.Context, cfg Config) error {
 	}
 	if cfg.Traefik.DockerNet != "" {
 		if _, err := cfg.Docker.EnsureSelfNetwork(ctx, cfg.Traefik.DockerNet); err != nil {
-			cfg.Log.Warn("no se pudo conectar el agente a la red de las apps", "red", cfg.Traefik.DockerNet, "error", err)
+			cfg.Log.Warn("could not connect the agent to the apps network", "network", cfg.Traefik.DockerNet, "error", err)
 		}
 	}
 
@@ -86,7 +86,7 @@ func Run(ctx context.Context, cfg Config) error {
 	return nil
 }
 
-// localAPI es lo que el panel puede pedirle al agente.
+// localAPI is what the panel can ask the agent for.
 type localAPI struct {
 	cfg   Config
 	super *traefik.Supervisor
@@ -114,7 +114,7 @@ func (a *localAPI) handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(info)
 	})
-	// Recursos de este servidor (CPU, memoria, disco), para el panel.
+	// This server's resources (CPU, memory, disk), for the panel.
 	mux.HandleFunc("GET /stats", func(w http.ResponseWriter, r *http.Request) {
 		st, err := sysinfo.Read(r.Context(), a.cfg.Traefik.DataDir)
 		if err != nil {
@@ -124,8 +124,8 @@ func (a *localAPI) handler() http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		_ = json.NewEncoder(w).Encode(st)
 	})
-	// El panel comprueba desde aquí si una app está lista: la IP de su
-	// contenedor solo se alcanza dentro de este servidor.
+	// The panel checks from here whether an app is ready: its container's IP
+	// is only reachable inside this server.
 	mux.HandleFunc("GET /probe", func(w http.ResponseWriter, r *http.Request) {
 		ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 		defer cancel()
@@ -135,7 +135,7 @@ func (a *localAPI) handler() http.Handler {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
-	// La configuración dinámica de Traefik la genera el panel.
+	// The panel generates Traefik's dynamic configuration.
 	mux.HandleFunc("PUT /dynamic", func(w http.ResponseWriter, r *http.Request) {
 		data, err := io.ReadAll(io.LimitReader(r.Body, 8<<20))
 		if err != nil {
@@ -144,7 +144,7 @@ func (a *localAPI) handler() http.Handler {
 		}
 		var probe map[string]any
 		if err := yaml.Unmarshal(data, &probe); err != nil {
-			http.Error(w, "configuración inválida: "+err.Error(), http.StatusBadRequest)
+			http.Error(w, "invalid configuration: "+err.Error(), http.StatusBadRequest)
 			return
 		}
 		if err := traefik.WriteDynamicBytes(a.cfg.Traefik, data); err != nil {
@@ -156,7 +156,7 @@ func (a *localAPI) handler() http.Handler {
 	return mux
 }
 
-// pipeListener entrega al servidor HTTP del agente conexiones en memoria.
+// pipeListener hands in-memory connections to the agent's HTTP server.
 type pipeListener struct {
 	conns chan net.Conn
 	done  chan struct{}
@@ -198,4 +198,4 @@ func (l *pipeListener) Addr() net.Addr { return pipeAddr{} }
 type pipeAddr struct{}
 
 func (pipeAddr) Network() string { return "pipe" }
-func (pipeAddr) String() string  { return "agente" }
+func (pipeAddr) String() string  { return "agent" }

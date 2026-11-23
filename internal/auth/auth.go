@@ -1,4 +1,4 @@
-// Package auth gestiona contraseñas y sesiones firmadas con HMAC.
+// Package auth handles passwords and HMAC-signed sessions.
 package auth
 
 import (
@@ -19,12 +19,12 @@ import (
 
 const SessionTTL = 7 * 24 * time.Hour
 
-var ErrInvalidSession = errors.New("sesión inválida")
+var ErrInvalidSession = errors.New("invalid session")
 
-// DummyHash devuelve un hash bcrypt válido (con el coste por defecto) que no
-// corresponde a ninguna contraseña real. Sirve para igualar el tiempo de
-// respuesta del login cuando el usuario no existe. Se calcula una sola vez,
-// en el primer uso, para no retrasar el arranque.
+// DummyHash returns a valid bcrypt hash (with the default cost) that does not
+// match any real password. It is used to keep the login response time the same
+// when the user does not exist. It is computed only once, on first use, so it
+// does not slow down startup.
 var DummyHash = sync.OnceValue(func() string {
 	h, err := bcrypt.GenerateFromPassword([]byte("dockfly-dummy-password"), bcrypt.DefaultCost)
 	if err != nil {
@@ -42,15 +42,15 @@ func CheckPassword(hash, password string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 
-// Signer emite y valida tokens de sesión con la forma
-// "userID.versión.expiración.firma". La versión permite invalidar todas las
-// sesiones de un usuario (al cambiar la contraseña).
+// Signer issues and validates session tokens of the form
+// "userID.version.expiry.signature". The version makes it possible to
+// invalidate every session of a user (when the password changes).
 type Signer struct {
 	secret []byte
 }
 
-// LoadOrCreateSigner lee la clave secreta de path o crea una nueva si no existe,
-// de modo que las sesiones sobreviven a reinicios del contenedor.
+// LoadOrCreateSigner reads the secret key from path, or creates a new one if
+// it does not exist, so that sessions survive container restarts.
 func LoadOrCreateSigner(path string) (*Signer, error) {
 	secret, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
@@ -59,7 +59,7 @@ func LoadOrCreateSigner(path string) (*Signer, error) {
 			return nil, err
 		}
 		if err := os.WriteFile(path, secret, 0o600); err != nil {
-			return nil, fmt.Errorf("guardando clave secreta: %w", err)
+			return nil, fmt.Errorf("saving secret key: %w", err)
 		}
 		return &Signer{secret: secret}, nil
 	}
@@ -67,7 +67,7 @@ func LoadOrCreateSigner(path string) (*Signer, error) {
 		return nil, err
 	}
 	if len(secret) < 32 {
-		return nil, fmt.Errorf("clave secreta en %s demasiado corta", path)
+		return nil, fmt.Errorf("secret key in %s is too short", path)
 	}
 	return &Signer{secret: secret}, nil
 }
@@ -103,9 +103,9 @@ func (s *Signer) Verify(token string) (userID, version int64, err error) {
 	return nums[0], nums[1], nil
 }
 
-// IssueTicket firma un token de un solo propósito (p. ej. "mfa": la
-// contraseña ya se comprobó y falta el segundo paso). Su forma
-// "propósito.id.expiración.firma" no se confunde nunca con una sesión.
+// IssueTicket signs a single-purpose token (for example "mfa": the password
+// has already been checked and only the second step is left). Its form
+// "purpose.id.expiry.signature" can never be mistaken for a session.
 func (s *Signer) IssueTicket(purpose string, userID int64, ttl time.Duration) string {
 	payload := purpose + "." + strconv.FormatInt(userID, 10) + "." + strconv.FormatInt(time.Now().Add(ttl).Unix(), 10)
 	return payload + "." + s.sign(payload)

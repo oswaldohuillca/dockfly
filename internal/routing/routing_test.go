@@ -16,7 +16,7 @@ func list(n int64) *store.AccessList {
 	return &store.AccessList{ID: n, AllowIPs: []string{"10.0.0.0/8"}}
 }
 
-// base es un snapshot sin nada publicado y sin certificados especiales.
+// base is a snapshot with nothing published and no special certificates.
 func base() Snapshot {
 	return Snapshot{
 		StaticURL: "http://127.0.0.1:8099",
@@ -34,7 +34,7 @@ func route(t *testing.T, p Plan, name string) traefik.Route {
 			return r
 		}
 	}
-	t.Fatalf("no hay ruta %s en %v", name, names(p))
+	t.Fatalf("no route %s in %v", name, names(p))
 	return traefik.Route{}
 }
 
@@ -46,8 +46,9 @@ func names(p Plan) []string {
 	return out
 }
 
-// Todo lo que protege una lista en el plan cuenta como uso de esa lista: si
-// no, se podría borrar una lista en uso y la ruta pasaría a denegarlo todo.
+// Everything a list protects in the plan counts as a use of that list;
+// otherwise a list in use could be deleted and its route would start denying
+// everything.
 func TestEveryProtectedRouteCountsAsUsage(t *testing.T) {
 	s := base()
 	s.AccessLists = []*store.AccessList{list(1), list(2), list(3), list(4), list(5), list(6), list(7)}
@@ -75,19 +76,19 @@ func TestEveryProtectedRouteCountsAsUsage(t *testing.T) {
 		}
 	}
 	if len(protected) != 6 {
-		t.Fatalf("listas en las rutas: %v", protected)
+		t.Fatalf("lists on the routes: %v", protected)
 	}
 	for v := range protected {
 		if used[v] == 0 {
-			t.Errorf("la lista %d protege una ruta pero no cuenta como usada: %v", v, used)
+			t.Errorf("list %d protects a route but does not count as used: %v", v, used)
 		}
 	}
 	if used[7] != 0 {
-		t.Errorf("la lista 7 no la usa nadie: %v", used)
+		t.Errorf("nobody uses list 7: %v", used)
 	}
 }
 
-// Una lista borrada no deja la ruta pública: la deniega.
+// A deleted list does not leave the route public: it denies it.
 func TestMissingAccessListDenies(t *testing.T) {
 	s := base()
 	s.Sites = []*store.Site{{ID: 1, Domains: []string{"web.test"}, AccessListID: id(42)}}
@@ -96,8 +97,8 @@ func TestMissingAccessListDenies(t *testing.T) {
 	}
 }
 
-// Las previews de un sitio protegido usan el certificado comodín, no uno
-// por host.
+// The previews of a protected site use the wildcard certificate, not a
+// per-host one.
 func TestProtectedPreviewUsesWildcardCertificate(t *testing.T) {
 	s := base()
 	s.Resolver = func([]string) string { return traefik.DNSResolver("cloudflare") }
@@ -107,20 +108,20 @@ func TestProtectedPreviewUsesWildcardCertificate(t *testing.T) {
 	plan := Build(s)
 
 	if w := route(t, plan, PreviewRouteName); !w.SSL || w.Resolver != traefik.DNSResolver("cloudflare") {
-		t.Errorf("comodín: %+v", w)
+		t.Errorf("wildcard: %+v", w)
 	}
 	p := route(t, plan, "preview-1-rama--web.pv.test")
 	if !p.SSL || p.Resolver != traefik.NoResolver || !slices.Equal(p.Middlewares, []string{"acl-1-ip"}) {
-		t.Errorf("preview protegida: %+v", p)
+		t.Errorf("protected preview: %+v", p)
 	}
 	if r := plan.Static["rama--web.pv.test"]; r.DeploymentID != 9 || r.Dir != "/sites/1/9" {
-		t.Errorf("tabla estática: %+v", r)
+		t.Errorf("static table: %+v", r)
 	}
 }
 
-// Si hay lista de acceso global de previews, el router por host de un sitio
-// con su propia lista debe exigir las dos (si no, las credenciales del sitio
-// saltarían la puerta global).
+// When there is a global preview access list, the per-host router of a site
+// with its own list must require both (otherwise the site's credentials would
+// bypass the global gate).
 func TestPreviewChainsGlobalAndSiteACL(t *testing.T) {
 	s := base()
 	s.AccessLists = []*store.AccessList{list(1), list(6)}
@@ -129,15 +130,15 @@ func TestPreviewChainsGlobalAndSiteACL(t *testing.T) {
 	plan := Build(s)
 
 	if w := route(t, plan, PreviewRouteName).Middlewares; !slices.Equal(w, []string{"acl-6-ip"}) {
-		t.Errorf("el comodín usa la lista global: %v", w)
+		t.Errorf("the wildcard uses the global list: %v", w)
 	}
 	if p := route(t, plan, "preview-1-rama--web.pv.test").Middlewares; !slices.Equal(p, []string{"acl-6-ip", "acl-1-ip"}) {
-		t.Errorf("el router por host exige global + sitio: %v", p)
+		t.Errorf("the per-host router requires global + site: %v", p)
 	}
 }
 
-// Las apps de un servidor remoto van a su Traefik, no al de este servidor;
-// las paradas o sin desplegar no se publican.
+// Apps on a remote server go to its Traefik, not to this server's; stopped or
+// undeployed ones are not published.
 func TestAppsRemoteAndStopped(t *testing.T) {
 	s := base()
 	s.Apps = []*store.App{
@@ -148,14 +149,14 @@ func TestAppsRemoteAndStopped(t *testing.T) {
 	}
 	plan := Build(s)
 	if got := names(plan); !slices.Equal(got, []string{"app-1"}) {
-		t.Errorf("rutas locales: %v", got)
+		t.Errorf("local routes: %v", got)
 	}
 	if r := plan.Remote[7]; len(r) != 1 || r[0].Name != "app-2" || r[0].URL != "http://b:80" {
-		t.Errorf("rutas remotas: %+v", plan.Remote)
+		t.Errorf("remote routes: %+v", plan.Remote)
 	}
 }
 
-// Las ubicaciones de un sitio van a su backend, sin la compresión del sitio.
+// A site's locations go to its backend, without the site's compression.
 func TestSiteLocations(t *testing.T) {
 	s := base()
 	s.Sites = []*store.Site{{ID: 1, Domains: []string{"web.test"}, Locations: []store.ProxyLocation{
@@ -163,7 +164,7 @@ func TestSiteLocations(t *testing.T) {
 	}}}
 	loc := route(t, Build(s), "site-1-loc0")
 	if loc.PathPrefix != "/api" || !loc.StripPrefix || loc.URL != "http://api:3000" || loc.Compress || len(loc.Middlewares) != 0 {
-		t.Errorf("ubicación: %+v", loc)
+		t.Errorf("location: %+v", loc)
 	}
 }
 
@@ -171,9 +172,9 @@ func TestPreviewHost(t *testing.T) {
 	if h := PreviewHost("previews.test", "web", "feature-x"); h != "feature-x--web.previews.test" {
 		t.Errorf("host: %s", h)
 	}
-	// La etiqueta nunca pasa de 63 caracteres, aunque el sitio tenga un nombre largo.
+	// The label never goes over 63 characters, even if the site has a long name.
 	h := PreviewHost("p.test", strings.Repeat("s", 60), strings.Repeat("b", 40))
 	if label := strings.TrimSuffix(h, ".p.test"); len(label) > 63 || strings.HasSuffix(label, "-") {
-		t.Errorf("etiqueta de %d caracteres: %s", len(label), label)
+		t.Errorf("label of %d characters: %s", len(label), label)
 	}
 }

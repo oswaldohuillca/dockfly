@@ -3,7 +3,7 @@ import { createFileRoute, notFound } from '@tanstack/react-router';
 import { SiteDetail } from '@/components/site-detail';
 
 export const Route = createFileRoute('/_app/sites/$siteId')({
-  // El parámetro llega como texto: lo validamos y convertimos a número.
+  // The param arrives as text: we validate it and turn it into a number.
   params: {
     parse: ({ siteId }) => {
       const id = Number(siteId);
@@ -17,6 +17,6 @@ export const Route = createFileRoute('/_app/sites/$siteId')({
 
 function SitePage() {
   const { siteId } = Route.useParams();
-  // key: al cambiar de sitio, el estado de la página empieza de cero.
+  // key: when switching sites, the page's state starts from scratch.
   return <SiteDetail key={siteId} id={siteId} />;
 }

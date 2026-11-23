@@ -6,10 +6,10 @@ import tailwindcss from '@tailwindcss/vite';
 import { lingui } from '@lingui/vite-plugin';
 
 export default defineConfig(({ command }) => ({
-  // El plugin del router va antes que el de React: genera src/routeTree.gen.ts
-  // a partir de src/routes y divide el código por ruta (opciones en tsr.config.json).
-  // Lingui transforma sus macros (t`…`, <Trans>) y compila los catálogos .po
-  // al importarlos. En el build, falta una traducción = error.
+  // The router plugin goes before the React one: it generates src/routeTree.gen.ts
+  // from src/routes and splits the code per route (options in tsr.config.json).
+  // Lingui transforms its macros (t`…`, <Trans>) and compiles the .po catalogs
+  // when they are imported. In a build, a missing translation is an error.
   plugins: [
     tanstackRouter(),
     lingui({ macroTransform: true, failOnMissing: command === 'build' }),
@@ -24,7 +24,7 @@ export default defineConfig(({ command }) => ({
     emptyOutDir: true,
   },
   server: {
-    // En desarrollo, el backend Go corre aparte (`make dev`).
+    // In development the Go backend runs separately (`make dev`).
     proxy: { '/api': 'http://127.0.0.1:8181' },
   },
 }));

@@ -3,8 +3,8 @@ import { useEffect, useState } from 'react';
 import { api, type CertStatus } from '@/lib/api';
 
 /**
- * Estado de los certificados por dominio. Se refresca cada 30 s: tras crear
- * un host, Let's Encrypt tarda unos segundos en responder.
+ * Certificate status by domain. Refreshed every 30 s: after a host is
+ * created, Let's Encrypt takes a few seconds to answer.
  */
 export function useCertificates(): Map<string, CertStatus> {
   const [certs, setCerts] = useState(new Map<string, CertStatus>());

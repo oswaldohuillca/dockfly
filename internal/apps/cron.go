@@ -7,12 +7,12 @@ import (
 	"time"
 )
 
-// Schedule es una expresión cron de cinco campos (minuto, hora, día del mes,
-// mes, día de la semana) ya interpretada. Cada campo es un mapa de bits.
+// Schedule is an already parsed five-field cron expression (minute, hour,
+// day of month, month, day of week). Each field is a bitmap.
 type Schedule struct {
 	minute, hour, dom, month, dow uint64
-	// Como en cron: si se restringen a la vez el día del mes y el de la
-	// semana, basta con que coincida uno.
+	// As in cron: when both the day of month and the day of week are
+	// restricted, matching either one is enough.
 	domAny, dowAny bool
 }
 
@@ -21,8 +21,9 @@ var cronFields = []struct {
 	min, max int
 }{{"minute", 0, 59}, {"hour", 0, 23}, {"day of month", 1, 31}, {"month", 1, 12}, {"day of week", 0, 7}}
 
-// ParseSchedule devuelve errores en inglés: se muestran tal cual en el panel.
-// Admite *, valores, rangos (1-5), listas (1,15) y pasos (*/10, 0-30/5).
+// ParseSchedule returns its errors in English: the panel shows them as
+// they are. It accepts *, values, ranges (1-5), lists (1,15) and steps
+// (*/10, 0-30/5).
 func ParseSchedule(expr string) (Schedule, error) {
 	parts := strings.Fields(expr)
 	if len(parts) != 5 {
@@ -46,7 +47,7 @@ func ParseSchedule(expr string) (Schedule, error) {
 						return Schedule{}, fmt.Errorf("%s: %q is not a number", f.name, b)
 					}
 				} else if hasStep {
-					hi = f.max // "5/10" = desde 5, cada 10
+					hi = f.max // "5/10" = from 5 on, every 10
 				}
 			}
 			if hasStep {
@@ -63,14 +64,14 @@ func ParseSchedule(expr string) (Schedule, error) {
 			}
 		}
 	}
-	if bits[4]&(1<<7) != 0 { // 7 también es domingo
+	if bits[4]&(1<<7) != 0 { // 7 is Sunday too
 		bits[4] |= 1
 	}
 	return Schedule{minute: bits[0], hour: bits[1], dom: bits[2], month: bits[3], dow: bits[4],
 		domAny: parts[2] == "*", dowAny: parts[4] == "*"}, nil
 }
 
-// Matches indica si la tarea toca en el minuto de t.
+// Matches reports whether the job is due in t's minute.
 func (s Schedule) Matches(t time.Time) bool {
 	has := func(bits uint64, v int) bool { return bits&(1<<v) != 0 }
 	if !has(s.minute, t.Minute()) || !has(s.hour, t.Hour()) || !has(s.month, int(t.Month())) {

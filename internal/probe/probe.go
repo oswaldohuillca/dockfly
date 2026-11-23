@@ -1,4 +1,4 @@
-// Package probe comprueba si un contenedor está listo para recibir tráfico.
+// Package probe checks whether a container is ready to take traffic.
 package probe
 
 import (
@@ -10,12 +10,12 @@ import (
 
 var client = &http.Client{
 	Timeout: 3 * time.Second,
-	// Una redirección (p. ej. a /login) ya demuestra que la app responde.
+	// A redirect (to /login, for example) already proves the app responds.
 	CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 }
 
-// Ready indica si hostport acepta conexiones o, con path, si responde a un
-// GET con un código menor que 400.
+// Ready reports whether hostport accepts connections or, with path, whether
+// it answers a GET with a status below 400.
 func Ready(ctx context.Context, hostport, path string) bool {
 	if path == "" {
 		conn, err := (&net.Dialer{Timeout: 2 * time.Second}).DialContext(ctx, "tcp", hostport)

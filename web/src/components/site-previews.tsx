@@ -10,7 +10,7 @@ import { api, errorMessage, type Preview, type Site } from '@/lib/api';
 import { timeAgo } from '@/lib/format';
 import { useCan } from '@/lib/roles';
 
-/** Ramas publicadas como preview. reload cambia cuando termina un build. */
+/** Branches published as previews. reload changes when a build finishes. */
 export function SitePreviews({ site, reload }: { site: Site; reload: unknown }) {
   const { t } = useLingui();
   const [previews, setPreviews] = useState<Preview[]>([]);

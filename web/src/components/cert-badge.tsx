@@ -8,7 +8,7 @@ import type { CertState, CertStatus } from '@/lib/api';
 import { currentLocale } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 
-// De peor a mejor: con varios dominios se muestra el peor.
+// Worst to best: with several domains, the worst one is shown.
 const severity: CertState[] = ['error', 'expired', 'expiring', 'pending', 'valid'];
 
 const shortDate = (iso: string) => new Date(iso).toLocaleDateString(currentLocale(), { day: 'numeric', month: 'short' });
@@ -41,7 +41,7 @@ interface Props {
   certs: Map<string, CertStatus>;
 }
 
-/** Estado del certificado de un host o sitio con SSL. */
+/** Certificate status of a host or site with SSL. */
 export function CertBadge({ domains, certs }: Props) {
   const list = domains.map((d) => certs.get(d)).filter((c): c is CertStatus => c !== undefined);
   if (list.length === 0) {
@@ -53,7 +53,7 @@ export function CertBadge({ domains, certs }: Props) {
   }
   const worst = list.reduce((a, b) => (severity.indexOf(b.status) < severity.indexOf(a.status) ? b : a));
   const s = look[worst.status];
-  // Certificado vigente pero renovación fallando: se avisa sin alarmar.
+  // Certificate still valid but renewal failing: warn without alarming.
   const renewalFailing = list.some((c) => c.status === 'valid' && c.error);
   const staging = list.some((c) => c.staging);
 

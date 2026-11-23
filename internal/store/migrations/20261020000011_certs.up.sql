@@ -1,16 +1,16 @@
--- Proveedores DNS para el desafío DNS-01 de Let's Encrypt (certificados
--- wildcard). Cada uno cubre unas zonas; sus credenciales van cifradas.
+-- DNS providers for Let's Encrypt's DNS-01 challenge (wildcard
+-- certificates). Each one covers some zones; its credentials are encrypted.
 CREATE TABLE dns_providers (
 	id         INTEGER PRIMARY KEY AUTOINCREMENT,
-	provider   TEXT NOT NULL UNIQUE, -- código de lego: cloudflare, route53…
-	zones      TEXT NOT NULL,        -- ["ejemplo.com"]
-	env_enc    BLOB NOT NULL,        -- variables de entorno de lego, cifradas
+	provider   TEXT NOT NULL UNIQUE, -- lego's provider code: cloudflare, route53…
+	zones      TEXT NOT NULL,        -- ["example.com"]
+	env_enc    BLOB NOT NULL,        -- lego's environment variables, encrypted
 	created_at DATETIME NOT NULL
 );
 
 --bun:split
 
--- Certificados subidos por el usuario.
+-- Certificates uploaded by the user.
 CREATE TABLE certificates (
 	id         INTEGER PRIMARY KEY AUTOINCREMENT,
 	name       TEXT NOT NULL,

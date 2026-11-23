@@ -1,5 +1,5 @@
-// Package apps despliega y gestiona contenedores de larga duración (APIs,
-// bases de datos, servicios…) desde una imagen o desde un Dockerfile.
+// Package apps deploys and manages long-running containers (APIs,
+// databases, services…) from an image or from a Dockerfile.
 package apps
 
 import (
@@ -29,7 +29,7 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Etiquetas de los contenedores de apps.
+// Labels of the app containers.
 const (
 	LabelApp        = "dockfly.app"
 	LabelDeployment = "dockfly.app.deployment"
@@ -37,9 +37,9 @@ const (
 
 const (
 	healthTimeout   = 2 * time.Minute
-	stableFor       = 5 * time.Second // sin puerto que comprobar: que no se caiga en este tiempo
+	stableFor       = 5 * time.Second // with no port to check: it must not crash within this time
 	stopTimeout     = 20 * time.Second
-	keepImages      = 5 // imágenes construidas que se conservan para volver atrás
+	keepImages      = 5 // built images kept around so a rollback is possible
 	maxContextBytes = 1 << 30
 )
 
@@ -54,27 +54,27 @@ type Config struct {
 	Providers Providers
 	LogDir    string
 	Log       *slog.Logger
-	Network   string // red de Dockfly: Traefik y las apps se ven en ella
-	// ComposeProxy, si no es nil, es el proxy del socket con permisos
-	// mínimos con el que habla el auxiliar de Compose. SelfContainer es el
-	// contenedor de Dockfly, que se conecta a la red interna de cada ejecución.
-	// Remote da el Docker de un servidor remoto (por el túnel de su agente)
-	// y RemoteNetwork, la red de Dockfly en ese servidor.
+	Network   string // Dockfly's network: Traefik and the apps meet there
+	// ComposeProxy, if not nil, is the least-privilege socket proxy the
+	// Compose helper talks to. SelfContainer is Dockfly's own container,
+	// which joins the internal network of every run. Remote gives the Docker
+	// of a remote server (through its agent's tunnel) and RemoteNetwork, the
+	// Dockfly network on that server.
 	Remote        func(serverID int64) *docker.Client
 	RemoteNetwork func(serverID int64) string
-	// RemoteProbe comprueba desde un servidor remoto si una app está lista.
+	// RemoteProbe checks from a remote server whether an app is ready.
 	RemoteProbe   func(ctx context.Context, serverID int64, hostport, path string) bool
 	ComposeProxy  *dockerproxy.Proxy
 	SelfContainer string
-	// HostDockerSocket es la ruta del socket de Docker en el host (no en el
-	// contenedor de Dockfly). Sin proxy, la monta el auxiliar de Compose
-	// (solo en desarrollo: tiene acceso total a Docker).
+	// HostDockerSocket is the path of the Docker socket on the host (not
+	// inside Dockfly's container). With no proxy, the Compose helper mounts
+	// it (development only: that grants full access to Docker).
 	HostDockerSocket string
-	// Apply regenera la configuración de Traefik (la API sabe hacerlo).
+	// Apply regenerates Traefik's configuration (the API knows how to).
 	Apply func(ctx context.Context) error
-	// OnFinish se llama al terminar cada despliegue (notificaciones).
+	// OnFinish is called when each deployment finishes (notifications).
 	OnFinish func(ctx context.Context, deploymentID int64)
-	// OnJobFailed se llama cuando una tarea programada termina mal.
+	// OnJobFailed is called when a scheduled job ends badly.
 	OnJobFailed func(ctx context.Context, app *store.App, job *store.AppJob, exitCode int)
 }
 
@@ -84,12 +84,12 @@ type Manager struct {
 
 	mu      sync.Mutex
 	running map[int64]context.CancelCauseFunc
-	appLock map[int64]*sync.Mutex // una operación a la vez por app
-	jobs    map[int64]bool        // tareas programadas en marcha
+	appLock map[int64]*sync.Mutex // one operation at a time per app
+	jobs    map[int64]bool        // scheduled jobs currently running
 }
 
-// Docker es el Docker donde corre la app: el local o el de su servidor.
-// nil si no hay Docker disponible.
+// Docker is the Docker where the app runs: the local one or the one of its
+// server. nil when no Docker is available.
 func (m *Manager) Docker(app *store.App) *docker.Client {
 	if app.ServerID != nil && m.cfg.Remote != nil {
 		return m.cfg.Remote(*app.ServerID)
@@ -97,7 +97,7 @@ func (m *Manager) Docker(app *store.App) *docker.Client {
 	return m.cfg.Docker
 }
 
-// network es la red de Dockfly donde va la app (la de su servidor).
+// network is the Dockfly network the app goes into (its server's one).
 func (m *Manager) network(app *store.App) string {
 	if app.ServerID != nil && m.cfg.RemoteNetwork != nil {
 		return m.cfg.RemoteNetwork(*app.ServerID)
@@ -105,8 +105,8 @@ func (m *Manager) network(app *store.App) string {
 	return m.cfg.Network
 }
 
-// SetComposeProxy activa el proxy del socket para el auxiliar de Compose.
-// Se llama al arrancar, antes de Run.
+// SetComposeProxy enables the socket proxy for the Compose helper. It is
+// called at startup, before Run.
 func (m *Manager) SetComposeProxy(p *dockerproxy.Proxy, self string) {
 	m.cfg.ComposeProxy, m.cfg.SelfContainer = p, self
 }
@@ -131,21 +131,21 @@ func (m *Manager) LogPath(deploymentID int64) string {
 	return filepath.Join(m.cfg.LogDir, "app-"+strconv.FormatInt(deploymentID, 10)+".log")
 }
 
-// ContainerName es el nombre del contenedor de un despliegue. Cada uno tiene
-// el suyo: durante un despliegue sin corte conviven el viejo y el nuevo.
+// ContainerName is the container name of a deployment. Each one has its
+// own: during a zero-downtime deploy the old and the new coexist.
 func ContainerName(app *store.App, deploymentID int64) string {
 	return fmt.Sprintf("dockfly-app-%s-%d", app.Name, deploymentID)
 }
 
-// VolumeName es el volumen de Docker de un volumen de la app. Se conserva
-// entre despliegues: ahí viven los datos.
+// VolumeName is the Docker volume behind an app volume. It is kept across
+// deployments: that is where the data lives.
 func VolumeName(app *store.App, v store.AppVolume) string {
 	return "dockfly-app-" + app.Name + "-" + v.Name
 }
 
 func (m *Manager) Run(ctx context.Context) {
 	if err := os.MkdirAll(m.cfg.LogDir, 0o755); err != nil {
-		m.cfg.Log.Error("creando directorio de logs", "error", err)
+		m.cfg.Log.Error("creating the log directory", "error", err)
 	}
 	m.recover(ctx)
 	for {
@@ -158,13 +158,13 @@ func (m *Manager) Run(ctx context.Context) {
 	}
 }
 
-// recover limpia lo que dejó un reinicio a mitad de un despliegue: los
-// contenedores nuevos que no llegaron a activarse y los despliegues en curso.
+// recover cleans up what a restart in the middle of a deploy left behind:
+// the new containers that never went live and the in-flight deployments.
 func (m *Manager) recover(ctx context.Context) {
 	st := m.cfg.Store
 	running, _ := st.ListAppDeploymentsByStatus(ctx, store.DeployRunning)
 	for _, d := range running {
-		_ = st.FinishAppDeployment(ctx, d.ID, store.DeployFailed, "interrumpido por un reinicio de Dockfly")
+		_ = st.FinishAppDeployment(ctx, d.ID, store.DeployFailed, "interrupted by a Dockfly restart")
 		app, err := st.GetApp(ctx, d.AppID)
 		if err != nil || m.Docker(app) == nil {
 			continue
@@ -172,9 +172,10 @@ func (m *Manager) recover(ctx context.Context) {
 		if d.Container != "" {
 			_ = m.Docker(app).RemoveContainer(ctx, d.Container)
 		}
-		// Con volúmenes, el deploy para el contenedor anterior antes de
-		// arrancar el nuevo: si se cortó ahí, la app se quedaría caída.
-		// (Si ya estaba en marcha, Docker responde 304 y no pasa nada.)
+		// With volumes, the deploy stops the previous container before
+		// starting the new one: if it was cut right there, the app would be
+		// left down. (If it is already running, Docker answers 304 and
+		// nothing happens.)
 		if cur := app.Current; !app.Stopped && cur != nil && cur.Container != "" && cur.Container != d.Container {
 			_ = m.Docker(app).StartContainer(ctx, cur.Container)
 		}
@@ -185,15 +186,15 @@ func (m *Manager) recover(ctx context.Context) {
 	}
 }
 
-// Enqueue pone en cola un despliegue. Con image != "" se reutiliza esa
-// imagen sin construir (volver a una versión anterior).
+// Enqueue queues a deployment. With image != "" that image is reused
+// without building (rolling back to an earlier version).
 func (m *Manager) Enqueue(ctx context.Context, appID int64, trigger string, commit gitprovider.Commit, image string) (*store.AppDeployment, error) {
 	app, err := m.cfg.Store.GetApp(ctx, appID)
 	if err != nil {
 		return nil, err
 	}
 	if m.Docker(app) == nil {
-		return nil, errors.New("Docker no está disponible: monta /var/run/docker.sock")
+		return nil, errors.New("Docker is not available: mount /var/run/docker.sock")
 	}
 	d := &store.AppDeployment{AppID: appID, Status: store.DeployQueued, Trigger: trigger,
 		CommitSHA: commit.SHA, CommitMessage: commit.Message, Image: image}
@@ -205,12 +206,12 @@ func (m *Manager) Enqueue(ctx context.Context, appID int64, trigger string, comm
 	case m.queue <- d.ID:
 		return d, nil
 	default:
-		_ = m.cfg.Store.FinishAppDeployment(ctx, d.ID, store.DeployFailed, "la cola de despliegues está llena")
-		return nil, errors.New("la cola de despliegues está llena")
+		_ = m.cfg.Store.FinishAppDeployment(ctx, d.ID, store.DeployFailed, "the deployment queue is full")
+		return nil, errors.New("the deployment queue is full")
 	}
 }
 
-var errCanceled = errors.New("cancelado")
+var errCanceled = errors.New("canceled")
 
 func (m *Manager) Cancel(ctx context.Context, deploymentID int64) error {
 	m.mu.Lock()
@@ -220,9 +221,9 @@ func (m *Manager) Cancel(ctx context.Context, deploymentID int64) error {
 		cancel(errCanceled)
 		return nil
 	}
-	err := m.cfg.Store.FinishAppDeployment(ctx, deploymentID, store.DeployCanceled, "cancelado")
+	err := m.cfg.Store.FinishAppDeployment(ctx, deploymentID, store.DeployCanceled, "canceled")
 	if errors.Is(err, store.ErrNotFound) {
-		return errors.New("el despliegue ya terminó")
+		return errors.New("the deployment has already finished")
 	}
 	return err
 }
@@ -230,7 +231,7 @@ func (m *Manager) Cancel(ctx context.Context, deploymentID int64) error {
 func (m *Manager) run(parent context.Context, id int64) {
 	st := m.cfg.Store
 	if err := st.StartAppDeployment(parent, id); err != nil {
-		return // cancelado mientras esperaba
+		return // canceled while it was waiting
 	}
 	d, err := st.GetAppDeployment(parent, id)
 	if err != nil {
@@ -263,10 +264,10 @@ func (m *Manager) run(parent context.Context, id int64) {
 	finish := context.WithoutCancel(parent)
 	switch {
 	case err == nil:
-		fmt.Fprintf(log, "\n✔ Desplegado en %s\n", time.Since(start).Round(time.Second))
+		fmt.Fprintf(log, "\n✔ Deployed in %s\n", time.Since(start).Round(time.Second))
 	case errors.Is(context.Cause(ctx), errCanceled):
-		fmt.Fprintln(log, "\n✘ cancelado")
-		_ = st.FinishAppDeployment(finish, id, store.DeployCanceled, "cancelado")
+		fmt.Fprintln(log, "\n✘ canceled")
+		_ = st.FinishAppDeployment(finish, id, store.DeployCanceled, "canceled")
 	default:
 		fmt.Fprintf(log, "\n✘ %v\n", err)
 		_ = st.FinishAppDeployment(finish, id, store.DeployFailed, err.Error())
@@ -287,19 +288,19 @@ func (m *Manager) deploy(ctx context.Context, d *store.AppDeployment, log io.Wri
 		return m.deployCompose(ctx, app, d, log)
 	}
 
-	// 1. La imagen: descargarla, construirla o reutilizar la de un despliegue anterior.
+	// 1. The image: pull it, build it or reuse the one of an earlier deploy.
 	if d.Image == "" {
 		if d.Image, err = m.prepareImage(ctx, app, d, log); err != nil {
 			return err
 		}
 	} else {
-		fmt.Fprintf(log, "▶ Reutilizando la imagen %s\n", d.Image)
+		fmt.Fprintf(log, "▶ Reusing the image %s\n", d.Image)
 	}
 	_ = st.UpdateAppDeployment(ctx, d)
 
 	env, err := Env(m.cfg.Secrets, app)
 	if err != nil {
-		return fmt.Errorf("leyendo las variables de entorno: %w", err)
+		return fmt.Errorf("reading the environment variables: %w", err)
 	}
 	cmd, err := SplitCommand(app.Command)
 	if err != nil {
@@ -310,29 +311,29 @@ func (m *Manager) deploy(ctx context.Context, d *store.AppDeployment, log io.Wri
 	if app.CurrentDeploymentID != nil {
 		old, _ = st.GetAppDeployment(ctx, *app.CurrentDeploymentID)
 	}
-	// 2. Estrategia. Con volúmenes, el viejo se para antes de arrancar el
-	// nuevo: dos instancias de una base de datos escribiendo en el mismo
-	// volumen lo corromperían.
+	// 2. Strategy. With volumes, the old one is stopped before starting the
+	// new one: two instances of a database writing to the same volume would
+	// corrupt it.
 	recreate := len(app.Volumes) > 0
 	if recreate && old != nil && old.Container != "" {
-		fmt.Fprintln(log, "▶ La app tiene volúmenes: se detiene la versión actual antes de arrancar la nueva (corte breve)")
+		fmt.Fprintln(log, "▶ The app has volumes: the current version is stopped before starting the new one (brief downtime)")
 		if err := dc.StopContainer(ctx, old.Container, stopTimeout); err != nil && !docker.IsNotFound(err) {
-			return fmt.Errorf("deteniendo la versión actual: %w", err)
+			return fmt.Errorf("stopping the current version: %w", err)
 		}
 	}
-	// Si algo falla después de parar el viejo, se vuelve a arrancar.
+	// If anything fails after stopping the old one, start it back up.
 	restoreOld := func() {
 		if recreate && old != nil && old.Container != "" && !app.Stopped {
-			fmt.Fprintln(log, "▶ Volviendo a arrancar la versión anterior")
+			fmt.Fprintln(log, "▶ Starting the previous version back up")
 			bg, cancel := context.WithTimeout(context.Background(), time.Minute)
 			defer cancel()
 			if err := dc.StartContainer(bg, old.Container); err != nil {
-				fmt.Fprintf(log, "  no se pudo: %v\n", err)
+				fmt.Fprintf(log, "  it did not work: %v\n", err)
 			}
 		}
 	}
 
-	// 3. Contenedor nuevo.
+	// 3. New container.
 	name := ContainerName(app, d.ID)
 	volumes := map[string]string{}
 	for _, v := range app.Volumes {
@@ -342,7 +343,7 @@ func (m *Manager) deploy(ctx context.Context, d *store.AppDeployment, log io.Wri
 	for k, v := range env {
 		envList = append(envList, k+"="+v)
 	}
-	fmt.Fprintf(log, "▶ Arrancando %s\n", name)
+	fmt.Fprintf(log, "▶ Starting %s\n", name)
 	cid, err := dc.CreateAppContainer(ctx, docker.AppSpec{
 		Name: name, Image: d.Image, Cmd: cmd, Env: envList, Network: m.network(app), Aliases: []string{app.Name},
 		Volumes: volumes, MemoryMB: int64(app.MemoryMB), CPUs: app.CPUs,
@@ -350,7 +351,7 @@ func (m *Manager) deploy(ctx context.Context, d *store.AppDeployment, log io.Wri
 	})
 	if err != nil {
 		restoreOld()
-		return fmt.Errorf("creando el contenedor: %w", err)
+		return fmt.Errorf("creating the container: %w", err)
 	}
 	d.Container = name
 	_ = st.UpdateAppDeployment(ctx, d)
@@ -363,28 +364,28 @@ func (m *Manager) deploy(ctx context.Context, d *store.AppDeployment, log io.Wri
 		return err
 	}
 	if err := dc.StartContainer(ctx, cid); err != nil {
-		return fail(fmt.Errorf("arrancando el contenedor: %w", err))
+		return fail(fmt.Errorf("starting the container: %w", err))
 	}
 
-	// 4. Salud.
+	// 4. Health.
 	if err := m.waitHealthy(ctx, app, cid, log); err != nil {
 		return fail(err)
 	}
 	if err := dc.KeepRunning(ctx, cid); err != nil {
-		return fail(fmt.Errorf("activando el reinicio automático: %w", err))
+		return fail(fmt.Errorf("enabling the automatic restart: %w", err))
 	}
 
-	// 5. Activar: la base de datos primero y luego Traefik, que pasa el
-	// tráfico al contenedor nuevo.
+	// 5. Go live: the database first and then Traefik, which hands the
+	// traffic over to the new container.
 	if err := st.GoLive(context.WithoutCancel(ctx), app.ID, d.ID); err != nil {
 		return fail(err)
 	}
 	if err := m.cfg.Apply(context.WithoutCancel(ctx)); err != nil {
-		fmt.Fprintf(log, "⚠ no se pudo actualizar Traefik: %v\n", err)
+		fmt.Fprintf(log, "⚠ Traefik could not be updated: %v\n", err)
 	}
 
-	// 6. Retirar la versión anterior, dejando a Traefik un momento para
-	// recargar (sin esto, las peticiones en vuelo podrían fallar).
+	// 6. Retire the previous version, giving Traefik a moment to reload
+	// (without this, in-flight requests could fail).
 	if old != nil && old.Container != "" {
 		if !recreate {
 			time.Sleep(3 * time.Second)
@@ -393,7 +394,7 @@ func (m *Manager) deploy(ctx context.Context, d *store.AppDeployment, log io.Wri
 		_ = dc.StopContainer(bg, old.Container, stopTimeout)
 		_ = dc.RemoveContainer(bg, old.Container)
 		cancel()
-		fmt.Fprintf(log, "▶ Versión anterior (%s) retirada\n", old.Container)
+		fmt.Fprintf(log, "▶ Previous version (%s) retired\n", old.Container)
 	}
 	m.pruneImages(app)
 	return nil
@@ -403,13 +404,13 @@ func (m *Manager) prepareImage(ctx context.Context, app *store.App, d *store.App
 	dc := m.Docker(app)
 	if app.Source == store.AppSourceImage {
 		image := docker.WithDefaultTag(app.Image)
-		fmt.Fprintf(log, "▶ Descargando %s…\n", image)
-		// Siempre se descarga: ":latest" puede haber cambiado desde el último despliegue.
+		fmt.Fprintf(log, "▶ Pulling %s…\n", image)
+		// Always pulled: ":latest" may have changed since the last deploy.
 		if err := dc.PullImage(ctx, image, log); err != nil {
 			if ok, _ := dc.ImageExists(ctx, image); !ok {
-				return "", fmt.Errorf("descargando %s: %w", image, err)
+				return "", fmt.Errorf("pulling %s: %w", image, err)
 			}
-			fmt.Fprintf(log, "⚠ no se pudo descargar (%v): se usa la copia local\n", err)
+			fmt.Fprintf(log, "⚠ could not pull it (%v): the local copy is used\n", err)
 		}
 		return image, nil
 	}
@@ -425,26 +426,26 @@ func (m *Manager) prepareImage(ctx context.Context, app *store.App, d *store.App
 	if dockerfile == "" {
 		dockerfile = "Dockerfile"
 	}
-	fmt.Fprintf(log, "▶ Construyendo %s con %s\n", tag, dockerfile)
+	fmt.Fprintf(log, "▶ Building %s with %s\n", tag, dockerfile)
 	pr, pw := io.Pipe()
 	go func() { pw.CloseWithError(buildContext(rc, pw, app.RootDir)) }()
 	err = dc.BuildImage(ctx, tag, dockerfile, pr, 0, log)
 	pr.Close()
 	if err != nil {
-		return "", fmt.Errorf("el build de la imagen falló: %w", err)
+		return "", fmt.Errorf("the image build failed: %w", err)
 	}
 	return tag, nil
 }
 
-// fetchSource descarga el código del commit a desplegar (el último de la
-// rama si el despliegue no trae uno).
+// fetchSource downloads the code of the commit to deploy (the latest one
+// on the branch if the deployment does not carry one).
 func (m *Manager) fetchSource(ctx context.Context, app *store.App, d *store.AppDeployment, log io.Writer) (io.ReadCloser, error) {
 	if app.GitConnectionID == nil || app.Repo == "" {
-		return nil, errors.New("la app no tiene un repositorio configurado")
+		return nil, errors.New("the app has no repository configured")
 	}
 	conn, err := m.cfg.Store.GetGitConnection(ctx, *app.GitConnectionID)
 	if err != nil {
-		return nil, errors.New("la cuenta de Git de la app ya no existe")
+		return nil, errors.New("the app's Git account no longer exists")
 	}
 	prov, err := m.cfg.Providers.Provider(ctx, conn)
 	if err != nil {
@@ -453,7 +454,7 @@ func (m *Manager) fetchSource(ctx context.Context, app *store.App, d *store.AppD
 	if d.CommitSHA == "" {
 		c, err := prov.LatestCommit(ctx, app.Repo, app.Branch)
 		if err != nil {
-			return nil, fmt.Errorf("obteniendo el último commit: %w", err)
+			return nil, fmt.Errorf("getting the latest commit: %w", err)
 		}
 		d.CommitSHA, d.CommitMessage = c.SHA, c.Message
 		_ = m.cfg.Store.UpdateAppDeployment(ctx, d)
@@ -461,24 +462,24 @@ func (m *Manager) fetchSource(ctx context.Context, app *store.App, d *store.AppD
 	fmt.Fprintf(log, "▶ %s@%s (%s): %s\n", app.Repo, short(d.CommitSHA), app.Branch, d.CommitMessage)
 	rc, err := prov.Tarball(ctx, app.Repo, d.CommitSHA)
 	if err != nil {
-		return nil, fmt.Errorf("descargando el código: %w", err)
+		return nil, fmt.Errorf("downloading the code: %w", err)
 	}
 	return rc, nil
 }
 
-// waitHealthy espera a que el contenedor esté listo para recibir tráfico.
+// waitHealthy waits until the container is ready to take traffic.
 func (m *Manager) waitHealthy(ctx context.Context, app *store.App, id string, log io.Writer) error {
 	dc := m.Docker(app)
 	ctx, cancel := context.WithTimeout(ctx, healthTimeout)
 	defer cancel()
-	how := "que el contenedor siga en marcha"
+	how := "the container stays up"
 	switch {
 	case app.Port > 0 && app.HealthPath != "":
-		how = fmt.Sprintf("respuesta HTTP en el puerto %d%s", app.Port, app.HealthPath)
+		how = fmt.Sprintf("HTTP response on port %d%s", app.Port, app.HealthPath)
 	case app.Port > 0:
-		how = fmt.Sprintf("que el puerto %d acepte conexiones", app.Port)
+		how = fmt.Sprintf("port %d accepts connections", app.Port)
 	}
-	fmt.Fprintf(log, "▶ Esperando a que esté listo (%s)…\n", how)
+	fmt.Fprintf(log, "▶ Waiting until it is ready (%s)…\n", how)
 
 	var runningSince, firstStart time.Time
 	tick := time.NewTicker(time.Second)
@@ -491,24 +492,24 @@ func (m *Manager) waitHealthy(ctx context.Context, app *store.App, id string, lo
 		if firstStart.IsZero() {
 			firstStart = info.StartedAt
 		}
-		// El contenedor nuevo no tiene política de reinicio hasta estar listo,
-		// así que una caída lo deja parado con su código de salida. Por si
-		// acaso (Docker antiguo, cambios externos), un reinicio durante la
-		// espera también cuenta como caída.
+		// The new container has no restart policy until it is ready, so a
+		// crash leaves it stopped with its exit code. Just in case (an old
+		// Docker, outside changes), a restart during the wait also counts as
+		// a crash.
 		crashed := !info.Running || info.Restarting || !info.StartedAt.Equal(firstStart)
 		if crashed {
-			reason := fmt.Sprintf("el contenedor terminó con código %d", info.ExitCode)
+			reason := fmt.Sprintf("the container exited with code %d", info.ExitCode)
 			if info.OOMKilled {
-				reason += " (sin memoria: aumenta el límite de memoria)"
+				reason += " (out of memory: raise the memory limit)"
 			}
 			return errors.New(reason)
 		}
 		ok := false
 		switch {
 		case info.Health != "":
-			// La imagen define su propio HEALTHCHECK: es lo más fiable.
+			// The image defines its own HEALTHCHECK: that is the most reliable.
 			if info.Health == "unhealthy" {
-				return errors.New("el HEALTHCHECK de la imagen indica que no está sano")
+				return errors.New("the image's HEALTHCHECK reports it is not healthy")
 			}
 			ok = info.Health == "healthy"
 		case app.Port > 0:
@@ -520,13 +521,13 @@ func (m *Manager) waitHealthy(ctx context.Context, app *store.App, id string, lo
 			ok = !runningSince.IsZero() && time.Since(runningSince) >= stableFor
 		}
 		if ok {
-			fmt.Fprintln(log, "▶ Listo")
+			fmt.Fprintln(log, "▶ Ready")
 			return nil
 		}
 		select {
 		case <-ctx.Done():
 			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-				return fmt.Errorf("no estuvo listo en %s (comprobación: %s)", healthTimeout, how)
+				return fmt.Errorf("it was not ready within %s (check: %s)", healthTimeout, how)
 			}
 			return ctx.Err()
 		case <-tick.C:
@@ -546,8 +547,8 @@ func ip(info *docker.ContainerInfo, network string) string {
 	return ""
 }
 
-// probe comprueba si la app está lista. Las de un servidor remoto se
-// comprueban desde ese servidor: su IP solo es alcanzable allí.
+// probe checks whether the app is ready. The ones on a remote server are
+// checked from that server: their IP is only reachable there.
 func (m *Manager) probe(ctx context.Context, addr string, app *store.App) bool {
 	if addr == "" {
 		return false
@@ -559,8 +560,8 @@ func (m *Manager) probe(ctx context.Context, addr string, app *store.App) bool {
 	return probe.Ready(ctx, hostport, app.HealthPath)
 }
 
-// dumpLogs copia al log del despliegue las últimas líneas del contenedor:
-// suelen explicar por qué no arrancó.
+// dumpLogs copies the container's last lines into the deployment log: they
+// usually explain why it did not start.
 func (m *Manager) dumpLogs(app *store.App, container string, log io.Writer) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -569,13 +570,13 @@ func (m *Manager) dumpLogs(app *store.App, container string, log io.Writer) {
 		return
 	}
 	defer rc.Close()
-	fmt.Fprintln(log, "\n── Últimas líneas del contenedor ──")
+	fmt.Fprintln(log, "\n── Last lines of the container ──")
 	_ = docker.Demux(io.LimitReader(rc, 64<<10), log)
-	fmt.Fprintln(log, "───────────────────────────────────")
+	fmt.Fprintln(log, "─────────────────────────────────")
 }
 
-// pruneImages borra las imágenes construidas de despliegues antiguos,
-// conservando las de los más recientes para poder volver atrás.
+// pruneImages deletes the images built by old deployments, keeping those
+// of the most recent ones so a rollback is still possible.
 func (m *Manager) pruneImages(app *store.App) {
 	if app.Source != store.AppSourceGit {
 		return
@@ -599,7 +600,7 @@ func (m *Manager) pruneImages(app *store.App) {
 	}
 }
 
-// Env descifra las variables de entorno de una app.
+// Env decrypts an app's environment variables.
 func Env(box *secrets.Box, app *store.App) (map[string]string, error) {
 	env := map[string]string{}
 	if len(app.EnvEnc) == 0 {
@@ -612,13 +613,13 @@ func Env(box *secrets.Box, app *store.App) (map[string]string, error) {
 	return env, json.Unmarshal(raw, &env)
 }
 
-// buildContext convierte el .tar.gz del repositorio en el contexto del
-// build: descarta la carpeta raíz y, con rootDir, se queda con esa
-// subcarpeta (monorepos).
+// buildContext turns the repository's .tar.gz into the build context: it
+// drops the root folder and, with rootDir, keeps only that subfolder
+// (monorepos).
 func buildContext(gz io.Reader, w io.Writer, rootDir string) error {
 	zr, err := gzip.NewReader(gz)
 	if err != nil {
-		return fmt.Errorf("el código descargado no es un .tar.gz: %w", err)
+		return fmt.Errorf("the downloaded code is not a .tar.gz: %w", err)
 	}
 	prefix := strings.Trim(path.Clean("/"+rootDir), "/")
 	tr, tw := tar.NewReader(zr), tar.NewWriter(w)
@@ -651,7 +652,7 @@ func buildContext(gz io.Reader, w io.Writer, rootDir string) error {
 			continue
 		}
 		if total += hdr.Size; total > maxContextBytes {
-			return fmt.Errorf("el código supera %d MiB", maxContextBytes>>20)
+			return fmt.Errorf("the code is larger than %d MiB", maxContextBytes>>20)
 		}
 		out := *hdr
 		out.Name = rest

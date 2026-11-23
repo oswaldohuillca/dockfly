@@ -33,50 +33,50 @@ func TestEngine(t *testing.T) {
 		"ghcr.io/user/postgres-backup":    "",
 	} {
 		if got := Engine(image); got != want {
-			t.Errorf("Engine(%q) = %q, quería %q", image, got, want)
+			t.Errorf("Engine(%q) = %q, wanted %q", image, got, want)
 		}
 	}
 }
 
-// --- Con Docker real ---
+// --- With a real Docker ---
 
 type dbCase struct {
 	engine, image string
 	env           []string
-	// write escribe un dato; read lo lee ("" si no está).
+	// write writes a value; read reads it back ("" if it is not there).
 	write, read, wipe []string
 }
 
 var cases = []dbCase{
 	{
 		engine: Postgres, image: "postgres:17-alpine",
-		env:   []string{"POSTGRES_PASSWORD=secreto", "POSTGRES_USER=app", "POSTGRES_DB=app"},
-		write: []string{"psql", "-U", "app", "-d", "app", "-c", "CREATE TABLE notas (t text); INSERT INTO notas VALUES ('hola desde postgres')"},
-		read:  []string{"psql", "-U", "app", "-d", "app", "-tAc", "SELECT t FROM notas"},
-		wipe:  []string{"psql", "-U", "app", "-d", "app", "-c", "DROP TABLE notas"},
+		env:   []string{"POSTGRES_PASSWORD=secret", "POSTGRES_USER=app", "POSTGRES_DB=app"},
+		write: []string{"psql", "-U", "app", "-d", "app", "-c", "CREATE TABLE notes (t text); INSERT INTO notes VALUES ('hello from postgres')"},
+		read:  []string{"psql", "-U", "app", "-d", "app", "-tAc", "SELECT t FROM notes"},
+		wipe:  []string{"psql", "-U", "app", "-d", "app", "-c", "DROP TABLE notes"},
 	},
 	{
 		engine: MySQL, image: "mariadb:11",
-		env:   []string{"MARIADB_ROOT_PASSWORD=secreto", "MARIADB_DATABASE=app"},
-		write: []string{"mariadb", "-uroot", "-psecreto", "app", "-e", "CREATE TABLE notas (t text); INSERT INTO notas VALUES ('hola desde mariadb')"},
-		read:  []string{"mariadb", "-uroot", "-psecreto", "app", "-N", "-e", "SELECT t FROM notas"},
-		wipe:  []string{"mariadb", "-uroot", "-psecreto", "app", "-e", "DROP TABLE notas"},
+		env:   []string{"MARIADB_ROOT_PASSWORD=secret", "MARIADB_DATABASE=app"},
+		write: []string{"mariadb", "-uroot", "-psecret", "app", "-e", "CREATE TABLE notes (t text); INSERT INTO notes VALUES ('hello from mariadb')"},
+		read:  []string{"mariadb", "-uroot", "-psecret", "app", "-N", "-e", "SELECT t FROM notes"},
+		wipe:  []string{"mariadb", "-uroot", "-psecret", "app", "-e", "DROP TABLE notes"},
 	},
 	{
 		engine: Redis, image: "redis:7-alpine",
-		write: []string{"redis-cli", "SET", "nota", "hola desde redis"},
-		read:  []string{"redis-cli", "GET", "nota"},
+		write: []string{"redis-cli", "SET", "note", "hello from redis"},
+		read:  []string{"redis-cli", "GET", "note"},
 	},
 }
 
 func TestBackupAndRestore(t *testing.T) {
 	if os.Getenv("DOCKFLY_DOCKER_TESTS") != "1" {
-		t.Skip("define DOCKFLY_DOCKER_TESTS=1 para probar con bases de datos reales")
+		t.Skip("set DOCKFLY_DOCKER_TESTS=1 to test against real databases")
 	}
 	dc := docker.New("/var/run/docker.sock")
 	ctx := context.Background()
 	if !dc.Available(ctx) {
-		t.Skip("Docker no está disponible")
+		t.Skip("Docker is unavailable")
 	}
 	dir := t.TempDir()
 	st, err := store.Open(ctx, filepath.Join(dir, "t.db"))
@@ -84,7 +84,7 @@ func TestBackupAndRestore(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer st.Close()
-	local := &objstore.Local{Dir: filepath.Join(dir, "copias")}
+	local := &objstore.Local{Dir: filepath.Join(dir, "backups")}
 	m := &Manager{
 		Store: st, Docker: dc, TmpDir: filepath.Join(dir, "tmp"), Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Storage: func(context.Context) (objstore.Store, error) { return local, nil },
@@ -114,20 +114,21 @@ func TestBackupAndRestore(t *testing.T) {
 				}
 				return strings.TrimSpace(out.String()), code
 			}
-			// Esperar a que acepte conexiones (las imágenes arrancan dos veces al inicializarse).
+			// Wait until it accepts connections (the images start twice while
+			// initializing).
 			deadline := time.Now().Add(2 * time.Minute)
 			for {
 				if _, code := exec(tc.write); code == 0 {
 					break
 				}
 				if time.Now().After(deadline) {
-					t.Fatal("la base de datos no arrancó")
+					t.Fatal("the database did not start")
 				}
 				time.Sleep(time.Second)
 			}
 			want, _ := exec(tc.read)
-			if !strings.HasPrefix(want, "hola desde") {
-				t.Fatalf("dato escrito: %q", want)
+			if !strings.HasPrefix(want, "hello from") {
+				t.Fatalf("written value: %q", want)
 			}
 
 			app := &store.App{Name: tc.engine, Source: store.AppSourceImage, Image: tc.image}
@@ -148,14 +149,14 @@ func TestBackupAndRestore(t *testing.T) {
 				t.Fatal(err)
 			}
 			if _, err := m.Start(ctx, app, "manual"); err != ErrBusy {
-				t.Errorf("dos copias a la vez: %v", err)
+				t.Errorf("two backups at once: %v", err)
 			}
 			for b.Status == store.DBBackupRunning {
 				time.Sleep(300 * time.Millisecond)
 				b, _ = st.GetDBBackup(ctx, app.ID, b.ID)
 			}
 			if b.Status != store.DBBackupSuccess || b.Size < 64 || b.Location != local.Dir {
-				t.Fatalf("copia: %+v", b)
+				t.Fatalf("backup: %+v", b)
 			}
 
 			if !CanRestore(tc.engine) {
@@ -168,26 +169,26 @@ func TestBackupAndRestore(t *testing.T) {
 			}
 			exec(tc.wipe)
 			if got, _ := exec(tc.read); got == want {
-				t.Fatal("el dato debía haberse borrado")
+				t.Fatal("the value should have been deleted")
 			}
 			if err := m.Restore(ctx, app, b); err != nil {
 				t.Fatal(err)
 			}
 			if got, _ := exec(tc.read); got != want {
-				t.Errorf("tras restaurar: %q, quería %q", got, want)
+				t.Errorf("after restoring: %q, wanted %q", got, want)
 			}
-			// Antes de restaurar se copió lo que había.
+			// Before restoring, whatever was there got backed up.
 			if list, _ := st.ListDBBackups(ctx, app.ID); len(list) != 2 || list[0].Status != store.DBBackupSuccess {
-				t.Errorf("falta la copia previa a la restauración: %+v", list)
+				t.Errorf("the backup taken before the restore is missing: %+v", list)
 			}
-			// Una copia cortada a medias no se da por restaurada.
+			// A backup cut off halfway is not taken as restored.
 			path := filepath.Join(local.Dir, b.ObjectKey)
 			raw, _ := os.ReadFile(path)
 			if err := os.WriteFile(path, raw[:len(raw)/2], 0o600); err != nil {
 				t.Fatal(err)
 			}
 			if err := m.Restore(ctx, app, b); err == nil {
-				t.Error("restaurar una copia cortada debe fallar")
+				t.Error("restoring a truncated backup must fail")
 			}
 		})
 	}

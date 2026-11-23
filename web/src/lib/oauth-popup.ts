@@ -1,5 +1,5 @@
-// Ventana emergente para autorizar en GitHub/GitLab, como en Vercel o
-// Netlify. La página de retorno de Dockfly avisa con postMessage y se cierra.
+// Popup window to authorize on GitHub/GitLab, the way Vercel or Netlify do
+// it. Dockfly's return page reports back with postMessage and closes itself.
 
 export interface PopupResult {
   ok: boolean;
@@ -9,8 +9,8 @@ export interface PopupResult {
 const NAME = 'dockfly-oauth';
 
 /**
- * Abre la ventana vacía. Debe llamarse directamente en el manejador del clic:
- * si se abre después de un await, el navegador la bloquea.
+ * Opens the empty window. It must be called straight from the click handler:
+ * if it is opened after an await, the browser blocks it.
  */
 export function openPopup(): Window | null {
   const w = 1000;
@@ -20,15 +20,15 @@ export function openPopup(): Window | null {
   return window.open('about:blank', NAME, `popup,width=${w},height=${h},left=${left},top=${top}`);
 }
 
-/** Lleva la ventana (o, si se bloqueó, esta misma pestaña) a url. */
+/** Sends the window (or, if it was blocked, this very tab) to url. */
 export function goTo(popup: Window | null, url: string) {
   if (popup) popup.location.href = url;
   else window.location.href = url;
 }
 
 /**
- * Envía un formulario POST a la ventana (el manifiesto de la GitHub App se
- * envía así). Sin ventana, se envía en esta pestaña.
+ * Posts a form to the window (that is how the GitHub App manifest is sent).
+ * With no window, it is submitted in this tab.
  */
 export function postTo(popup: Window | null, action: string, fields: Record<string, string>) {
   const form = document.createElement('form');
@@ -47,9 +47,9 @@ export function postTo(popup: Window | null, action: string, fields: Record<stri
   form.remove();
 }
 
-/** Espera el resultado. Si el usuario cierra la ventana, ok = false. */
+/** Waits for the result. If the user closes the window, ok = false. */
 export function waitForPopup(popup: Window | null): Promise<PopupResult> {
-  if (!popup) return new Promise(() => {}); // la pestaña entera navegó fuera
+  if (!popup) return new Promise(() => {}); // the whole tab navigated away
   return new Promise((resolve) => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin || e.data?.type !== 'dockfly-oauth') return;

@@ -6,9 +6,9 @@ import (
 	"io"
 )
 
-// Demux separa el flujo multiplexado de logs de Docker (sin TTY): cada trama
-// lleva una cabecera de 8 bytes con el tipo (stdout/stderr) y el tamaño.
-// Ambos se escriben en w, en el orden en que llegan.
+// Demux splits Docker's multiplexed log stream (no TTY): every frame carries
+// an 8-byte header with the kind (stdout/stderr) and the size. Both are
+// written to w, in the order they arrive.
 func Demux(r io.Reader, w io.Writer) error {
 	var hdr [8]byte
 	for {

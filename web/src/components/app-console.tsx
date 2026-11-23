@@ -10,13 +10,13 @@ import { api, errorMessage } from '@/lib/api';
 interface Run {
   command: string;
   output: string;
-  /** Sin código: el comando no llegó a ejecutarse (error de la API). */
+  /** No exit code: the command never ran at all (an API error). */
   exitCode?: number;
   truncated?: boolean;
   noShell?: boolean;
 }
 
-/** Ejecuta comandos sueltos en el contenedor de la app. No es una terminal: cada comando empieza de cero. */
+/** Runs one-off commands in the app's container. Not a terminal: every command starts from scratch. */
 export function AppConsole({ appId }: { appId: number }) {
   const { t } = useLingui();
   const [command, setCommand] = useState('');
@@ -24,7 +24,7 @@ export function AppConsole({ appId }: { appId: number }) {
   const [runs, setRuns] = useState<Run[]>([]);
   const end = useRef<HTMLDivElement>(null);
 
-  // Con llaves: scrollIntoView devuelve una promesa en Chrome y React la tomaría por la limpieza del efecto.
+  // Braces on purpose: scrollIntoView returns a promise in Chrome and React would take it for the effect's cleanup.
   useEffect(() => {
     end.current?.scrollIntoView({ block: 'nearest' });
   }, [runs]);

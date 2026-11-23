@@ -4,11 +4,11 @@ import { toast } from 'sonner';
 import { errorMessage } from '@/lib/api';
 
 /**
- * Datos de la API: los carga al montar y los refresca cada interval ms.
- * Si la carga falla sin datos previos devuelve error (la pantalla lo pinta con
- * ResourceState: no es lo mismo «vacío» que «no se pudo cargar»); con datos
- * ya en pantalla avisa con un toast y los conserva. Los refrescos en segundo
- * plano fallan en silencio. reload() vuelve a pedirlos.
+ * Data from the API: loaded on mount and refreshed every interval ms.
+ * If the load fails with no previous data it returns error (the screen renders
+ * it with ResourceState: "empty" is not the same as "could not load"); with
+ * data already on screen it warns with a toast and keeps it. Background
+ * refreshes fail silently. reload() asks for the data again.
  */
 export function useResource<T>(fetch: () => Promise<T>, opts: { interval?: number } = {}) {
   const [data, setData] = useState<T>();
@@ -45,8 +45,8 @@ export function useResource<T>(fetch: () => Promise<T>, opts: { interval?: numbe
 }
 
 /**
- * Acciones sueltas (activar, borrar…): ejecuta fn, avisa del error con un
- * toast y, si sale bien, muestra success y llama a then.
+ * One-off actions (enable, delete…): it runs fn, reports any error with a
+ * toast and, when it works, shows success and calls then.
  */
 export function useAction() {
   return useCallback(async (fn: () => Promise<unknown>, opts: { success?: string; then?: () => unknown } = {}) => {

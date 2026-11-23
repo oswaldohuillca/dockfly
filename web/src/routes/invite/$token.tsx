@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { api, errorMessage } from '@/lib/api';
 import { setUser } from '@/lib/session';
 
-// Enlace de invitación (o de restablecer la contraseña): elegir contraseña y entrar.
+// Invitation link (or password reset): choose a password and sign in.
 export const Route = createFileRoute('/invite/$token')({
   loader: ({ params }) => api.getInvite(params.token).catch((e) => ({ error: errorMessage(e) })),
   component: Invite,
@@ -40,7 +40,7 @@ function Invite() {
     try {
       const res = await api.acceptInvite(token, password);
       if ('two_factor' in res) {
-        // Con verificación en dos pasos, el código se pide al iniciar sesión.
+        // With two-factor enabled, the code is asked for when signing in.
         toast.success(t`Password saved: log in with it`);
         router.history.push('/login');
         return;

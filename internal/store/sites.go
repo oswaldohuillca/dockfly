@@ -5,11 +5,11 @@ import (
 	"time"
 )
 
-// Origen de un despliegue. Por ahora solo subida directa; los builds desde
-// GitHub/GitLab añadirán sus propios valores.
+// Source of a deployment. For now only a direct upload; builds from
+// GitHub/GitLab add their own values.
 const SourceUpload = "upload"
 
-// Site es un sitio estático servido por Dockfly, al estilo de Cloudflare Pages.
+// Site is a static site served by Dockfly, in the style of Cloudflare Pages.
 type Site struct {
 	ID         int64    `bun:",pk,autoincrement" json:"id"`
 	Name       string   `json:"name"`
@@ -17,13 +17,13 @@ type Site struct {
 	SSL        bool     `bun:"ssl" json:"ssl"`
 	ForceHTTPS bool     `bun:"force_https" json:"force_https"`
 	HSTS       bool     `bun:"hsts" json:"hsts"`
-	// SPA sirve index.html para cualquier ruta que no exista (React Router, Vue Router…).
+	// SPA serves index.html for any path that does not exist (React Router, Vue Router…).
 	SPA bool `bun:"spa" json:"spa"`
-	// Previews construye las ramas que no son la de producción en su propia URL.
+	// Previews builds the branches other than production on their own URL.
 	Previews     bool   `json:"previews"`
 	AccessListID *int64 `json:"access_list_id"`
-	// Locations envían una parte del dominio (/api…) a otro destino; el resto
-	// lo sirve el sitio.
+	// Locations send part of the domain (/api…) to a different target; the site
+	// serves the rest.
 	Locations          []ProxyLocation `json:"locations"`
 	ActiveDeploymentID *int64          `json:"active_deployment_id"`
 	CreatedAt          time.Time       `json:"created_at"`
@@ -34,33 +34,33 @@ type Site struct {
 	ActiveDeployment *Deployment `bun:"rel:belongs-to,join:active_deployment_id=id" json:"active_deployment,omitempty"`
 }
 
-// SiteGit es la configuración de build de un sitio enlazado a un
-// repositorio. Repo vacío = el sitio se despliega solo por subida directa.
+// SiteGit is the build configuration of a site linked to a repository. An
+// empty Repo = the site is only deployed by direct upload.
 type SiteGit struct {
 	GitConnectionID *int64 `json:"git_connection_id"`
-	Repo            string `json:"repo"` // "usuario/repo" o "grupo/subgrupo/proyecto"
+	Repo            string `json:"repo"` // "user/repo" or "group/subgroup/project"
 	Branch          string `json:"branch"`
 	RootDir         string `json:"root_dir"`
 	InstallCommand  string `json:"install_command"`
 	BuildCommand    string `json:"build_command"`
 	OutputDir       string `json:"output_dir"`
 	BuildImage      string `json:"build_image"`
-	BuildEnvEnc     []byte `json:"-"` // map[string]string en JSON, cifrado
+	BuildEnvEnc     []byte `json:"-"` // map[string]string as JSON, encrypted
 	WebhookID       string `json:"webhook_id"`
 	WebhookSecret   string `json:"-"`
-	// DeployHook es el secreto de la URL que lanza un build ("" = sin hook).
-	// No va en gitColumns: solo lo escribe SetSiteDeployHook.
+	// DeployHook is the secret of the URL that triggers a build ("" = no hook).
+	// It is not in gitColumns: only SetSiteDeployHook writes it.
 	DeployHook string `json:"-"`
 }
 
-// gitColumns son las columnas de SiteGit: solo las escribe UpdateSiteGit,
-// para que editar el nombre o los dominios no borre la configuración de build.
+// gitColumns are the columns of SiteGit: only UpdateSiteGit writes them, so
+// that editing the name or the domains does not wipe the build configuration.
 var gitColumns = []string{
 	"git_connection_id", "repo", "branch", "root_dir", "install_command", "build_command",
 	"output_dir", "build_image", "build_env_enc", "webhook_id", "webhook_secret",
 }
 
-// Deployment es una versión inmutable de los archivos de un sitio.
+// Deployment is an immutable version of a site's files.
 type Deployment struct {
 	ID         int64     `bun:",pk,autoincrement" json:"id"`
 	SiteID     int64     `json:"site_id"`
@@ -68,11 +68,11 @@ type Deployment struct {
 	FileCount  int       `json:"file_count"`
 	TotalBytes int64     `json:"total_bytes"`
 	CreatedAt  time.Time `json:"created_at"`
-	// Solo para despliegues que vienen de un build.
+	// Only for deployments that come from a build.
 	CommitSHA     string `json:"commit_sha"`
 	CommitMessage string `json:"commit_message"`
 	Branch        string `json:"branch"`
-	// Preview identifica la rama ("" = producción).
+	// Preview identifies the branch ("" = production).
 	Preview string `json:"preview"`
 }
 
@@ -89,7 +89,7 @@ func (d *Deployment) AfterScanRow(context.Context) error {
 	return nil
 }
 
-// SourceGitHub y SourceGitLab marcan los despliegues que vienen de un build.
+// SourceGitHub and SourceGitLab mark the deployments that come from a build.
 const (
 	SourceGitHub = "github"
 	SourceGitLab = "gitlab"
@@ -117,28 +117,28 @@ func (s *Store) CreateSite(ctx context.Context, site *Site) error {
 	return err
 }
 
-// UpdateSite guarda la configuración editable. El despliegue activo se cambia
-// solo con SetActiveDeployment, para que editar un dominio no pueda pisar un
-// despliegue publicado mientras tanto.
+// UpdateSite saves the editable configuration. The active deployment is only
+// changed through SetActiveDeployment, so that editing a domain cannot
+// clobber a deployment published in the meantime.
 func (s *Store) UpdateSite(ctx context.Context, site *Site) error {
 	site.UpdatedAt = now()
 	return mustAffect(s.db.NewUpdate().Model(site).WherePK().
 		ExcludeColumn("created_at", "active_deployment_id", "deploy_hook").ExcludeColumn(gitColumns...).Exec(ctx))
 }
 
-// UpdateSiteGit guarda (o, con un SiteGit vacío, borra) la configuración de
-// build de un sitio.
+// UpdateSiteGit saves (or, with an empty SiteGit, clears) a site's build
+// configuration.
 func (s *Store) UpdateSiteGit(ctx context.Context, siteID int64, g *SiteGit) error {
 	site := &Site{ID: siteID, SiteGit: *g, UpdatedAt: now()}
 	return mustAffect(s.db.NewUpdate().Model(site).WherePK().Column(append(gitColumns, "updated_at")...).Exec(ctx))
 }
 
-// SetSiteDeployHook guarda (o, con "", borra) el secreto del deploy hook.
+// SetSiteDeployHook saves (or, with "", clears) the deploy hook secret.
 func (s *Store) SetSiteDeployHook(ctx context.Context, siteID int64, token string) error {
 	return mustAffect(s.db.NewUpdate().Model((*Site)(nil)).Set("deploy_hook = ?", token).Where("id = ?", siteID).Exec(ctx))
 }
 
-// GetSiteByDeployHook busca el sitio de un deploy hook.
+// GetSiteByDeployHook looks up the site a deploy hook belongs to.
 func (s *Store) GetSiteByDeployHook(ctx context.Context, token string) (*Site, error) {
 	if token == "" {
 		return nil, ErrNotFound
@@ -161,14 +161,14 @@ func (s *Store) SetActiveDeployment(ctx context.Context, siteID int64, deploymen
 		Where("id = ?", siteID).Exec(ctx))
 }
 
-// ListDeployments devuelve los despliegues de producción (sin previews).
+// ListDeployments returns the production deployments (previews excluded).
 func (s *Store) ListDeployments(ctx context.Context, siteID int64) ([]*Deployment, error) {
 	deps := []*Deployment{}
 	err := s.db.NewSelect().Model(&deps).Where("site_id = ? AND preview = ''", siteID).Order("id DESC").Scan(ctx)
 	return deps, err
 }
 
-// ListPreviews devuelve el despliegue más reciente de cada preview del sitio.
+// ListPreviews returns the most recent deployment of each preview of the site.
 func (s *Store) ListPreviews(ctx context.Context, siteID int64) ([]*Deployment, error) {
 	deps := []*Deployment{}
 	err := s.db.NewSelect().Model(&deps).
@@ -178,7 +178,7 @@ func (s *Store) ListPreviews(ctx context.Context, siteID int64) ([]*Deployment, 
 	return deps, err
 }
 
-// PreviewDeployments devuelve todos los despliegues de una preview.
+// PreviewDeployments returns every deployment of one preview.
 func (s *Store) PreviewDeployments(ctx context.Context, siteID int64, preview string) ([]*Deployment, error) {
 	deps := []*Deployment{}
 	err := s.db.NewSelect().Model(&deps).Where("site_id = ? AND preview = ?", siteID, preview).Order("id DESC").Scan(ctx)

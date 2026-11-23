@@ -39,7 +39,7 @@ const intervals = [
   { hours: 168, label: msg`Every week` },
 ];
 
-/** Copias de seguridad de una app de base de datos. */
+/** Backups of a database app. */
 export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: DBBackups }) {
   const { t, i18n } = useLingui();
   const canEdit = useCan('deployer');
@@ -56,7 +56,7 @@ export function DBBackupsPanel({ appId, data: initial }: { appId: number; data: 
       .then(setData)
       .catch(() => {});
   }, [appId]);
-  // Mientras haya una copia en marcha, se refresca la lista.
+  // While a backup is running, the list keeps refreshing.
   const running = data.backups.some((b) => b.status === 'running');
   useEffect(() => {
     if (!running) return;

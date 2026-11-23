@@ -17,19 +17,19 @@ import (
 	"rsc.io/qr"
 )
 
-// TOTP (RFC 6238) con los parámetros que entienden todas las apps de
-// autenticación: SHA-1, 6 dígitos y pasos de 30 segundos.
+// TOTP (RFC 6238) with the parameters every authenticator app understands:
+// SHA-1, 6 digits and 30-second steps.
 const (
 	totpPeriod = 30
 	totpDigits = 6
-	// totpSkew acepta el código anterior y el siguiente, por si el reloj del
-	// móvil va algo desfasado.
+	// totpSkew also accepts the previous and the next code, in case the
+	// phone's clock is slightly off.
 	totpSkew = 1
 )
 
 var b32 = base32.StdEncoding.WithPadding(base32.NoPadding)
 
-// NewTOTPSecret genera un secreto de 160 bits en base32.
+// NewTOTPSecret generates a 160-bit secret in base32.
 func NewTOTPSecret() string {
 	b := make([]byte, 20)
 	if _, err := rand.Read(b); err != nil {
@@ -38,7 +38,7 @@ func NewTOTPSecret() string {
 	return b32.EncodeToString(b)
 }
 
-// TOTPURI es el enlace otpauth:// que se muestra como código QR.
+// TOTPURI is the otpauth:// link that is shown as a QR code.
 func TOTPURI(secret, account, issuer string) string {
 	v := url.Values{}
 	v.Set("secret", secret)
@@ -50,8 +50,8 @@ func TOTPURI(secret, account, issuer string) string {
 	return "otpauth://totp/" + label + "?" + v.Encode()
 }
 
-// GenerateTOTP calcula el código de secret en el instante t (lo que
-// mostraría la app del móvil).
+// GenerateTOTP computes the code for secret at the instant t (what the phone
+// app would be showing).
 func GenerateTOTP(secret string, t time.Time) string {
 	key, err := b32.DecodeString(strings.ToUpper(secret))
 	if err != nil {
@@ -71,9 +71,9 @@ func totpCode(key []byte, step int64) string {
 	return fmt.Sprintf("%06d", n%1_000_000)
 }
 
-// VerifyTOTP comprueba code y devuelve el paso al que corresponde. lastStep
-// es el último paso aceptado para este usuario: un código ya usado no vale
-// otra vez (aunque siga dentro de su ventana de 30 s).
+// VerifyTOTP checks code and returns the step it belongs to. lastStep is the
+// last step accepted for this user: a code that was already used is not valid
+// a second time (even while it is still inside its 30 s window).
 func VerifyTOTP(secret, code string, now time.Time, lastStep int64) (step int64, ok bool) {
 	code = strings.ReplaceAll(strings.TrimSpace(code), " ", "")
 	if len(code) != totpDigits {
@@ -95,9 +95,9 @@ func VerifyTOTP(secret, code string, now time.Time, lastStep int64) (step int64,
 	return 0, false
 }
 
-// NewRecoveryCodes genera n códigos de recuperación ("abcde-12345").
+// NewRecoveryCodes generates n recovery codes ("abcde-12345").
 func NewRecoveryCodes(n int) []string {
-	const alphabet = "abcdefghjkmnpqrstuvwxyz23456789" // sin 0/o ni 1/l/i
+	const alphabet = "abcdefghjkmnpqrstuvwxyz23456789" // no 0/o, no 1/l/i
 	codes := make([]string, n)
 	for i := range codes {
 		b := make([]byte, 10)
@@ -112,8 +112,8 @@ func NewRecoveryCodes(n int) []string {
 	return codes
 }
 
-// HashRecoveryCode normaliza y resume un código de recuperación. Tienen
-// suficiente entropía (~50 bits) para que baste SHA-256.
+// HashRecoveryCode normalizes and hashes a recovery code. They carry enough
+// entropy (~50 bits) that plain SHA-256 is sufficient.
 func HashRecoveryCode(code string) string {
 	code = strings.ToLower(strings.ReplaceAll(strings.TrimSpace(code), " ", ""))
 	code = strings.ReplaceAll(code, "-", "")
@@ -121,7 +121,7 @@ func HashRecoveryCode(code string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// QRSVG dibuja text como un código QR en SVG.
+// QRSVG draws text as a QR code in SVG.
 func QRSVG(text string) (string, error) {
 	c, err := qr.Encode(text, qr.M)
 	if err != nil {
@@ -132,7 +132,7 @@ func QRSVG(text string) (string, error) {
 	var b strings.Builder
 	fmt.Fprintf(&b, `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 %d %d" shape-rendering="crispEdges">`, size, size)
 	fmt.Fprintf(&b, `<rect width="%d" height="%d" fill="#fff"/><path fill="#000" d="`, size, size)
-	// Una línea por cada tramo horizontal de módulos negros.
+	// One path segment per horizontal run of black modules.
 	for y := 0; y < c.Size; y++ {
 		for x := 0; x < c.Size; x++ {
 			if !c.Black(x, y) {

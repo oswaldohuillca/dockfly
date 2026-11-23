@@ -8,23 +8,23 @@ import (
 
 const (
 	AppSourceImage   = "image"
-	AppSourceGit     = "git"     // Dockerfile del repositorio
-	AppSourceCompose = "compose" // docker-compose.yml del repositorio
+	AppSourceGit     = "git"     // the repository's Dockerfile
+	AppSourceCompose = "compose" // the repository's docker-compose.yml
 )
 
-// Estados de un despliegue de app.
+// Statuses of an app deployment.
 const (
 	DeployQueued   = "queued"
-	DeployRunning  = "running"  // construyendo / arrancando
-	DeployLive     = "live"     // es el que sirve ahora mismo
-	DeployReplaced = "replaced" // estuvo activo y lo sustituyó otro
+	DeployRunning  = "running"  // building / starting up
+	DeployLive     = "live"     // the one serving right now
+	DeployReplaced = "replaced" // was live and another one took over
 	DeployFailed   = "failed"
 	DeployCanceled = "canceled"
 )
 
 type AppVolume struct {
-	Name string `json:"name"` // identificador dentro de la app (p. ej. "data")
-	Path string `json:"path"` // ruta en el contenedor
+	Name string `json:"name"` // identifier within the app (e.g. "data")
+	Path string `json:"path"` // path inside the container
 }
 
 type App struct {
@@ -38,7 +38,7 @@ type App struct {
 	RootDir         string      `json:"root_dir"`
 	Dockerfile      string      `json:"dockerfile"`
 	ComposeFile     string      `json:"compose_file"`
-	ComposeService  string      `json:"compose_service"` // el servicio que recibe el tráfico web
+	ComposeService  string      `json:"compose_service"` // the service that receives the web traffic
 	WebhookID       string      `json:"webhook_id"`
 	WebhookSecret   string      `json:"-"`
 	Port            int         `json:"port"`
@@ -54,8 +54,8 @@ type App struct {
 	HealthPath      string      `json:"health_path"`
 	AccessListID    *int64      `json:"access_list_id"`
 	Stopped         bool        `json:"stopped"`
-	// ServerID es el servidor remoto donde corre (nil = el del panel). No
-	// cambia después de crearla.
+	// ServerID is the remote server it runs on (nil = the panel's own). It
+	// does not change after the app is created.
 	ServerID            *int64    `json:"server_id"`
 	CurrentDeploymentID *int64    `json:"current_deployment_id"`
 	CreatedAt           time.Time `json:"created_at"`
@@ -95,12 +95,13 @@ func (d *AppDeployment) AfterScanRow(context.Context) error {
 	return nil
 }
 
-// Finished indica si el despliegue ya no va a cambiar (salvo pasar de live a replaced).
+// Finished reports whether the deployment will no longer change (other than
+// going from live to replaced).
 func (d *AppDeployment) Finished() bool {
 	return d.Status != DeployQueued && d.Status != DeployRunning
 }
 
-// appStateColumns son las que cambia el ciclo de despliegue, no el formulario.
+// appStateColumns are the ones the deployment lifecycle changes, not the form.
 var appStateColumns = []string{"created_at", "current_deployment_id", "stopped", "webhook_id", "webhook_secret", "server_id"}
 
 func (s *Store) ListApps(ctx context.Context) ([]*App, error) {
@@ -124,8 +125,8 @@ func (s *Store) CreateApp(ctx context.Context, a *App) error {
 	return err
 }
 
-// UpdateApp guarda la configuración del formulario sin tocar el estado del
-// despliegue (contenedor actual, detenida, webhook).
+// UpdateApp saves the form's configuration without touching the deployment
+// state (current container, stopped flag, webhook).
 func (s *Store) UpdateApp(ctx context.Context, a *App) error {
 	a.UpdatedAt = now()
 	return mustAffect(s.db.NewUpdate().Model(a).WherePK().ExcludeColumn(appStateColumns...).Exec(ctx))
@@ -144,7 +145,7 @@ func (s *Store) DeleteApp(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewDelete().Model((*App)(nil)).Where("id = ?", id).Exec(ctx))
 }
 
-// --- Despliegues ---
+// --- Deployments ---
 
 func (s *Store) CreateAppDeployment(ctx context.Context, d *AppDeployment) error {
 	d.CreatedAt = now()
@@ -178,21 +179,21 @@ func (s *Store) StartAppDeployment(ctx context.Context, id int64) error {
 		Where("id = ? AND status = ?", id, DeployQueued).Exec(ctx))
 }
 
-// UpdateAppDeployment guarda los datos que se conocen sobre la marcha.
+// UpdateAppDeployment saves the data that becomes known as the deploy runs.
 func (s *Store) UpdateAppDeployment(ctx context.Context, d *AppDeployment) error {
 	_, err := s.db.NewUpdate().Model(d).WherePK().Column("image", "container", "commit_sha", "commit_message").Exec(ctx)
 	return err
 }
 
-// FinishAppDeployment fija el resultado de un despliegue en curso o en cola.
+// FinishAppDeployment sets the result of a running or queued deployment.
 func (s *Store) FinishAppDeployment(ctx context.Context, id int64, status, errMsg string) error {
 	return mustAffect(s.db.NewUpdate().Model((*AppDeployment)(nil)).
 		Set("status = ?", status).Set("error = ?", errMsg).Set("finished_at = ?", now()).
 		Where("id = ? AND status IN (?, ?)", id, DeployQueued, DeployRunning).Exec(ctx))
 }
 
-// GoLive marca un despliegue como el activo de su app y el anterior como
-// sustituido, en una transacción.
+// GoLive marks a deployment as its app's live one and the previous one as
+// replaced, in a single transaction.
 func (s *Store) GoLive(ctx context.Context, appID, deploymentID int64) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -207,7 +208,7 @@ func (s *Store) GoLive(ctx context.Context, appID, deploymentID int64) error {
 		Set("status = ?", DeployLive).Set("error = ''").Set("finished_at = ?", now()).
 		Where("id = ? AND status = ?", deploymentID, DeployRunning).Exec(ctx)
 	if err := mustAffect(res, err); err != nil {
-		return errors.New("el despliegue ya no estaba en curso (¿se canceló?)")
+		return errors.New("the deployment was no longer running (was it canceled?)")
 	}
 	if _, err := tx.NewUpdate().Model((*App)(nil)).Set("current_deployment_id = ?", deploymentID).
 		Set("stopped = FALSE").Set("updated_at = ?", now()).Where("id = ?", appID).Exec(ctx); err != nil {
@@ -216,10 +217,10 @@ func (s *Store) GoLive(ctx context.Context, appID, deploymentID int64) error {
 	return tx.Commit()
 }
 
-// SupersedeQueuedApp cancela los despliegues en cola de una app, salvo keepID.
+// SupersedeQueuedApp cancels an app's queued deployments, except keepID.
 func (s *Store) SupersedeQueuedApp(ctx context.Context, appID, keepID int64) error {
 	_, err := s.db.NewUpdate().Model((*AppDeployment)(nil)).
-		Set("status = ?", DeployCanceled).Set("error = ?", "reemplazado por un despliegue más reciente").
+		Set("status = ?", DeployCanceled).Set("error = ?", "superseded by a more recent deployment").
 		Set("finished_at = ?", now()).
 		Where("app_id = ? AND status = ? AND id <> ?", appID, DeployQueued, keepID).Exec(ctx)
 	return err

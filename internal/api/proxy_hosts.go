@@ -15,7 +15,7 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// hostnameRe valida nombres DNS (RFC 1123) y nombres de contenedor Docker.
+// hostnameRe validates DNS names (RFC 1123) and Docker container names.
 var hostnameRe = regexp.MustCompile(`^[a-zA-Z0-9]([a-zA-Z0-9_.-]{0,251}[a-zA-Z0-9])?$`)
 
 type proxyHostInput struct {
@@ -31,7 +31,7 @@ type proxyHostInput struct {
 	PreserveHost  *bool    `json:"preserve_host"`
 	AccessListID  *int64   `json:"access_list_id"`
 	Enabled       *bool    `json:"enabled"`
-	// Locations: ubicaciones personalizadas (/api → otro destino).
+	// Locations: custom paths (/api → a different target).
 	Locations []store.ProxyLocation `json:"locations"`
 }
 
@@ -47,11 +47,11 @@ var (
 	errLocationPathRoot      = newError("location_path_root", "The location / is the whole domain: use a more specific path, such as /api")
 	errLocationPathDuplicate = newError("location_path_duplicate", "The location {path} is repeated")
 	errLocationAccessInvalid = newError("location_access_invalid", "Invalid access for the location {path}")
-	// errLocation envuelve un error del destino de una ubicación.
+	// errLocation wraps an error coming from a location's target.
 	errLocation = newError("location_invalid", "Location {path}: {detail}")
 )
 
-// maxLocations limita las ubicaciones de un proxy host.
+// maxLocations caps how many locations a proxy host can have.
 const maxLocations = 50
 
 func (in *proxyHostInput) normalize() (*store.ProxyHost, error) {
@@ -88,8 +88,8 @@ func (in *proxyHostInput) normalize() (*store.ProxyHost, error) {
 	return h, nil
 }
 
-// checkTarget valida un destino (el del proxy host o el de una ubicación).
-// Devuelve el esquema normalizado.
+// checkTarget validates a target (either the proxy host's own or one of a
+// location's). It returns the normalized scheme.
 func checkTarget(targetType, scheme, host string, port int) (string, error) {
 	switch targetType {
 	case store.TargetDocker, store.TargetHost, store.TargetExternal:
@@ -114,8 +114,8 @@ func checkTarget(targetType, scheme, host string, port int) (string, error) {
 	return scheme, nil
 }
 
-// normalizeLocations valida las ubicaciones y las ordena de la más larga a
-// la más corta (como las elige Traefik).
+// normalizeLocations validates the locations and sorts them from the
+// longest path to the shortest (the order in which Traefik picks them).
 func normalizeLocations(in []store.ProxyLocation) ([]store.ProxyLocation, error) {
 	out := make([]store.ProxyLocation, 0, len(in))
 	seen := map[string]bool{}
@@ -223,14 +223,14 @@ func (s *Server) handleDeleteProxyHost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Apply(r.Context()); err != nil {
-		s.internalError(w, fmt.Errorf("aplicando configuración: %w", err))
+		s.internalError(w, fmt.Errorf("applying the configuration: %w", err))
 		return
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// readProxyHost decodifica, valida y comprueba que ningún dominio esté ya en
-// uso (selfID se excluye al editar).
+// readProxyHost decodes, validates and checks that no domain is already in
+// use (selfID is left out when editing).
 func (s *Server) readProxyHost(w http.ResponseWriter, r *http.Request, selfID int64) (*store.ProxyHost, bool) {
 	var in proxyHostInput
 	if !decode(w, r, &in) {
@@ -253,8 +253,8 @@ func (s *Server) readProxyHost(w http.ResponseWriter, r *http.Request, selfID in
 	return h, true
 }
 
-// afterChange aplica la configuración en Traefik y, si el destino es un
-// contenedor, se asegura de que Traefik pueda alcanzarlo por red.
+// afterChange applies the configuration to Traefik and, when the target is
+// a container, makes sure Traefik can reach it over the network.
 func (s *Server) afterChange(w http.ResponseWriter, r *http.Request, h *store.ProxyHost, status int) {
 	var warnings []string
 	if h.TargetType == store.TargetDocker {
@@ -270,7 +270,7 @@ func (s *Server) afterChange(w http.ResponseWriter, r *http.Request, h *store.Pr
 		}
 	}
 	if err := s.Apply(r.Context()); err != nil {
-		s.internalError(w, fmt.Errorf("aplicando configuración: %w", err))
+		s.internalError(w, fmt.Errorf("applying the configuration: %w", err))
 		return
 	}
 	writeJSON(w, status, map[string]any{"proxy_host": h, "warnings": warnings})

@@ -19,15 +19,15 @@ import (
 	"time"
 )
 
-// GitHub App creada con el flujo de manifiesto: Dockfly describe la app
-// (permisos, webhook, URLs de retorno), GitHub la crea en la cuenta del
-// usuario con un clic y devuelve sus credenciales. Así cada instalación de
-// Dockfly tiene su propia app sin que nadie tenga que rellenar formularios.
+// GitHub App created through the manifest flow: Dockfly describes the app
+// (permissions, webhook, return URLs), GitHub creates it in the user's
+// account with a single click and returns its credentials. That way every
+// Dockfly installation gets its own app without anyone filling in forms.
 //
 // https://docs.github.com/apps/sharing-github-apps/registering-a-github-app-from-a-manifest
 
-// GitHubWebURLs devuelve la web y la API de GitHub (o de GitHub Enterprise,
-// si enterprise no está vacío).
+// GitHubWebURLs returns GitHub's web and API URLs (or those of GitHub
+// Enterprise, when enterprise is not empty).
 func GitHubWebURLs(enterprise string) (web, api string, err error) {
 	enterprise = strings.TrimRight(strings.TrimSpace(enterprise), "/")
 	if enterprise == "" {
@@ -35,13 +35,13 @@ func GitHubWebURLs(enterprise string) (web, api string, err error) {
 	}
 	u, err := url.Parse(enterprise)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
-		return "", "", fmt.Errorf("URL de GitHub Enterprise inválida: %q", enterprise)
+		return "", "", fmt.Errorf("invalid GitHub Enterprise URL: %q", enterprise)
 	}
 	u.Path = ""
 	return u.String(), u.String() + "/api/v3", nil
 }
 
-// Manifest describe la GitHub App que se va a crear.
+// Manifest describes the GitHub App that is about to be created.
 type Manifest struct {
 	Name               string            `json:"name"`
 	URL                string            `json:"url"`
@@ -59,10 +59,10 @@ type ManifestHook struct {
 	Active bool   `json:"active"`
 }
 
-// NewManifest prepara la app de Dockfly. panelURL es la dirección con la que
-// el navegador abre el panel (los retornos los hace el navegador, así que
-// sirve hasta localhost); hookURL es la URL pública para los webhooks, o
-// vacía si Dockfly no es accesible desde internet.
+// NewManifest prepares Dockfly's app. panelURL is the address the browser
+// uses to open the panel (the redirects are made by the browser, so even
+// localhost works); hookURL is the public URL for the webhooks, or empty if
+// Dockfly is not reachable from the internet.
 func NewManifest(name, panelURL, hookURL string) Manifest {
 	m := Manifest{
 		Name:          name,
@@ -71,8 +71,8 @@ func NewManifest(name, panelURL, hookURL string) Manifest {
 		SetupURL:      panelURL + "/api/git/github/setup",
 		SetupOnUpdate: true,
 		Public:        false,
-		// Solo lectura del código: Dockfly nunca escribe en tus repos. Solo
-		// marca los commits con el resultado del build.
+		// Read-only on the code: Dockfly never writes to your repos. It only
+		// marks the commits with the result of the build.
 		DefaultPermissions: map[string]string{"contents": "read", "metadata": "read", "statuses": "write"},
 		DefaultEvents:      []string{"push"},
 	}
@@ -82,8 +82,8 @@ func NewManifest(name, panelURL, hookURL string) Manifest {
 	return m
 }
 
-// ManifestFormURL es donde el navegador envía el manifiesto (por POST).
-// Con org, la app pertenece a esa organización en vez de al usuario.
+// ManifestFormURL is where the browser POSTs the manifest. When org is set,
+// the app belongs to that organization instead of to the user.
 func ManifestFormURL(webURL, org, state string) string {
 	path := "/settings/apps/new"
 	if org != "" {
@@ -92,8 +92,8 @@ func ManifestFormURL(webURL, org, state string) string {
 	return webURL + path + "?state=" + url.QueryEscape(state)
 }
 
-// InstallURL abre la pantalla de GitHub para elegir cuenta u organización y
-// repositorios.
+// InstallURL opens the GitHub screen for picking an account or organization
+// and the repositories.
 func InstallURL(webURL, slug, state string) string {
 	u := webURL + "/apps/" + url.PathEscape(slug) + "/installations/new"
 	if state != "" {
@@ -102,7 +102,7 @@ func InstallURL(webURL, slug, state string) string {
 	return u
 }
 
-// AppCredentials es lo que devuelve GitHub al crear la app.
+// AppCredentials is what GitHub returns when the app is created.
 type AppCredentials struct {
 	ID            int64  `json:"id"`
 	Slug          string `json:"slug"`
@@ -117,16 +117,16 @@ type AppCredentials struct {
 	} `json:"owner"`
 }
 
-// ConvertManifest canjea el código temporal que GitHub manda al volver por
-// las credenciales de la app recién creada. Solo funciona una vez y durante
-// una hora.
+// ConvertManifest trades the temporary code GitHub sends on the way back for
+// the credentials of the freshly created app. It only works once, and only
+// within an hour.
 func ConvertManifest(ctx context.Context, apiURL, code string) (*AppCredentials, error) {
 	c := &client{base: apiURL, provider: GitHub, http: apiHTTP}
 	req, err := c.newRequest(ctx, http.MethodPost, "/app-manifests/"+url.PathEscape(code)+"/conversions", nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Del("Authorization") // este endpoint no lleva autenticación
+	req.Header.Del("Authorization") // this endpoint takes no authentication
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return nil, err
@@ -140,13 +140,13 @@ func ConvertManifest(ctx context.Context, apiURL, code string) (*AppCredentials,
 		return nil, err
 	}
 	if out.ID == 0 || out.PEM == "" {
-		return nil, errors.New("GitHub no devolvió las credenciales de la app")
+		return nil, errors.New("GitHub did not return the credentials of the app")
 	}
 	return &out, nil
 }
 
-// App permite actuar como la GitHub App (autenticada con un JWT firmado con
-// su clave privada).
+// App makes it possible to act as the GitHub App (authenticated with a JWT
+// signed with its private key).
 type App struct {
 	APIURL string
 	ID     int64
@@ -156,7 +156,7 @@ type App struct {
 func ParsePrivateKey(pemData []byte) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode(pemData)
 	if block == nil {
-		return nil, errors.New("clave privada de la GitHub App inválida")
+		return nil, errors.New("invalid GitHub App private key")
 	}
 	if k, err := x509.ParsePKCS1PrivateKey(block.Bytes); err == nil {
 		return k, nil
@@ -167,14 +167,14 @@ func ParsePrivateKey(pemData []byte) (*rsa.PrivateKey, error) {
 	}
 	rk, ok := k.(*rsa.PrivateKey)
 	if !ok {
-		return nil, errors.New("la clave privada de la GitHub App no es RSA")
+		return nil, errors.New("the GitHub App private key is not RSA")
 	}
 	return rk, nil
 }
 
-// JWT genera el token con el que la app se identifica ante GitHub. Dura 9
-// minutos (el máximo son 10) y se fecha un minuto atrás para tolerar
-// pequeñas diferencias de reloj.
+// JWT builds the token the app identifies itself to GitHub with. It lasts 9
+// minutes (10 is the maximum) and is dated a minute in the past to tolerate
+// small clock differences.
 func (a *App) JWT(now time.Time) (string, error) {
 	enc := base64.RawURLEncoding
 	header := enc.EncodeToString([]byte(`{"alg":"RS256","typ":"JWT"}`))
@@ -201,12 +201,12 @@ func (a *App) do(ctx context.Context, method, path string, body, out any) error 
 	return c.do(ctx, method, path, body, out)
 }
 
-// Installation es una cuenta u organización donde se instaló la app.
+// Installation is an account or organization where the app was installed.
 type Installation struct {
 	ID          int64
 	Account     string
 	AccountType string // "User" | "Organization"
-	HTMLURL     string // página para cambiar qué repos ve la app
+	HTMLURL     string // page for changing which repos the app can see
 }
 
 func (a *App) Installation(ctx context.Context, id int64) (*Installation, error) {
@@ -224,8 +224,8 @@ func (a *App) Installation(ctx context.Context, id int64) (*Installation, error)
 	return &Installation{ID: raw.ID, Account: raw.Account.Login, AccountType: raw.Account.Type, HTMLURL: raw.HTMLURL}, nil
 }
 
-// InstallationToken genera un token de una hora con acceso solo a los repos
-// de esa instalación.
+// InstallationToken creates a one-hour token with access only to the repos
+// of that installation.
 func (a *App) InstallationToken(ctx context.Context, id int64) (string, time.Time, error) {
 	var raw struct {
 		Token     string    `json:"token"`
@@ -235,7 +235,7 @@ func (a *App) InstallationToken(ctx context.Context, id int64) (string, time.Tim
 	return raw.Token, raw.ExpiresAt, err
 }
 
-// UpdateWebhook apunta el webhook de la app a hookURL, con un secreto nuevo.
+// UpdateWebhook points the app's webhook at hookURL, with a new secret.
 func (a *App) UpdateWebhook(ctx context.Context, hookURL, secret string) error {
 	body := map[string]any{"url": hookURL, "content_type": "json", "secret": secret, "insecure_ssl": "0"}
 	return a.do(ctx, http.MethodPatch, "/app/hook/config", body, nil)

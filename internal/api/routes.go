@@ -12,7 +12,7 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Límite de intentos de login y setup por IP, contra ataques de fuerza bruta.
+// Limit on login and setup attempts per IP, to stop brute-force attacks.
 const (
 	authAttempts = 10
 	authWindow   = time.Minute
@@ -37,9 +37,9 @@ func (s *Server) Handler() http.Handler {
 			writeError(w, http.StatusMethodNotAllowed, errMethod)
 		})
 
-		// Rutas públicas.
-		// Cada grupo lleva su propio contador: el segundo paso del login no
-		// gasta los intentos de la contraseña.
+		// Public routes.
+		// Each group keeps its own counter: the second login step doesn't
+		// burn through the password's attempts.
 		limiter := func() func(http.Handler) http.Handler {
 			return httprate.LimitBy(authAttempts, authWindow, keyByClientIP,
 				httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
@@ -47,8 +47,8 @@ func (s *Server) Handler() http.Handler {
 				}))
 		}
 		authLimit, mfaLimit, accountLimit := limiter(), limiter(), limiter()
-		// Los webhooks sin autenticar llevan su propio límite, más holgado
-		// (un repo activo puede empujar varias veces por minuto).
+		// Unauthenticated webhooks get their own, looser limit (a busy repo
+		// can push several times a minute).
 		hookLimit := httprate.LimitBy(120, time.Minute, keyByClientIP,
 			httprate.WithLimitHandler(func(w http.ResponseWriter, r *http.Request) {
 				writeError(w, http.StatusTooManyRequests, errTooManyAttempts)
@@ -58,26 +58,26 @@ func (s *Server) Handler() http.Handler {
 		r.With(authLimit).Post("/auth/login", s.handleLogin)
 		r.With(mfaLimit).Post("/auth/login/2fa", s.handleLogin2FA)
 		r.Post("/auth/logout", s.handleLogout)
-		// Sin sesión solo en una instalación nueva (lo comprueba el handler).
+		// Session-less only on a fresh install (the handler checks that).
 		r.With(authLimit).Post("/backup/restore", s.handleRestoreBackup)
-		// Webhooks de GitHub/GitLab: sin sesión, autenticados por su firma.
+		// GitHub/GitLab webhooks: no session, authenticated by their signature.
 		r.With(hookLimit).Post("/hooks/github-app", s.handleGitHubAppWebhook)
-		// Deploy hook de un sitio: lo autentica el secreto de la propia URL.
+		// A site's deploy hook: authenticated by the secret in the URL itself.
 		r.With(hookLimit).Post("/hooks/deploy/{token}", s.handleDeployHook)
 		r.With(hookLimit).Post("/hooks/{provider}/apps/{id}", s.handleAppWebhook)
 		r.With(hookLimit).Post("/hooks/{provider}/{id}", s.handleWebhook)
-		// Retornos de GitHub/GitLab: los autentica el parámetro state.
+		// GitHub/GitLab callbacks: authenticated by the state parameter.
 		r.Get("/git/github/manifest", s.handleGitHubManifestCallback)
 		r.Get("/git/github/setup", s.handleGitHubSetup)
 		r.Get("/git/gitlab/callback", s.handleGitLabCallback)
-		// Agentes de los servidores remotos: los autentica el token del servidor.
+		// Agents on the remote servers: authenticated by the server's token.
 		r.Get("/agent/control", s.handleAgentControl)
 		r.Post("/agent/data/{connID}", s.handleAgentData)
-		// Invitaciones y cambios de contraseña: los autentica el enlace firmado.
+		// Invitations and password changes: authenticated by the signed link.
 		r.Get("/invite/{token}", s.handleGetInvite)
 		r.With(authLimit).Post("/invite/{token}", s.handleAcceptInvite)
 
-		// Rutas que requieren sesión.
+		// Routes that require a session.
 		r.Group(func(r chi.Router) {
 			r.Use(s.requireAuth)
 			r.Use(s.authorize)

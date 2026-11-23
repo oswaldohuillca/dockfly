@@ -13,22 +13,22 @@ import { Progress } from '@/components/ui/progress';
 import { errorMessage, restoreBackup } from '@/lib/api';
 
 /**
- * Restaura una copia: la sube, Dockfly se reinicia para aplicarla y, cuando
- * vuelve a responder, se recarga el panel (la sesión de la copia es otra).
+ * Restores a backup: it is uploaded, Dockfly restarts to apply it and, once it
+ * responds again, the panel reloads (the backup carries a different session).
  */
 export function RestoreBackup({
   variant = 'outline',
   setupToken,
 }: {
   variant?: 'outline' | 'link';
-  /** En una instalación nueva: el código de instalación (sin él, se pide la contraseña). */
+  /** On a fresh install: the setup code (without it, the password is asked for). */
   setupToken?: string;
 }) {
   const { t } = useLingui();
   const input = useRef<HTMLInputElement>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [restarting, setRestarting] = useState(false);
-  // La copia elegida, pendiente de confirmar.
+  // The chosen backup, waiting to be confirmed.
   const [pending, setPending] = useState<File | null>(null);
   const [password, setPassword] = useState('');
   const [encPassword, setEncPassword] = useState('');
@@ -50,7 +50,7 @@ export function RestoreBackup({
       await waitForRestart();
       window.location.href = '/login';
     } catch (e) {
-      // La contraseña o el código incorrectos se corrigen en el propio diálogo.
+      // A wrong password or setup code is corrected in the dialog itself.
       setRestarting(false);
       if (!uploaded) setError(errorMessage(e));
       else toast.error(t`Couldn't restore`, { description: errorMessage(e) });
@@ -172,7 +172,7 @@ export function RestoreBackup({
   );
 }
 
-/** Espera a que Dockfly se apague y vuelva a responder (máx. 2 minutos). */
+/** Waits for Dockfly to go down and respond again (2 minutes max). */
 async function waitForRestart() {
   const deadline = Date.now() + 120_000;
   let wentDown = false;
@@ -181,7 +181,7 @@ async function waitForRestart() {
     try {
       const res = await fetch('/api/setup', { cache: 'no-store' });
       if (res.ok && wentDown) return;
-      // Si no llegamos a verlo caído, damos un margen antes de seguir.
+      // If we never caught it down, give it some margin before carrying on.
       if (res.ok && Date.now() > deadline - 110_000) return;
     } catch {
       wentDown = true;

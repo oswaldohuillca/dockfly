@@ -61,12 +61,12 @@ func TestInstallationTokenIsCached(t *testing.T) {
 	if err := st.UpsertInstallation(ctx, conn); err != nil {
 		t.Fatal(err)
 	}
-	// Instalar de nuevo la misma cuenta no duplica la conexión.
+	// Installing the same account again does not duplicate the connection.
 	again := *conn
 	again.ID = 0
 	st.UpsertInstallation(ctx, &again)
 	if list, _ := st.ListGitConnections(ctx); len(list) != 1 || again.ID != conn.ID {
-		t.Fatalf("UpsertInstallation duplicó la conexión: %d", len(list))
+		t.Fatalf("UpsertInstallation duplicated the connection: %d", len(list))
 	}
 
 	r := New(st, box)
@@ -80,7 +80,7 @@ func TestInstallationTokenIsCached(t *testing.T) {
 		}
 	}
 	if n := tokenCalls.Load(); n != 1 {
-		t.Errorf("el token de instalación debe reutilizarse: se pidió %d veces", n)
+		t.Errorf("the installation token must be reused: it was requested %d times", n)
 	}
 }
 
@@ -91,7 +91,7 @@ func TestGitLabTokenRefreshesOnce(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		r.ParseForm()
 		if r.URL.Path == "/oauth/token" {
-			// GitLab invalida el refresh token al usarlo: un segundo uso falla.
+			// GitLab invalidates the refresh token once used: a second use fails.
 			if r.PostForm.Get("refresh_token") != "rt-1" {
 				w.WriteHeader(400)
 				io.WriteString(w, `{"error":"invalid_grant"}`)
@@ -127,13 +127,13 @@ func TestGitLabTokenRefreshesOnce(t *testing.T) {
 	wg.Wait()
 	close(errs)
 	for err := range errs {
-		t.Errorf("un build concurrente falló al renovar: %v", err)
+		t.Errorf("a concurrent build failed to renew: %v", err)
 	}
 	if n := refreshes.Load(); n != 1 {
-		t.Errorf("el token debe renovarse una sola vez, se renovó %d", n)
+		t.Errorf("the token must be renewed only once, it was renewed %d times", n)
 	}
 	saved, _ := st.GetGitConnection(ctx, conn.ID)
 	if rt, _ := box.Open(saved.RefreshTokenEnc); string(rt) != "rt-2" || saved.TokenExpiresAt.Before(time.Now()) {
-		t.Errorf("el refresh token nuevo debe guardarse: %q %v", rt, saved.TokenExpiresAt)
+		t.Errorf("the new refresh token must be stored: %q %v", rt, saved.TokenExpiresAt)
 	}
 }

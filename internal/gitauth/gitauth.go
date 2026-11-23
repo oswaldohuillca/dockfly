@@ -1,6 +1,5 @@
-// Package gitauth obtiene credenciales válidas para una conexión de Git,
-// sea cual sea su tipo: token personal, instalación de la GitHub App u
-// OAuth de GitLab.
+// Package gitauth obtains valid credentials for a Git connection, whatever
+// its type: personal token, GitHub App installation or GitLab OAuth.
 package gitauth
 
 import (
@@ -14,8 +13,8 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Margen con el que se renueva un token antes de que caduque: un build
-// puede tardar varios minutos en descargar el código.
+// How long before expiry a token is renewed: a build can take several
+// minutes just to download the code.
 const refreshMargin = 10 * time.Minute
 
 type Resolver struct {
@@ -23,8 +22,8 @@ type Resolver struct {
 	Secrets *secrets.Box
 
 	mu    sync.Mutex
-	cache map[int64]cachedToken // tokens de instalación, por conexión
-	locks map[int64]*sync.Mutex // un refresco a la vez por conexión
+	cache map[int64]cachedToken // installation tokens, per connection
+	locks map[int64]*sync.Mutex // one refresh at a time per connection
 }
 
 type cachedToken struct {
@@ -48,7 +47,7 @@ func (r *Resolver) lock(connID int64) func() {
 	return l.Unlock
 }
 
-// Provider devuelve un cliente con credenciales vigentes para la conexión.
+// Provider returns a client with currently valid credentials for the connection.
 func (r *Resolver) Provider(ctx context.Context, conn *store.GitConnection) (gitprovider.Provider, error) {
 	switch conn.AuthType {
 	case store.AuthGitHubApp:
@@ -66,13 +65,13 @@ func (r *Resolver) Provider(ctx context.Context, conn *store.GitConnection) (git
 	default:
 		token, err := r.Secrets.Open(conn.TokenEnc)
 		if err != nil {
-			return nil, fmt.Errorf("no se pudo descifrar el token de %s: %w", conn.Username, err)
+			return nil, fmt.Errorf("could not decrypt the token of %s: %w", conn.Username, err)
 		}
 		return gitprovider.New(conn.Provider, conn.BaseURL, string(token))
 	}
 }
 
-// App reconstruye la GitHub App a partir de sus credenciales cifradas.
+// App rebuilds the GitHub App from its encrypted credentials.
 func (r *Resolver) App(app *store.GitHubApp) (*gitprovider.App, error) {
 	pemData, err := r.Secrets.Open(app.PrivateKeyEnc)
 	if err != nil {
@@ -87,7 +86,7 @@ func (r *Resolver) App(app *store.GitHubApp) (*gitprovider.App, error) {
 
 func (r *Resolver) installationToken(ctx context.Context, conn *store.GitConnection) (string, error) {
 	if conn.GitHubAppID == nil || conn.InstallationID == nil {
-		return "", fmt.Errorf("la conexión %s no tiene una instalación de GitHub válida", conn.Username)
+		return "", fmt.Errorf("the connection %s has no valid GitHub installation", conn.Username)
 	}
 	unlock := r.lock(conn.ID)
 	defer unlock()
@@ -101,7 +100,7 @@ func (r *Resolver) installationToken(ctx context.Context, conn *store.GitConnect
 
 	app, err := r.Store.GetGitHubApp(ctx, *conn.GitHubAppID)
 	if err != nil {
-		return "", fmt.Errorf("la GitHub App de %s ya no existe", conn.Username)
+		return "", fmt.Errorf("the GitHub App of %s no longer exists", conn.Username)
 	}
 	ghApp, err := r.App(app)
 	if err != nil {
@@ -109,7 +108,7 @@ func (r *Resolver) installationToken(ctx context.Context, conn *store.GitConnect
 	}
 	token, expires, err := ghApp.InstallationToken(ctx, *conn.InstallationID)
 	if err != nil {
-		return "", fmt.Errorf("GitHub no dio acceso a %s (¿se desinstaló la app?): %w", conn.Username, err)
+		return "", fmt.Errorf("GitHub denied access to %s (was the app uninstalled?): %w", conn.Username, err)
 	}
 	r.mu.Lock()
 	r.cache[conn.ID] = cachedToken{token: token, expires: expires}
@@ -117,7 +116,7 @@ func (r *Resolver) installationToken(ctx context.Context, conn *store.GitConnect
 	return token, nil
 }
 
-// Forget descarta los tokens en caché de una conexión (p. ej. al borrarla).
+// Forget drops the cached tokens of a connection (for example when it is deleted).
 func (r *Resolver) Forget(connID int64) {
 	r.mu.Lock()
 	delete(r.cache, connID)
@@ -128,8 +127,8 @@ func (r *Resolver) gitlabToken(ctx context.Context, conn *store.GitConnection) (
 	unlock := r.lock(conn.ID)
 	defer unlock()
 
-	// Releemos la conexión dentro del candado: otro build pudo renovar el
-	// token mientras esperábamos, y el refresh token anterior ya no vale.
+	// Re-read the connection inside the lock: another build may have renewed
+	// the token while we waited, and the previous refresh token is dead.
 	fresh, err := r.Store.GetGitConnection(ctx, conn.ID)
 	if err != nil {
 		return "", err
@@ -140,11 +139,11 @@ func (r *Resolver) gitlabToken(ctx context.Context, conn *store.GitConnection) (
 	}
 
 	if fresh.GitLabAppID == nil {
-		return "", fmt.Errorf("la conexión %s no tiene aplicación de GitLab", conn.Username)
+		return "", fmt.Errorf("the connection %s has no GitLab application", conn.Username)
 	}
 	app, err := r.Store.GetGitLabApp(ctx, *fresh.GitLabAppID)
 	if err != nil {
-		return "", fmt.Errorf("la aplicación de GitLab de %s ya no existe", conn.Username)
+		return "", fmt.Errorf("the GitLab application of %s no longer exists", conn.Username)
 	}
 	secret, err := r.Secrets.Open(app.ClientSecretEnc)
 	if err != nil {
@@ -156,13 +155,13 @@ func (r *Resolver) gitlabToken(ctx context.Context, conn *store.GitConnection) (
 	}
 	tok, err := gitprovider.GitLabRefresh(ctx, app.WebURL, app.ClientID, string(secret), string(refresh), fresh.RedirectURI)
 	if err != nil {
-		return "", fmt.Errorf("hay que volver a conectar GitLab (%s): %w", conn.Username, err)
+		return "", fmt.Errorf("GitLab has to be connected again (%s): %w", conn.Username, err)
 	}
 	fresh.TokenEnc = r.Secrets.Seal([]byte(tok.AccessToken))
 	fresh.RefreshTokenEnc = r.Secrets.Seal([]byte(tok.RefreshToken))
 	fresh.TokenExpiresAt = &tok.ExpiresAt
-	// Guardar sin cancelación: si se pierde el refresh token nuevo, la
-	// conexión queda inservible.
+	// Save without cancellation: if the new refresh token is lost, the
+	// connection becomes unusable.
 	if err := r.Store.UpdateConnectionTokens(context.WithoutCancel(ctx), fresh); err != nil {
 		return "", err
 	}

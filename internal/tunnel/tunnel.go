@@ -1,8 +1,9 @@
-// Package tunnel conecta el panel con los agentes de los servidores remotos
-// sin abrir puertos en ellos: el agente mantiene abierto un canal de control
-// hacia el panel y, cuando el panel necesita hablar con el servidor (su
-// Docker o la API del agente), le pide que abra una conexión de datos, que
-// el agente también inicia. Así funciona detrás de NAT y cortafuegos.
+// Package tunnel connects the panel with the agents on remote servers
+// without opening any port on them: the agent keeps a control channel open
+// towards the panel and, when the panel needs to talk to the server (its
+// Docker or the agent API), it asks the agent to open a data connection,
+// which the agent also initiates. That is how it works behind NAT and
+// firewalls.
 package tunnel
 
 import (
@@ -20,27 +21,27 @@ import (
 	"time"
 )
 
-// Destinos de una conexión dentro del servidor remoto.
+// Targets of a connection inside the remote server.
 const (
-	TargetDocker  = "docker"  // el socket de Docker
-	TargetAgent   = "agent"   // la API del propio agente (configuración de Traefik…)
-	TargetMetrics = "metrics" // las métricas de su Traefik
+	TargetDocker  = "docker"  // the Docker socket
+	TargetAgent   = "agent"   // the agent's own API (Traefik configuration…)
+	TargetMetrics = "metrics" // the metrics of its Traefik
 )
 
-// Protocol es el valor de Upgrade de las conexiones de datos.
+// Protocol is the Upgrade value of the data connections.
 const Protocol = "dockfly-tunnel"
 
-// keepalive es cada cuánto el panel escribe en el canal de control, para
-// que proxies y NAT no lo cierren por inactividad.
+// keepalive is how often the panel writes on the control channel, so that
+// proxies and NAT do not close it for being idle.
 const keepalive = 20 * time.Second
 
-// ErrOffline indica que el servidor no tiene ningún agente conectado.
-var ErrOffline = errors.New("el servidor no está conectado")
+// ErrOffline means the server has no agent connected.
+var ErrOffline = errors.New("the server is not connected")
 
-// message es lo que el panel envía por el canal de control (una línea JSON).
+// message is what the panel sends over the control channel (one JSON line).
 type message struct {
-	Open   string `json:"open,omitempty"`   // id de la conexión que debe abrir
-	Target string `json:"target,omitempty"` // TargetDocker o TargetAgent
+	Open   string `json:"open,omitempty"`   // id of the connection it must open
+	Target string `json:"target,omitempty"` // TargetDocker or TargetAgent
 	Ping   bool   `json:"ping,omitempty"`
 }
 
@@ -50,25 +51,25 @@ type session struct {
 	info Info
 }
 
-// Info es lo que el agente cuenta de sí mismo al conectarse.
+// Info is what the agent reports about itself when it connects.
 type Info struct {
 	Version  string    `json:"version"`
 	Hostname string    `json:"hostname"`
-	Addr     string    `json:"addr"`    // IP desde la que se conectó
-	Network  string    `json:"network"` // red de Dockfly en el servidor
+	Addr     string    `json:"addr"`    // IP it connected from
+	Network  string    `json:"network"` // Dockfly network on the server
 	Since    time.Time `json:"since"`
 }
 
-// Hub es el lado del panel.
+// Hub is the panel side.
 type Hub struct {
-	// OnConnect, si no es nil, se llama cada vez que un agente se conecta
-	// (p. ej. para enviarle su configuración).
+	// OnConnect, if not nil, is called every time an agent connects (for
+	// example to send it its configuration).
 	OnConnect func(serverID int64)
 
 	mu       sync.Mutex
 	sessions map[int64]*session
 	waiting  map[string]chan net.Conn
-	owner    map[string]int64 // id de conexión → servidor que debe abrirla
+	owner    map[string]int64 // connection id → server that must open it
 }
 
 func (h *Hub) init() {
@@ -79,7 +80,7 @@ func (h *Hub) init() {
 	}
 }
 
-// Online devuelve la información del agente conectado de un servidor.
+// Online returns the info of a server's connected agent.
 func (h *Hub) Online(serverID int64) (Info, bool) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -91,8 +92,8 @@ func (h *Hub) Online(serverID int64) (Info, bool) {
 	return s.info, true
 }
 
-// Disconnect cierra la sesión del agente de ese servidor, si está conectado.
-// Lo usan el borrado y la rotación de token del servidor.
+// Disconnect closes the session of that server's agent, if it is connected.
+// Deleting a server and rotating its token both use it.
 func (h *Hub) Disconnect(serverID int64) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -103,13 +104,13 @@ func (h *Hub) Disconnect(serverID int64) {
 	}
 }
 
-// ServeControl atiende el canal de control de un agente ya autenticado.
-// Dura lo que dure la conexión; si el servidor ya tenía un agente
-// conectado, el nuevo lo sustituye.
+// ServeControl serves the control channel of an already authenticated
+// agent. It lasts as long as the connection does; if the server already had
+// an agent connected, the new one replaces it.
 func (h *Hub) ServeControl(w http.ResponseWriter, r *http.Request, serverID int64, info Info) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
-		http.Error(w, "el servidor no permite respuestas en streaming", http.StatusInternalServerError)
+		http.Error(w, "the server does not support streaming responses", http.StatusInternalServerError)
 		return
 	}
 	s := &session{send: make(chan message, 64), done: make(chan struct{}), info: info}
@@ -146,7 +147,7 @@ func (h *Hub) ServeControl(w http.ResponseWriter, r *http.Request, serverID int6
 		case <-r.Context().Done():
 			return
 		case <-s.done:
-			return // otro agente ocupó su lugar
+			return // another agent took its place
 		case <-tick.C:
 			m = message{Ping: true}
 		case m = <-s.send:
@@ -158,8 +159,8 @@ func (h *Hub) ServeControl(w http.ResponseWriter, r *http.Request, serverID int6
 	}
 }
 
-// ServeData recibe una conexión de datos que abre el agente y se la entrega
-// a quien la pidió con Dial.
+// ServeData takes a data connection opened by the agent and hands it to
+// whoever asked for it with Dial.
 func (h *Hub) ServeData(w http.ResponseWriter, r *http.Request, serverID int64, id string) {
 	h.mu.Lock()
 	h.init()
@@ -171,16 +172,16 @@ func (h *Hub) ServeData(w http.ResponseWriter, r *http.Request, serverID int64, 
 	}
 	h.mu.Unlock()
 	if !ok || owner != serverID {
-		http.Error(w, "conexión desconocida o caducada", http.StatusNotFound)
+		http.Error(w, "unknown or expired connection", http.StatusNotFound)
 		return
 	}
 	if r.Header.Get("Upgrade") != Protocol {
-		http.Error(w, "se esperaba Upgrade: "+Protocol, http.StatusBadRequest)
+		http.Error(w, "expected Upgrade: "+Protocol, http.StatusBadRequest)
 		return
 	}
 	hj, ok := w.(http.Hijacker)
 	if !ok {
-		http.Error(w, "el servidor no permite conexiones de túnel", http.StatusInternalServerError)
+		http.Error(w, "the server does not support tunnel connections", http.StatusInternalServerError)
 		return
 	}
 	conn, buf, err := hj.Hijack()
@@ -195,11 +196,11 @@ func (h *Hub) ServeData(w http.ResponseWriter, r *http.Request, serverID int64, 
 	select {
 	case ch <- c:
 	default:
-		conn.Close() // quien la pidió ya se cansó de esperar
+		conn.Close() // whoever asked for it gave up waiting
 	}
 }
 
-// Dial abre una conexión con un destino del servidor remoto.
+// Dial opens a connection to a target on the remote server.
 func (h *Hub) Dial(ctx context.Context, serverID int64, target string) (net.Conn, error) {
 	b := make([]byte, 16)
 	if _, err := rand.Read(b); err != nil {
@@ -242,7 +243,7 @@ func (h *Hub) Dial(ctx context.Context, serverID int64, target string) (net.Conn
 		return nil, ctx.Err()
 	case <-timeout.C:
 		cleanup()
-		return nil, fmt.Errorf("el agente no respondió a tiempo")
+		return nil, fmt.Errorf("the agent did not respond in time")
 	case <-s.done:
 		cleanup()
 		return nil, ErrOffline

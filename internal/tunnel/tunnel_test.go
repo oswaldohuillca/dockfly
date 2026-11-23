@@ -15,12 +15,12 @@ import (
 	"time"
 )
 
-// panel monta un Hub con la misma autenticación mínima que la API.
+// panel sets up a Hub with the same minimal authentication as the API.
 func panel(t *testing.T, h *Hub) *httptest.Server {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/agent/control", func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer ok" {
-			http.Error(w, `{"error":"token inválido"}`, 401)
+			http.Error(w, `{"error":"invalid token"}`, 401)
 			return
 		}
 		h.ServeControl(w, r, 7, Info{Version: r.Header.Get("X-Dockfly-Agent-Version")})
@@ -33,7 +33,8 @@ func panel(t *testing.T, h *Hub) *httptest.Server {
 	return srv
 }
 
-// localHTTP sirve un handler en una conexión en memoria, como el agente con su API.
+// localHTTP serves a handler over an in-memory connection, like the agent
+// does with its API.
 func localHTTP(handler http.Handler) func(context.Context) (net.Conn, error) {
 	return func(context.Context) (net.Conn, error) {
 		a, b := net.Pipe()
@@ -69,10 +70,10 @@ func TestTunnel(t *testing.T) {
 	srv := panel(t, h)
 
 	if _, err := h.Dial(context.Background(), 7, TargetAgent); err != ErrOffline {
-		t.Fatalf("sin agente: %v", err)
+		t.Fatalf("without an agent: %v", err)
 	}
 
-	// Un destino TCP de eco con semicierre, como el stdin de una restauración.
+	// A TCP echo target with half-close, like the stdin of a restore.
 	echo, _ := net.Listen("tcp", "127.0.0.1:0")
 	defer echo.Close()
 	go func() {
@@ -95,7 +96,7 @@ func TestTunnel(t *testing.T) {
 		PanelURL: srv.URL, Token: "ok", Version: "1.2.3", Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 		Targets: map[string]func(context.Context) (net.Conn, error){
 			TargetAgent: localHTTP(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprintf(w, "hola desde el agente: %s", r.URL.Path)
+				fmt.Fprintf(w, "hello from the agent: %s", r.URL.Path)
 			})),
 			TargetDocker: func(ctx context.Context) (net.Conn, error) {
 				var d net.Dialer
@@ -107,57 +108,57 @@ func TestTunnel(t *testing.T) {
 	select {
 	case id := <-connected:
 		if id != 7 {
-			t.Fatalf("servidor %d", id)
+			t.Fatalf("server %d", id)
 		}
 	case <-time.After(5 * time.Second):
-		t.Fatal("el agente no se conectó")
+		t.Fatal("the agent did not connect")
 	}
 	if info, ok := h.Online(7); !ok || info.Version != "1.2.3" {
 		t.Fatalf("online: %+v %v", info, ok)
 	}
 
-	// HTTP a través del túnel, con un cliente que marca por el Hub.
+	// HTTP through the tunnel, with a client that dials via the Hub.
 	client := &http.Client{Transport: &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) { return h.Dial(ctx, 7, TargetAgent) },
 	}}
 	var wg sync.WaitGroup
 	for i := range 5 {
 		wg.Go(func() {
-			resp, err := client.Get(fmt.Sprintf("http://agente/info/%d", i))
+			resp, err := client.Get(fmt.Sprintf("http://agent/info/%d", i))
 			if err != nil {
 				t.Error(err)
 				return
 			}
 			body, _ := io.ReadAll(resp.Body)
 			resp.Body.Close()
-			if string(body) != fmt.Sprintf("hola desde el agente: /info/%d", i) {
-				t.Errorf("respuesta %q", body)
+			if string(body) != fmt.Sprintf("hello from the agent: /info/%d", i) {
+				t.Errorf("response %q", body)
 			}
 		})
 	}
 	wg.Wait()
 
-	// Conexión en bruto con semicierre.
+	// Raw connection with half-close.
 	c, err := h.Dial(context.Background(), 7, TargetDocker)
 	if err != nil {
 		t.Fatal(err)
 	}
-	c.Write([]byte("datos del volcado"))
+	c.Write([]byte("dump data"))
 	if cw, ok := c.(interface{ CloseWrite() error }); ok {
 		cw.CloseWrite()
 	} else {
-		t.Fatalf("la conexión del túnel debe permitir semicierre (%T)", c)
+		t.Fatalf("the tunnel connection must support half-close (%T)", c)
 	}
 	got, _ := io.ReadAll(bufio.NewReader(c))
 	c.Close()
-	if string(got) != "DATOS DEL VOLCADO" {
-		t.Errorf("eco: %q", got)
+	if string(got) != "DUMP DATA" {
+		t.Errorf("echo: %q", got)
 	}
 
-	// Un agente con un token malo no se conecta.
-	bad := &Agent{PanelURL: srv.URL, Token: "malo", Log: a.Log}
+	// An agent with a bad token does not connect.
+	bad := &Agent{PanelURL: srv.URL, Token: "bad", Log: a.Log}
 	if err := bad.control(context.Background()); err == nil || !strings.Contains(err.Error(), "401") {
-		t.Errorf("token malo: %v", err)
+		t.Errorf("bad token: %v", err)
 	}
 
 	cancel()
@@ -167,7 +168,7 @@ func TestTunnel(t *testing.T) {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatal("el agente sigue apareciendo conectado")
+			t.Fatal("the agent still shows as connected")
 		}
 		time.Sleep(50 * time.Millisecond)
 	}

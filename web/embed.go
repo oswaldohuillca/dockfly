@@ -1,4 +1,4 @@
-// Package web incrusta el frontend compilado (web/dist) en el binario.
+// Package web embeds the compiled frontend (web/dist) into the binary.
 package web
 
 import (

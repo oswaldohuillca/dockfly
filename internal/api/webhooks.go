@@ -7,28 +7,28 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Webhooks de push de los sitios y las apps enlazados a un repositorio. Con
-// una GitHub App los pushes llegan por el webhook único de la app; con un
-// token, Dockfly crea un webhook propio en el repositorio.
+// Push webhooks for the sites and apps linked to a repository. With a GitHub
+// App the pushes arrive through the app's single webhook; with a token,
+// Dockfly creates a webhook of its own in the repository.
 
-// appWebhook marca lo que recibe los pushes por el webhook de la GitHub App
-// (en vez de uno propio en el repositorio).
+// appWebhook marks whatever receives its pushes through the GitHub App's
+// webhook (instead of one of its own in the repository).
 const appWebhook = "github-app"
 
-// Motivos por los que un repositorio enlazado no despliega en cada push.
+// Reasons why a linked repository doesn't deploy on every push.
 var (
 	errWebhookNoPublicURL = newError("webhook_public_url_missing",
 		"Set Dockfly's public URL in Integrations to deploy on every push")
 	errWebhookCreate = newError("webhook_create_failed", "Couldn't create the webhook: {detail}")
 )
 
-// hookTarget es lo que recibe los pushes de un repositorio: un sitio o una app.
+// hookTarget is what receives a repository's pushes: a site or an app.
 type hookTarget struct {
 	connectionID *int64
 	repo         string
-	// hook es el webhook guardado ahora (vacío si no hay).
+	// hook is the webhook stored right now (empty when there is none).
 	hook hookState
-	// path es la ruta del webhook propio tras /api/hooks/<proveedor>/.
+	// path is the path of its own webhook after /api/hooks/<provider>/.
 	path string
 }
 
@@ -36,8 +36,8 @@ type hookState struct{ ID, Secret string }
 
 func (t hookTarget) own() bool { return t.hook.ID != "" && t.hook.ID != appWebhook }
 
-// problem es un aviso con código (como los errores) para que el panel lo
-// traduzca; nil si no hay aviso.
+// problem is a warning with a code (like the errors) so that the panel can
+// translate it; nil when there is no warning.
 type problem struct {
 	Error  string         `json:"error"`
 	Code   string         `json:"code"`
@@ -51,9 +51,10 @@ func toProblem(e *apiError) *problem {
 	return &problem{Error: e.Error(), Code: e.Code, Params: e.Params}
 }
 
-// ensureWebhook decide qué webhook debe quedar guardado para t (y lo crea en
-// el repositorio si hace falta). Si los pushes no van a desplegar, devuelve
-// también el motivo. Un webhook propio que ya existe se conserva.
+// ensureWebhook decides which webhook should end up stored for t (and
+// creates it in the repository when needed). If the pushes aren't going to
+// deploy, it also returns the reason. An existing webhook of its own is
+// kept.
 func (s *Server) ensureWebhook(ctx context.Context, t hookTarget) (hookState, *apiError) {
 	if t.connectionID == nil {
 		return hookState{}, nil
@@ -85,8 +86,8 @@ func (s *Server) ensureWebhook(ctx context.Context, t hookTarget) (hookState, *a
 	return hookState{ID: id, Secret: secret}, nil
 }
 
-// removeWebhook intenta borrar el webhook propio de t. Si falla (token
-// revocado, repo borrado…) solo se registra: no debe impedir desenlazar.
+// removeWebhook tries to delete t's own webhook. If that fails (token
+// revoked, repo deleted…) it is only logged: it must not block unlinking.
 func (s *Server) removeWebhook(ctx context.Context, t hookTarget) {
 	if !t.own() || t.connectionID == nil {
 		return
@@ -96,7 +97,7 @@ func (s *Server) removeWebhook(ctx context.Context, t hookTarget) {
 		err = p.DeleteWebhook(ctx, t.repo, t.hook.ID)
 	}
 	if err != nil {
-		s.Log.Warn("no se pudo borrar el webhook", "repo", t.repo, "error", err)
+		s.Log.Warn("couldn't delete the webhook", "repo", t.repo, "error", err)
 	}
 }
 

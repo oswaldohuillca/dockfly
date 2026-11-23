@@ -16,10 +16,10 @@ import { timeAgo } from '@/lib/format';
 import { useSubmit } from '@/lib/use-form';
 import { useAction, useResource } from '@/lib/use-resource';
 
-/** Tareas programadas de una app: comandos que se ejecutan en su contenedor según un cron. */
+/** An app's scheduled tasks: commands run in its container on a cron schedule. */
 export function AppJobs({ appId, canEdit, canRun }: { appId: number; canEdit: boolean; canRun: boolean }) {
   const { t } = useLingui();
-  // Se refresca solo: el resultado de una ejecución llega cuando termina.
+  // It refreshes on its own: a run's result only arrives once the run is over.
   const { data: jobs = [], loading, error, reload } = useResource(() => api.listAppJobs(appId), { interval: 5000 });
   const [editing, setEditing] = useState<AppJob | 'new' | null>(null);
   const [output, setOutput] = useState<number | null>(null);

@@ -6,7 +6,7 @@ export interface Selection {
   payload: UploadPayload;
   fileCount: number;
   totalBytes: number;
-  /** Texto para mostrar: "dist/ · 34 archivos" o "sitio.zip". */
+  /** Text to display: "dist/ · 34 files" or "site.zip". */
   label: string;
 }
 
@@ -30,15 +30,15 @@ function fromFiles(files: { path: string; file: File }[]): Selection | null {
   };
 }
 
-/** Archivos elegidos con <input type="file"> (con o sin webkitdirectory). */
+/** Files chosen with <input type="file"> (with or without webkitdirectory). */
 export function fromInput(list: FileList): Selection | null {
   return fromFiles(Array.from(list, (file) => ({ path: file.webkitRelativePath || file.name, file })));
 }
 
-/** Archivos o carpetas soltados en la zona de arrastre. */
+/** Files or folders dropped on the drop zone. */
 export async function fromDrop(dt: DataTransfer): Promise<Selection | null> {
-  // Hay que leer las entradas de forma síncrona, antes del primer await:
-  // el navegador vacía el DataTransfer al terminar el evento.
+  // The entries have to be read synchronously, before the first await: the
+  // browser empties the DataTransfer once the event is over.
   const entries = Array.from(dt.items)
     .map((item) => item.webkitGetAsEntry())
     .filter((e): e is FileSystemEntry => e !== null);
@@ -56,8 +56,8 @@ async function walk(entry: FileSystemEntry, out: { path: string; file: File }[])
   }
   if (entry.isDirectory) {
     const reader = (entry as FileSystemDirectoryEntry).createReader();
-    // readEntries devuelve los hijos por lotes (Chrome: 100). Hay que llamarlo
-    // hasta recibir un lote vacío, o las carpetas grandes quedan incompletas.
+    // readEntries returns the children in batches (Chrome: 100). It has to be
+    // called until an empty batch arrives, or large folders end up incomplete.
     for (;;) {
       const batch = await new Promise<FileSystemEntry[]>((resolve, reject) => reader.readEntries(resolve, reject));
       if (batch.length === 0) break;

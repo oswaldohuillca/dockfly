@@ -9,8 +9,8 @@ import (
 
 var domainRe = regexp.MustCompile(`^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$|^localhost$`)
 
-// normalizeDomains pasa a minúsculas, quita el punto final y los duplicados,
-// y valida cada dominio.
+// normalizeDomains lowercases, drops the trailing dot and the duplicates,
+// and validates every domain.
 func normalizeDomains(in []string) ([]string, error) {
 	var out []string
 	for _, d := range in {
@@ -18,7 +18,7 @@ func normalizeDomains(in []string) ([]string, error) {
 		if d == "" || slices.Contains(out, d) {
 			continue
 		}
-		// Se admite un comodín de un nivel: *.ejemplo.com.
+		// A single-level wildcard is allowed: *.example.com.
 		if !domainRe.MatchString(strings.TrimPrefix(d, "*.")) || strings.Contains(strings.TrimPrefix(d, "*."), "*") {
 			return nil, errInvalidDomain.With("domain", d)
 		}
@@ -33,11 +33,11 @@ func normalizeDomains(in []string) ([]string, error) {
 var (
 	errInvalidDomain = newError("invalid_domain", "Invalid domain: {domain}")
 	errNoDomains     = newError("no_domains", "Enter at least one domain")
-	// {kind} es proxy_host, site, app o redirect.
+	// {kind} is proxy_host, site, app or redirect.
 	errDomainInUse = newError("domain_in_use", "The domain {domain} is already used by another {kind}")
 )
 
-// Tipos de recurso que usan dominios (también van en errDomainInUse).
+// Kinds of resource that use domains (they also appear in errDomainInUse).
 const (
 	ownerProxyHost = "proxy_host"
 	ownerSite      = "site"
@@ -45,15 +45,15 @@ const (
 	ownerRedirect  = "redirect"
 )
 
-// owner identifica al recurso que se está editando, para no considerarlo
-// en conflicto consigo mismo. id = 0 al crear.
+// owner identifies the resource being edited, so it isn't taken to be in
+// conflict with itself. id = 0 when creating.
 type owner struct {
 	kind string
 	id   int64
 }
 
-// checkDomains responde 409 si algún dominio ya lo usa otro proxy host u
-// otro sitio: Traefik no puede enrutar un mismo dominio a dos destinos.
+// checkDomains answers 409 if another proxy host or another site already uses
+// one of the domains: Traefik can't route one domain to two targets.
 func (s *Server) checkDomains(w http.ResponseWriter, r *http.Request, domains []string, self owner) bool {
 	ctx := r.Context()
 	hosts, err := s.Store.ListProxyHosts(ctx)

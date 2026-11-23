@@ -7,7 +7,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// APIToken autentica al CLI y a la integración continua en nombre de un usuario.
+// APIToken authenticates the CLI and CI on behalf of a user.
 type APIToken struct {
 	bun.BaseModel `bun:"table:api_tokens"`
 
@@ -33,7 +33,7 @@ func (t *APIToken) AfterScanRow(context.Context) error {
 	return nil
 }
 
-// Expired indica si el token ya caducó.
+// Expired reports whether the token has already expired.
 func (t *APIToken) Expired(now time.Time) bool {
 	return t.ExpiresAt != nil && now.After(*t.ExpiresAt)
 }
@@ -58,7 +58,7 @@ func (s *Store) APITokenByHash(ctx context.Context, hash string) (*APIToken, err
 	return t, nil
 }
 
-// TouchAPIToken guarda cuándo se usó el token por última vez.
+// TouchAPIToken records when the token was last used.
 func (s *Store) TouchAPIToken(ctx context.Context, id int64) error {
 	_, err := s.db.NewUpdate().Model((*APIToken)(nil)).Set("last_used_at = ?", now()).Where("id = ?", id).Exec(ctx)
 	return err

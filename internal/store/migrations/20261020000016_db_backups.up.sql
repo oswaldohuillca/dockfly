@@ -1,4 +1,4 @@
--- Copias de seguridad de las apps de bases de datos (Postgres, MySQL, Redis).
+-- Backups of the database apps (Postgres, MySQL, Redis).
 CREATE TABLE db_backup_policies (
 	app_id         INTEGER PRIMARY KEY REFERENCES apps (id) ON DELETE CASCADE,
 	enabled        BOOLEAN NOT NULL DEFAULT FALSE,
@@ -15,7 +15,7 @@ CREATE TABLE db_backups (
 	status      TEXT NOT NULL,       -- running | success | failed
 	trigger     TEXT NOT NULL,       -- schedule | manual
 	engine      TEXT NOT NULL,       -- postgres | mysql | redis
-	location    TEXT NOT NULL DEFAULT '', -- dónde se guardó ("s3://bucket/prefijo")
+	location    TEXT NOT NULL DEFAULT '', -- where it was stored ("s3://bucket/prefix")
 	object_key  TEXT NOT NULL DEFAULT '',
 	size        INTEGER NOT NULL DEFAULT 0,
 	error       TEXT NOT NULL DEFAULT '',

@@ -12,25 +12,25 @@ interface Props {
   onClose: () => void;
   onSubmit: (e: FormEvent) => void;
   busy?: boolean;
-  /** Mensaje de error (ya traducido) bajo los campos. */
+  /** Error message (already translated) shown under the fields. */
   error?: string;
-  /** Texto del botón de enviar (por defecto, Save). */
+  /** The submit button's text (Save by default). */
   submitLabel?: ReactNode;
-  /** Desactiva el botón de enviar (además de mientras busy). */
+  /** Disables the submit button (on top of while busy). */
   submitDisabled?: boolean;
-  /** Contenido extra del pie, a la izquierda de los botones. */
+  /** Extra footer content, to the left of the buttons. */
   footer?: ReactNode;
   className?: string;
   children: ReactNode;
 }
 
-/** Diálogo con un formulario: cabecera, campos, error y Cancel / Save. */
+/** Dialog with a form: header, fields, error and Cancel / Save. */
 export function FormDialog({
   title, description, onClose, onSubmit, busy, error, submitLabel, submitDisabled, footer, className, children,
 }: Props) {
   return (
     <Dialog open onOpenChange={(open) => !open && !busy && onClose()}>
-      {/* Un clic fuera no cierra: se perdería lo escrito. */}
+      {/* Clicking outside does not close it: whatever was typed would be lost. */}
       <DialogContent className={className} onInteractOutside={(e) => e.preventDefault()}>
         <form onSubmit={onSubmit} className="contents">
           <DialogHeader>

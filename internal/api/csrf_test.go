@@ -11,7 +11,7 @@ func TestCrossOriginAndHeaders(t *testing.T) {
 	c := newClient(t, ts)
 	c.do("POST", "/api/setup", adminJSON)
 
-	// Cabeceras de seguridad en el panel.
+	// Security headers on the panel.
 	resp, _ := c.http.Get(ts.URL + "/api/auth/me")
 	for h, want := range map[string]string{
 		"X-Frame-Options":         "DENY",
@@ -19,7 +19,7 @@ func TestCrossOriginAndHeaders(t *testing.T) {
 		"Content-Security-Policy": "frame-ancestors 'none'",
 	} {
 		if got := resp.Header.Get(h); !strings.Contains(got, want) {
-			t.Errorf("%s = %q, quería contener %q", h, got, want)
+			t.Errorf("%s = %q, wanted it to contain %q", h, got, want)
 		}
 	}
 	resp.Body.Close()
@@ -40,20 +40,20 @@ func TestCrossOriginAndHeaders(t *testing.T) {
 		resp.Body.Close()
 		return resp.StatusCode
 	}
-	// Una página de otro subdominio (same-site) o de otro sitio (cross-site)
-	// no puede disparar acciones con la cookie del admin.
+	// A page on another subdomain (same-site) or on another site (cross-site)
+	// can't trigger actions with the admin's cookie.
 	if code := req("same-site"); code != http.StatusForbidden {
-		t.Errorf("CSRF same-site: %d, quería 403", code)
+		t.Errorf("CSRF same-site: %d, wanted 403", code)
 	}
 	if code := req("cross-site"); code != http.StatusForbidden {
-		t.Errorf("CSRF cross-site: %d, quería 403", code)
+		t.Errorf("CSRF cross-site: %d, wanted 403", code)
 	}
-	// La propia SPA (same-origin) y los clientes sin navegador (CLI, sin
-	// Sec-Fetch-Site) sí pasan el filtro CSRF (404 porque la app no existe).
+	// The SPA itself (same-origin) and browser-less clients (the CLI, with no
+	// Sec-Fetch-Site) do pass the CSRF filter (404 because the app doesn't exist).
 	if code := req("same-origin"); code == http.StatusForbidden {
-		t.Errorf("same-origin no debe bloquearse: %d", code)
+		t.Errorf("same-origin must not be blocked: %d", code)
 	}
 	if code := req(""); code == http.StatusForbidden {
-		t.Errorf("una petición sin navegador no debe bloquearse: %d", code)
+		t.Errorf("a request from outside a browser must not be blocked: %d", code)
 	}
 }

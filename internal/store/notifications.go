@@ -55,8 +55,8 @@ func (s *Store) DeleteNotificationChannel(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewDelete().Model((*NotificationChannel)(nil)).Where("id = ?", id).Exec(ctx))
 }
 
-// RecordNotificationResult guarda el resultado del último envío, para
-// mostrarlo en el panel.
+// RecordNotificationResult stores the result of the last delivery, so the
+// panel can show it.
 func (s *Store) RecordNotificationResult(ctx context.Context, id int64, errMsg string) error {
 	q := s.db.NewUpdate().Model((*NotificationChannel)(nil)).Set("last_error = ?", errMsg).Where("id = ?", id)
 	if errMsg == "" {

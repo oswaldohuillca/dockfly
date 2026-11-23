@@ -6,19 +6,19 @@ import (
 	"time"
 )
 
-// Límites de intentos por cuenta, además del límite por IP: así una botnet o
-// un atacante con muchas IPv6 no puede probar contraseñas o códigos sin freno
-// contra una misma cuenta.
+// Per-account attempt limits, on top of the per-IP limit: this way a botnet or
+// an attacker with plenty of IPv6 addresses cannot try passwords or codes
+// unchecked against a single account.
 const (
 	loginMaxFailures = 15
 	mfaMaxFailures   = 10
 	failLockout      = 15 * time.Minute
-	// failMaxTracked acota la memoria: las claves (emails) las elige el cliente.
+	// failMaxTracked bounds memory use: the keys (emails) are client-chosen.
 	failMaxTracked = 10000
 )
 
-// failures cuenta los fallos por clave (email o usuario) en una ventana de
-// failLockout.
+// failures counts the failures per key (email or user) within a failLockout
+// window.
 type failures[K comparable] struct {
 	mu    sync.Mutex
 	byKey map[K]failCount
@@ -48,8 +48,9 @@ func (f *failures[K]) fail(key K) {
 	}
 	c, ok := f.byKey[key]
 	if !ok && len(f.byKey) >= failMaxTracked {
-		// Lleno: se olvida el más antiguo. Dejar de contar permitiría
-		// desactivar el bloqueo llenando el mapa con claves inventadas.
+		// Full: the oldest entry is forgotten. Stopping the count instead
+		// would let anyone disable the lockout by filling the map with
+		// made-up keys.
 		var oldest K
 		first := true
 		for k, v := range f.byKey {
@@ -72,5 +73,5 @@ func (f *failures[K]) reset(key K) {
 	delete(f.byKey, key)
 }
 
-// loginKey normaliza el email con el que se cuentan los fallos de login.
+// loginKey normalizes the email that login failures are counted against.
 func loginKey(email string) string { return strings.ToLower(strings.TrimSpace(email)) }

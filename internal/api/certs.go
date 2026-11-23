@@ -9,8 +9,8 @@ import (
 	"github.com/dockfly/dockfly/internal/traefik"
 )
 
-// handleCertificates devuelve el estado del certificado de cada dominio con
-// SSL activado (proxy hosts y sitios).
+// handleCertificates returns the certificate status of every domain with SSL
+// turned on (proxy hosts and sites).
 func (s *Server) handleCertificates(w http.ResponseWriter, r *http.Request) {
 	domains, err := s.sslDomainsCtx(r.Context())
 	if err != nil {

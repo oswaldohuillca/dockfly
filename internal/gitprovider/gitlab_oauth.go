@@ -11,15 +11,15 @@ import (
 	"time"
 )
 
-// OAuth de GitLab. GitLab no permite crear la aplicación automáticamente
-// (como el manifiesto de GitHub), así que el administrador la registra una
-// vez; después, cada usuario solo ve la ventana de "Autorizar".
+// GitLab OAuth. GitLab has no way to create the application automatically
+// (unlike GitHub's manifest), so the administrator registers it once; after
+// that, each user only sees the "Authorize" screen.
 
-// GitLabScope es el permiso que se pide: "api" es necesario para registrar
-// los webhooks de push (read_repository no basta).
+// GitLabScope is the permission that is requested: "api" is needed to
+// register the push webhooks (read_repository is not enough).
 const GitLabScope = "api"
 
-// GitLabWebURL normaliza la URL de una instancia de GitLab ("" = gitlab.com).
+// GitLabWebURL normalizes the URL of a GitLab instance ("" = gitlab.com).
 func GitLabWebURL(raw string) (string, error) {
 	raw = strings.TrimRight(strings.TrimSpace(raw), "/")
 	if raw == "" {
@@ -27,7 +27,7 @@ func GitLabWebURL(raw string) (string, error) {
 	}
 	u, err := url.Parse(raw)
 	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" {
-		return "", fmt.Errorf("URL de GitLab inválida: %q", raw)
+		return "", fmt.Errorf("invalid GitLab URL: %q", raw)
 	}
 	u.Path = strings.TrimSuffix(u.Path, "/api/v4")
 	return strings.TrimRight(u.String(), "/"), nil
@@ -35,7 +35,7 @@ func GitLabWebURL(raw string) (string, error) {
 
 func GitLabAPIURL(webURL string) string { return webURL + "/api/v4" }
 
-// GitLabAuthorizeURL es la pantalla de GitLab donde el usuario autoriza a Dockfly.
+// GitLabAuthorizeURL is the GitLab screen where the user authorizes Dockfly.
 func GitLabAuthorizeURL(webURL, clientID, redirectURI, state string) string {
 	q := url.Values{
 		"client_id":     {clientID},
@@ -53,7 +53,7 @@ type OAuthToken struct {
 	ExpiresAt    time.Time
 }
 
-// GitLabExchangeCode canjea el código de autorización por un token.
+// GitLabExchangeCode trades the authorization code for a token.
 func GitLabExchangeCode(ctx context.Context, webURL, clientID, secret, code, redirectURI string) (*OAuthToken, error) {
 	return gitlabToken(ctx, webURL, url.Values{
 		"grant_type":    {"authorization_code"},
@@ -64,8 +64,8 @@ func GitLabExchangeCode(ctx context.Context, webURL, clientID, secret, code, red
 	})
 }
 
-// GitLabRefresh renueva un token caducado. GitLab invalida el refresh token
-// usado y devuelve uno nuevo, que hay que guardar.
+// GitLabRefresh renews an expired token. GitLab invalidates the refresh token
+// that was used and returns a new one, which has to be stored.
 func GitLabRefresh(ctx context.Context, webURL, clientID, secret, refreshToken, redirectURI string) (*OAuthToken, error) {
 	return gitlabToken(ctx, webURL, url.Values{
 		"grant_type":    {"refresh_token"},
@@ -97,7 +97,7 @@ func gitlabToken(ctx context.Context, webURL string, form url.Values) (*OAuthTok
 		Description  string `json:"error_description"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
-		return nil, fmt.Errorf("respuesta de GitLab inválida (%d)", resp.StatusCode)
+		return nil, fmt.Errorf("invalid response from GitLab (%d)", resp.StatusCode)
 	}
 	if resp.StatusCode >= 300 || raw.AccessToken == "" {
 		msg := raw.Description
@@ -107,7 +107,7 @@ func gitlabToken(ctx context.Context, webURL string, form url.Values) (*OAuthTok
 		if msg == "" {
 			msg = resp.Status
 		}
-		return nil, errors.New("GitLab rechazó la autorización: " + msg)
+		return nil, errors.New("GitLab rejected the authorization: " + msg)
 	}
 	t := &OAuthToken{AccessToken: raw.AccessToken, RefreshToken: raw.RefreshToken}
 	if raw.ExpiresIn > 0 {

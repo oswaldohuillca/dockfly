@@ -3,19 +3,19 @@ import type { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface Props {
-  /** Qué mide: «CPU», «Memory»… (también es su nombre accesible). */
+  /** What it measures: "CPU", "Memory"… (it is also its accessible name). */
   label: string;
-  /** De 0 a 100. */
+  /** From 0 to 100. */
   percent: number;
-  /** Texto bajo el medidor: «3.1 GB of 8 GB». */
+  /** Text under the gauge: "3.1 GB of 8 GB". */
   detail?: ReactNode;
   className?: string;
 }
 
-// Arco de 270° abierto por abajo, con centro en (60, 60) y radio 50.
+// A 270° arc open at the bottom, centred on (60, 60) with a radius of 50.
 const ARC = 'M24.64 95.36 A50 50 0 1 1 95.36 95.36';
 
-/** Medidor de uso en arco: pasa a ámbar desde el 75 % y a rojo desde el 90 %. */
+/** Arc usage gauge: turns amber from 75 % and red from 90 %. */
 export function Gauge({ label, percent, detail, className }: Props) {
   const value = Math.min(100, Math.max(0, percent));
   const tone = value >= 90 ? 'stroke-destructive' : value >= 75 ? 'stroke-amber-500' : 'stroke-primary';

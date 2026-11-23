@@ -29,7 +29,7 @@ const targets: Record<TargetType, { label: MessageDescriptor; icon: typeof Box }
   external: { label: msg`External`, icon: Globe },
 };
 
-/** La API rechaza campos desconocidos: enviamos solo los editables. */
+/** The API rejects unknown fields, so we send only the editable ones. */
 function toInput({ id: _id, created_at: _c, updated_at: _u, ...rest }: ProxyHost): ProxyHostInput {
   return rest;
 }
@@ -41,7 +41,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
   const canEdit = useCan('admin');
   const { data: hosts = [], setData: setHosts, loading, error, reload: load } = useResource(api.listProxyHosts);
   const [filter, setFilter] = useState('');
-  // null = cerrado, {} = nuevo, host = editar
+  // null = closed, {} = new, host = edit
   const [editing, setEditing] = useState<Partial<ProxyHost> | null>(null);
   const certs = useCertificates();
   const run = useAction();
@@ -54,7 +54,7 @@ export function ProxyHosts({ dockerAvailable }: { dockerAvailable: boolean }) {
   }, [hosts, filter]);
 
   async function toggle(h: ProxyHost) {
-    // Actualización optimista: el switch responde al instante.
+    // Optimistic update: the switch responds instantly.
     setHosts((prev) => prev?.map((x) => (x.id === h.id ? { ...x, enabled: !h.enabled } : x)));
     if (!(await run(() => api.updateProxyHost(h.id, { ...toInput(h), enabled: !h.enabled })))) load();
   }
@@ -252,7 +252,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   );
 }
 
-/** Minigráfica y totales de las últimas 24 h de una ruta. */
+/** Sparkline and totals for a route's last 24 h. */
 export function TrafficCell({ summary, onClick }: { summary?: TrafficSummary; onClick: () => void }) {
   if (!summary || summary.requests === 0) {
     return <span className="text-xs text-muted-foreground">—</span>;

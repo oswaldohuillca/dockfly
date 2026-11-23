@@ -48,7 +48,7 @@ export function Header({ user, status, onLogout }: Props) {
 
   return (
     <>
-      {/* Escritorio: barra lateral fija. */}
+      {/* Desktop: fixed sidebar. */}
       <aside className="fixed inset-y-0 left-0 z-40 hidden w-64 flex-col bg-card shadow-card lg:flex">
         <Link to="/" className="mx-6 mt-7 mb-8 w-fit rounded-md">
           <Logo className="text-xl" />
@@ -85,7 +85,7 @@ export function Header({ user, status, onLogout }: Props) {
 
       <header className="sticky top-0 z-30 bg-background/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between gap-3 px-4 lg:px-8">
-          {/* Móvil y tablet: el logo y la navegación van arriba. */}
+          {/* Mobile and tablet: the logo and the navigation go on top. */}
           <div className="flex min-w-0 items-center gap-3 lg:hidden">
             <Link to="/" className="shrink-0 rounded-md">
               <Logo className="text-lg" />
@@ -190,7 +190,7 @@ function StatusBadge({ ok, children }: { ok: boolean; children: React.ReactNode 
   return (
     <Badge variant="outline" className={cn('gap-1.5 bg-background', !ok && 'border-destructive/40 text-destructive')}>
       <span className={cn('size-1.5 rounded-none', ok ? 'bg-emerald-500' : 'bg-red-500')} />
-      {/* En pantallas estrechas queda solo el punto; el texto sigue para lectores de pantalla. */}
+      {/* On narrow screens only the dot is left; the text stays for screen readers. */}
       <span className="sr-only sm:not-sr-only">{children}</span>
     </Badge>
   );

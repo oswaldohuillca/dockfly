@@ -1,7 +1,7 @@
 import { defineConfig } from '@lingui/conf';
 
-// El texto fuente del código está en inglés (el idioma por defecto); las
-// traducciones viven en src/locales/<idioma>/messages.po.
+// The source text in the code is English (the default locale); the
+// translations live in src/locales/<locale>/messages.po.
 export default defineConfig({
   sourceLocale: 'en',
   locales: ['en', 'es'],

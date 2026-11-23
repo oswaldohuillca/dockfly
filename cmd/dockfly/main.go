@@ -42,7 +42,7 @@ import (
 	"github.com/dockfly/dockfly/web"
 )
 
-// version se inyecta en el build con -ldflags "-X main.version=...".
+// version is injected at build time with -ldflags "-X main.version=...".
 var version = "dev"
 
 func main() {
@@ -60,13 +60,13 @@ func main() {
 			os.Exit(agentCommand(os.Args[2:]))
 		case "egress":
 			log := slog.New(slog.NewTextHandler(os.Stderr, nil))
-			log.Error("proxy de salida", "error", egress.Serve(":"+egress.Port, log))
+			log.Error("egress proxy", "error", egress.Serve(":"+egress.Port, log))
 			os.Exit(1)
 		case "self-update":
-			// Lo lanza el panel en un contenedor auxiliar (ver selfupdate).
+			// The panel launches this in a helper container (see selfupdate).
 			log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 			if len(os.Args) != 4 {
-				log.Error("uso: dockfly self-update <contenedor> <imagen>")
+				log.Error("usage: dockfly self-update <container> <image>")
 				os.Exit(2)
 			}
 			dc := docker.New(env("DOCKFLY_DOCKER_SOCKET", "/var/run/docker.sock"))
@@ -80,11 +80,11 @@ func main() {
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel()}))
 	if err := run(log); errors.Is(err, errRestart) {
-		// 75 (EX_TEMPFAIL): Docker reinicia el contenedor tanto con
-		// "unless-stopped" como con "on-failure".
+		// 75 (EX_TEMPFAIL): Docker restarts the container both with
+		// "unless-stopped" and with "on-failure".
 		os.Exit(75)
 	} else if err != nil {
-		log.Error("dockfly terminó con error", "error", err)
+		log.Error("dockfly exited with an error", "error", err)
 		os.Exit(1)
 	}
 }
@@ -98,11 +98,11 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
-	// Una copia restaurada desde el panel se aplica aquí, antes de abrir nada.
+	// A backup restored from the panel is applied here, before opening anything.
 	if applied, kept, err := backup.ApplyPending(dataDir); err != nil {
-		return fmt.Errorf("aplicando la copia de seguridad: %w", err)
+		return fmt.Errorf("applying the backup: %w", err)
 	} else if applied {
-		log.Warn("copia de seguridad restaurada; los datos anteriores están en "+kept, "dir", kept)
+		log.Warn("backup restored; the previous data is in "+kept, "dir", kept)
 	}
 
 	st, err := openStore(ctx, dataDir)
@@ -116,7 +116,7 @@ func run(log *slog.Logger) error {
 		return err
 	}
 
-	// Docker: el socket montado o, detrás de un proxy del socket,
+	// Docker: the mounted socket or, behind a socket proxy,
 	// DOCKFLY_DOCKER_SOCKET=tcp://socket-proxy:2375.
 	var dc *docker.Client
 	socket := env("DOCKFLY_DOCKER_SOCKET", "/var/run/docker.sock")
@@ -125,7 +125,7 @@ func run(log *slog.Logger) error {
 	} else if _, err := os.Stat(socket); err == nil {
 		dc = docker.New(socket)
 	} else {
-		log.Warn("socket de Docker no disponible: no se podrán listar contenedores", "socket", socket)
+		log.Warn("Docker socket not available: containers cannot be listed", "socket", socket)
 		socket = ""
 	}
 
@@ -143,8 +143,8 @@ func run(log *slog.Logger) error {
 		TrustedProxies: trusted,
 		LogLevel:       strings.ToUpper(env("DOCKFLY_TRAEFIK_LOG_LEVEL", "warn")),
 	}
-	// Los puertos de los streams y los proveedores DNS son configuración
-	// estática de Traefik.
+	// Stream ports and DNS providers are part of Traefik's static
+	// configuration.
 	if ports, err := (&api.Server{Store: st}).StreamPorts(ctx); err == nil {
 		opts.Streams = ports
 	}
@@ -154,20 +154,20 @@ func run(log *slog.Logger) error {
 		}
 	}
 	if err := traefik.WriteStatic(opts); err != nil {
-		return fmt.Errorf("escribiendo configuración estática de Traefik: %w", err)
+		return fmt.Errorf("writing Traefik static configuration: %w", err)
 	}
 
-	// Sitios estáticos: los archivos viven en /data/sites y los sirve un
-	// servidor interno al que Traefik reenvía los dominios de cada sitio.
+	// Static sites: the files live in /data/sites and are served by an
+	// internal server that Traefik forwards each site's domains to.
 	pagesStorage := &pages.Storage{Root: filepath.Join(dataDir, "sites"), Limits: pages.DefaultLimits}
 	if err := pagesStorage.CleanStaging(); err != nil {
-		return fmt.Errorf("limpiando subidas incompletas: %w", err)
+		return fmt.Errorf("cleaning up incomplete uploads: %w", err)
 	}
 	pagesSrv := &pages.Server{}
 	staticAddr := env("DOCKFLY_STATIC_ADDR", "127.0.0.1:8099")
 	maxUpload, err := strconv.ParseInt(env("DOCKFLY_MAX_UPLOAD_MB", "512"), 10, 64)
 	if err != nil || maxUpload < 1 {
-		return fmt.Errorf("DOCKFLY_MAX_UPLOAD_MB debe ser un número positivo")
+		return fmt.Errorf("DOCKFLY_MAX_UPLOAD_MB must be a positive number")
 	}
 
 	box, err := secrets.LoadOrCreate(filepath.Join(dataDir, "encryption.key"))
@@ -214,16 +214,16 @@ func run(log *slog.Logger) error {
 	buildCfg.OnFinish = srv.OnBuildFinished
 	buildCfg.StatusURL = srv.StatusURL
 	certs.OnError = srv.OnCertError
-	// Los builds salen a internet solo por un proxy que no deja llegar a
-	// direcciones internas (metadata de la nube, host, red local).
+	// Builds reach the internet only through a proxy that blocks internal
+	// addresses (cloud metadata, the host, the local network).
 	if dc != nil && env("DOCKFLY_BUILD_EGRESS", "filtered") != "open" {
 		self, inDocker := dc.Self(ctx)
-		proxy, err := "", errors.New("Dockfly no corre en un contenedor")
+		proxy, err := "", errors.New("Dockfly is not running in a container")
 		if inDocker {
 			proxy, err = egress.Start(ctx, dc, self.Image)
 		}
 		if err != nil {
-			log.Warn("los builds tendrán salida libre a la red", "motivo", err)
+			log.Warn("builds will have unrestricted network access", "reason", err)
 		} else {
 			buildCfg.Network, buildCfg.EgressProxy = egress.Network, proxy
 		}
@@ -245,13 +245,13 @@ func run(log *slog.Logger) error {
 		Socket: env("DOCKFLY_DOCKER_SOCKET", "/var/run/docker.sock"), Log: log.With("component", "update"),
 	}
 	go srv.Updater.Cleanup(ctx)
-	// Instalación nueva: el alta del administrador exige este código, que
-	// solo ve quien tiene acceso al servidor.
+	// Fresh install: creating the administrator requires this code, which only
+	// someone with access to the server can see.
 	if token, err := srv.PrepareSetupToken(ctx); err != nil {
-		return fmt.Errorf("preparando el código de instalación: %w", err)
+		return fmt.Errorf("preparing the setup code: %w", err)
 	} else if token != "" {
-		log.Warn("instalación nueva: para crear el administrador usa el código de instalación "+token,
-			"también_en", filepath.Join(dataDir, "setup-token"))
+		log.Warn("fresh install: use the setup code "+token+" to create the administrator",
+			"also_in", filepath.Join(dataDir, "setup-token"))
 	}
 	srv.Apps = apps.New(apps.Config{
 		Remote: srv.RemoteDocker, RemoteNetwork: srv.RemoteNetwork, RemoteProbe: srv.RemoteProbe,
@@ -272,12 +272,12 @@ func run(log *slog.Logger) error {
 		}
 	}
 	if err := srv.PrepareCertificates(ctx); err != nil {
-		return fmt.Errorf("escribiendo los certificados propios: %w", err)
+		return fmt.Errorf("writing the user-provided certificates: %w", err)
 	}
-	// La configuración dinámica se regenera desde la base de datos al
-	// arrancar: la base de datos es la única fuente de verdad.
+	// The dynamic configuration is regenerated from the database on startup:
+	// the database is the single source of truth.
 	if err := srv.Apply(ctx); err != nil {
-		return fmt.Errorf("escribiendo configuración dinámica de Traefik: %w", err)
+		return fmt.Errorf("writing Traefik dynamic configuration: %w", err)
 	}
 
 	var wg sync.WaitGroup
@@ -305,17 +305,17 @@ func run(log *slog.Logger) error {
 		}
 		wg.Go(func() { srv.Super.Run(ctx) })
 	} else {
-		log.Warn("Traefik desactivado (DOCKFLY_TRAEFIK=off): solo se genera la configuración")
+		log.Warn("Traefik disabled (DOCKFLY_TRAEFIK=off): only the configuration is generated")
 	}
 
 	httpSrv := &http.Server{
 		Addr:              env("DOCKFLY_LISTEN", ":81"),
 		Handler:           srv.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
-		// Cierra las conexiones keep-alive inactivas. Sin plazo de lectura ni
-		// de escritura globales: el panel tiene SSE (logs) y el túnel de los
-		// agentes, ambos de larga duración; los plazos de las rutas sin sesión
-		// (login, webhooks) los pone cada handler.
+		// Closes idle keep-alive connections. No global read or write
+		// deadlines: the panel has SSE (logs) and the agent tunnel, both
+		// long-lived; the deadlines for the session-less routes (login,
+		// webhooks) are set by each handler.
 		IdleTimeout: 2 * time.Minute,
 		BaseContext: func(net.Listener) context.Context { return ctx },
 	}
@@ -327,11 +327,11 @@ func run(log *slog.Logger) error {
 	}
 	errc := make(chan error, 2)
 	go func() {
-		log.Info("panel de Dockfly escuchando", "addr", httpSrv.Addr, "version", version)
+		log.Info("Dockfly panel listening", "addr", httpSrv.Addr, "version", version)
 		errc <- httpSrv.ListenAndServe()
 	}()
 	go func() {
-		log.Info("servidor de sitios estáticos escuchando", "addr", staticAddr)
+		log.Info("static site server listening", "addr", staticAddr)
 		errc <- staticSrv.ListenAndServe()
 	}()
 
@@ -344,15 +344,15 @@ func run(log *slog.Logger) error {
 	}
 
 	if restart.Load() {
-		log.Warn("reiniciando para aplicar la copia de seguridad")
+		log.Warn("restarting to apply the backup")
 	} else {
-		log.Info("apagando…")
+		log.Info("shutting down…")
 	}
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	for _, hs := range []*http.Server{httpSrv, staticSrv} {
 		if err := hs.Shutdown(shutdownCtx); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Error("cerrando servidor HTTP", "addr", hs.Addr, "error", err)
+			log.Error("closing HTTP server", "addr", hs.Addr, "error", err)
 		}
 	}
 	wg.Wait()
@@ -362,14 +362,14 @@ func run(log *slog.Logger) error {
 	return nil
 }
 
-// restart indica que Dockfly debe salir para que Docker lo reinicie.
+// restart signals that Dockfly must exit so that Docker restarts it.
 var restart atomic.Bool
 
-var errRestart = errors.New("reinicio solicitado")
+var errRestart = errors.New("restart requested")
 
-// ensureNetwork crea la red de Dockfly si no existe y conecta a ella el
-// propio contenedor: Traefik (que corre dentro) llega a las apps por su
-// nombre en esa red.
+// ensureNetwork creates Dockfly's network if it does not exist and connects
+// Dockfly's own container to it: Traefik (which runs inside) reaches the apps
+// by their name on that network.
 func ensureNetwork(ctx context.Context, log *slog.Logger, dc *docker.Client, network string) {
 	if network == "" {
 		return
@@ -377,37 +377,37 @@ func ensureNetwork(ctx context.Context, log *slog.Logger, dc *docker.Client, net
 	connected, err := dc.EnsureSelfNetwork(ctx, network)
 	switch {
 	case err != nil:
-		log.Warn("no se pudo conectar Dockfly a su red: las apps no recibirán tráfico", "red", network, "error", err)
+		log.Warn("could not connect Dockfly to its network: the apps will not receive traffic", "network", network, "error", err)
 	case connected:
-		log.Info("Dockfly conectado a la red de las apps", "red", network)
+		log.Info("Dockfly connected to the apps network", "network", network)
 	}
 }
 
-// startComposeProxy activa el proxy del socket de Docker con permisos
-// mínimos para el auxiliar de Compose (solo si Dockfly corre en Docker: el
-// auxiliar llega a él por una red interna de cada ejecución).
+// startComposeProxy starts the Docker socket proxy with minimal permissions
+// for the Compose helper (only if Dockfly runs in Docker: the helper reaches
+// the proxy over a per-run internal network).
 func startComposeProxy(ctx context.Context, log *slog.Logger, dc *docker.Client, m *apps.Manager, network string) {
 	if env("DOCKFLY_COMPOSE_PROXY", "1") == "0" {
-		log.Warn("proxy de Docker desactivado: las apps de Compose tienen acceso total a Docker")
+		log.Warn("Docker proxy disabled: Compose apps have full access to Docker")
 		return
 	}
 	self, ok := dc.Self(ctx)
 	host, _ := os.Hostname()
 	if !ok || host == "" {
-		log.Warn("Dockfly no corre en Docker: las apps de Compose tendrán acceso total a Docker")
+		log.Warn("Dockfly is not running in Docker: Compose apps will have full access to Docker")
 		return
 	}
 	m.SetComposeProxy(&dockerproxy.Proxy{Dial: dc.Dial, Log: log.With("component", "docker-proxy"), Protected: self.Mounts, Network: network}, host)
 	m.CleanupProxyNetworks(ctx)
-	log.Info("proxy de Docker para Compose activo")
+	log.Info("Docker proxy for Compose active")
 }
 
-// buildConfig lee los límites de los builds de las variables de entorno.
+// buildConfig reads the build limits from the environment variables.
 func buildConfig() (builder.Config, error) {
 	num := func(key string, def float64) (float64, error) {
 		v, err := strconv.ParseFloat(env(key, strconv.FormatFloat(def, 'f', -1, 64)), 64)
 		if err != nil || v <= 0 {
-			return 0, fmt.Errorf("%s debe ser un número positivo", key)
+			return 0, fmt.Errorf("%s must be a positive number", key)
 		}
 		return v, nil
 	}
@@ -435,11 +435,10 @@ func buildConfig() (builder.Config, error) {
 	}, nil
 }
 
-// backupCommand implementa "dockfly backup [archivo]" (por defecto a la
-// salida estándar) y "dockfly restore <archivo>", para cuando el panel no
-// está disponible.
-// openStore abre la base de datos: la de DOCKFLY_DATABASE_URL (postgres:// o
-// mysql://) o, sin ella, el archivo SQLite de la carpeta de datos.
+// backupCommand implements "dockfly backup [file]" (standard output by
+// default) and "dockfly restore <file>", for when the panel is not available.
+// openStore opens the database: the one in DOCKFLY_DATABASE_URL (postgres://
+// or mysql://) or, without it, the SQLite file in the data directory.
 func openStore(ctx context.Context, dataDir string) (*store.Store, error) {
 	return store.Open(ctx, env("DOCKFLY_DATABASE_URL", filepath.Join(dataDir, "dockfly.db")))
 }
@@ -469,11 +468,11 @@ func backupCommand(cmd string, args []string) int {
 		}
 	case "restore":
 		if len(args) != 1 {
-			fmt.Fprintln(os.Stderr, "uso: dockfly restore <copia.tar.gz>")
+			fmt.Fprintln(os.Stderr, "usage: dockfly restore <backup.tar.gz>")
 			return 2
 		}
 		if os.Getenv("DOCKFLY_DATABASE_URL") != "" {
-			fmt.Fprintln(os.Stderr, "error: con DOCKFLY_DATABASE_URL la base de datos se restaura con las herramientas de su servidor, y la carpeta de datos a mano")
+			fmt.Fprintln(os.Stderr, "error: with DOCKFLY_DATABASE_URL the database is restored with your database server's own tools, and the data directory by hand")
 			return 1
 		}
 		f, err := os.Open(args[0])
@@ -487,30 +486,30 @@ func backupCommand(cmd string, args []string) int {
 			fmt.Fprintln(os.Stderr, "error:", err)
 			return 1
 		}
-		fmt.Fprintf(os.Stderr, "Copia del %s preparada: se aplicará la próxima vez que arranque Dockfly.\n",
-			m.CreatedAt.Format("02/01/2006 15:04"))
+		fmt.Fprintf(os.Stderr, "Backup from %s staged: it will be applied the next time Dockfly starts.\n",
+			m.CreatedAt.Format("2006-01-02 15:04"))
 	}
 	return 0
 }
 
-// agentCommand implementa "dockfly agent --join <panel> --token <token>":
-// Dockfly en un servidor remoto, controlado desde el panel.
+// agentCommand implements "dockfly agent --join <panel> --token <token>":
+// Dockfly on a remote server, controlled from the panel.
 func agentCommand(args []string) int {
 	fl := flag.NewFlagSet("agent", flag.ContinueOnError)
-	panel := fl.String("join", os.Getenv("DOCKFLY_PANEL_URL"), "dirección del panel")
-	token := fl.String("token", os.Getenv("DOCKFLY_AGENT_TOKEN"), "token del servidor")
-	// El token del agente y toda la API de Docker del servidor viajan por este
-	// canal: sin HTTPS, cualquiera en la red podría robarlos.
-	insecure := fl.Bool("insecure", os.Getenv("DOCKFLY_AGENT_INSECURE") == "1", "permitir una conexión sin cifrar (solo pruebas)")
+	panel := fl.String("join", os.Getenv("DOCKFLY_PANEL_URL"), "panel address")
+	token := fl.String("token", os.Getenv("DOCKFLY_AGENT_TOKEN"), "server token")
+	// The agent token and the server's whole Docker API travel over this
+	// channel: without HTTPS, anyone on the network could steal them.
+	insecure := fl.Bool("insecure", os.Getenv("DOCKFLY_AGENT_INSECURE") == "1", "allow an unencrypted connection (testing only)")
 	if err := fl.Parse(args); err != nil {
 		return 2
 	}
 	if *panel == "" || *token == "" {
-		fmt.Fprintln(os.Stderr, "uso: dockfly agent --join https://dockfly.midominio.com --token dfa_…\n(el comando completo está en el panel: Servidores → Añadir servidor)")
+		fmt.Fprintln(os.Stderr, "usage: dockfly agent --join https://dockfly.mydomain.com --token dfa_…\n(the full command is in the panel: Servers → Add server)")
 		return 2
 	}
 	if !strings.HasPrefix(*panel, "https://") && !*insecure {
-		fmt.Fprintln(os.Stderr, "la dirección del panel debe empezar por https:// (o añade --insecure, solo para pruebas en red local)")
+		fmt.Fprintln(os.Stderr, "the panel address must start with https:// (or add --insecure, for local network testing only)")
 		return 2
 	}
 	log := slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: logLevel()}))
@@ -519,7 +518,7 @@ func agentCommand(args []string) int {
 
 	dataDir := env("DOCKFLY_DATA_DIR", "/data")
 	if err := os.MkdirAll(dataDir, 0o755); err != nil {
-		log.Error("creando el directorio de datos", "error", err)
+		log.Error("creating the data directory", "error", err)
 		return 1
 	}
 	socket := env("DOCKFLY_DOCKER_SOCKET", "/var/run/docker.sock")
@@ -539,19 +538,19 @@ func agentCommand(args []string) int {
 	if env("DOCKFLY_TRAEFIK", "on") == "off" {
 		cfg.TraefikBin = ""
 	}
-	log.Info("Dockfly agente", "versión", version, "panel", *panel)
+	log.Info("Dockfly agent", "version", version, "panel", *panel)
 	if err := agent.Run(ctx, cfg); err != nil {
-		log.Error("agente", "error", err)
+		log.Error("agent", "error", err)
 		return 1
 	}
 	return 0
 }
 
-// reset2FACommand implementa "dockfly reset-2fa <email>": desactiva la
-// verificación en dos pasos de alguien que perdió el móvil y sus códigos.
+// reset2FACommand implements "dockfly reset-2fa <email>": it turns off
+// two-step verification for someone who lost their phone and their codes.
 func reset2FACommand(args []string) int {
 	if len(args) != 1 {
-		fmt.Fprintln(os.Stderr, "uso: dockfly reset-2fa <email>")
+		fmt.Fprintln(os.Stderr, "usage: dockfly reset-2fa <email>")
 		return 2
 	}
 	ctx := context.Background()
@@ -565,11 +564,11 @@ func reset2FACommand(args []string) int {
 		fmt.Fprintln(os.Stderr, "error:", err)
 		return 1
 	}
-	fmt.Fprintf(os.Stderr, "Verificación en dos pasos desactivada para %s.\n", args[0])
+	fmt.Fprintf(os.Stderr, "Two-step verification disabled for %s.\n", args[0])
 	return 0
 }
 
-// loopback convierte ":8099" en "127.0.0.1:8099" para construir una URL.
+// loopback turns ":8099" into "127.0.0.1:8099" to build a URL.
 func loopback(addr string) string {
 	if strings.HasPrefix(addr, ":") {
 		return "127.0.0.1" + addr
@@ -577,7 +576,7 @@ func loopback(addr string) string {
 	return addr
 }
 
-// healthcheck permite usar HEALTHCHECK en una imagen scratch sin curl.
+// healthcheck makes HEALTHCHECK usable in a scratch image without curl.
 func healthcheck() int {
 	addr := loopback(env("DOCKFLY_LISTEN", ":81"))
 	c := http.Client{Timeout: 3 * time.Second}
@@ -593,9 +592,9 @@ func healthcheck() int {
 	return 0
 }
 
-// trustedProxies valida la lista de rangos CIDR separados por comas, por
-// ejemplo "127.0.0.1/32,10.0.0.0/8". Un rango mal escrito impide arrancar:
-// es mejor fallar que confiar en la cabecera equivocada.
+// trustedProxies validates the comma-separated list of CIDR ranges, for
+// example "127.0.0.1/32,10.0.0.0/8". A malformed range stops startup: it is
+// better to fail than to trust the wrong header.
 func trustedProxies(v string) ([]string, error) {
 	var out []string
 	for p := range strings.SplitSeq(v, ",") {
@@ -603,7 +602,7 @@ func trustedProxies(v string) ([]string, error) {
 			continue
 		}
 		if _, err := netip.ParsePrefix(p); err != nil {
-			return nil, fmt.Errorf("DOCKFLY_TRUSTED_PROXIES: rango inválido %q (usa notación CIDR, p. ej. 10.0.0.0/8)", p)
+			return nil, fmt.Errorf("DOCKFLY_TRUSTED_PROXIES: invalid range %q (use CIDR notation, e.g. 10.0.0.0/8)", p)
 		}
 		out = append(out, p)
 	}

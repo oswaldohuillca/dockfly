@@ -1,4 +1,4 @@
-// Generado desde internal/api/errors.go: no editar a mano.
+// Generated from internal/api/errors.go: do not edit by hand.
 // go test ./internal/api -run TestAPIErrorsTS -update
 import type { MessageDescriptor } from '@lingui/core';
 import { msg } from '@lingui/core/macro';

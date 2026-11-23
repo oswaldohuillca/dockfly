@@ -17,8 +17,8 @@ import (
 	"time"
 )
 
-// El error real que dio Let's Encrypt (staging) para un dominio sin DNS.
-const realNXDomain = `unable to generate a certificate for the domains [web.ejemplo.com]: resolver: one or more domains had a problem: [web.ejemplo.com: invalid authorization: acme: error: 400 :: urn:ietf:params:acme:error:dns :: DNS problem: NXDOMAIN looking up A for web.ejemplo.com - check that a DNS record exists for this domain]`
+// The real error Let's Encrypt (staging) gave for a domain without DNS.
+const realNXDomain = `unable to generate a certificate for the domains [web.example.com]: resolver: one or more domains had a problem: [web.example.com: invalid authorization: acme: error: 400 :: urn:ietf:params:acme:error:dns :: DNS problem: NXDOMAIN looking up A for web.example.com - check that a DNS record exists for this domain]`
 
 func makeCert(t *testing.T, domain string, notBefore, notAfter time.Time, issuer string) string {
 	t.Helper()
@@ -28,7 +28,7 @@ func makeCert(t *testing.T, domain string, notBefore, notAfter time.Time, issuer
 		Subject: pkix.Name{CommonName: domain}, Issuer: pkix.Name{CommonName: issuer},
 		NotBefore: notBefore, NotAfter: notAfter,
 	}
-	// Autofirmado: el emisor es el propio sujeto, así que lo fijamos aparte.
+	// Self-signed: the issuer is the subject itself, so we set it apart.
 	tpl.Subject = pkix.Name{CommonName: issuer}
 	der, err := x509.CreateCertificate(rand.Reader, tpl, tpl, &key.PublicKey, key)
 	if err != nil {
@@ -66,22 +66,22 @@ func TestCertStatus(t *testing.T) {
 	day := 24 * time.Hour
 	acme := writeACME(t, map[string]string{
 		"ok.com":       makeCert(t, "ok.com", now.Add(-10*day), now.Add(80*day), "R11"),
-		"pronto.com":   makeCert(t, "pronto.com", now.Add(-80*day), now.Add(5*day), "R11"),
-		"caducado.com": makeCert(t, "caducado.com", now.Add(-100*day), now.Add(-day), "R11"),
-		"renueva.com":  makeCert(t, "renueva.com", now.Add(-70*day), now.Add(20*day), "(STAGING) Ersatz Edamame E1"),
-		"viejo.com":    makeCert(t, "viejo.com", now.Add(-day), now.Add(89*day), "R11"),
+		"soon.com":     makeCert(t, "soon.com", now.Add(-80*day), now.Add(5*day), "R11"),
+		"expired.com":  makeCert(t, "expired.com", now.Add(-100*day), now.Add(-day), "R11"),
+		"renewing.com": makeCert(t, "renewing.com", now.Add(-70*day), now.Add(20*day), "(STAGING) Ersatz Edamame E1"),
+		"old.com":      makeCert(t, "old.com", now.Add(-day), now.Add(89*day), "R11"),
 	})
 
 	var notified []string
 	tr := &CertTracker{OnError: func(d []string, _ string) { notified = append(notified, d...) }}
-	tr.Observe(logLine([]string{"web.ejemplo.com"}, realNXDomain, now.Add(-time.Hour)))
-	tr.Observe(logLine([]string{"renueva.com"}, "acme: error: 429 :: rateLimited :: too many certificates", now.Add(-time.Hour)))
-	// Un error de antes de emitir el certificado actual ya no cuenta.
-	tr.Observe(logLine([]string{"viejo.com"}, "timeout during connect", now.Add(-2*day)))
+	tr.Observe(logLine([]string{"web.example.com"}, realNXDomain, now.Add(-time.Hour)))
+	tr.Observe(logLine([]string{"renewing.com"}, "acme: error: 429 :: rateLimited :: too many certificates", now.Add(-time.Hour)))
+	// An error from before the current certificate was issued no longer counts.
+	tr.Observe(logLine([]string{"old.com"}, "timeout during connect", now.Add(-2*day)))
 	tr.Observe([]byte(`{"level":"info","message":"Testing certificate renew..."}`))
-	tr.Observe([]byte("no es json"))
+	tr.Observe([]byte("not json"))
 
-	got, err := tr.Status(acme, []string{"ok.com", "pronto.com", "caducado.com", "renueva.com", "viejo.com", "web.ejemplo.com", "nuevo.com"}, now, nil)
+	got, err := tr.Status(acme, []string{"ok.com", "soon.com", "expired.com", "renewing.com", "old.com", "web.example.com", "new.com"}, now, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -90,42 +90,42 @@ func TestCertStatus(t *testing.T) {
 		byDomain[s.Domain] = s
 	}
 	want := map[string]string{
-		"ok.com": CertValid, "pronto.com": CertExpiring, "caducado.com": CertExpired,
-		"renueva.com": CertValid, "viejo.com": CertValid, "web.ejemplo.com": CertError, "nuevo.com": CertPending,
+		"ok.com": CertValid, "soon.com": CertExpiring, "expired.com": CertExpired,
+		"renewing.com": CertValid, "old.com": CertValid, "web.example.com": CertError, "new.com": CertPending,
 	}
 	for d, w := range want {
 		if byDomain[d].Status != w {
-			t.Errorf("%s: estado %q, esperaba %q", d, byDomain[d].Status, w)
+			t.Errorf("%s: status %q, wanted %q", d, byDomain[d].Status, w)
 		}
 	}
-	if s := byDomain["web.ejemplo.com"]; !strings.Contains(s.Hint, "registro DNS") {
-		t.Errorf("el error NXDOMAIN debe dar una pista sobre el DNS: %q", s.Hint)
+	if s := byDomain["web.example.com"]; !strings.Contains(s.Hint, "DNS record") {
+		t.Errorf("the NXDOMAIN error must hint at the DNS: %q", s.Hint)
 	}
-	if s := byDomain["renueva.com"]; s.Error == "" || !s.Staging || !strings.Contains(s.Hint, "limitó") {
-		t.Errorf("con certificado vigente, un error de renovación debe mostrarse: %+v", s)
+	if s := byDomain["renewing.com"]; s.Error == "" || !s.Staging || !strings.Contains(s.Hint, "rate-limited") {
+		t.Errorf("with a current certificate, a renewal error must still show: %+v", s)
 	}
-	if s := byDomain["viejo.com"]; s.Error != "" {
-		t.Errorf("un error anterior al certificado actual no debe mostrarse: %q", s.Error)
+	if s := byDomain["old.com"]; s.Error != "" {
+		t.Errorf("an error older than the current certificate must not show: %q", s.Error)
 	}
 	if s := byDomain["ok.com"]; s.NotAfter == nil || s.Issuer != "R11" || s.Staging {
-		t.Errorf("certificado válido: %+v", s)
+		t.Errorf("valid certificate: %+v", s)
 	}
-	if strings.Join(notified, ",") != "web.ejemplo.com,renueva.com,viejo.com" {
-		t.Errorf("cada error debe notificarse: %v", notified)
+	if strings.Join(notified, ",") != "web.example.com,renewing.com,old.com" {
+		t.Errorf("every error must be notified: %v", notified)
 	}
 
-	// Sin acme.json (instalación nueva) todo está pendiente.
-	if got, err := tr.Status(filepath.Join(t.TempDir(), "no-existe.json"), []string{"x.com"}, now, nil); err != nil || got[0].Status != CertPending {
-		t.Errorf("sin acme.json: %+v %v", got, err)
+	// Without acme.json (a fresh install) everything is pending.
+	if got, err := tr.Status(filepath.Join(t.TempDir(), "does-not-exist.json"), []string{"x.com"}, now, nil); err != nil || got[0].Status != CertPending {
+		t.Errorf("without acme.json: %+v %v", got, err)
 	}
 }
 
 func TestFormatLog(t *testing.T) {
-	got := formatLog([]byte(`{"level":"error","message":"Algo falló","error":"boom","time":"2026-10-20T12:00:00Z","b":1}`))
-	if got != "traefik ERROR Algo falló b=1 error=boom" {
+	got := formatLog([]byte(`{"level":"error","message":"Something failed","error":"boom","time":"2026-10-20T12:00:00Z","b":1}`))
+	if got != "traefik ERROR Something failed b=1 error=boom" {
 		t.Errorf("formatLog: %q", got)
 	}
-	if formatLog([]byte("texto plano")) != "texto plano" {
-		t.Error("las líneas que no son JSON se dejan tal cual")
+	if formatLog([]byte("plain text")) != "plain text" {
+		t.Error("lines that are not JSON are left as they are")
 	}
 }

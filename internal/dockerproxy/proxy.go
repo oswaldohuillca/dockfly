@@ -1,14 +1,13 @@
-// Package dockerproxy es un proxy de la API de Docker con permisos mínimos.
+// Package dockerproxy is a least-privilege proxy for the Docker API.
 //
-// Lo usa el contenedor auxiliar de Compose: en vez de recibir el socket de
-// Docker del host (con el que cualquier docker-compose.yml podría hacerse
-// root en el servidor con un contenedor privilegiado), habla con Dockfly
-// por una red interna propia de cada ejecución, en la que solo están él y
-// Dockfly. El proxy solo deja pasar lo que Compose necesita:
-//   - nada de contenedores privilegiados, dispositivos, namespaces o rutas
-//     sensibles del host;
-//   - cada ejecución solo ve los contenedores y volúmenes de su proyecto de
-//     Compose: ni los del propio Dockfly (sus datos y claves) ni los de otras apps.
+// Compose's helper container uses it: instead of being handed the host's
+// Docker socket (with which any docker-compose.yml could become root on the
+// server through a privileged container), it talks to Dockfly over an
+// internal network of its own for each run, holding only itself and Dockfly.
+// The proxy lets through just what Compose needs:
+//   - no privileged containers, devices, namespaces or sensitive host paths;
+//   - each run only sees the containers and volumes of its own Compose
+//     project: neither Dockfly's own (its data and keys) nor those of other apps.
 package dockerproxy
 
 import (
@@ -28,18 +27,17 @@ import (
 	"sync"
 )
 
-// ProjectLabel es la etiqueta con la que Compose marca lo que crea.
+// ProjectLabel is the label Compose stamps on everything it creates.
 const ProjectLabel = "com.docker.compose.project"
 
 type Proxy struct {
-	// Dial abre una conexión con el Docker real.
+	// Dial opens a connection to the real Docker.
 	Dial func(ctx context.Context) (net.Conn, error)
 	Log  *slog.Logger
-	// Protected son rutas del host que nunca se pueden montar (los datos del
-	// propio Dockfly).
+	// Protected are host paths that can never be mounted (Dockfly's own data).
 	Protected []string
-	// Network es la red compartida de Dockfly, a la que se pueden unir los
-	// servicios para recibir tráfico.
+	// Network is Dockfly's shared network, which services may join in order
+	// to receive traffic.
 	Network string
 
 	rp   *httputil.ReverseProxy
@@ -58,21 +56,21 @@ func (p *Proxy) proxy() *httputil.ReverseProxy {
 				r.SetURL(&url.URL{Scheme: "http", Host: "docker"})
 			},
 			Transport: transport,
-			// Logs, pulls y builds son flujos: se reenvían al momento.
+			// Logs, pulls and builds are streams: forward them right away.
 			FlushInterval: -1,
 		}
 	})
 	return p.rp
 }
 
-// Handler atiende al auxiliar de un proyecto de Compose. Quien llega a él
-// ya está autorizado (escucha en la red interna de esa ejecución): solo
-// queda aplicar la política.
+// Handler serves the helper of one Compose project. Whoever reaches it is
+// already authorised (it listens on that run's internal network): all that
+// is left is enforcing the policy.
 func (p *Proxy) Handler(project string) http.Handler {
 	rp := p.proxy()
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if err := p.check(r, project); err != nil {
-			p.Log.Warn("proxy de Docker: petición rechazada", "proyecto", project, "método", r.Method, "ruta", r.URL.Path, "motivo", err)
+			p.Log.Warn("docker proxy: request refused", "project", project, "method", r.Method, "path", r.URL.Path, "reason", err)
 			deny(w, http.StatusForbidden, "Dockfly: "+err.Error())
 			return
 		}
@@ -80,7 +78,7 @@ func (p *Proxy) Handler(project string) http.Handler {
 	})
 }
 
-// deny responde como lo haría Docker, para que la CLI muestre el mensaje.
+// deny answers the way Docker would, so that the CLI shows the message.
 func deny(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
@@ -89,42 +87,42 @@ func deny(w http.ResponseWriter, status int, msg string) {
 
 var versionPrefix = regexp.MustCompile(`^/v[0-9]+\.[0-9]+`)
 
-// cleanRoute quita la versión de la API ("/v1.47") y normaliza la ruta.
+// cleanRoute strips the API version ("/v1.47") and normalises the path.
 func cleanRoute(p string) string {
 	return path.Clean("/" + versionPrefix.ReplaceAllString(p, ""))
 }
 
-// allowed son las partes de la API que usa Compose. Quedan fuera swarm,
-// servicios, secretos, plugins, el sistema…
+// allowed are the parts of the API that Compose uses. Left out: swarm,
+// services, secrets, plugins, the system endpoints…
 var allowed = []string{
 	"/_ping", "/version", "/info", "/events",
 	"/containers", "/images", "/networks", "/volumes", "/exec",
 	"/build", "/session", "/grpc", "/distribution", "/auth",
 }
 
-// containerOps son las rutas /containers/… que no se refieren a un
-// contenedor concreto.
+// containerOps are the /containers/… routes that do not refer to one
+// particular container.
 var containerOps = map[string]bool{"create": true, "json": true}
 
-// check aplica la política a una petición del proyecto. Para crear
-// contenedores lee (y restaura) el cuerpo.
+// check enforces the policy on a request from the project. To create
+// containers it reads (and puts back) the body.
 func (p *Proxy) check(r *http.Request, project string) error {
-	// La ruta que se comprueba debe ser exactamente la que verá Docker.
+	// The path we check must be exactly the one Docker will see.
 	if r.URL.RawPath != "" || path.Clean(r.URL.Path) != r.URL.Path {
-		return fmt.Errorf("ruta no canónica: %s", r.URL.EscapedPath())
+		return fmt.Errorf("non-canonical path: %s", r.URL.EscapedPath())
 	}
 	route := cleanRoute(r.URL.Path)
 	if err := checkRoute(r, route); err != nil {
 		return err
 	}
 	if strings.HasSuffix(route, "/prune") {
-		return fmt.Errorf("%s no está permitido: borraría recursos de otras apps", route)
+		return fmt.Errorf("%s is not allowed: it would delete resources of other apps", route)
 	}
 	read := r.Method == http.MethodGet || r.Method == http.MethodHead
-	// Lo de cada proyecto: Compose nombra sus recursos "<proyecto>_…".
+	// What belongs to each project: Compose names its resources "<project>_…".
 	owned := func(name string) bool { return strings.HasPrefix(name, project+"_") }
 	switch rest, _ := strings.CutPrefix(route, "/"); {
-	// Las operaciones sobre un contenedor solo valen para los del proyecto.
+	// Operations on a container are only valid for the project's own.
 	case strings.HasPrefix(rest, "containers/"):
 		id, _, _ := strings.Cut(strings.TrimPrefix(rest, "containers/"), "/")
 		if !containerOps[id] {
@@ -141,8 +139,8 @@ func (p *Proxy) check(r *http.Request, project string) error {
 			if err != nil {
 				return err
 			}
-			// container:<x> solo con contenedores del proyecto: el nombre no
-			// basta (la app "web" y la app "web-db" comparten prefijo).
+			// container:<x> only with the project's containers: the name is
+			// not enough (app "web" and app "web-db" share a prefix).
 			for _, ref := range refs {
 				if err := p.ownContainer(r.Context(), ref, project); err != nil {
 					return err
@@ -150,10 +148,10 @@ func (p *Proxy) check(r *http.Request, project string) error {
 			}
 			return nil
 		}
-		// Un exec privilegiado da todas las capabilities dentro de un
-		// contenedor del proyecto (CAP_SYS_MODULE/ADMIN → root en el host),
-		// saltándose la política del create. El resto del create de exec no
-		// concede privilegios (ni HostConfig).
+		// A privileged exec grants every capability inside a container of the
+		// project (CAP_SYS_MODULE/ADMIN → root on the host), going around the
+		// create policy. The rest of the exec create grants no privileges (it
+		// has no HostConfig either).
 		if r.Method == http.MethodPost && strings.HasSuffix(route, "/exec") {
 			body, err := readBody(r)
 			if err != nil {
@@ -162,7 +160,7 @@ func (p *Proxy) check(r *http.Request, project string) error {
 			var ex struct{ Privileged bool }
 			_ = json.Unmarshal(body, &ex)
 			if ex.Privileged {
-				return fmt.Errorf("los exec privilegiados (privileged: true) no están permitidos")
+				return fmt.Errorf("privileged exec (privileged: true) is not allowed")
 			}
 		}
 	case strings.HasPrefix(rest, "volumes/") && !read || route == "/volumes/create":
@@ -178,15 +176,15 @@ func (p *Proxy) check(r *http.Request, project string) error {
 			}
 			_ = json.Unmarshal(body, &v)
 			name = v.Name
-			// Un volumen local con device = bind al host (type=none,o=bind):
-			// al montarlo, el create del contenedor solo ve un nombre, así
-			// que la ruta se valida aquí, como cualquier bind.
+			// A local volume with a device is a bind to the host
+			// (type=none,o=bind): when it is mounted, the container create
+			// only sees a name, so the path is validated here, like any bind.
 			if err := checkDriverOpts(v.DriverOpts, project, p.Protected); err != nil {
 				return err
 			}
 		}
 		if name != "" && !owned(name) {
-			return fmt.Errorf("el volumen %s no es de este proyecto", name)
+			return fmt.Errorf("volume %s does not belong to this project", name)
 		}
 	case strings.HasPrefix(rest, "networks/") && !read:
 		id, action, _ := strings.Cut(strings.TrimPrefix(rest, "networks/"), "/")
@@ -199,10 +197,10 @@ func (p *Proxy) check(r *http.Request, project string) error {
 			var n struct{ Name string }
 			_ = json.Unmarshal(body, &n)
 			if !owned(n.Name) {
-				return fmt.Errorf("la red %s no es de este proyecto", n.Name)
+				return fmt.Errorf("network %s does not belong to this project", n.Name)
 			}
 		case action == "connect" || action == "disconnect":
-			// Solo se conectan (o desconectan) contenedores del proyecto.
+			// Only the project's containers may be attached (or detached).
 			body, err := readBody(r)
 			if err != nil {
 				return err
@@ -212,31 +210,31 @@ func (p *Proxy) check(r *http.Request, project string) error {
 			if err := p.ownContainer(r.Context(), c.Container, project); err != nil {
 				return err
 			}
-			// …y solo a redes del proyecto o a la de Dockfly, no a las de otra app.
+			// …and only to the project's networks or Dockfly's, never to another app's.
 			name, labels, err := p.networkInfo(r.Context(), id)
 			if err != nil {
 				return err
 			}
 			if labels != nil && name != p.Network && !owned(name) && labels[ProjectLabel] != project {
-				return fmt.Errorf("la red %s no es de este proyecto", name)
+				return fmt.Errorf("network %s does not belong to this project", name)
 			}
 		case action == "" && r.Method == http.MethodDelete:
-			// Compose las borra por ID: se pregunta a Docker de quién es.
+			// Compose deletes them by ID: ask Docker whose they are.
 			name, labels, err := p.networkInfo(r.Context(), id)
 			if err != nil {
 				return err
 			}
 			if labels != nil && labels[ProjectLabel] != project && !owned(name) {
-				return fmt.Errorf("la red %s no es de este proyecto", name)
+				return fmt.Errorf("network %s does not belong to this project", name)
 			}
 		default:
-			return fmt.Errorf("%s %s no está permitido", r.Method, route)
+			return fmt.Errorf("%s %s is not allowed", r.Method, route)
 		}
 	}
 	return nil
 }
 
-// readBody lee el cuerpo (y lo deja listo para reenviarlo).
+// readBody reads the body (and leaves it ready to be forwarded).
 func readBody(r *http.Request) ([]byte, error) {
 	body, err := io.ReadAll(io.LimitReader(r.Body, 4<<20))
 	if err != nil {
@@ -247,8 +245,8 @@ func readBody(r *http.Request) ([]byte, error) {
 	return body, nil
 }
 
-// networkInfo devuelve el nombre y las etiquetas de una red (labels nil si
-// no existe: Docker responderá él mismo con su 404).
+// networkInfo returns a network's name and labels (labels nil when it does
+// not exist: Docker will answer with its own 404).
 func (p *Proxy) networkInfo(ctx context.Context, id string) (string, map[string]string, error) {
 	var info struct {
 		Name   string
@@ -264,7 +262,7 @@ func (p *Proxy) networkInfo(ctx context.Context, id string) (string, map[string]
 	return info.Name, info.Labels, nil
 }
 
-// inspect hace un GET al Docker real. found=false si responde 404.
+// inspect does a GET against the real Docker. found=false when it answers 404.
 func (p *Proxy) inspect(ctx context.Context, path string, out any) (found bool, err error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://docker"+path, nil)
 	if err != nil {
@@ -279,25 +277,25 @@ func (p *Proxy) inspect(ctx context.Context, path string, out any) (found bool, 
 		return false, nil
 	}
 	if resp.StatusCode != http.StatusOK {
-		return false, fmt.Errorf("Docker respondió %d al consultar %s", resp.StatusCode, path)
+		return false, fmt.Errorf("Docker answered %d when querying %s", resp.StatusCode, path)
 	}
 	return true, json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(out)
 }
 
-// ownContainer comprueba que un contenedor sea del proyecto.
+// ownContainer checks that a container belongs to the project.
 func (p *Proxy) ownContainer(ctx context.Context, id, project string) error {
 	labels, err := p.containerLabels(ctx, id)
 	if err != nil {
 		return err
 	}
 	if labels != nil && labels[ProjectLabel] != project {
-		return fmt.Errorf("el contenedor %s no es de este proyecto", id)
+		return fmt.Errorf("container %s does not belong to this project", id)
 	}
 	return nil
 }
 
-// containerLabels pregunta al Docker real de quién es un contenedor (nil si
-// no existe: Docker responderá él mismo con su 404).
+// containerLabels asks the real Docker whose a container is (nil when it does
+// not exist: Docker will answer with its own 404).
 func (p *Proxy) containerLabels(ctx context.Context, id string) (map[string]string, error) {
 	var info struct {
 		Config struct {
@@ -314,7 +312,7 @@ func (p *Proxy) containerLabels(ctx context.Context, id string) (map[string]stri
 	return info.Config.Labels, nil
 }
 
-// checkRoute deja pasar solo las partes de la API que usa Compose.
+// checkRoute lets through only the parts of the API that Compose uses.
 func checkRoute(r *http.Request, p string) error {
 	ok := false
 	for _, a := range allowed {
@@ -324,10 +322,10 @@ func checkRoute(r *http.Request, p string) error {
 		}
 	}
 	if !ok {
-		return fmt.Errorf("%s no está permitido", p)
+		return fmt.Errorf("%s is not allowed", p)
 	}
 	if r.Method == http.MethodPost && p == "/build" && strings.EqualFold(r.URL.Query().Get("networkmode"), "host") {
-		return fmt.Errorf("los builds con la red del host no están permitidos")
+		return fmt.Errorf("builds on the host network are not allowed")
 	}
 	return nil
 }
@@ -363,7 +361,7 @@ type createRequest struct {
 	}
 }
 
-// sensitive son rutas del host que dan el control del servidor.
+// sensitive are host paths that hand over control of the server.
 var sensitive = []string{
 	"/", "/etc", "/root", "/home", "/boot", "/dev", "/proc", "/sys", "/run", "/var/run",
 	"/var/lib/docker", "/var/lib/containerd", "/usr", "/bin", "/sbin", "/lib", "/lib64",
@@ -372,12 +370,12 @@ var sensitive = []string{
 func sensitivePath(src string) bool {
 	src = path.Clean(src)
 	if strings.HasSuffix(src, ".sock") {
-		return true // sockets de Docker, containerd…
+		return true // Docker, containerd… sockets
 	}
 	for _, s := range sensitive {
-		// Bloquea la ruta sensible, algo dentro de ella, y también un
-		// ANCESTRO suyo: montar /var/lib expondría /var/lib/docker (volúmenes
-		// y rootfs de todas las apps = root en el host).
+		// Blocks the sensitive path, anything inside it, and also an ANCESTOR
+		// of it: mounting /var/lib would expose /var/lib/docker (the volumes
+		// and rootfs of every app = root on the host).
 		if src == s || (s != "/" && strings.HasPrefix(src, s+"/")) || strings.HasPrefix(s, src+"/") {
 			return true
 		}
@@ -385,22 +383,22 @@ func sensitivePath(src string) bool {
 	return false
 }
 
-// hostConfigAllowed son los campos de HostConfig que Compose usa de forma
-// legítima. Todo lo demás se rechaza: es una lista blanca para que un campo
-// nuevo o peligroso (Sysctls, CgroupParent, Runtime, OomKillDisable,
-// MaskedPaths, Tmpfs…) no pase sin revisar al añadirlo Docker.
-// safeNonEmpty son los campos de HostConfig que Compose usa de forma
-// legítima y que pueden llevar un valor. Cualquier otro campo debe ir vacío:
-// así, un campo de escape que Docker añada en el futuro (necesita un valor
-// para hacer daño) queda bloqueado sin tener que conocerlo.
+// hostConfigAllowed are the HostConfig fields that Compose uses legitimately.
+// Everything else is refused: it is an allowlist, so that a new or dangerous
+// field (Sysctls, CgroupParent, Runtime, OomKillDisable, MaskedPaths,
+// Tmpfs…) does not slip through unreviewed when Docker adds it.
+// safeNonEmpty are the HostConfig fields that Compose uses legitimately and
+// that may carry a value. Every other field must be empty: that way an
+// escape field Docker adds in the future (it needs a value to do harm) is
+// blocked without us having to know about it.
 var safeNonEmpty = map[string]bool{
-	// Montajes, red, puertos y reinicio.
+	// Mounts, network, ports and restart.
 	"Binds": true, "Mounts": true, "NetworkMode": true, "RestartPolicy": true,
 	"PortBindings": true, "PublishAllPorts": true, "Links": true, "VolumeDriver": true,
 	"Dns": true, "DnsOptions": true, "DnsSearch": true, "ExtraHosts": true,
 	"GroupAdd": true, "Isolation": true, "Init": true, "AutoRemove": true,
 	"ConsoleSize": true, "Annotations": true, "LogConfig": true, "ContainerIDFile": true,
-	// Límites de recursos (DoS controlado, no escape del aislamiento).
+	// Resource limits (bounded DoS, not an escape from the isolation).
 	"Memory": true, "MemorySwap": true, "MemoryReservation": true, "MemorySwappiness": true,
 	"KernelMemory": true, "KernelMemoryTCP": true, "NanoCpus": true, "CpuShares": true,
 	"CpuQuota": true, "CpuPeriod": true, "CpuRealtimePeriod": true, "CpuRealtimeRuntime": true,
@@ -410,13 +408,13 @@ var safeNonEmpty = map[string]bool{
 	"IOMaximumIOps": true, "IOMaximumBandwidth": true, "PidsLimit": true, "ShmSize": true,
 	"Ulimits": true, "OomScoreAdj": true, "StorageOpt": true, "DiskQuota": true,
 	"CapDrop": true, "ReadonlyRootfs": true,
-	// Espacios de nombres: pueden llevar valor, que se valida en okNamespace.
+	// Namespaces: they may carry a value, which okNamespace validates.
 	"PidMode": true, "IpcMode": true, "UTSMode": true, "CgroupnsMode": true, "UsernsMode": true,
-	// MaskedPaths/ReadonlyPaths pueden llevar valor, que se valida aparte.
+	// MaskedPaths/ReadonlyPaths may carry a value, validated separately.
 	"MaskedPaths": true, "ReadonlyPaths": true,
 }
 
-// defaultMaskedPaths son los que Docker enmascara en /proc por defecto.
+// defaultMaskedPaths are the ones Docker masks under /proc by default.
 var defaultMaskedPaths = []string{
 	"/proc/asound", "/proc/acpi", "/proc/kcore", "/proc/keys", "/proc/latency_stats",
 	"/proc/timer_list", "/proc/timer_stats", "/proc/sched_debug", "/proc/scsi",
@@ -424,10 +422,10 @@ var defaultMaskedPaths = []string{
 }
 var defaultReadonlyPaths = []string{"/proc/bus", "/proc/fs", "/proc/irq", "/proc/sys", "/proc/sysrq-trigger"}
 
-// okNamespace acepta un modo de espacio de nombres: vacío, los predefinidos,
-// container:<x> (devuelto en ref: el llamador comprueba que sea del
-// proyecto) y, para la red, las del proyecto y la de Dockfly. Rechaza host y
-// lo desconocido.
+// okNamespace accepts a namespace mode: empty, the predefined ones,
+// container:<x> (returned in ref: the caller checks it belongs to the
+// project) and, for the network, the project's own and Dockfly's. It refuses
+// host and anything unknown.
 func okNamespace(mode, project, network string, ns bool) (ok bool, ref string) {
 	switch mode {
 	case "", "none", "private", "default", "shareable":
@@ -436,16 +434,16 @@ func okNamespace(mode, project, network string, ns bool) (ok bool, ref string) {
 	if target, ok := strings.CutPrefix(mode, "container:"); ok {
 		return target != "", target
 	}
-	// Las redes del proyecto se llaman "<proyecto>_<nombre>".
+	// The project's networks are named "<project>_<name>".
 	return ns && (strings.HasPrefix(mode, project+"_") || (network != "" && mode == network)), ""
 }
 
-// checkCreate aplica la política al crear un contenedor. refs son los
-// contenedores con los que comparte espacios de nombres (container:<x>).
+// checkCreate enforces the policy when creating a container. refs are the
+// containers it shares namespaces with (container:<x>).
 func checkCreate(body []byte, project, network string, protected []string) (refs []string, err error) {
 	var req createRequest
 	if err := json.Unmarshal(body, &req); err != nil {
-		return nil, fmt.Errorf("cuerpo inválido: %w", err)
+		return nil, fmt.Errorf("invalid body: %w", err)
 	}
 	h := req.HostConfig
 	for _, ns := range []struct {
@@ -455,7 +453,7 @@ func checkCreate(body []byte, project, network string, protected []string) (refs
 		{"uts", h.UTSMode, false}, {"userns", h.UsernsMode, false}, {"cgroup", h.CgroupnsMode, false}} {
 		ok, ref := okNamespace(ns.mode, project, network, ns.net)
 		if !ok {
-			return nil, fmt.Errorf("%s: %q no está permitido (solo redes o contenedores del proyecto)", ns.name, ns.mode)
+			return nil, fmt.Errorf("%s: %q is not allowed (only this project's networks or containers)", ns.name, ns.mode)
 		}
 		if ref != "" {
 			refs = append(refs, ref)
@@ -463,14 +461,14 @@ func checkCreate(body []byte, project, network string, protected []string) (refs
 	}
 	for name := range req.NetworkingConfig.EndpointsConfig {
 		if !strings.HasPrefix(name, project+"_") && name != network {
-			return nil, fmt.Errorf("la red %s no es de este proyecto", name)
+			return nil, fmt.Errorf("network %s does not belong to this project", name)
 		}
 	}
 	return refs, checkHost(body, req, project, protected)
 }
 
 func checkHost(body []byte, req createRequest, project string, protected []string) error {
-	// Lista blanca de los campos de HostConfig.
+	// Allowlist of the HostConfig fields.
 	var top struct {
 		HostConfig map[string]json.RawMessage `json:"HostConfig"`
 	}
@@ -481,21 +479,21 @@ func checkHost(body []byte, req createRequest, project string, protected []strin
 	h := req.HostConfig
 	switch {
 	case req.Labels[ProjectLabel] != project:
-		return fmt.Errorf("solo se pueden crear contenedores del proyecto %s", project)
+		return fmt.Errorf("only containers of project %s can be created", project)
 	case len(h.VolumesFrom) > 0:
-		return fmt.Errorf("volumes_from no está permitido")
+		return fmt.Errorf("volumes_from is not allowed")
 	case h.Privileged:
-		return fmt.Errorf("los contenedores privilegiados (privileged: true) no están permitidos")
+		return fmt.Errorf("privileged containers (privileged: true) are not allowed")
 	case len(h.CapAdd) > 0:
-		return fmt.Errorf("añadir capabilities (cap_add: %s) no está permitido", strings.Join(h.CapAdd, ", "))
+		return fmt.Errorf("adding capabilities (cap_add: %s) is not allowed", strings.Join(h.CapAdd, ", "))
 	case len(h.Devices) > 0 || len(h.DeviceRequests) > 0:
-		return fmt.Errorf("acceder a dispositivos del host (devices, gpus) no está permitido")
+		return fmt.Errorf("reaching host devices (devices, gpus) is not allowed")
 	case h.UTSMode == "host", h.UsernsMode == "host", h.CgroupnsMode == "host":
-		return fmt.Errorf("compartir los espacios de nombres del host (uts/userns/cgroup: host) no está permitido")
+		return fmt.Errorf("sharing the host namespaces (uts/userns/cgroup: host) is not allowed")
 	}
 	for _, o := range h.SecurityOpt {
 		if strings.Contains(o, "unconfined") || strings.HasPrefix(o, "no-new-privileges:false") {
-			return fmt.Errorf("desactivar el aislamiento (security_opt: %s) no está permitido", o)
+			return fmt.Errorf("turning off the isolation (security_opt: %s) is not allowed", o)
 		}
 	}
 	for _, b := range h.Binds {
@@ -515,9 +513,9 @@ func checkHost(body []byte, req createRequest, project string, protected []strin
 				return err
 			}
 		}
-		// Un volumen con DriverConfig local y device=/ruta es un bind al host
-		// (como /volumes/create, pero creado al vuelo en el create). El Source
-		// solo es un nombre, así que la ruta se valida aquí.
+		// A volume with a local DriverConfig and device=/path is a bind to the
+		// host (like /volumes/create, but created on the fly inside the
+		// create). Source is only a name, so the path is validated here.
 		if err := checkDriverOpts(m.VolumeOptions.DriverConfig.Options, project, protected); err != nil {
 			return err
 		}
@@ -525,9 +523,9 @@ func checkHost(body []byte, req createRequest, project string, protected []strin
 	return nil
 }
 
-// checkDriverOpts bloquea un volumen "local" cuyo device sea un bind a una
-// ruta del host prohibida. El driver local pasa la clave por ToLower, así que
-// la comparamos igual.
+// checkDriverOpts blocks a "local" volume whose device is a bind to a
+// forbidden host path. The local driver lowercases the key, so we compare it
+// the same way.
 func checkDriverOpts(opts map[string]string, project string, protected []string) error {
 	for k, dev := range opts {
 		if strings.ToLower(k) == "device" && strings.HasPrefix(dev, "/") {
@@ -539,18 +537,18 @@ func checkDriverOpts(opts map[string]string, project string, protected []string)
 	return nil
 }
 
-// checkMount revisa el origen de un montaje: una ruta del host (bind) o un
-// volumen con nombre (vacío = volumen anónimo, siempre nuevo).
-// isEmptyJSON indica si un valor JSON es "vacío" (cero, nulo, lista/objeto
-// vacíos): un campo peligroso solo hace daño con un valor no vacío.
+// checkMount vets the source of a mount: a host path (bind) or a named
+// volume (empty = anonymous volume, always new).
+// isEmptyJSON reports whether a JSON value is "empty" (zero, null, empty
+// list/object): a dangerous field only does harm with a non-empty value.
 func isEmptyJSON(v json.RawMessage) bool {
 	t := strings.TrimSpace(string(v))
 	return t == "" || t == "null" || t == `""` || t == "0" || t == "false" || t == "[]" || t == "{}"
 }
 
-// lowerSafe son los campos que pueden llevar valor (safeNonEmpty más los que
-// se validan aparte), en minúsculas: Docker decodifica HostConfig sin
-// distinguir mayúsculas, así que la lista blanca también.
+// lowerSafe are the fields that may carry a value (safeNonEmpty plus the
+// ones validated separately), lowercased: Docker decodes HostConfig
+// case-insensitively, so the allowlist does too.
 var lowerSafe = func() map[string]bool {
 	m := map[string]bool{"cgroupparent": true, "cgroup": true, "runtime": true, "securityopt": true}
 	for k := range safeNonEmpty {
@@ -559,17 +557,17 @@ var lowerSafe = func() map[string]bool {
 	return m
 }()
 
-// checkHostFields aplica la política a HostConfig: los campos seguros pueden
-// llevar valor; los peligrosos conocidos se validan; cualquier otro campo
-// debe ir vacío. Trabaja con las claves en minúsculas para que un campo
-// peligroso no se cuele con otra caja (p.ej. "maskedpaths": [] en vez de
-// "MaskedPaths", que desenmascararía /proc en el host).
+// checkHostFields enforces the policy on HostConfig: the safe fields may
+// carry a value; the known dangerous ones are validated; every other field
+// must be empty. It works with lowercased keys so a dangerous field cannot
+// sneak in under a different case (e.g. "maskedpaths": [] instead of
+// "MaskedPaths", which would unmask /proc on the host).
 func checkHostFields(h map[string]json.RawMessage) error {
 	low := make(map[string]json.RawMessage, len(h))
 	for k, v := range h {
 		lk := strings.ToLower(k)
 		if _, dup := low[lk]; dup {
-			return fmt.Errorf("HostConfig.%s está repetido", k)
+			return fmt.Errorf("HostConfig.%s is repeated", k)
 		}
 		low[lk] = v
 	}
@@ -577,29 +575,29 @@ func checkHostFields(h map[string]json.RawMessage) error {
 		v, ok := low[strings.ToLower(field)]
 		return !ok || isEmptyJSON(v)
 	}
-	// Campos peligrosos que nunca pueden llevar valor.
+	// Dangerous fields that may never carry a value.
 	if !empty("Privileged") {
-		return fmt.Errorf("los contenedores privilegiados (privileged: true) no están permitidos")
+		return fmt.Errorf("privileged containers (privileged: true) are not allowed")
 	}
 	if !empty("CapAdd") {
-		return fmt.Errorf("añadir capabilities (cap_add) no está permitido")
+		return fmt.Errorf("adding capabilities (cap_add) is not allowed")
 	}
 	if !empty("Devices") || !empty("DeviceRequests") || !empty("DeviceCgroupRules") {
-		return fmt.Errorf("acceder a dispositivos del host (devices, gpus) no está permitido")
+		return fmt.Errorf("reaching host devices (devices, gpus) is not allowed")
 	}
 	for _, field := range []string{"Capabilities", "Sysctls", "OomKillDisable", "Tmpfs", "VolumesFrom"} {
 		if !empty(field) {
-			return fmt.Errorf("HostConfig.%s no está permitido", field)
+			return fmt.Errorf("HostConfig.%s is not allowed", field)
 		}
 	}
 	for _, field := range []string{"CgroupParent", "Cgroup", "Runtime"} {
 		if !empty(field) && string(low[strings.ToLower(field)]) != `"runc"` {
-			return fmt.Errorf("HostConfig.%s solo puede ir vacío", field)
+			return fmt.Errorf("HostConfig.%s may only be empty", field)
 		}
 	}
-	// MaskedPaths/ReadonlyPaths: ausentes o null = Docker aplica sus defaults
-	// (seguro); una lista vacía o acortada desenmascara /proc, así que solo
-	// se admite exactamente la lista por defecto.
+	// MaskedPaths/ReadonlyPaths: absent or null = Docker applies its own
+	// defaults (safe); an empty or shortened list unmasks /proc, so only
+	// exactly the default list is accepted.
 	for field, def := range map[string][]string{"maskedpaths": defaultMaskedPaths, "readonlypaths": defaultReadonlyPaths} {
 		raw, ok := low[field]
 		if !ok || strings.TrimSpace(string(raw)) == "null" {
@@ -607,22 +605,22 @@ func checkHostFields(h map[string]json.RawMessage) error {
 		}
 		var got []string
 		if json.Unmarshal(raw, &got) != nil || !sameSet(got, def) {
-			return fmt.Errorf("HostConfig.%s solo puede tener los valores por defecto", field)
+			return fmt.Errorf("HostConfig.%s may only hold the default values", field)
 		}
 	}
-	// Cualquier otro campo (desconocido o no listado como seguro) debe ir vacío.
+	// Every other field (unknown, or not listed as safe) must be empty.
 	for field, v := range low {
 		if lowerSafe[field] {
 			continue
 		}
 		if !isEmptyJSON(v) {
-			return fmt.Errorf("el campo HostConfig.%s no está permitido", field)
+			return fmt.Errorf("the HostConfig.%s field is not allowed", field)
 		}
 	}
 	return nil
 }
 
-// sameSet compara dos listas sin tener en cuenta el orden.
+// sameSet compares two lists regardless of order.
 func sameSet(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -644,26 +642,26 @@ func sameSet(a, b []string) bool {
 
 func checkMount(src string, bind bool, project string, protected []string) error {
 	if !bind {
-		// Compose llama a los volúmenes del proyecto "<proyecto>_<nombre>".
+		// Compose names the project's volumes "<project>_<name>".
 		if src != "" && !strings.HasPrefix(src, project+"_") {
-			return fmt.Errorf("el volumen %s no es de este proyecto: solo se pueden montar los volúmenes declarados en el docker-compose.yml", src)
+			return fmt.Errorf("volume %s does not belong to this project: only the volumes declared in the docker-compose.yml can be mounted", src)
 		}
 		return nil
 	}
 	src = path.Clean(src)
 	if sensitivePath(src) {
-		return fmt.Errorf("montar %s del host no está permitido", src)
+		return fmt.Errorf("mounting %s from the host is not allowed", src)
 	}
-	// Ni los datos de Dockfly ni una carpeta que los contenga.
+	// Neither Dockfly's data nor a directory holding it.
 	for _, p := range protected {
 		if within(src, p) || within(p, src) {
-			return fmt.Errorf("montar %s no está permitido: contiene datos de Dockfly", src)
+			return fmt.Errorf("mounting %s is not allowed: it holds Dockfly's data", src)
 		}
 	}
 	return nil
 }
 
-// within indica si p es dir o está dentro de dir.
+// within reports whether p is dir or sits inside dir.
 func within(p, dir string) bool {
 	return p == dir || strings.HasPrefix(p, strings.TrimSuffix(dir, "/")+"/")
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// TrafficMinute es el tráfico de un dueño durante un minuto.
+// TrafficMinute is one owner's traffic over one minute.
 type TrafficMinute struct {
 	bun.BaseModel `bun:"table:traffic_minutes"`
 
@@ -19,7 +19,7 @@ type TrafficMinute struct {
 	Buckets     []float64 `bun:"buckets"`
 }
 
-// AddTraffic suma minutos de tráfico (si el minuto ya existe, se acumula).
+// AddTraffic adds traffic minutes (if the minute already exists, it accumulates).
 func (s *Store) AddTraffic(ctx context.Context, rows []*TrafficMinute) error {
 	if len(rows) == 0 {
 		return nil
@@ -47,8 +47,8 @@ func (s *Store) AddTraffic(ctx context.Context, rows []*TrafficMinute) error {
 	})
 }
 
-// Traffic devuelve los minutos de tráfico desde from (inclusive). Con owner
-// vacío, los de todos los dueños.
+// Traffic returns the traffic minutes from from on (inclusive). With an empty
+// owner, those of every owner.
 func (s *Store) Traffic(ctx context.Context, owner string, from int64) ([]*TrafficMinute, error) {
 	rows := []*TrafficMinute{}
 	q := s.db.NewSelect().Model(&rows).Where("minute >= ?", from).Order("minute")
@@ -58,7 +58,7 @@ func (s *Store) Traffic(ctx context.Context, owner string, from int64) ([]*Traff
 	return rows, q.Scan(ctx)
 }
 
-// PruneTraffic borra el tráfico anterior a before.
+// PruneTraffic deletes the traffic older than before.
 func (s *Store) PruneTraffic(ctx context.Context, before int64) error {
 	_, err := s.db.NewDelete().Model((*TrafficMinute)(nil)).Where("minute < ?", before).Exec(ctx)
 	return err

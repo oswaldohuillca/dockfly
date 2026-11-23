@@ -10,7 +10,7 @@ const units: [Intl.RelativeTimeFormatUnit, number][] = [
   ['minute', 60],
 ];
 
-/** "5 minutes ago", "yesterday"… en el idioma activo. */
+/** "5 minutes ago", "yesterday"… in the active language. */
 export function timeAgo(iso: string): string {
   const rtf = new Intl.RelativeTimeFormat(currentLocale(), { numeric: 'auto' });
   const seconds = (new Date(iso).getTime() - Date.now()) / 1000;
@@ -36,7 +36,7 @@ export function formatBytes(bytes: number): string {
   return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
 }
 
-/** "12 d 4 h", "3 h 20 min", "45 min": lo que lleva encendido un servidor. */
+/** "12 d 4 h", "3 h 20 min", "45 min": how long a server has been up. */
 export function formatDuration(seconds: number): string {
   const d = Math.floor(seconds / 86400);
   const h = Math.floor((seconds % 86400) / 3600);

@@ -26,7 +26,7 @@ import { roleHint, roleLabel, UserContext } from '@/lib/roles';
 import { useSubmit } from '@/lib/use-form';
 import { useAction, useResource } from '@/lib/use-resource';
 
-/** Usuarios del panel y sus roles (solo administradores). */
+/** The panel's users and their roles (administrators only). */
 export function Users() {
   const { t } = useLingui();
   const me = useContext(UserContext);

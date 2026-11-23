@@ -17,16 +17,16 @@ import (
 	"time"
 )
 
-// Supervisor ejecuta Traefik como proceso hijo y lo reinicia si termina.
+// Supervisor runs Traefik as a child process and restarts it if it exits.
 type Supervisor struct {
 	Bin        string
 	ConfigFile string
 	Log        *slog.Logger
-	// Certs recibe cada línea del log de Traefik para detectar los errores
-	// de Let's Encrypt.
+	// Certs receives every line of Traefik's log so it can spot Let's
+	// Encrypt errors.
 	Certs *CertTracker
-	// Env devuelve variables de entorno extra para Traefik (credenciales de
-	// los proveedores DNS). Se consulta en cada arranque.
+	// Env returns extra environment variables for Traefik (the credentials
+	// of the DNS providers). It is asked on every start.
 	Env func() []string
 
 	mu        sync.RWMutex
@@ -48,8 +48,8 @@ func (s *Supervisor) Status() Status {
 	return Status{Running: s.running, StartedAt: s.startedAt, LastError: s.lastErr}
 }
 
-// Run bloquea hasta que ctx se cancela. Al cancelar, envía SIGTERM a Traefik
-// y espera a que termine.
+// Run blocks until ctx is cancelled. On cancellation it sends SIGTERM to
+// Traefik and waits for it to exit.
 func (s *Supervisor) Run(ctx context.Context) {
 	s.mu.Lock()
 	if s.restart == nil {
@@ -65,11 +65,11 @@ func (s *Supervisor) Run(ctx context.Context) {
 		}
 		if errors.Is(err, errRestart) {
 			backoff = time.Second
-			continue // reinicio pedido: sin espera
+			continue // restart requested: no wait
 		}
-		s.Log.Error("traefik terminó, reiniciando", "error", err, "en", backoff)
+		s.Log.Error("traefik exited, restarting", "error", err, "in", backoff)
 
-		// Si estuvo vivo un buen rato, el fallo no es de arranque: reinicia rápido.
+		// If it stayed alive a good while, this is not a startup failure: restart fast.
 		if time.Since(started) > time.Minute {
 			backoff = time.Second
 		}
@@ -88,15 +88,15 @@ func (s *Supervisor) runOnce(ctx context.Context) error {
 	if s.Env != nil {
 		cmd.Env = append(cmd.Env, s.Env()...)
 	}
-	// Pipe propio (no StdoutPipe): Wait no lo cierra antes de tiempo, así que
-	// se leen hasta las últimas líneas, que suelen explicar una caída.
+	// Our own pipe (not StdoutPipe): Wait does not close it early, so even
+	// the last lines are read, which usually explain a crash.
 	pr, pw, err := os.Pipe()
 	if err != nil {
 		return err
 	}
-	cmd.Stdout, cmd.Stderr = pw, pw // un único flujo, en orden
+	cmd.Stdout, cmd.Stderr = pw, pw // a single stream, in order
 	err = cmd.Start()
-	pw.Close() // el hijo tiene su copia: al terminar, la lectura da EOF
+	pw.Close() // the child has its copy: once it exits, reading gives EOF
 	if err != nil {
 		pr.Close()
 		s.setState(false, err)
@@ -108,7 +108,7 @@ func (s *Supervisor) runOnce(ctx context.Context) error {
 		s.pipeLogs(pr)
 	})
 	s.setState(true, nil)
-	s.Log.Info("traefik iniciado", "pid", cmd.Process.Pid)
+	s.Log.Info("traefik started", "pid", cmd.Process.Pid)
 
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
@@ -128,7 +128,7 @@ func (s *Supervisor) runOnce(ctx context.Context) error {
 		s.setState(false, err)
 		return err
 	case <-s.restart:
-		s.Log.Info("reiniciando traefik para aplicar la configuración estática")
+		s.Log.Info("restarting traefik to apply the static configuration")
 		stop()
 		logs.Wait()
 		s.setState(false, nil)
@@ -146,11 +146,11 @@ func (s *Supervisor) runOnce(ctx context.Context) error {
 	}
 }
 
-var errRestart = errors.New("reinicio solicitado")
+var errRestart = errors.New("restart requested")
 
-// Restart pide reiniciar Traefik (p. ej. tras añadir un puerto de stream,
-// que es configuración estática). No bloquea; varias peticiones seguidas
-// producen un único reinicio.
+// Restart asks for a Traefik restart (e.g. after adding a stream port,
+// which is static configuration). It does not block; several requests in a
+// row produce a single restart.
 func (s *Supervisor) Restart() {
 	s.mu.RLock()
 	ch := s.restart
@@ -164,8 +164,8 @@ func (s *Supervisor) Restart() {
 	}
 }
 
-// pipeLogs lee el log JSON de Traefik, se lo pasa al rastreador de
-// certificados y lo reescribe en formato legible para "docker logs".
+// pipeLogs reads Traefik's JSON log, hands it to the certificate tracker
+// and rewrites it in a readable format for "docker logs".
 func (s *Supervisor) pipeLogs(r io.Reader) {
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 64<<10), 1<<20)
@@ -178,8 +178,8 @@ func (s *Supervisor) pipeLogs(r io.Reader) {
 	}
 }
 
-// formatLog convierte una línea JSON de Traefik en "traefik ERR mensaje
-// clave=valor…". Las líneas que no son JSON se dejan tal cual.
+// formatLog turns a JSON line from Traefik into "traefik ERR message
+// key=value…". Lines that are not JSON are left as they are.
 func formatLog(line []byte) string {
 	var entry map[string]any
 	if json.Unmarshal(line, &entry) != nil {

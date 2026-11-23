@@ -14,23 +14,23 @@ import (
 	"time"
 )
 
-// Agent es el lado del servidor remoto: se conecta al panel y atiende las
-// conexiones que le pide.
+// Agent is the remote server side: it connects to the panel and serves the
+// connections the panel asks for.
 type Agent struct {
-	PanelURL string // https://dockfly.midominio.com
+	PanelURL string // https://dockfly.mydomain.com
 	Token    string
 	Version  string
-	// Network es la red de Dockfly en este servidor (donde van las apps).
+	// Network is the Dockfly network on this server (where the apps go).
 	Network string
-	// Targets abre la conexión local de cada destino (el socket de Docker,
-	// la API del agente…).
+	// Targets opens the local connection of each target (the Docker socket,
+	// the agent API…).
 	Targets map[string]func(ctx context.Context) (net.Conn, error)
 	Log     *slog.Logger
-	// HTTP es el cliente del canal de control (sin timeout global).
+	// HTTP is the client for the control channel (without a global timeout).
 	HTTP *http.Client
 }
 
-// Run mantiene la conexión con el panel, reconectando si se corta.
+// Run keeps the connection with the panel, reconnecting if it drops.
 func (a *Agent) Run(ctx context.Context) {
 	backoff := time.Second
 	for ctx.Err() == nil {
@@ -40,9 +40,9 @@ func (a *Agent) Run(ctx context.Context) {
 			return
 		}
 		if time.Since(start) > time.Minute {
-			backoff = time.Second // estuvo conectado un buen rato
+			backoff = time.Second // it stayed connected for a good while
 		}
-		a.Log.Warn("conexión con el panel perdida; reintentando", "error", err, "en", backoff)
+		a.Log.Warn("connection with the panel lost; retrying", "error", err, "in", backoff)
 		select {
 		case <-ctx.Done():
 			return
@@ -78,13 +78,13 @@ func (a *Agent) control(ctx context.Context) error {
 			Error string `json:"error"`
 		}
 		if json.Unmarshal(body, &e) == nil && e.Error != "" {
-			return fmt.Errorf("el panel respondió %d: %s", resp.StatusCode, e.Error)
+			return fmt.Errorf("the panel responded %d: %s", resp.StatusCode, e.Error)
 		}
-		return fmt.Errorf("el panel respondió %s", resp.Status)
+		return fmt.Errorf("the panel responded %s", resp.Status)
 	}
-	a.Log.Info("conectado al panel", "panel", a.PanelURL)
+	a.Log.Info("connected to the panel", "panel", a.PanelURL)
 
-	// Si el panel deja de hablar (ni pings), la conexión está muerta.
+	// If the panel stops talking (not even pings), the connection is dead.
 	alive := time.AfterFunc(3*keepalive, func() { resp.Body.Close() })
 	defer alive.Stop()
 	dec := json.NewDecoder(resp.Body)
@@ -100,22 +100,23 @@ func (a *Agent) control(ctx context.Context) error {
 	}
 }
 
-// serve abre la conexión de datos hacia el panel y la une con el destino local.
+// serve opens the data connection towards the panel and joins it with the
+// local target.
 func (a *Agent) serve(ctx context.Context, id, target string) {
 	open := a.Targets[target]
 	if open == nil {
-		a.Log.Warn("el panel pidió un destino desconocido", "destino", target)
+		a.Log.Warn("the panel asked for an unknown target", "target", target)
 		return
 	}
 	local, err := open(ctx)
 	if err != nil {
-		a.Log.Warn("no se pudo abrir el destino local", "destino", target, "error", err)
+		a.Log.Warn("could not open the local target", "target", target, "error", err)
 		return
 	}
 	defer local.Close()
 	remote, err := a.dialData(ctx, id)
 	if err != nil {
-		a.Log.Warn("no se pudo abrir la conexión de datos", "error", err)
+		a.Log.Warn("could not open the data connection", "error", err)
 		return
 	}
 	defer remote.Close()
@@ -147,7 +148,7 @@ func (a *Agent) dialData(ctx context.Context, id string) (net.Conn, error) {
 	}
 	if resp.StatusCode != http.StatusSwitchingProtocols {
 		conn.Close()
-		return nil, fmt.Errorf("el panel respondió %s a la conexión de datos", resp.Status)
+		return nil, fmt.Errorf("the panel responded %s to the data connection", resp.Status)
 	}
 	if br.Buffered() > 0 {
 		return &bufferedConn{Conn: conn, r: br}, nil
@@ -155,7 +156,7 @@ func (a *Agent) dialData(ctx context.Context, id string) (net.Conn, error) {
 	return conn, nil
 }
 
-// pipe copia en los dos sentidos hasta que uno de los lados cierra.
+// pipe copies in both directions until one of the sides closes.
 func pipe(a, b net.Conn) {
 	done := make(chan struct{}, 2)
 	cp := func(dst, src net.Conn) {

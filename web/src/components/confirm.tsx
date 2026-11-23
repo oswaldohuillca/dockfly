@@ -15,18 +15,18 @@ import {
 interface ConfirmOptions {
   title: ReactNode;
   description?: ReactNode;
-  /** Texto del botón (por defecto, Delete). */
+  /** The button's text (Delete by default). */
   action?: ReactNode;
-  /** Botón rojo (por defecto, sí). */
+  /** Red button (yes by default). */
   destructive?: boolean;
 }
 
 /**
- * Confirmación antes de una acción: `if (await confirm({ title })) …`.
- * El elemento devuelto (dialog) se pinta una vez en el componente.
+ * Confirmation before an action: `if (await confirm({ title })) …`.
+ * The returned element (the dialog) is rendered once inside the component.
  */
 export function useConfirm() {
-  // Las opciones se conservan al cerrar: el diálogo se desvanece con su texto.
+  // The options are kept on close, so the dialog fades out with its text still in place.
   const [opts, setOpts] = useState<ConfirmOptions | null>(null);
   const [open, setOpen] = useState(false);
   const resolve = useRef<(ok: boolean) => void>(() => {});

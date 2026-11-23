@@ -3,14 +3,15 @@ package sysinfo
 import "testing"
 
 func TestCPUPercent(t *testing.T) {
-	// 1000 ticks entre lecturas, 750 ociosos (700 idle + 50 iowait): 25 % de uso.
+	// 1000 ticks between readings, 750 of them idle (700 idle + 50 iowait):
+	// 25 % usage.
 	before := "cpu  100 0 100 800 0 0 0 0 0 0\ncpu0 1 1 1 1\n"
 	after := "cpu  300 0 150 1500 50 0 0 0 0 0\n"
 	if got := cpuPercent(before, after); got != 25 {
-		t.Fatalf("cpuPercent = %v, se esperaba 25", got)
+		t.Fatalf("cpuPercent = %v, expected 25", got)
 	}
-	if got := cpuPercent("basura", after); got != 0 {
-		t.Fatalf("con una lectura inválida = %v, se esperaba 0", got)
+	if got := cpuPercent("garbage", after); got != 0 {
+		t.Fatalf("with an invalid reading = %v, expected 0", got)
 	}
 }
 

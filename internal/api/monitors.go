@@ -12,13 +12,13 @@ import (
 	"github.com/dockfly/dockfly/internal/traefik"
 )
 
-// Cada cuánto se revisan certificados y contenedores.
+// How often certificates and containers get checked.
 const (
 	certCheckEvery      = 12 * time.Hour
 	containerCheckEvery = time.Minute
 )
 
-// OnBuildFinished avisa del resultado de un build (lo llama el builder).
+// OnBuildFinished reports a build's result (the builder calls it).
 func (s *Server) OnBuildFinished(ctx context.Context, buildID int64) {
 	if s.Notify == nil {
 		return
@@ -37,13 +37,13 @@ func (s *Server) OnBuildFinished(ctx context.Context, buildID int64) {
 	case store.BuildFailed:
 		s.Notify.Notify(notify.Event{
 			Kind: notify.EventBuildFailed, Severity: notify.Error, URL: link,
-			Title:   fmt.Sprintf("El build #%d de %s falló", b.ID, site.Name),
+			Title:   fmt.Sprintf("Build #%d of %s failed", b.ID, site.Name),
 			Message: fmt.Sprintf("%s (%s)\n%s", commit, b.Branch, b.Error),
 		})
 	case store.BuildSuccess:
-		title := fmt.Sprintf("%s publicado", site.Name)
+		title := fmt.Sprintf("%s published", site.Name)
 		if b.Preview != "" {
-			title = fmt.Sprintf("Preview de %s (%s) publicada", site.Name, b.Branch)
+			title = fmt.Sprintf("Preview of %s (%s) published", site.Name, b.Branch)
 			if u := s.previewURL(ctx, site, b.Preview); u != "" {
 				link = u
 			}
@@ -63,7 +63,7 @@ func short(sha string) string {
 	return sha
 }
 
-// OnAppDeployFinished avisa del resultado de un despliegue de app.
+// OnAppDeployFinished reports the result of an app deployment.
 func (s *Server) OnAppDeployFinished(ctx context.Context, deploymentID int64) {
 	if s.Notify == nil {
 		return
@@ -84,16 +84,16 @@ func (s *Server) OnAppDeployFinished(ctx context.Context, deploymentID int64) {
 	switch d.Status {
 	case store.DeployFailed:
 		s.Notify.Notify(notify.Event{Kind: notify.EventBuildFailed, Severity: notify.Error, URL: link,
-			Title:   fmt.Sprintf("El despliegue #%d de %s falló", d.ID, a.Name),
-			Message: fmt.Sprintf("%s\n%s\nLa versión anterior sigue en marcha.", what, d.Error)})
+			Title:   fmt.Sprintf("Deployment #%d of %s failed", d.ID, a.Name),
+			Message: fmt.Sprintf("%s\n%s\nThe previous version is still running.", what, d.Error)})
 	case store.DeployLive:
 		s.Notify.Notify(notify.Event{Kind: notify.EventBuildSucceeded, Severity: notify.Success, URL: link,
-			Title: a.Name + " desplegada", Message: fmt.Sprintf("Despliegue #%d · %s", d.ID, what)})
+			Title: a.Name + " deployed", Message: fmt.Sprintf("Deployment #%d · %s", d.ID, what)})
 	}
 }
 
-// OnCertError avisa de un fallo de Let's Encrypt. Traefik reintenta cada
-// poco: el mismo dominio solo se avisa una vez al día.
+// OnCertError reports a Let's Encrypt failure. Traefik retries often, so the
+// same domain is only reported once a day.
 func (s *Server) OnCertError(domains []string, msg string) {
 	if s.Notify == nil {
 		return
@@ -108,13 +108,13 @@ func (s *Server) OnCertError(domains []string, msg string) {
 		}
 		s.Notify.Notify(notify.Event{
 			Kind: notify.EventCertError, Severity: notify.Error, URL: s.panelLink(context.Background(), "/proxy-hosts"),
-			Title: "No se pudo obtener el certificado de " + d, Message: text,
+			Title: "Couldn't obtain the certificate for " + d, Message: text,
 		})
 	}
 }
 
-// RunMonitors revisa periódicamente certificados y contenedores hasta que
-// ctx se cancela.
+// RunMonitors periodically checks certificates and containers until ctx is
+// canceled.
 func (s *Server) RunMonitors(ctx context.Context) {
 	certs := time.NewTicker(certCheckEvery)
 	containers := time.NewTicker(containerCheckEvery)
@@ -123,7 +123,7 @@ func (s *Server) RunMonitors(ctx context.Context) {
 	down := map[string]bool{}
 	resources := resourceWatch{}
 
-	// Primera revisión al poco de arrancar (Traefik ya cargó la configuración).
+	// First check shortly after startup (Traefik has loaded its config by then).
 	select {
 	case <-ctx.Done():
 		return
@@ -144,8 +144,8 @@ func (s *Server) RunMonitors(ctx context.Context) {
 	}
 }
 
-// checkCertificates avisa de los certificados que caducan pronto (la
-// renovación automática está fallando) o ya caducaron.
+// checkCertificates reports certificates that expire soon (meaning automatic
+// renewal is failing) or have already expired.
 func (s *Server) checkCertificates(ctx context.Context) {
 	if s.Notify == nil || s.Certs == nil {
 		return
@@ -165,12 +165,12 @@ func (s *Server) checkCertificates(ctx context.Context) {
 		if !s.Notify.Once("cert_expiring:"+c.Domain, 24*time.Hour) {
 			continue
 		}
-		title := "El certificado de " + c.Domain + " ha caducado"
+		title := "The certificate for " + c.Domain + " has expired"
 		if c.Status == traefik.CertExpiring {
 			days := int(time.Until(*c.NotAfter).Hours() / 24)
-			title = fmt.Sprintf("El certificado de %s caduca en %d días", c.Domain, days)
+			title = fmt.Sprintf("The certificate for %s expires in %d days", c.Domain, days)
 		}
-		msg := "Traefik debería haberlo renovado: la renovación está fallando."
+		msg := "Traefik should have renewed it: renewal is failing."
 		if c.Hint != "" {
 			msg += "\n" + c.Hint
 		}
@@ -179,9 +179,9 @@ func (s *Server) checkCertificates(ctx context.Context) {
 	}
 }
 
-// checkContainers avisa cuando cae (y cuando se recupera) un contenedor al
-// que apunta un proxy host. down recuerda los caídos entre revisiones, para
-// avisar una sola vez por caída.
+// checkContainers reports when a container a proxy host points at goes down
+// (and when it comes back). down remembers which ones are down between checks,
+// so each outage is reported only once.
 func (s *Server) checkContainers(ctx context.Context, down map[string]bool) {
 	if s.Notify == nil || s.Docker == nil {
 		return
@@ -192,21 +192,21 @@ func (s *Server) checkContainers(ctx context.Context, down map[string]bool) {
 	}
 	containers, err := s.Docker.ListContainers(ctx)
 	if err != nil {
-		return // Docker no responde: no es culpa de los contenedores
+		return // Docker is not answering: that is not the containers' fault
 	}
 	state := map[string]string{}
 	for _, c := range containers {
 		state[c.Name] = c.State
 	}
-	watched := map[string][]string{} // contenedor → dominios que lo usan
+	watched := map[string][]string{} // container → domains that use it
 	for _, h := range hosts {
 		if h.Enabled && h.TargetType == store.TargetDocker {
 			watched[h.ForwardHost] = append(watched[h.ForwardHost], h.Domains...)
 		}
 	}
-	// Y el contenedor actual de cada app en marcha. Las que se están
-	// desplegando se saltan: con volúmenes, su contenedor se detiene a
-	// propósito unos segundos.
+	// Plus the current container of every running app. Apps mid-deployment are
+	// skipped: with volumes, their container is stopped on purpose for a few
+	// seconds.
 	deploying := map[int64]bool{}
 	if running, err := s.Store.ListAppDeploymentsByStatus(ctx, store.DeployRunning); err == nil {
 		for _, d := range running {
@@ -235,27 +235,27 @@ func (s *Server) checkContainers(ctx context.Context, down map[string]bool) {
 		switch {
 		case isDown && !down[name]:
 			down[name] = true
-			what := "no existe"
+			what := "does not exist"
 			if exists {
-				what = "está «" + st + "»"
+				what = "is \"" + st + "\""
 			}
 			s.Notify.Notify(notify.Event{
 				Kind: notify.EventContainerDown, Severity: notify.Error, URL: s.panelLink(ctx, "/proxy-hosts"),
-				Title:   "El contenedor " + name + " está caído",
-				Message: fmt.Sprintf("El contenedor %s %s. Afecta a: %s.", name, what, strings.Join(domains, ", ")),
+				Title:   "Container " + name + " is down",
+				Message: fmt.Sprintf("Container %s %s. It affects: %s.", name, what, strings.Join(domains, ", ")),
 			})
 		case !isDown && down[name]:
 			delete(down, name)
 			s.Notify.Notify(notify.Event{
 				Kind: notify.EventContainerRecovers, Severity: notify.Success, URL: s.panelLink(ctx, "/proxy-hosts"),
-				Title:   "El contenedor " + name + " vuelve a funcionar",
-				Message: "Afecta a: " + strings.Join(domains, ", ") + ".",
+				Title:   "Container " + name + " is working again",
+				Message: "It affects: " + strings.Join(domains, ", ") + ".",
 			})
 		}
 	}
-	// Los que ya no vigila ningún host dejan de contar como caídos (los de
-	// servidores remotos los lleva checkRemote: si se borraran aquí, cada
-	// minuto volvería a avisar de la caída y nunca de la vuelta).
+	// Containers no host watches any more stop counting as down (the ones on
+	// remote servers are checkRemote's business: deleting them here would
+	// report the outage every minute and the recovery never).
 	for name := range down {
 		if _, ok := watched[name]; !ok && !strings.HasPrefix(name, "server:") {
 			delete(down, name)
@@ -264,8 +264,8 @@ func (s *Server) checkContainers(ctx context.Context, down map[string]bool) {
 	s.checkRemote(ctx, remoteApps, down)
 }
 
-// checkRemote vigila los servidores remotos (¿está conectado su agente?) y
-// los contenedores de sus apps.
+// checkRemote watches the remote servers (is their agent connected?) and the
+// containers of their apps.
 func (s *Server) checkRemote(ctx context.Context, apps []*store.App, down map[string]bool) {
 	if s.Hub == nil {
 		return
@@ -280,25 +280,25 @@ func (s *Server) checkRemote(ctx context.Context, apps []*store.App, down map[st
 		online[sv.ID] = ok
 		key := fmt.Sprintf("server:%d", sv.ID)
 		switch {
-		// Un servidor que nunca se conectó no está «caído»: aún no se instaló.
+		// A server that never connected is not "down": it isn't installed yet.
 		case !ok && !down[key] && sv.LastSeenAt != nil:
 			down[key] = true
 			s.Notify.Notify(notify.Event{
 				Kind: notify.EventServerDown, Severity: notify.Error, URL: s.panelLink(ctx, "/servers"),
-				Title:   "El servidor " + sv.Name + " está desconectado",
-				Message: "Su agente no está conectado al panel. Sus apps siguen sirviendo con su última configuración, pero no se pueden desplegar ni vigilar.",
+				Title:   "Server " + sv.Name + " is disconnected",
+				Message: "Its agent is not connected to the panel. Its apps keep serving with their last configuration, but they can't be deployed or monitored.",
 			})
 		case ok && down[key]:
 			delete(down, key)
 			s.Notify.Notify(notify.Event{
 				Kind: notify.EventServerUp, Severity: notify.Success, URL: s.panelLink(ctx, "/servers"),
-				Title: "El servidor " + sv.Name + " vuelve a estar conectado",
+				Title: "Server " + sv.Name + " is connected again",
 			})
 		}
 	}
 	for _, a := range apps {
 		if !online[*a.ServerID] {
-			continue // sin conexión no se sabe nada de sus contenedores
+			continue // with no connection we know nothing about its containers
 		}
 		info, err := s.Apps.Docker(a).InspectContainer(ctx, a.Current.Container)
 		key := fmt.Sprintf("server:%d/%s", *a.ServerID, a.Current.Container)
@@ -308,34 +308,34 @@ func (s *Server) checkRemote(ctx context.Context, apps []*store.App, down map[st
 			down[key] = true
 			s.Notify.Notify(notify.Event{
 				Kind: notify.EventContainerDown, Severity: notify.Error, URL: s.panelLink(ctx, fmt.Sprintf("/apps/%d", a.ID)),
-				Title:   "La app " + a.Name + " está caída",
-				Message: fmt.Sprintf("Su contenedor %s no está en marcha. Afecta a: %s.", a.Current.Container, strings.Join(a.Domains, ", ")),
+				Title:   "App " + a.Name + " is down",
+				Message: fmt.Sprintf("Its container %s is not running. It affects: %s.", a.Current.Container, strings.Join(a.Domains, ", ")),
 			})
 		case !isDown && down[key]:
 			delete(down, key)
 			s.Notify.Notify(notify.Event{
 				Kind: notify.EventContainerRecovers, Severity: notify.Success, URL: s.panelLink(ctx, fmt.Sprintf("/apps/%d", a.ID)),
-				Title: "La app " + a.Name + " vuelve a funcionar",
+				Title: "App " + a.Name + " is working again",
 			})
 		}
 	}
 }
 
-// --- Recursos de los servidores ---
+// --- Server resources ---
 
-// resourceLimits son los recursos que se vigilan: se avisa cuando el uso
-// llega a percent durante checks revisiones seguidas (una por minuto; el
-// disco no tiene picos, la memoria y la CPU sí), y de nuevo cuando baja
-// resourceMargin puntos por debajo, para no avisar en bucle en el límite.
+// resourceLimits are the resources being watched: an alert fires when usage
+// reaches percent for checks consecutive checks (one per minute; disk has no
+// spikes, memory and CPU do), and again once it drops resourceMargin points
+// below, so sitting at the limit doesn't alert in a loop.
 var resourceLimits = []struct {
 	kind, label string
 	percent     float64
 	checks      int
 	usage       func(sysinfo.Stats) float64
 }{
-	{"disk", "El disco", 90, 1, func(st sysinfo.Stats) float64 { return percentOf(st.DiskUsed, st.DiskTotal) }},
-	{"memory", "La memoria", 90, 5, func(st sysinfo.Stats) float64 { return percentOf(st.MemUsed, st.MemTotal) }},
-	{"cpu", "La CPU", 90, 10, func(st sysinfo.Stats) float64 { return st.CPUPercent }},
+	{"disk", "Disk", 90, 1, func(st sysinfo.Stats) float64 { return percentOf(st.DiskUsed, st.DiskTotal) }},
+	{"memory", "Memory", 90, 5, func(st sysinfo.Stats) float64 { return percentOf(st.MemUsed, st.MemTotal) }},
+	{"cpu", "CPU", 90, 10, func(st sysinfo.Stats) float64 { return st.CPUPercent }},
 }
 
 const resourceMargin = 5
@@ -347,11 +347,11 @@ func percentOf(used, total uint64) float64 {
 	return float64(used) / float64(total) * 100
 }
 
-// resourceWatch recuerda, por servidor y recurso, cuántas revisiones
-// seguidas lleva por encima del límite; -1 = ya se avisó.
+// resourceWatch remembers, per server and resource, how many consecutive
+// checks it has been over the limit; -1 = already alerted.
 type resourceWatch map[string]int
 
-// observe anota una lectura y devuelve los avisos que tocan.
+// observe records a reading and returns the alerts it warrants.
 func (w resourceWatch) observe(server string, st sysinfo.Stats) []notify.Event {
 	var events []notify.Event
 	for _, l := range resourceLimits {
@@ -360,7 +360,7 @@ func (w resourceWatch) observe(server string, st sysinfo.Stats) []notify.Event {
 		case alerted && use < l.percent-resourceMargin:
 			delete(w, key)
 			events = append(events, notify.Event{Kind: notify.EventResourceNormal, Severity: notify.Success,
-				Title: fmt.Sprintf("%s de %s vuelve a niveles normales (%.0f %%)", l.label, server, use)})
+				Title: fmt.Sprintf("%s on %s is back to normal levels (%.0f %%)", l.label, server, use)})
 		case alerted:
 		case use < l.percent:
 			delete(w, key)
@@ -368,16 +368,16 @@ func (w resourceWatch) observe(server string, st sysinfo.Stats) []notify.Event {
 			if w[key]++; w[key] >= l.checks {
 				w[key] = -1
 				events = append(events, notify.Event{Kind: notify.EventResourceHigh, Severity: notify.Warning,
-					Title:   fmt.Sprintf("%s de %s está al %.0f %%", l.label, server, use),
-					Message: fmt.Sprintf("Supera el %.0f %% que se considera seguro. Con el disco o la memoria llenos fallan los despliegues y las bases de datos.", l.percent)})
+					Title:   fmt.Sprintf("%s on %s is at %.0f %%", l.label, server, use),
+					Message: fmt.Sprintf("That is over the %.0f %% considered safe. With the disk or the memory full, deployments and databases fail.", l.percent)})
 			}
 		}
 	}
 	return events
 }
 
-// checkResources avisa cuando el disco, la memoria o la CPU de un servidor
-// (el del panel y los remotos conectados) se acercan al límite.
+// checkResources alerts when a server's disk, memory or CPU (the panel's own
+// and the connected remote ones) get close to the limit.
 func (s *Server) checkResources(ctx context.Context, w resourceWatch) {
 	if s.Notify == nil {
 		return
@@ -390,32 +390,33 @@ func (s *Server) checkResources(ctx context.Context, w resourceWatch) {
 		}
 	}
 	if st, err := sysinfo.Read(ctx, s.DataDir); err == nil {
-		send("este servidor", st)
+		send("this server", st)
 	}
 	if s.Hub == nil {
 		return
 	}
 	servers, _ := s.Store.ListServers(ctx)
 	for _, sv := range servers {
-		// Sin conexión (o con un agente antiguo) no hay lectura: no se avisa ni se da por resuelto.
+		// With no connection (or an old agent) there is no reading: nothing is
+		// alerted and nothing is considered resolved.
 		if st, err := s.remoteStats(ctx, sv.ID); err == nil {
 			send(sv.Name, st)
 		}
 	}
 }
 
-// OnAppJobFailed avisa de una tarea programada que terminó mal.
+// OnAppJobFailed reports a scheduled task that ended badly.
 func (s *Server) OnAppJobFailed(ctx context.Context, app *store.App, job *store.AppJob, exitCode int) {
 	if s.Notify == nil {
 		return
 	}
-	what := fmt.Sprintf("terminó con el código %d", exitCode)
+	what := fmt.Sprintf("exited with code %d", exitCode)
 	if exitCode < 0 {
-		what = "no se pudo ejecutar o superó el tiempo máximo"
+		what = "couldn't be run or went over the time limit"
 	}
 	s.Notify.Notify(notify.Event{
 		Kind: notify.EventJobFailed, Severity: notify.Error, URL: s.panelLink(ctx, fmt.Sprintf("/apps/%d", app.ID)),
-		Title:   "Falló una tarea programada de " + app.Name,
-		Message: fmt.Sprintf("«%s» %s.", job.Command, what),
+		Title:   "A scheduled task of " + app.Name + " failed",
+		Message: fmt.Sprintf("%q %s.", job.Command, what),
 	})
 }

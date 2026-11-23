@@ -15,15 +15,15 @@ import { useResource } from '@/lib/use-resource';
 
 const busyStates = ['backup', 'pulling', 'restarting'];
 
-/** Versión de Dockfly y botón para actualizar a la última. */
+/** Dockfly's version, with a button to update to the latest one. */
 export function SystemUpdate() {
   const { t } = useLingui();
   const [confirming, setConfirming] = useState(false);
-  // Tras lanzar la actualización, el panel deja de responder unos segundos.
+  // Once the update is started, the panel stops responding for a few seconds.
   const [waitingFor, setWaitingFor] = useState('');
   const { data: info, reload } = useResource(api.getUpdate, { interval: waitingFor ? 2000 : undefined });
 
-  // Cuando vuelve a responder con la versión nueva, se recarga el panel.
+  // When it responds again with the new version, the panel reloads.
   useEffect(() => {
     if (!waitingFor) return;
     const id = setInterval(async () => {
@@ -36,7 +36,7 @@ export function SystemUpdate() {
     }, 3000);
     return () => clearInterval(id);
   }, [waitingFor, t]);
-  // Si falló antes de reiniciar (copia, descarga), se deja de esperar.
+  // If it failed before restarting (backup, download), we stop waiting.
   useEffect(() => {
     if (waitingFor && info?.state === 'failed') setWaitingFor('');
   }, [waitingFor, info?.state]);

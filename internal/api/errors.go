@@ -9,16 +9,16 @@ import (
 	"strings"
 )
 
-// Errores de la API. Cada uno tiene un código estable, que el panel traduce
-// (los textos de cada idioma viven solo en el frontend), y un mensaje en
-// inglés que sirve de respaldo (para el CLI y para códigos que el panel aún
-// no conozca). Los datos variables van en Params y el mensaje los nombra
-// entre llaves: "an upload can't exceed {max_mb} MiB".
+// API errors. Each one has a stable code, which the panel translates (the
+// texts for each language live only in the frontend), and an English message
+// that serves as a fallback (for the CLI and for codes the panel doesn't know
+// yet). The variable data goes in Params and the message names it inside
+// braces: "an upload can't exceed {max_mb} MiB".
 //
-// Respuesta: {"error": "<mensaje>", "code": "<código>", "params": {…}}
+// Response: {"error": "<message>", "code": "<code>", "params": {…}}
 //
-// La lista de códigos se exporta al frontend (web/src/lib/api-errors.gen.ts):
-// después de añadir o cambiar uno, ejecuta
+// The list of codes is exported to the frontend (web/src/lib/api-errors.gen.ts):
+// after adding or changing one, run
 //
 //	go test ./internal/api -run TestAPIErrorsTS -update
 type apiError struct {
@@ -27,26 +27,26 @@ type apiError struct {
 	Params  map[string]any
 }
 
-// errorCatalog son todos los códigos con su mensaje (para generar el TS).
+// errorCatalog is every code with its message (used to generate the TS).
 var errorCatalog = map[string]string{}
 
 var codeRe = regexp.MustCompile(`^[a-z][a-z0-9_]*$`)
 
-// newError registra un código. Se usa en variables de paquete:
+// newError registers a code. It's used in package-level variables:
 //
 //	var errServerNameTaken = newError("server_name_taken", "A server with that name already exists")
 func newError(code, message string) apiError {
 	if !codeRe.MatchString(code) {
-		panic("código de error inválido: " + code)
+		panic("invalid error code: " + code)
 	}
 	if old, dup := errorCatalog[code]; dup && old != message {
-		panic("código de error repetido: " + code)
+		panic("duplicate error code: " + code)
 	}
 	errorCatalog[code] = message
 	return apiError{Code: code, Message: message}
 }
 
-// With añade datos al error (pares nombre, valor).
+// With adds data to the error (name, value pairs).
 func (e apiError) With(kv ...any) apiError {
 	params := make(map[string]any, len(e.Params)+len(kv)/2)
 	for k, v := range e.Params {
@@ -59,7 +59,7 @@ func (e apiError) With(kv ...any) apiError {
 	return e
 }
 
-// Error es el mensaje en inglés con los datos sustituidos.
+// Error is the English message with the data substituted in.
 func (e apiError) Error() string {
 	msg := e.Message
 	for k, v := range e.Params {
@@ -76,8 +76,8 @@ func writeError(w http.ResponseWriter, status int, e apiError) {
 	writeJSON(w, status, body)
 }
 
-// writeErrorFrom responde con err: si es (o envuelve) un apiError, ese; si
-// no, fallback con el texto de err como detalle ({detail}).
+// writeErrorFrom answers with err: if it is (or wraps) an apiError, that one;
+// otherwise fallback, with err's text as the detail ({detail}).
 func writeErrorFrom(w http.ResponseWriter, status int, err error, fallback apiError) {
 	var e apiError
 	if errors.As(err, &e) {
@@ -87,7 +87,7 @@ func writeErrorFrom(w http.ResponseWriter, status int, err error, fallback apiEr
 	writeError(w, status, fallback.With("detail", err.Error()))
 }
 
-// Errores comunes a toda la API.
+// Errors common to the whole API.
 var (
 	errInternal        = newError("internal_error", "Internal error")
 	errInvalidJSON     = newError("invalid_json", "Invalid JSON: {detail}")
@@ -98,11 +98,11 @@ var (
 	errUnauthenticated = newError("unauthenticated", "Not authenticated or session expired")
 	errBadAPIToken     = newError("invalid_api_token", "Invalid, expired or revoked API token")
 	errInvalidID       = newError("invalid_id", "Invalid ID")
-	// errUnexpected envuelve errores sin código (de GitHub, Docker…): {detail} es su texto.
+	// errUnexpected wraps errors with no code (from GitHub, Docker…): {detail} is their text.
 	errUnexpected = newError("unexpected_error", "{detail}")
 )
 
-// errorCodes devuelve los códigos ordenados (para generar el TS).
+// errorCodes returns the codes in order (used to generate the TS).
 func errorCodes() []string {
 	codes := make([]string, 0, len(errorCatalog))
 	for c := range errorCatalog {

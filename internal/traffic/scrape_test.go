@@ -34,14 +34,14 @@ func TestParse(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(got) != 2 {
-		t.Fatalf("dueños: %v", got)
+		t.Fatalf("owners: %v", got)
 	}
 	ph := got["ph-1"]
 	if ph.Requests != 107 || ph.S4xx != 6 || ph.S5xx != 4 || ph.Sum != 12.5 {
-		t.Errorf("ph-1 (HTTP, HTTPS y sus ubicaciones juntos): %+v", ph)
+		t.Errorf("ph-1 (HTTP, HTTPS and its locations together): %+v", ph)
 	}
 	if want := []float64{50, 90, 100}; !equal(ph.Buckets, want) {
-		t.Errorf("buckets: %v, quería %v", ph.Buckets, want)
+		t.Errorf("buckets: %v, wanted %v", ph.Buckets, want)
 	}
 	if got["site-2"].Requests != 10 {
 		t.Errorf("site-2: %+v", got["site-2"])
@@ -55,12 +55,12 @@ func TestDeltaAndQuantile(t *testing.T) {
 	if d.Requests != 60 || d.S5xx != 1 || !equal(d.Buckets, []float64{50, 60, 60}) || d.Sum != 6 {
 		t.Errorf("delta: %+v", d)
 	}
-	// Traefik reiniciado: los contadores vuelven a empezar.
+	// Traefik restarted: the counters start over.
 	if d := Delta(cur, &Counters{Requests: 3, Buckets: []float64{3, 3, 3}}); d.Requests != 3 {
-		t.Errorf("tras reiniciar: %+v", d)
+		t.Errorf("after a restart: %+v", d)
 	}
 	bounds := []float64{0.1, 0.5}
-	// 50 de 60 por debajo de 0.1 s: la mediana cae dentro del primer bucket.
+	// 50 out of 60 below 0.1 s: the median falls inside the first bucket.
 	if q := Quantile(0.5, d.Buckets, bounds); math.Abs(q-0.06) > 1e-9 {
 		t.Errorf("p50 = %v", q)
 	}
@@ -68,7 +68,7 @@ func TestDeltaAndQuantile(t *testing.T) {
 		t.Errorf("p95 = %v", q)
 	}
 	if q := Quantile(0.95, []float64{0, 0, 0}, bounds); q != 0 {
-		t.Errorf("sin peticiones: %v", q)
+		t.Errorf("without requests: %v", q)
 	}
 }
 
@@ -92,7 +92,7 @@ func TestSeries(t *testing.T) {
 		{Owner: "ph-1", Minute: m + 30, Requests: 20, S4xx: 2, DurationSum: 4, Buckets: []float64{0, 20, 20}},
 		{Owner: "ph-1", Minute: m + 61, Requests: 5, DurationSum: 0.5, Buckets: []float64{5, 5, 5}},
 		{Owner: "site-2", Minute: m + 5, Requests: 7, Buckets: []float64{7, 7, 7}},
-		{Owner: "ph-1", Minute: m + 500, Requests: 99}, // fuera del rango
+		{Owner: "ph-1", Minute: m + 500, Requests: 99}, // out of range
 	}
 	var phRows []*store.TrafficMinute
 	for _, r := range rows {
@@ -102,17 +102,17 @@ func TestSeries(t *testing.T) {
 	}
 	points, totals := Series(phRows, from, time.Hour, 2, []float64{0.1, 0.5})
 	if len(points) != 2 || points[0].Requests != 30 || points[0].S4xx != 2 || points[0].S5xx != 1 || points[1].Requests != 5 {
-		t.Errorf("puntos: %+v", points)
+		t.Errorf("points: %+v", points)
 	}
 	if totals.Requests != 35 || math.Abs(totals.AvgMs-5.5/35*1000) > 1e-6 {
-		t.Errorf("totales: %+v", totals)
+		t.Errorf("totals: %+v", totals)
 	}
 	if points[0].P50 <= 0 || points[0].P95 < points[0].P50 {
-		t.Errorf("latencia: %+v", points[0])
+		t.Errorf("latency: %+v", points[0])
 	}
 	sums := Summaries(rows, from, 2, []float64{0.1, 0.5})
 	if len(sums) != 2 || sums["site-2"].Requests != 7 || len(sums["ph-1"].Spark) != 2 || sums["ph-1"].Spark[1] != 5 {
-		t.Errorf("resúmenes: %+v", sums)
+		t.Errorf("summaries: %+v", sums)
 	}
 }
 
@@ -127,7 +127,7 @@ func TestOwner(t *testing.T) {
 		"dashboard@internal":                        "",
 	} {
 		if got := Owner(router); got != want {
-			t.Errorf("Owner(%q) = %q, quería %q", router, got, want)
+			t.Errorf("Owner(%q) = %q, wanted %q", router, got, want)
 		}
 	}
 }

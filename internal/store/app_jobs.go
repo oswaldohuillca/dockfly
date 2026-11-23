@@ -7,8 +7,8 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// AppJob es una tarea programada: un comando que se ejecuta en el
-// contenedor de la app cuando toca su expresión cron.
+// AppJob is a scheduled task: a command that runs inside the app's container
+// whenever its cron expression comes due.
 type AppJob struct {
 	bun.BaseModel `bun:"table:app_jobs"`
 
@@ -58,7 +58,7 @@ func (s *Store) CreateAppJob(ctx context.Context, j *AppJob) error {
 	return err
 }
 
-// UpdateAppJob guarda lo que edita el formulario, no el resultado de la última ejecución.
+// UpdateAppJob saves what the form edits, not the result of the last run.
 func (s *Store) UpdateAppJob(ctx context.Context, j *AppJob) error {
 	return mustAffect(s.db.NewUpdate().Model(j).Column("command", "schedule", "enabled").WherePK().Exec(ctx))
 }
@@ -67,7 +67,7 @@ func (s *Store) DeleteAppJob(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewDelete().Model((*AppJob)(nil)).Where("id = ?", id).Exec(ctx))
 }
 
-// StartAppJob marca el inicio de una ejecución: sin código de salida = en marcha.
+// StartAppJob records the start of a run: no exit code = still running.
 func (s *Store) StartAppJob(ctx context.Context, id int64, at time.Time) error {
 	_, err := s.db.NewUpdate().Model((*AppJob)(nil)).Set("last_run_at = ?", at).Set("last_exit_code = NULL").
 		Where("id = ?", id).Exec(ctx)

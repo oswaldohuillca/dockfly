@@ -14,17 +14,17 @@ import (
 	"time"
 )
 
-// Estado del certificado de un dominio.
+// Certificate status of a domain.
 const (
-	CertValid    = "valid"    // emitido y vigente
-	CertExpiring = "expiring" // caduca pronto y la renovación no llega
+	CertValid    = "valid"    // issued and current
+	CertExpiring = "expiring" // expires soon and the renewal is not arriving
 	CertExpired  = "expired"
-	CertError    = "error"   // Let's Encrypt lo rechazó y no hay certificado
-	CertPending  = "pending" // pedido, todavía sin respuesta
+	CertError    = "error"   // Let's Encrypt rejected it and there is no cert
+	CertPending  = "pending" // requested, still no answer
 )
 
-// Traefik renueva a 30 días de la caducidad: si quedan menos de 14, la
-// renovación está fallando.
+// Traefik renews 30 days before expiry: if fewer than 14 days are left,
+// the renewal is failing.
 const expiringThreshold = 14 * 24 * time.Hour
 
 type CertStatus struct {
@@ -32,9 +32,9 @@ type CertStatus struct {
 	Status   string     `json:"status"`
 	NotAfter *time.Time `json:"not_after,omitempty"`
 	Issuer   string     `json:"issuer,omitempty"`
-	Staging  bool       `json:"staging"` // emitido por el entorno de pruebas de Let's Encrypt
-	// Último error de Let's Encrypt. Con un certificado vigente, indica que
-	// la renovación está fallando.
+	Staging  bool       `json:"staging"` // issued by Let's Encrypt's staging environment
+	// Let's Encrypt's last error. With a current certificate, it means the
+	// renewal is failing.
 	Error   string     `json:"error,omitempty"`
 	ErrorAt *time.Time `json:"error_at,omitempty"`
 	Hint    string     `json:"hint,omitempty"`
@@ -45,18 +45,18 @@ type acmeError struct {
 	at  time.Time
 }
 
-// CertTracker recuerda los errores de Let's Encrypt que Traefik escribe en
-// su log: no los expone en ninguna API.
+// CertTracker remembers the Let's Encrypt errors Traefik writes to its
+// log: it exposes them through no API.
 type CertTracker struct {
 	mu     sync.Mutex
 	errors map[string]acmeError
-	// OnError, si no es nil, se llama con cada fallo nuevo (notificaciones).
+	// OnError, if not nil, is called on every new failure (notifications).
 	OnError func(domains []string, msg string)
 }
 
 var bracketDomains = regexp.MustCompile(`for the domains \[([^\]]+)\]`)
 
-// Observe analiza una línea del log JSON de Traefik.
+// Observe parses one line of Traefik's JSON log.
 func (t *CertTracker) Observe(line []byte) {
 	if len(line) == 0 || line[0] != '{' {
 		return
@@ -94,18 +94,18 @@ func (t *CertTracker) Observe(line []byte) {
 	}
 }
 
-// Status combina los certificados guardados en acme.json con los errores
-// observados, para cada dominio con SSL.
+// Status combines the certificates stored in acme.json with the observed
+// errors, for every domain with SSL.
 func (t *CertTracker) Status(acmePath string, domains []string, now time.Time, custom map[string]*x509.Certificate) ([]CertStatus, error) {
 	certs, err := ReadACME(acmePath)
 	if err != nil {
 		return nil, err
 	}
-	// Los certificados propios tienen prioridad, como en Traefik.
+	// Custom certificates take precedence, as they do in Traefik.
 	for d, c := range custom {
 		certs[d] = c
 	}
-	// Un comodín cubre un nivel: app.ejemplo.com usa el de *.ejemplo.com.
+	// A wildcard covers one level: app.example.com uses the *.example.com one.
 	lookup := func(d string) (*x509.Certificate, bool) {
 		if c, ok := certs[d]; ok {
 			return c, true
@@ -135,7 +135,7 @@ func (t *CertTracker) Status(acmePath string, domains []string, now time.Time, c
 				st.Status = CertValid
 			}
 		}
-		// Un error anterior a la emisión del certificado actual ya no importa.
+		// An error older than the current certificate no longer matters.
 		if e, ok := t.errors[d]; ok && (st.NotAfter == nil || e.at.After(cert.NotBefore)) {
 			at := e.at
 			st.Error, st.ErrorAt, st.Hint = e.msg, &at, Hint(e.msg)
@@ -148,8 +148,8 @@ func (t *CertTracker) Status(acmePath string, domains []string, now time.Time, c
 	return out, nil
 }
 
-// ReadACME lee los certificados que Traefik guardó en acme.json, indexados
-// por dominio.
+// ReadACME reads the certificates Traefik stored in acme.json, indexed by
+// domain.
 func ReadACME(path string) (map[string]*x509.Certificate, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) || len(data) == 0 {
@@ -164,7 +164,7 @@ func ReadACME(path string) (map[string]*x509.Certificate, error) {
 				Main string   `json:"main"`
 				SANs []string `json:"sans"`
 			} `json:"domain"`
-			Certificate string `json:"certificate"` // PEM en base64
+			Certificate string `json:"certificate"` // base64-encoded PEM
 		} `json:"Certificates"`
 	}
 	if err := json.Unmarshal(data, &resolvers); err != nil {
@@ -210,22 +210,22 @@ func issuerName(c *x509.Certificate) string {
 	return ""
 }
 
-// Hint traduce los errores habituales de Let's Encrypt a qué hay que revisar.
+// Hint turns the usual Let's Encrypt errors into what needs checking.
 func Hint(msg string) string {
 	m := strings.ToLower(msg)
 	switch {
 	case strings.Contains(m, "nxdomain"), strings.Contains(m, "no valid a records"), strings.Contains(m, "servfail"):
-		return "El dominio no tiene un registro DNS (A/AAAA) que apunte a este servidor."
+		return "The domain has no DNS record (A/AAAA) pointing to this server."
 	case strings.Contains(m, "ratelimited"), strings.Contains(m, "too many"):
-		return "Let's Encrypt limitó las peticiones para este dominio: espera un rato antes de reintentar."
+		return "Let's Encrypt rate-limited the requests for this domain: wait a while before retrying."
 	case strings.Contains(m, "caa"):
-		return "Un registro CAA del dominio no autoriza a Let's Encrypt a emitir certificados."
+		return "A CAA record on the domain does not allow Let's Encrypt to issue certificates."
 	case strings.Contains(m, "timeout"), strings.Contains(m, "connection refused"), strings.Contains(m, "connection reset"):
-		return "Let's Encrypt no pudo conectar con el puerto 80 de este servidor: revisa el firewall y que el DNS apunte aquí."
+		return "Let's Encrypt could not reach port 80 on this server: check the firewall and that the DNS points here."
 	case strings.Contains(m, "unauthorized"), strings.Contains(m, "invalid response"):
-		return "El dominio parece apuntar a otro servidor: Let's Encrypt no encontró aquí la respuesta del desafío."
+		return "The domain seems to point at another server: Let's Encrypt did not find the challenge response here."
 	case strings.Contains(m, "rejectedidentifier"), strings.Contains(m, "policy forbids"):
-		return "Let's Encrypt no emite certificados para este dominio (p. ej. .local o una IP)."
+		return "Let's Encrypt does not issue certificates for this domain (e.g. .local or an IP)."
 	}
 	return ""
 }

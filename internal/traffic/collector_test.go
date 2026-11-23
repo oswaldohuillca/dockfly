@@ -33,7 +33,7 @@ func TestCollector(t *testing.T) {
 	c := &Collector{URL: srv.URL, Bounds: []float64{0.1}, Store: st, Log: slog.New(slog.NewTextHandler(io.Discard, nil)), http: srv.Client()}
 
 	now := time.Date(2026, 10, 20, 12, 0, 30, 0, time.UTC)
-	total.Store(1000) // lo acumulado antes de que Dockfly arrancara no cuenta
+	total.Store(1000) // what piled up before Dockfly started does not count
 	if err := c.collect(ctx, now); err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestCollector(t *testing.T) {
 	if err := c.collect(ctx, now.Add(time.Minute)); err != nil {
 		t.Fatal(err)
 	}
-	// Dos lecturas en el mismo minuto (p. ej. tras reiniciar) se suman.
+	// Two readings in the same minute (for example after a restart) add up.
 	total.Store(1050)
 	if err := c.collect(ctx, now.Add(time.Minute+10*time.Second)); err != nil {
 		t.Fatal(err)
@@ -51,12 +51,12 @@ func TestCollector(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(rows) != 1 || rows[0].Requests != 50 || rows[0].Minute != now.Unix()/60 || rows[0].Buckets[0] != 50 {
-		t.Fatalf("filas: %+v", rows)
+		t.Fatalf("rows: %+v", rows)
 	}
 	if err := st.PruneTraffic(ctx, now.Unix()/60+1); err != nil {
 		t.Fatal(err)
 	}
 	if rows, _ := st.Traffic(ctx, "", 0); len(rows) != 0 {
-		t.Errorf("tras podar: %+v", rows)
+		t.Errorf("after pruning: %+v", rows)
 	}
 }

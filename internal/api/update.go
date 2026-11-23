@@ -13,8 +13,8 @@ var (
 	errUpdateFailed      = newError("update_failed", "The update couldn't start: {detail}")
 )
 
-// handleGetUpdate dice si hay una versión nueva y si se puede actualizar
-// desde el panel.
+// handleGetUpdate reports whether there is a new version and whether it can
+// be updated from the panel.
 func (s *Server) handleGetUpdate(w http.ResponseWriter, r *http.Request) {
 	if s.Updater == nil {
 		writeError(w, http.StatusNotFound, errUpdateUnavailable)
@@ -23,8 +23,8 @@ func (s *Server) handleGetUpdate(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, s.Updater.Info(r.Context()))
 }
 
-// handleStartUpdate actualiza Dockfly (solo admin, con su contraseña). El
-// panel deja de responder unos segundos mientras se recrea el contenedor.
+// handleStartUpdate updates Dockfly (admin only, with their password). The
+// panel stops responding for a few seconds while the container is recreated.
 func (s *Server) handleStartUpdate(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Password string `json:"password"`
@@ -46,6 +46,6 @@ func (s *Server) handleStartUpdate(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errUpdateFailed.With("detail", err.Error()))
 		return
 	}
-	s.Log.Info("actualización de Dockfly iniciada", "por", currentUser(r).Email)
+	s.Log.Info("Dockfly update started", "by", currentUser(r).Email)
 	writeJSON(w, http.StatusAccepted, s.Updater.Info(r.Context()))
 }

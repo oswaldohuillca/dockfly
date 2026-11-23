@@ -27,14 +27,14 @@ export function roleHint(role: Role): string {
   }
 }
 
-/** Usuario de la sesión, para las páginas del panel. */
+/** The session's user, for the panel pages. */
 export const UserContext = createContext<User | null>(null);
 
 export function can(user: User | null, role: Role): boolean {
   return !!user && rank[user.role] >= rank[role];
 }
 
-/** ¿Puede el usuario de la sesión hacer lo que requiere role? (La API lo vuelve a comprobar.) */
+/** Can the session's user do what role requires? (The API checks it again anyway.) */
 export function useCan(role: Role): boolean {
   return can(useContext(UserContext), role);
 }

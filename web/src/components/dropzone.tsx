@@ -10,12 +10,12 @@ import { cn } from '@/lib/utils';
 
 interface Props {
   onSelect: (selection: Selection) => void;
-  /** Progreso de la subida en curso (0–1), o null si no hay ninguna. */
+  /** Progress of the upload in flight (0–1), or null when there is none. */
   progress: number | null;
   uploading?: string;
 }
 
-/** Zona para arrastrar una carpeta o un .zip, al estilo de Cloudflare Pages. */
+/** Drop zone for a folder or a .zip, in the style of Cloudflare Pages. */
 export function Dropzone({ onSelect, progress, uploading }: Props) {
   const [over, setOver] = useState(false);
   const folderInput = useRef<HTMLInputElement>(null);
@@ -86,7 +86,7 @@ export function Dropzone({ onSelect, progress, uploading }: Props) {
         type="file"
         className="hidden"
         multiple
-        // webkitdirectory no está en los tipos de React, pero todos los navegadores lo soportan.
+        // webkitdirectory is missing from React's types, but every browser supports it.
         {...{ webkitdirectory: '' }}
         onChange={(e) => {
           pick(e.target.files);

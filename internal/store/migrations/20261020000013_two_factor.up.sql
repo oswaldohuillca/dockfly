@@ -1,4 +1,4 @@
--- Verificación en dos pasos (TOTP) y códigos de recuperación.
+-- Two-factor authentication (TOTP) and recovery codes.
 ALTER TABLE users ADD COLUMN totp_secret_enc BLOB;
 
 --bun:split
@@ -7,7 +7,7 @@ ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN NOT NULL DEFAULT FALSE;
 
 --bun:split
 
--- Último paso de 30 s aceptado: impide reutilizar un código.
+-- Last accepted 30 s step: stops a code from being reused.
 ALTER TABLE users ADD COLUMN totp_last_step INTEGER NOT NULL DEFAULT 0;
 
 --bun:split

@@ -18,22 +18,23 @@ import (
 	"github.com/dockfly/dockfly/internal/egress"
 )
 
-// safeClient rechaza las IPs link-local (metadatos de nube) contra SSRF por un
-// endpoint malicioso; deja loopback/privadas para MinIO autoalojado.
+// safeClient rejects link-local IPs (cloud metadata) to guard against SSRF
+// through a malicious endpoint; it allows loopback/private ones for
+// self-hosted MinIO.
 var safeClient = &http.Client{Transport: egress.SafeTransport()}
 
-// S3 habla con cualquier almacenamiento compatible con S3 firmando las
-// peticiones con AWS Signature V4 (sin el SDK, que pesa decenas de MB).
+// S3 talks to any S3-compatible storage, signing the requests with AWS
+// Signature V4 (without the SDK, which weighs tens of MB).
 type S3 struct {
-	Endpoint  string // "https://s3.eu-west-1.amazonaws.com", "https://<cuenta>.r2.cloudflarestorage.com"…
-	Region    string // "auto" en R2
+	Endpoint  string // "https://s3.eu-west-1.amazonaws.com", "https://<account>.r2.cloudflarestorage.com"…
+	Region    string // "auto" on R2
 	Bucket    string
-	Prefix    string // carpeta dentro del bucket
+	Prefix    string // directory inside the bucket
 	AccessKey string
 	SecretKey string
-	// HTTP permite cambiar el cliente en los tests.
+	// HTTP allows swapping the client in the tests.
 	HTTP *http.Client
-	// now permite fijar la hora en los tests.
+	// now allows pinning the time in the tests.
 	now func() time.Time
 }
 
@@ -48,8 +49,8 @@ func (s *S3) Describe() string {
 	return "s3://" + strings.TrimSuffix(s.Bucket+"/"+strings.Trim(s.Prefix, "/"), "/")
 }
 
-// objectURL usa el estilo de ruta (endpoint/bucket/clave), que entienden
-// todos los compatibles con S3.
+// objectURL uses path style (endpoint/bucket/key), which every S3-compatible
+// service understands.
 func (s *S3) objectURL(key string) string {
 	p := strings.Trim(s.Prefix, "/")
 	if p != "" {
@@ -101,8 +102,8 @@ func (s *S3) Delete(ctx context.Context, key string) error {
 	return s.do(req)
 }
 
-// Check sube y borra un objeto pequeño: así se comprueban a la vez las
-// credenciales, el bucket y el permiso de escritura.
+// Check uploads and deletes a small object: that checks the credentials, the
+// bucket and the write permission all at once.
 func (s *S3) Check(ctx context.Context) error {
 	key := ".dockfly-check"
 	if err := s.Put(ctx, key, strings.NewReader("ok"), 2); err != nil {
@@ -134,15 +135,15 @@ func s3Error(resp *http.Response) error {
 	_ = xml.Unmarshal(body, &e)
 	switch {
 	case e.Code == "NoSuchBucket":
-		return fmt.Errorf("el bucket no existe")
+		return fmt.Errorf("the bucket does not exist")
 	case e.Code == "InvalidAccessKeyId" || e.Code == "SignatureDoesNotMatch":
-		return fmt.Errorf("credenciales incorrectas (%s)", e.Code)
+		return fmt.Errorf("wrong credentials (%s)", e.Code)
 	case e.Code == "AccessDenied":
-		return fmt.Errorf("acceso denegado: la clave no tiene permiso de escritura en el bucket")
+		return fmt.Errorf("access denied: the key has no write permission on the bucket")
 	case e.Code != "":
 		return fmt.Errorf("S3: %s %s", e.Code, e.Message)
 	}
-	return fmt.Errorf("S3 respondió %s", resp.Status)
+	return fmt.Errorf("S3 responded %s", resp.Status)
 }
 
 // --- AWS Signature V4 ---
@@ -151,7 +152,7 @@ const unsignedPayload = "UNSIGNED-PAYLOAD"
 
 func (s *S3) sign(req *http.Request) { s.signWith(req, unsignedPayload) }
 
-// signWith firma con el hash del cuerpo indicado.
+// signWith signs using the given body hash.
 func (s *S3) signWith(req *http.Request, payloadHash string) {
 	now := time.Now
 	if s.now != nil {
@@ -165,7 +166,7 @@ func (s *S3) signWith(req *http.Request, payloadHash string) {
 		region = "us-east-1"
 	}
 
-	// El cuerpo no se firma (se envía en streaming): S3 lo permite por HTTPS.
+	// The body is not signed (it is streamed): S3 allows that over HTTPS.
 	req.Header.Set("X-Amz-Content-Sha256", payloadHash)
 	req.Header.Set("X-Amz-Date", amzDate)
 	req.Header.Set("Host", req.URL.Host)
@@ -222,7 +223,7 @@ func canonicalQuery(q url.Values) string {
 	return strings.Join(parts, "&")
 }
 
-// uriEncode codifica como pide SigV4: todo salvo A-Z a-z 0-9 - _ . ~
+// uriEncode encodes the way SigV4 requires: everything but A-Z a-z 0-9 - _ . ~
 func uriEncode(s string) string {
 	var b bytes.Buffer
 	for i := 0; i < len(s); i++ {

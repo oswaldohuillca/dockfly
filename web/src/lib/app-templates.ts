@@ -3,8 +3,8 @@ import type { MessageDescriptor } from '@lingui/core';
 
 import type { AppInput } from '@/lib/api';
 
-// Plantillas para las apps más habituales: rellenan imagen, puerto,
-// volúmenes y variables. Todo se puede cambiar antes de crear la app.
+// Templates for the most common apps: they fill in image, port, volumes and
+// variables. Everything can still be changed before the app is created.
 
 function password(length = 24) {
   const chars = 'abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -14,7 +14,7 @@ function password(length = 24) {
 
 export interface AppTemplate {
   id: string;
-  /** Nombre de producto (sin traducir) o mensaje traducible. */
+  /** A product name (left untranslated) or a translatable message. */
   label: string | MessageDescriptor;
   description: MessageDescriptor;
   build: () => Partial<AppInput> & { env?: Record<string, string> };

@@ -6,17 +6,18 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/dockfly/dockfly/internal/notify"
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// secretMask sustituye a los campos secretos en las respuestas. Si vuelve
-// tal cual al editar, se conserva el valor guardado.
+// secretMask stands in for the secret fields in responses. If it comes back
+// unchanged on an edit, the stored value is kept.
 const secretMask = "••••••••"
 
-// Errores de los canales de notificación.
+// Notification channel errors.
 var (
 	errChannelType       = newError("channel_type_invalid", "Invalid channel type")
 	errChannelName       = newError("channel_name_required", "Give the channel a name")
@@ -66,9 +67,9 @@ type channelInput struct {
 	Config  map[string]any `json:"config"`
 }
 
-// build valida la entrada y devuelve el canal con su configuración cifrada.
-// previous es la configuración guardada (al editar), para conservar los
-// secretos que llegan enmascarados.
+// buildChannel validates the input and returns the channel with its config
+// encrypted. previous is the stored config (when editing), used to keep the
+// secrets that arrive masked.
 func (s *Server) buildChannel(in channelInput, previous map[string]any) (*store.NotificationChannel, error) {
 	if !slices.Contains(notify.Types, in.Type) {
 		return nil, errChannelType
@@ -175,16 +176,16 @@ func (s *Server) handleDeleteChannel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleTestChannel envía un aviso de prueba y devuelve el error exacto si
-// falla (contraseña SMTP, webhook borrado…).
+// handleTestChannel sends a test notification and returns the exact error if
+// it fails (wrong SMTP password, deleted webhook…).
 func (s *Server) handleTestChannel(w http.ResponseWriter, r *http.Request) {
 	c, ok := s.loadChannel(w, r)
 	if !ok {
 		return
 	}
 	err := s.Notify.SendTo(r.Context(), c, notify.Event{
-		Kind: notify.EventTest, Severity: notify.Info, Title: "Prueba de Dockfly",
-		Message: "Si ves esto, el canal «" + c.Name + "» está bien configurado.", URL: s.panelLink(r.Context(), ""),
+		Kind: notify.EventTest, Severity: notify.Info, Title: "Dockfly test",
+		Message: "If you can see this, the " + strconv.Quote(c.Name) + " channel is set up correctly.", URL: s.panelLink(r.Context(), ""),
 	})
 	if err != nil {
 		writeError(w, http.StatusBadGateway, errChannelTestFailed.With("detail", err.Error()))
@@ -193,8 +194,9 @@ func (s *Server) handleTestChannel(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// panelLink construye un enlace al panel para las notificaciones. Usa la URL
-// pública si está configurada; si no, no hay enlace (sería inaccesible).
+// panelLink builds a link to the panel for notifications. It uses the public
+// URL when one is configured; otherwise there is no link (it would be
+// unreachable).
 func (s *Server) panelLink(ctx context.Context, path string) string {
 	public, _ := s.Store.GetSetting(ctx, store.SettingPublicURL)
 	if public == "" {

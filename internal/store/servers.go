@@ -5,7 +5,7 @@ import (
 	"time"
 )
 
-// Server es un servidor remoto con un agente de Dockfly.
+// Server is a remote server running a Dockfly agent.
 type Server struct {
 	ID         int64      `bun:",pk,autoincrement" json:"id"`
 	Name       string     `json:"name"`
@@ -56,7 +56,7 @@ func (s *Store) SetServerToken(ctx context.Context, id int64, hash string) error
 	return mustAffect(s.db.NewUpdate().Model((*Server)(nil)).Set("token_hash = ?", hash).Where("id = ?", id).Exec(ctx))
 }
 
-// ServerSeen guarda cuándo y desde dónde se conectó su agente.
+// ServerSeen records when and from where its agent connected.
 func (s *Store) ServerSeen(ctx context.Context, id int64, addr, version string) error {
 	_, err := s.db.NewUpdate().Model((*Server)(nil)).
 		Set("last_seen_at = ?", now()).Set("last_addr = ?", addr).Set("version = ?", version).
@@ -68,7 +68,7 @@ func (s *Store) DeleteServer(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewDelete().Model((*Server)(nil)).Where("id = ?", id).Exec(ctx))
 }
 
-// CountServerApps cuenta las apps de un servidor.
+// CountServerApps counts a server's apps.
 func (s *Store) CountServerApps(ctx context.Context, id int64) (int, error) {
 	n, err := s.db.NewSelect().Model((*App)(nil)).Where("server_id = ?", id).Count(ctx)
 	return int(n), err

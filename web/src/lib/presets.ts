@@ -1,12 +1,12 @@
-// Comandos de build habituales. Bun lee los package-lock.json y yarn.lock
-// existentes, así que sirve también para proyectos creados con npm o yarn.
+// The usual build commands. Bun reads existing package-lock.json and
+// yarn.lock files, so it also works for projects created with npm or yarn.
 
 import type { MessageDescriptor } from '@lingui/core';
 import { msg } from '@lingui/core/macro';
 
 export interface Preset {
   id: string;
-  /** Nombre del framework, o un mensaje traducible si no es un nombre propio. */
+  /** The framework's name, or a translatable message when it is not a proper name. */
   label: string | MessageDescriptor;
   install: string;
   build: string;
@@ -28,7 +28,7 @@ export const presets: Preset[] = [
 
 export const DEFAULT_IMAGE = 'oven/bun:1';
 
-/** El preset que coincide con unos comandos, o undefined si son personalizados. */
+/** The preset matching a given set of commands, or undefined when they are custom. */
 export function matchPreset(install: string, build: string, output: string): Preset | undefined {
   return presets.find((p) => p.install === install && p.build === build && p.output === output);
 }

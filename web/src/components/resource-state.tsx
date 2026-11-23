@@ -11,7 +11,7 @@ interface Props {
   className?: string;
 }
 
-/** Carga y fallo de carga de un useResource; con los datos listos no pinta nada. */
+/** The loading and load-failure states of a useResource; renders nothing once the data is ready. */
 export function ResourceState({ loading, error, onRetry, className }: Props) {
   if (error)
     return (

@@ -9,15 +9,15 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// Estados de una copia de una base de datos.
+// Statuses of a database backup.
 const (
 	DBBackupRunning = "running"
 	DBBackupSuccess = "success"
 	DBBackupFailed  = "failed"
 )
 
-// DBBackupPolicy dice cada cuánto se copia una base de datos y cuántas
-// copias se conservan.
+// DBBackupPolicy says how often a database is backed up and how many backups
+// are kept.
 type DBBackupPolicy struct {
 	bun.BaseModel `bun:"table:db_backup_policies"`
 
@@ -53,7 +53,7 @@ func (b *DBBackup) AfterScanRow(context.Context) error {
 	return nil
 }
 
-// DefaultDBBackupPolicy es la política de una app que aún no tiene una.
+// DefaultDBBackupPolicy is the policy of an app that does not have one yet.
 func DefaultDBBackupPolicy(appID int64) *DBBackupPolicy {
 	return &DBBackupPolicy{AppID: appID, IntervalHours: 24, Keep: 7}
 }
@@ -73,7 +73,7 @@ func (s *Store) SaveDBBackupPolicy(ctx context.Context, p *DBBackupPolicy) error
 	return err
 }
 
-// EnabledDBBackupPolicies devuelve las políticas activas.
+// EnabledDBBackupPolicies returns the policies that are turned on.
 func (s *Store) EnabledDBBackupPolicies(ctx context.Context) ([]*DBBackupPolicy, error) {
 	list := []*DBBackupPolicy{}
 	err := s.db.NewSelect().Model(&list).Where("enabled").Scan(ctx)
@@ -86,7 +86,7 @@ func (s *Store) CreateDBBackup(ctx context.Context, b *DBBackup) error {
 	return err
 }
 
-// FinishDBBackup guarda el resultado de una copia.
+// FinishDBBackup stores the result of a backup.
 func (s *Store) FinishDBBackup(ctx context.Context, b *DBBackup) error {
 	t := now()
 	b.FinishedAt = &t
@@ -112,7 +112,7 @@ func (s *Store) DeleteDBBackup(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewDelete().Model((*DBBackup)(nil)).Where("id = ?", id).Exec(ctx))
 }
 
-// LastDBBackup devuelve la última copia de una app (nil si no hay).
+// LastDBBackup returns an app's latest backup (nil if there is none).
 func (s *Store) LastDBBackup(ctx context.Context, appID int64) (*DBBackup, error) {
 	b := new(DBBackup)
 	err := s.db.NewSelect().Model(b).Where("app_id = ?", appID).Order("id DESC").Limit(1).Scan(ctx)
@@ -122,11 +122,11 @@ func (s *Store) LastDBBackup(ctx context.Context, appID int64) (*DBBackup, error
 	return b, err
 }
 
-// FailRunningDBBackups marca como fallidas las copias que quedaron a medias
-// (Dockfly se reinició durante la copia).
+// FailRunningDBBackups marks as failed the backups that were left half-done
+// (Dockfly restarted while they were running).
 func (s *Store) FailRunningDBBackups(ctx context.Context) error {
 	_, err := s.db.NewUpdate().Model((*DBBackup)(nil)).
-		Set("status = ?", DBBackupFailed).Set("error = ?", "interrumpida: Dockfly se reinició").Set("finished_at = ?", now()).
+		Set("status = ?", DBBackupFailed).Set("error = ?", "interrupted: Dockfly restarted").Set("finished_at = ?", now()).
 		Where("status = ?", DBBackupRunning).Exec(ctx)
 	return err
 }

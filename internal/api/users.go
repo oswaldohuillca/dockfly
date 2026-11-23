@@ -16,7 +16,7 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Errores de usuarios, permisos y enlaces de invitación.
+// Errors for users, permissions and invitation links.
 var (
 	errPanelOnly         = newError("panel_only", "This can only be done from the panel, not with an API token")
 	errRoleForbidden     = newError("role_forbidden", "Your role doesn't allow this; ask an administrator")
@@ -35,33 +35,34 @@ func isAdmin(r *http.Request) bool {
 	return store.RoleRank(effectiveRole(currentUser(r), currentToken(r))) >= store.RoleRank(store.RoleAdmin)
 }
 
-// canLinkRepo: enlazar un repositorio nuevo (a un sitio o una app) es cosa
-// del admin. Las cuentas Git son suyas y ven todos sus repos privados: un
-// deployer podría publicar cualquiera de ellos. El deployer sí puede cambiar
-// la rama o el build de los ya enlazados.
+// canLinkRepo: linking a new repository (to a site or an app) is the admin's
+// business. The Git accounts are theirs and see every one of their private
+// repos: a deployer could publish any of them. A deployer can still change
+// the branch or the build of the ones already linked.
 func canLinkRepo(r *http.Request) bool { return isAdmin(r) }
 
-// --- Permisos ---
+// --- Permissions ---
 
-// requiredRole decide qué rol hace falta para una petición. Está todo aquí,
-// en un solo sitio, para poder revisarlo (y probarlo) de un vistazo:
-//   - viewer: leer, salvo secretos (variables de entorno) y copias de seguridad.
-//   - deployer: además, todo lo de sitios, apps, builds y despliegues.
-//   - admin: todo lo demás (proxy hosts, certificados, integraciones,
-//     notificaciones, ajustes, usuarios…).
+// requiredRole decides which role a request needs. It all lives here, in a
+// single place, so it can be reviewed (and tested) at a glance:
+//   - viewer: reading, except secrets (environment variables) and backups.
+//   - deployer: on top of that, everything about sites, apps, builds and
+//     deployments.
+//   - admin: everything else (proxy hosts, certificates, integrations,
+//     notifications, settings, users…).
 func requiredRole(method, path string) string {
 	path = strings.TrimSuffix(path, "/")
-	// La propia cuenta (2FA, contraseña, tokens) es de cada usuario.
+	// Your own account (2FA, password, tokens) belongs to each user.
 	if strings.HasPrefix(path, "/api/auth/") || path == "/api/tokens" || strings.HasPrefix(path, "/api/tokens/") {
 		return store.RoleViewer
 	}
 	read := method == http.MethodGet || method == http.MethodHead
-	// Las variables de entorno, el deploy hook y las copias de las bases de
-	// datos llevan secretos.
+	// The environment variables, the deploy hook and the database backups
+	// carry secrets.
 	secret := strings.HasSuffix(path, "/env") || strings.HasSuffix(path, "/deploy-hook") || strings.HasSuffix(path, "/download") ||
 		path == "/api/backup" || strings.HasPrefix(path, "/api/users")
-	// Los repositorios de una cuenta Git pueden ser privados; listarlos queda
-	// restringido a admin, igual que enlazarlos (canLinkRepo).
+	// The repositories of a Git account may be private; listing them is
+	// restricted to admin, just like linking them (canLinkRepo).
 	if read && strings.HasPrefix(path, "/api/git/connections/") &&
 		(strings.HasSuffix(path, "/repos") || strings.HasSuffix(path, "/branches")) {
 		return store.RoleAdmin
@@ -83,14 +84,14 @@ func requiredRole(method, path string) string {
 	return store.RoleAdmin
 }
 
-// authorize va después de requireAuth.
+// authorize runs after requireAuth.
 func (s *Server) authorize(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		u, t := currentUser(r), currentToken(r)
-		// La cuenta (contraseña, 2FA), los propios tokens y la gestión de
-		// usuarios solo se hacen desde el panel: un token filtrado no puede
-		// crear otros tokens ni un usuario admin persistente (con enlace de
-		// invitación/reset) que sobreviva a revocar el token.
+		// The account (password, 2FA), your own tokens and user management can
+		// only be done from the panel: a leaked token can't create more tokens,
+		// nor a lasting admin user (with an invite/reset link) that would
+		// outlive revoking the token.
 		if t != nil && (strings.HasPrefix(r.URL.Path, "/api/auth/") || strings.HasPrefix(r.URL.Path, "/api/tokens") ||
 			strings.HasPrefix(r.URL.Path, "/api/users")) {
 			writeError(w, http.StatusForbidden, errPanelOnly)
@@ -104,7 +105,7 @@ func (s *Server) authorize(next http.Handler) http.Handler {
 	})
 }
 
-// --- Enlaces de invitación y de cambio de contraseña ---
+// --- Invitation and password-change links ---
 
 const (
 	inviteTTL   = 7 * 24 * time.Hour
@@ -113,8 +114,8 @@ const (
 	minPassword = 8
 )
 
-// linkPurpose ata el enlace a la contraseña actual: en cuanto se usa (y la
-// contraseña cambia) deja de valer. Es de un solo uso sin guardar nada.
+// linkPurpose ties the link to the current password: as soon as it is used
+// (and the password changes) it stops working. Single use, nothing stored.
 func linkPurpose(u *store.User) string {
 	sum := sha256.Sum256([]byte("dockfly-link:" + u.PasswordHash))
 	return "pw-" + hex.EncodeToString(sum[:8])
@@ -137,10 +138,10 @@ func (s *Server) passwordLink(ctx context.Context, r *http.Request, u *store.Use
 	return base + invitePath + token, time.Now().Add(ttl)
 }
 
-// linkUser valida un enlace de invitación o de cambio de contraseña.
+// linkUser validates an invitation or password-change link.
 func (s *Server) linkUser(ctx context.Context, token string) (*store.User, error) {
-	// "propósito.id.expiración.firma": el propósito depende del usuario, así
-	// que primero se busca y después se verifica la firma.
+	// "purpose.id.expiry.signature": the purpose depends on the user, so the
+	// user is looked up first and the signature verified afterwards.
 	parts := strings.Split(token, ".")
 	if len(parts) != 4 {
 		return nil, auth.ErrInvalidSession
@@ -168,7 +169,7 @@ func (s *Server) handleGetInvite(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"name": u.Name, "email": u.Email, "new": u.PasswordHash == ""})
 }
 
-// handleAcceptInvite fija la contraseña y abre la sesión.
+// handleAcceptInvite sets the password and opens the session.
 func (s *Server) handleAcceptInvite(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Password string `json:"password"`
@@ -196,7 +197,7 @@ func (s *Server) handleAcceptInvite(w http.ResponseWriter, r *http.Request) {
 	}
 	u.PasswordHash = hash
 	if u.TOTPEnabled {
-		// Restablecer la contraseña no se salta el segundo factor.
+		// Resetting the password does not get around the second factor.
 		writeJSON(w, http.StatusOK, map[string]any{
 			"two_factor": true, "ticket": s.Signer.IssueTicket(mfaTicketPurpose, u.ID, mfaTicketTTL),
 		})
@@ -206,7 +207,8 @@ func (s *Server) handleAcceptInvite(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, u)
 }
 
-// handleChangePassword cambia la contraseña propia y cierra las demás sesiones.
+// handleChangePassword changes your own password and closes the other
+// sessions.
 func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Current string `json:"current"`
@@ -236,11 +238,11 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// --- Usuarios (solo administradores) ---
+// --- Users (administrators only) ---
 
 type userView struct {
 	*store.User
-	// Pending: invitado, todavía sin contraseña.
+	// Pending: invited, still without a password.
 	Pending bool `json:"pending"`
 }
 
@@ -277,8 +279,8 @@ func (in *userInput) validate(withEmail bool) error {
 	return nil
 }
 
-// handleInviteUser crea un usuario sin contraseña y devuelve su enlace de
-// invitación, que el administrador comparte como prefiera.
+// handleInviteUser creates a user without a password and returns their
+// invitation link, which the administrator shares however they like.
 func (s *Server) handleInviteUser(w http.ResponseWriter, r *http.Request) {
 	var in userInput
 	if !decode(w, r, &in) {
@@ -316,8 +318,8 @@ func (s *Server) loadUser(w http.ResponseWriter, r *http.Request) (*store.User, 
 	return u, true
 }
 
-// lastAdmin indica si u es el único administrador activo: no se le puede
-// quitar el rol ni borrar, o nadie podría administrar Dockfly.
+// lastAdmin reports whether u is the only active administrator: they can
+// neither be demoted nor deleted, or nobody could administer Dockfly.
 func (s *Server) lastAdmin(ctx context.Context, u *store.User) (bool, error) {
 	if u.Role != store.RoleAdmin || u.PasswordHash == "" {
 		return false, nil
@@ -379,8 +381,8 @@ func (s *Server) handleDeleteUser(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleUserLink genera otro enlace: de invitación si aún no la aceptó, o
-// para restablecer la contraseña si la olvidó.
+// handleUserLink generates another link: an invitation if they haven't
+// accepted it yet, or a password reset if they forgot it.
 func (s *Server) handleUserLink(w http.ResponseWriter, r *http.Request) {
 	u, ok := s.loadUser(w, r)
 	if !ok {

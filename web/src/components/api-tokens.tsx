@@ -19,7 +19,7 @@ import { can, roleHint, roleLabel, UserContext } from '@/lib/roles';
 import { useSubmit } from '@/lib/use-form';
 import { useAction, useResource } from '@/lib/use-resource';
 
-/** Tokens de API del usuario, para el CLI y la integración continua. */
+/** The user's API tokens, for the CLI and continuous integration. */
 export function APITokens() {
   const { t } = useLingui();
   const { data: tokens = [], loading, error, reload } = useResource(api.listTokens);

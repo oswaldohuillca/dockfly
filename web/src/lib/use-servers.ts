@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api } from '@/lib/api';
 
-/** Nombres de los servidores remotos por id (vacío si el usuario no puede verlos). */
+/** Remote server names by id (empty when the user cannot see them). */
 export function useServerNames(): Record<number, string> {
   const [names, setNames] = useState<Record<number, string>>({});
   useEffect(() => {

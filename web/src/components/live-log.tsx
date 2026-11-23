@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 const ansi = /\x1b\[[0-9;?]*[A-Za-z]/g;
 
 interface Props {
-  /** URL de un flujo SSE con eventos "log", "status" y "end". */
+  /** URL of an SSE stream with "log", "status" and "end" events. */
   url: string;
   onStatus?: (data: unknown) => void;
   onEnd?: (data: unknown) => void;
@@ -13,8 +13,8 @@ interface Props {
 }
 
 /**
- * Log en vivo por SSE. Si la conexión se corta, vuelve a conectar desde cero
- * (el servidor reenvía el log completo), para no duplicar líneas.
+ * Live log over SSE. If the connection drops it reconnects from scratch
+ * (the server resends the whole log), so no lines are duplicated.
  */
 export function LiveLog({ url, onStatus, onEnd, emptyText, className }: Props) {
   const { t } = useLingui();
@@ -30,7 +30,7 @@ export function LiveLog({ url, onStatus, onEnd, emptyText, className }: Props) {
     let closed = false;
     const connect = () => {
       es = new EventSource(url);
-      // Al reconectar el servidor reenvía el log entero: se vacía al abrir, no antes.
+      // On reconnect the server resends the whole log, so we clear it when the stream opens, not before.
       es.onopen = () => setText('');
       es.addEventListener('log', (e) => setText((t) => t + (JSON.parse(e.data) as string).replace(ansi, '')));
       es.addEventListener('status', (e) => handlers.current.onStatus?.(JSON.parse(e.data)));

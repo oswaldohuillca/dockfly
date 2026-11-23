@@ -1,7 +1,7 @@
--- GitHub App propia de esta instalación, creada con el flujo de manifiesto.
+-- This installation's own GitHub App, created with the manifest flow.
 CREATE TABLE github_apps (
 	id                 INTEGER PRIMARY KEY AUTOINCREMENT,
-	web_url            TEXT NOT NULL, -- https://github.com o el de GitHub Enterprise
+	web_url            TEXT NOT NULL, -- https://github.com or the GitHub Enterprise one
 	api_url            TEXT NOT NULL,
 	app_id             INTEGER NOT NULL,
 	slug               TEXT NOT NULL,
@@ -19,7 +19,7 @@ CREATE TABLE github_apps (
 
 --bun:split
 
--- Aplicación OAuth de GitLab (gitlab.com o una instancia propia).
+-- GitLab OAuth application (gitlab.com or a self-hosted instance).
 CREATE TABLE gitlab_apps (
 	id                INTEGER PRIMARY KEY AUTOINCREMENT,
 	web_url           TEXT NOT NULL UNIQUE,
@@ -30,8 +30,8 @@ CREATE TABLE gitlab_apps (
 
 --bun:split
 
--- Cómo se autentica cada conexión: "token" (de acceso personal),
--- "github_app" (instalación de la GitHub App) o "gitlab_oauth".
+-- How each connection authenticates: "token" (a personal access token),
+-- "github_app" (a GitHub App installation) or "gitlab_oauth".
 ALTER TABLE git_connections ADD COLUMN auth_type TEXT NOT NULL DEFAULT 'token';
 
 --bun:split
@@ -60,7 +60,7 @@ ALTER TABLE git_connections ADD COLUMN redirect_uri TEXT NOT NULL DEFAULT '';
 
 --bun:split
 
--- Página donde el usuario gestiona el acceso (p. ej. qué repos ve la app).
+-- Page where the user manages access (for example which repos the app sees).
 ALTER TABLE git_connections ADD COLUMN settings_url TEXT NOT NULL DEFAULT '';
 
 --bun:split

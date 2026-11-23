@@ -6,7 +6,7 @@ import { api } from '@/lib/api';
 import { formatBytes } from '@/lib/format';
 import { useResource } from '@/lib/use-resource';
 
-/** CPU y memoria del contenedor de una app, al día cada 5 s. */
+/** CPU and memory of an app's container, kept up to date every 5 s. */
 export function AppUsage({ appId }: { appId: number }) {
   const { t } = useLingui();
   const { data: u, loading, error, reload } = useResource(() => api.appStats(appId), { interval: 5000 });

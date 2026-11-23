@@ -13,8 +13,8 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Tareas programadas de una app: un comando en su contenedor según una
-// expresión cron en UTC.
+// Scheduled tasks of an app: a command inside its container, driven by a
+// cron expression in UTC.
 
 var (
 	errJobNotFound    = newError("job_not_found", "Scheduled task not found")
@@ -29,7 +29,7 @@ type jobInput struct {
 	Enabled  bool   `json:"enabled"`
 }
 
-// read valida el cuerpo y lo normaliza.
+// read validates the body and normalizes it.
 func (in *jobInput) read(w http.ResponseWriter, r *http.Request) bool {
 	if !decode(w, r, in) {
 		return false
@@ -47,7 +47,7 @@ func (in *jobInput) read(w http.ResponseWriter, r *http.Request) bool {
 	return true
 }
 
-// loadAppJob carga la tarea {jobID} comprobando que es de la app {id}.
+// loadAppJob loads task {jobID}, checking that it belongs to app {id}.
 func (s *Server) loadAppJob(w http.ResponseWriter, r *http.Request) (*store.App, *store.AppJob, bool) {
 	a, ok := s.loadApp(w, r)
 	if !ok {
@@ -124,8 +124,8 @@ func (s *Server) handleDeleteAppJob(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleRunAppJob lanza la tarea ahora, sin esperar a su horario. Responde
-// enseguida: el resultado aparece en la tarea cuando termina.
+// handleRunAppJob runs the task now, without waiting for its schedule. It
+// answers right away: the result shows up on the task once it finishes.
 func (s *Server) handleRunAppJob(w http.ResponseWriter, r *http.Request) {
 	a, job, ok := s.loadAppJob(w, r)
 	if !ok {
@@ -135,7 +135,7 @@ func (s *Server) handleRunAppJob(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, errJobNotDeployed)
 		return
 	}
-	// Sigue aunque el navegador cierre la petición.
+	// Keeps going even if the browser closes the request.
 	go s.Apps.RunJob(context.WithoutCancel(r.Context()), job)
 	w.WriteHeader(http.StatusAccepted)
 }

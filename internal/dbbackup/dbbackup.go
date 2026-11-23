@@ -1,9 +1,9 @@
-// Package dbbackup hace copias de seguridad de las apps de bases de datos
-// (PostgreSQL, MySQL/MariaDB y Redis) y las restaura.
+// Package dbbackup backs up the database apps (PostgreSQL, MySQL/MariaDB and
+// Redis) and restores them.
 //
-// La copia se hace con la propia herramienta del motor dentro del
-// contenedor de la app (pg_dumpall, mysqldump, redis-cli), se comprime y se
-// sube al almacenamiento configurado (S3 o disco).
+// The backup is taken with the engine's own tool inside the app's container
+// (pg_dumpall, mysqldump, redis-cli), compressed and uploaded to the
+// configured storage (S3 or disk).
 package dbbackup
 
 import (
@@ -23,15 +23,15 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Motores soportados.
+// Supported engines.
 const (
 	Postgres = "postgres"
 	MySQL    = "mysql"
 	Redis    = "redis"
 )
 
-// Engine deduce el motor de la imagen de una app ("" si no es una base de
-// datos conocida).
+// Engine works out the engine from an app's image ("" if it is not a known
+// database).
 func Engine(image string) string {
 	name := strings.ToLower(image)
 	if i := strings.LastIndex(name, "@"); i >= 0 {
@@ -52,8 +52,8 @@ func Engine(image string) string {
 	return ""
 }
 
-// dumpCommand vuelca la base de datos entera a la salida estándar. Usa las
-// variables de entorno con las que la imagen oficial creó el usuario.
+// dumpCommand dumps the whole database to standard output. It uses the
+// environment variables the official image created the user with.
 func dumpCommand(engine string) []string {
 	switch engine {
 	case Postgres:
@@ -69,13 +69,13 @@ redis-cli ${REDIS_PASSWORD:+-a "$REDIS_PASSWORD" --no-auth-warning} --rdb "$F" >
 	return nil
 }
 
-// restoreCommand lee un volcado de la entrada estándar (nil si el motor no
-// se puede restaurar en caliente).
+// restoreCommand reads a dump from standard input (nil if the engine cannot
+// be restored while running).
 func restoreCommand(engine string) []string {
 	switch engine {
 	case Postgres:
-		// ON_ERROR_STOP=0: pg_dumpall --clean siempre intenta borrar y crear
-		// el rol con el que se conecta, y eso falla sin que importe.
+		// ON_ERROR_STOP=0: pg_dumpall --clean always tries to drop and create
+		// the role it connects with, and that fails harmlessly.
 		return []string{"sh", "-c", `exec psql -q -v ON_ERROR_STOP=0 -U "${POSTGRES_USER:-postgres}" -d postgres`}
 	case MySQL:
 		return []string{"sh", "-c", `C=mysql; command -v mariadb >/dev/null && C=mariadb
@@ -85,8 +85,8 @@ exec "$C" -uroot`}
 	return nil
 }
 
-// CanRestore indica si Dockfly sabe restaurar ese motor (Redis necesita
-// parar el servidor para cambiar su archivo: se restaura a mano).
+// CanRestore says whether Dockfly knows how to restore that engine (Redis
+// needs the server stopped to swap its file: it is restored by hand).
 func CanRestore(engine string) bool { return restoreCommand(engine) != nil }
 
 func extension(engine string) string {
@@ -99,22 +99,22 @@ func extension(engine string) string {
 type Manager struct {
 	Store  *store.Store
 	Docker *docker.Client
-	// DockerFor, si no es nil, da el Docker de cada app (las de servidores
-	// remotos van por el túnel de su agente).
+	// DockerFor, if not nil, gives the Docker of each app (the ones on remote
+	// servers go through their agent's tunnel).
 	DockerFor func(app *store.App) *docker.Client
-	// Storage da el almacenamiento configurado ahora mismo (puede cambiar).
+	// Storage gives the storage configured right now (it can change).
 	Storage func(ctx context.Context) (objstore.Store, error)
 	TmpDir  string
 	Log     *slog.Logger
-	// OnFinish, si no es nil, se llama al terminar cada copia (notificaciones).
+	// OnFinish, if not nil, is called when each backup finishes (notifications).
 	OnFinish func(ctx context.Context, app *store.App, b *store.DBBackup)
 
 	mu      sync.Mutex
-	running map[int64]bool // apps con una copia o restauración en marcha
+	running map[int64]bool // apps with a backup or a restore under way
 }
 
-// ErrBusy indica que la app ya tiene una copia o restauración en marcha.
-var ErrBusy = errors.New("ya hay una copia o una restauración en marcha para esta base de datos")
+// ErrBusy means the app already has a backup or a restore under way.
+var ErrBusy = errors.New("this database already has a backup or a restore under way")
 
 func (m *Manager) lock(appID int64) bool {
 	m.mu.Lock()
@@ -142,13 +142,13 @@ func (m *Manager) docker(app *store.App) *docker.Client {
 	return m.Docker
 }
 
-// container devuelve el contenedor en marcha de una app.
+// container returns an app's running container.
 func (m *Manager) container(ctx context.Context, app *store.App) (string, error) {
 	if app.Source == store.AppSourceCompose {
-		return "", errors.New("las copias automáticas son para apps desde una imagen (postgres, mysql, redis…)")
+		return "", errors.New("automatic backups are for apps from an image (postgres, mysql, redis…)")
 	}
 	if app.CurrentDeploymentID == nil || app.Stopped {
-		return "", errors.New("la base de datos no está en marcha")
+		return "", errors.New("the database is not running")
 	}
 	d, err := m.Store.GetAppDeployment(ctx, *app.CurrentDeploymentID)
 	if err != nil {
@@ -157,12 +157,12 @@ func (m *Manager) container(ctx context.Context, app *store.App) (string, error)
 	return d.Container, nil
 }
 
-// Start crea la copia y la hace en segundo plano. Devuelve el registro (en
-// estado running).
+// Start creates the backup and takes it in the background. It returns the
+// record (in the running state).
 func (m *Manager) Start(ctx context.Context, app *store.App, trigger string) (*store.DBBackup, error) {
 	engine := Engine(app.Image)
 	if engine == "" {
-		return nil, fmt.Errorf("%s no es una base de datos conocida (postgres, mysql, mariadb, redis)", app.Image)
+		return nil, fmt.Errorf("%s is not a known database (postgres, mysql, mariadb, redis)", app.Image)
 	}
 	if _, err := m.container(ctx, app); err != nil {
 		return nil, err
@@ -175,8 +175,8 @@ func (m *Manager) Start(ctx context.Context, app *store.App, trigger string) (*s
 		m.unlock(app.ID)
 		return nil, err
 	}
-	// La copia en marcha trabaja sobre su propio registro: el que se devuelve
-	// lo lee (y lo serializa) quien llamó, a la vez.
+	// The running backup works on its own copy of the record: the one returned
+	// is read (and serialized) by the caller at the same time.
 	work := *b
 	go func() {
 		defer m.unlock(app.ID)
@@ -191,12 +191,12 @@ func (m *Manager) run(ctx context.Context, app *store.App, b *store.DBBackup) {
 	err := m.backup(ctx, app, b)
 	if err != nil {
 		b.Status, b.Error = store.DBBackupFailed, err.Error()
-		m.Log.Warn("copia de la base de datos fallida", "app", app.Name, "error", err)
+		m.Log.Warn("database backup failed", "app", app.Name, "error", err)
 	} else {
 		b.Status = store.DBBackupSuccess
 	}
 	if err := m.Store.FinishDBBackup(ctx, b); err != nil {
-		m.Log.Error("guardando el resultado de la copia", "app", app.Name, "error", err)
+		m.Log.Error("saving the backup result", "app", app.Name, "error", err)
 	}
 	if b.Status == store.DBBackupSuccess {
 		m.prune(ctx, app)
@@ -206,7 +206,7 @@ func (m *Manager) run(ctx context.Context, app *store.App, b *store.DBBackup) {
 	}
 }
 
-// limitedBuffer guarda el principio de stderr para explicar un fallo.
+// limitedBuffer keeps the beginning of stderr to explain a failure.
 type limitedBuffer struct{ b strings.Builder }
 
 func (l *limitedBuffer) Write(p []byte) (int, error) {
@@ -225,8 +225,8 @@ func (m *Manager) backup(ctx context.Context, app *store.App, b *store.DBBackup)
 	if err != nil {
 		return err
 	}
-	// Se vuelca a un temporal comprimido: S3 necesita conocer el tamaño, y
-	// así una subida fallida no deja la base de datos bloqueada mientras tanto.
+	// It is dumped to a compressed temporary file: S3 needs to know the size,
+	// and this way a failed upload does not keep the database locked meanwhile.
 	if err := os.MkdirAll(m.TmpDir, 0o700); err != nil {
 		return err
 	}
@@ -241,10 +241,10 @@ func (m *Manager) backup(ctx context.Context, app *store.App, b *store.DBBackup)
 	var stderr limitedBuffer
 	code, err := m.docker(app).ExecStream(ctx, ctr, dumpCommand(b.Engine), nil, gz, &stderr)
 	if err != nil {
-		return fmt.Errorf("ejecutando el volcado: %w", err)
+		return fmt.Errorf("running the dump: %w", err)
 	}
 	if code != 0 {
-		return fmt.Errorf("el volcado terminó con código %d: %s", code, strings.TrimSpace(stderr.b.String()))
+		return fmt.Errorf("the dump exited with code %d: %s", code, strings.TrimSpace(stderr.b.String()))
 	}
 	if err := gz.Close(); err != nil {
 		return err
@@ -254,21 +254,21 @@ func (m *Manager) backup(ctx context.Context, app *store.App, b *store.DBBackup)
 		return err
 	}
 	if size < 64 {
-		return errors.New("el volcado está vacío")
+		return errors.New("the dump is empty")
 	}
 	if _, err := tmp.Seek(0, io.SeekStart); err != nil {
 		return err
 	}
-	// Con el ID: dos copias en el mismo segundo no se pisan.
+	// With the ID: two backups in the same second do not clobber each other.
 	key := fmt.Sprintf("%s/%s-%s-%d.%s", app.Name, app.Name, b.CreatedAt.UTC().Format("20060102-150405"), b.ID, extension(b.Engine))
 	if err := storage.Put(ctx, key, tmp, size); err != nil {
-		return fmt.Errorf("subiendo la copia a %s: %w", storage.Describe(), err)
+		return fmt.Errorf("uploading the backup to %s: %w", storage.Describe(), err)
 	}
 	b.Location, b.ObjectKey, b.Size = storage.Describe(), key, size
 	return nil
 }
 
-// prune borra las copias que sobran según la política.
+// prune deletes the backups left over by the policy.
 func (m *Manager) prune(ctx context.Context, app *store.App) {
 	p, err := m.Store.GetDBBackupPolicy(ctx, app.ID)
 	if err != nil || p.Keep < 1 {
@@ -287,10 +287,10 @@ func (m *Manager) prune(ctx context.Context, app *store.App) {
 			continue
 		}
 		if err := m.Delete(ctx, b); err != nil {
-			m.Log.Warn("borrando una copia antigua", "app", app.Name, "copia", b.ID, "error", err)
+			m.Log.Warn("deleting an old backup", "app", app.Name, "backup", b.ID, "error", err)
 		}
 	}
-	// Los fallos solo se guardan para verlos: bastan los 20 últimos.
+	// Failures are only kept to be looked at: the last 20 are enough.
 	failed := 0
 	for _, b := range list {
 		if b.Status == store.DBBackupFailed {
@@ -301,7 +301,7 @@ func (m *Manager) prune(ctx context.Context, app *store.App) {
 	}
 }
 
-// Delete borra una copia y su archivo.
+// Delete deletes a backup and its file.
 func (m *Manager) Delete(ctx context.Context, b *store.DBBackup) error {
 	if b.ObjectKey != "" {
 		storage, err := m.Storage(ctx)
@@ -317,40 +317,40 @@ func (m *Manager) Delete(ctx context.Context, b *store.DBBackup) error {
 	return m.Store.DeleteDBBackup(ctx, b.ID)
 }
 
-// Open abre una copia (comprimida) para descargarla.
+// Open opens a backup (still compressed) to download it.
 func (m *Manager) Open(ctx context.Context, b *store.DBBackup) (io.ReadCloser, error) {
 	if b.Status != store.DBBackupSuccess {
-		return nil, errors.New("esta copia no terminó bien")
+		return nil, errors.New("this backup did not finish successfully")
 	}
 	storage, err := m.Storage(ctx)
 	if err != nil {
 		return nil, err
 	}
 	if storage.Describe() != b.Location {
-		return nil, fmt.Errorf("la copia está en %s, que ya no es el almacenamiento configurado", b.Location)
+		return nil, fmt.Errorf("the backup is in %s, which is no longer the configured storage", b.Location)
 	}
 	return storage.Get(ctx, b.ObjectKey)
 }
 
-// Restore vuelca una copia en la base de datos de la app (sustituye sus
-// datos). Antes copia lo que hay, por si hubiera que volver atrás.
+// Restore loads a backup into the app's database (replacing its data). First
+// it backs up what is there, in case it has to be rolled back.
 func (m *Manager) Restore(ctx context.Context, app *store.App, b *store.DBBackup) error {
 	cmd := restoreCommand(b.Engine)
 	if cmd == nil {
-		return fmt.Errorf("las copias de %s se restauran a mano: descárgala y sigue la guía del motor", b.Engine)
+		return fmt.Errorf("%s backups are restored by hand: download it and follow the engine's guide", b.Engine)
 	}
 	if !m.lock(app.ID) {
 		return ErrBusy
 	}
 	defer m.unlock(app.ID)
-	// Una restauración cortada a medias deja la base de datos a medio
-	// escribir: no se cancela porque el navegador cierre la petición.
+	// A restore cut off halfway leaves the database half written: it is not
+	// canceled just because the browser closed the request.
 	ctx = context.WithoutCancel(ctx)
 	ctr, err := m.container(ctx, app)
 	if err != nil {
 		return err
 	}
-	// Sin prune: podría borrar la copia que se va a restaurar.
+	// No prune: it could delete the very backup about to be restored.
 	safety := &store.DBBackup{AppID: app.ID, Status: store.DBBackupRunning, Trigger: store.TriggerManual, Engine: b.Engine}
 	if err := m.Store.CreateDBBackup(ctx, safety); err != nil {
 		return err
@@ -358,7 +358,7 @@ func (m *Manager) Restore(ctx context.Context, app *store.App, b *store.DBBackup
 	if err := m.backup(ctx, app, safety); err != nil {
 		safety.Status, safety.Error = store.DBBackupFailed, err.Error()
 		_ = m.Store.FinishDBBackup(ctx, safety)
-		return fmt.Errorf("no se pudo copiar antes los datos actuales, así que no se restaura: %w", err)
+		return fmt.Errorf("the current data could not be backed up first, so nothing is restored: %w", err)
 	}
 	safety.Status = store.DBBackupSuccess
 	if err := m.Store.FinishDBBackup(ctx, safety); err != nil {
@@ -371,7 +371,7 @@ func (m *Manager) Restore(ctx context.Context, app *store.App, b *store.DBBackup
 	defer rc.Close()
 	gz, err := gzip.NewReader(rc)
 	if err != nil {
-		return fmt.Errorf("la copia está dañada: %w", err)
+		return fmt.Errorf("the backup is damaged: %w", err)
 	}
 	var stderr limitedBuffer
 	code, err := m.docker(app).ExecStream(ctx, ctr, cmd, gz, io.Discard, &stderr)
@@ -379,16 +379,16 @@ func (m *Manager) Restore(ctx context.Context, app *store.App, b *store.DBBackup
 		return err
 	}
 	if code != 0 {
-		return fmt.Errorf("la restauración terminó con código %d: %s", code, strings.TrimSpace(stderr.b.String()))
+		return fmt.Errorf("the restore exited with code %d: %s", code, strings.TrimSpace(stderr.b.String()))
 	}
 	return nil
 }
 
-// Run hace las copias programadas. Revisa cada minuto qué bases de datos
-// tocan.
+// Run takes the scheduled backups. Every minute it checks which databases
+// are due.
 func (m *Manager) Run(ctx context.Context) {
 	if err := m.Store.FailRunningDBBackups(ctx); err != nil {
-		m.Log.Error("revisando copias interrumpidas", "error", err)
+		m.Log.Error("checking interrupted backups", "error", err)
 	}
 	t := time.NewTicker(time.Minute)
 	defer t.Stop()
@@ -413,7 +413,7 @@ func (m *Manager) tick(ctx context.Context) {
 			continue
 		}
 		interval := time.Duration(max(p.IntervalHours, 1)) * time.Hour
-		// Tras un fallo se reintenta en una hora, no en el siguiente minuto.
+		// After a failure it retries in an hour, not on the next minute.
 		if last != nil && last.Status == store.DBBackupFailed {
 			interval = min(interval, time.Hour)
 		}
@@ -422,10 +422,10 @@ func (m *Manager) tick(ctx context.Context) {
 		}
 		app, err := m.Store.GetApp(ctx, p.AppID)
 		if err != nil || app.Stopped || app.CurrentDeploymentID == nil {
-			continue // parada: se copiará cuando vuelva a estar en marcha
+			continue // stopped: it will be backed up once it runs again
 		}
 		if _, err := m.Start(ctx, app, "schedule"); err != nil && !errors.Is(err, ErrBusy) {
-			m.Log.Warn("no se pudo empezar la copia programada", "app", app.Name, "error", err)
+			m.Log.Warn("could not start the scheduled backup", "app", app.Name, "error", err)
 		}
 	}
 }

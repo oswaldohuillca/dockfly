@@ -1,11 +1,11 @@
-// Package selfupdate actualiza Dockfly desde el panel.
+// Package selfupdate updates Dockfly from the panel.
 //
-// Un contenedor queda atado a la imagen con la que se creó: reiniciarlo tras
-// descargar la nueva no basta, hay que recrearlo. Dockfly no puede hacerlo él
-// mismo (al pararse se cortaría a medias), así que lanza un auxiliar de corta
-// vida con la imagen nueva ("dockfly self-update") que para el contenedor
-// actual, crea uno igual con la imagen nueva y, si no arranca sano, vuelve al
-// anterior.
+// A container is tied to the image it was created with: restarting it after
+// pulling the new image is not enough, it has to be recreated. Dockfly cannot
+// do that itself (it would cut itself off halfway when it stops), so it
+// launches a short-lived helper running the new image ("dockfly self-update")
+// that stops the current container, creates an identical one with the new
+// image and, if that does not come up healthy, rolls back to the old one.
 package selfupdate
 
 import (
@@ -28,48 +28,48 @@ import (
 	"github.com/dockfly/dockfly/internal/docker"
 )
 
-// Repo es el repositorio de GitHub de las releases.
+// Repo is the GitHub repository holding the releases.
 const Repo = "oswaldohuillca/dockfly"
 
-// helperName es el contenedor auxiliar de la actualización.
+// helperName is the update's helper container.
 const helperName = "dockfly-updater"
 
-// Por qué no se puede actualizar desde el panel (el panel lo traduce).
+// Why updating from the panel is not possible (the panel translates it).
 const (
-	ReasonNotInDocker = "not_in_docker" // desarrollo o binario suelto
-	ReasonDevVersion  = "dev_version"   // edge/dev: no hay con qué comparar
-	ReasonPinnedTag   = "pinned_tag"    // imagen con una etiqueta que no es una versión
-	ReasonNoSocket    = "no_socket"     // no se sabe cómo pasar Docker al auxiliar
+	ReasonNotInDocker = "not_in_docker" // development or a standalone binary
+	ReasonDevVersion  = "dev_version"   // edge/dev: nothing to compare against
+	ReasonPinnedTag   = "pinned_tag"    // image with a tag that is not a version
+	ReasonNoSocket    = "no_socket"     // no way to hand Docker to the helper
 )
 
-// Release es la última versión publicada.
+// Release is the latest published version.
 type Release struct {
 	Version string `json:"version"`
 	URL     string `json:"url"`
 	Notes   string `json:"notes"`
 }
 
-// Info es lo que ve el panel.
+// Info is what the panel sees.
 type Info struct {
 	Current   string   `json:"current"`
 	Latest    *Release `json:"latest"`
 	Available bool     `json:"available"`
 	CanUpdate bool     `json:"can_update"`
 	Reason    string   `json:"reason,omitempty"`
-	// State: "" (nada en marcha), backup, pulling, restarting, failed.
+	// State: "" (nothing in progress), backup, pulling, restarting, failed.
 	State string `json:"state"`
 	Error string `json:"error,omitempty"`
 }
 
 type Updater struct {
-	Docker  *docker.Client // nil sin Docker
+	Docker  *docker.Client // nil without Docker
 	DB      backup.Snapshotter
 	DataDir string
 	Version string
-	// Socket es DOCKFLY_DOCKER_SOCKET (ruta del socket o tcp://…).
+	// Socket is DOCKFLY_DOCKER_SOCKET (socket path or tcp://…).
 	Socket string
 	Log    *slog.Logger
-	// API es la base de la API de GitHub (los tests la cambian).
+	// API is the base of the GitHub API (the tests override it).
 	API string
 
 	mu       sync.Mutex
@@ -86,7 +86,7 @@ func (u *Updater) api() string {
 	return "https://api.github.com"
 }
 
-// Latest consulta la última release (con una hora de caché).
+// Latest queries the latest release (cached for an hour).
 func (u *Updater) Latest(ctx context.Context) (*Release, error) {
 	u.mu.Lock()
 	if u.latest != nil && time.Since(u.cachedAt) < time.Hour {
@@ -106,7 +106,7 @@ func (u *Updater) Latest(ctx context.Context) (*Release, error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("GitHub respondió %s", resp.Status)
+		return nil, fmt.Errorf("GitHub responded %s", resp.Status)
 	}
 	var rel struct {
 		Tag  string `json:"tag_name"`
@@ -123,7 +123,7 @@ func (u *Updater) Latest(ctx context.Context) (*Release, error) {
 	return r, nil
 }
 
-// semver lee "1.2.3" (o "v1.2.3"); ok=false si no es una versión.
+// semver parses "1.2.3" (or "v1.2.3"); ok=false if it is not a version.
 func semver(v string) (out [3]int, ok bool) {
 	parts := strings.Split(strings.TrimPrefix(v, "v"), ".")
 	if len(parts) != 3 {
@@ -139,7 +139,7 @@ func semver(v string) (out [3]int, ok bool) {
 	return out, true
 }
 
-// newer indica si latest es una versión posterior a current.
+// newer reports whether latest is a later version than current.
 func newer(current, latest string) bool {
 	c, ok1 := semver(current)
 	l, ok2 := semver(latest)
@@ -154,9 +154,9 @@ func newer(current, latest string) bool {
 	return false
 }
 
-// targetImage es la imagen a la que actualizar desde ref (la del contenedor
-// actual): con :latest, la misma (se vuelve a descargar); con una versión
-// (:0.3.0), la nueva versión. Otras etiquetas (:edge, un digest) no se tocan.
+// targetImage is the image to update to from ref (the current container's):
+// with :latest, the same one (it is pulled again); with a version (:0.3.0),
+// the new version. Other tags (:edge, a digest) are left alone.
 func targetImage(ref, version string) (string, bool) {
 	if strings.Contains(ref, "@") {
 		return "", false
@@ -174,7 +174,7 @@ func targetImage(ref, version string) (string, bool) {
 	return "", false
 }
 
-// plan decide si se puede actualizar y a qué imagen.
+// plan decides whether updating is possible and to which image.
 func (u *Updater) plan(ctx context.Context, latest *Release) (image, reason string, self *docker.ContainerJSON) {
 	if _, ok := semver(u.Version); !ok {
 		return "", ReasonDevVersion, nil
@@ -198,7 +198,7 @@ func (u *Updater) plan(ctx context.Context, latest *Release) (image, reason stri
 	return image, "", self
 }
 
-// socketSource es la ruta en el host del socket de Docker montado.
+// socketSource is the host path of the mounted Docker socket.
 func (u *Updater) socketSource(self *docker.ContainerJSON) string {
 	for _, m := range self.Mounts {
 		if m.Destination == u.Socket && m.Type == "bind" {
@@ -208,7 +208,7 @@ func (u *Updater) socketSource(self *docker.ContainerJSON) string {
 	return ""
 }
 
-// Info resume el estado para el panel.
+// Info summarizes the state for the panel.
 func (u *Updater) Info(ctx context.Context) Info {
 	info := Info{Current: u.Version}
 	u.mu.Lock()
@@ -218,7 +218,7 @@ func (u *Updater) Info(ctx context.Context) Info {
 	if err != nil {
 		info.Reason = ReasonNotInDocker
 		if info.Error == "" {
-			info.Error = "no se pudo consultar la última versión: " + err.Error()
+			info.Error = "could not check the latest version: " + err.Error()
 		}
 		return info
 	}
@@ -235,22 +235,22 @@ func (u *Updater) setState(state, err string) {
 	u.mu.Unlock()
 }
 
-// ErrBusy: ya hay una actualización en marcha.
-var ErrBusy = errors.New("ya hay una actualización en marcha")
+// ErrBusy: an update is already in progress.
+var ErrBusy = errors.New("an update is already in progress")
 
-// Start hace una copia de /data, descarga la imagen nueva y lanza el
-// auxiliar, en segundo plano. El panel sigue el progreso con Info.
+// Start backs up /data, pulls the new image and launches the helper, all in
+// the background. The panel follows the progress with Info.
 func (u *Updater) Start(ctx context.Context) error {
 	latest, err := u.Latest(ctx)
 	if err != nil {
 		return err
 	}
 	if !newer(u.Version, latest.Version) {
-		return fmt.Errorf("ya tienes la última versión (%s)", u.Version)
+		return fmt.Errorf("you already have the latest version (%s)", u.Version)
 	}
 	image, reason, self := u.plan(ctx, latest)
 	if reason != "" {
-		return fmt.Errorf("no se puede actualizar desde el panel (%s)", reason)
+		return fmt.Errorf("updating from the panel is not possible (%s)", reason)
 	}
 	u.mu.Lock()
 	if u.state != "" && u.state != "failed" {
@@ -264,7 +264,7 @@ func (u *Updater) Start(ctx context.Context) error {
 		bg, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Minute)
 		defer cancel()
 		if err := u.run(bg, self, image); err != nil {
-			u.Log.Error("actualizando Dockfly", "error", err)
+			u.Log.Error("updating Dockfly", "error", err)
 			u.setState("failed", err.Error())
 		}
 	}()
@@ -272,8 +272,8 @@ func (u *Updater) Start(ctx context.Context) error {
 }
 
 func (u *Updater) run(ctx context.Context, self *docker.ContainerJSON, image string) error {
-	// Copia de /data por si hubiera que volver atrás a mano (las migraciones
-	// de la versión nueva no se deshacen solas). Solo se guarda la última.
+	// Backup of /data in case it has to be rolled back by hand (the new
+	// version's migrations do not undo themselves). Only the last one is kept.
 	path := filepath.Join(u.DataDir, "pre-update.tar.gz")
 	tmp := path + ".tmp"
 	f, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
@@ -286,7 +286,7 @@ func (u *Updater) run(ctx context.Context, self *docker.ContainerJSON, image str
 	}
 	if err != nil {
 		os.Remove(tmp)
-		return fmt.Errorf("copia de seguridad: %w", err)
+		return fmt.Errorf("backup: %w", err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
 		return err
@@ -294,7 +294,7 @@ func (u *Updater) run(ctx context.Context, self *docker.ContainerJSON, image str
 
 	u.setState("pulling", "")
 	if err := u.Docker.PullImage(ctx, image, io.Discard); err != nil {
-		return fmt.Errorf("descargando %s: %w", image, err)
+		return fmt.Errorf("pulling %s: %w", image, err)
 	}
 
 	u.setState("restarting", "")
@@ -303,7 +303,7 @@ func (u *Updater) run(ctx context.Context, self *docker.ContainerJSON, image str
 		Labels: map[string]string{"dockfly.role": "updater"}, NoHealthcheck: true,
 	}
 	if strings.HasPrefix(u.Socket, "tcp://") {
-		// Detrás de un proxy del socket: el auxiliar llega por la misma red.
+		// Behind a socket proxy: the helper reaches it over the same network.
 		spec.Env = []string{"DOCKFLY_DOCKER_SOCKET=" + u.Socket}
 		for name := range self.NetworkSettings.Networks {
 			spec.Network = name
@@ -318,27 +318,27 @@ func (u *Updater) run(ctx context.Context, self *docker.ContainerJSON, image str
 	}
 	id, err := u.Docker.CreateContainer(ctx, spec)
 	if err != nil {
-		return fmt.Errorf("creando el auxiliar: %w", err)
+		return fmt.Errorf("creating the helper: %w", err)
 	}
 	if err := u.Docker.StartContainer(ctx, id); err != nil {
-		return fmt.Errorf("iniciando el auxiliar: %w", err)
+		return fmt.Errorf("starting the helper: %w", err)
 	}
-	return nil // el auxiliar parará este contenedor en unos segundos
+	return nil // the helper will stop this container in a few seconds
 }
 
-// Cleanup, al arrancar, borra el auxiliar de una actualización anterior
-// cuando termina (quien arranca es justo el contenedor que él creó o volvió
-// a arrancar, así que puede seguir vivo unos segundos). Si esa actualización
-// falló y volvió a la versión anterior, deja el motivo para el panel.
+// Cleanup, on startup, removes the helper of a previous update once it
+// finishes (the container starting up is precisely the one the helper created
+// or restarted, so the helper may still be alive for a few seconds). If that
+// update failed and rolled back, it leaves the reason for the panel.
 func (u *Updater) Cleanup(ctx context.Context) {
 	if u.Docker == nil {
 		return
 	}
 	var info *docker.ContainerJSON
-	for range 150 { // hasta 5 minutos
+	for range 150 { // up to 5 minutes
 		var err error
 		if info, err = u.Docker.Inspect(ctx, helperName); err != nil {
-			return // no hay auxiliar
+			return // there is no helper
 		}
 		if !info.State.Running {
 			break
@@ -353,7 +353,7 @@ func (u *Updater) Cleanup(ctx context.Context) {
 		return
 	}
 	if info.State.ExitCode != 0 {
-		msg := "la actualización falló y se volvió a la versión anterior"
+		msg := "the update failed and rolled back to the previous version"
 		if logs, err := u.Docker.Logs(ctx, helperName); err == nil {
 			var out strings.Builder
 			_ = docker.Demux(io.LimitReader(logs, 1<<20), &out)
@@ -378,47 +378,47 @@ func lastLine(s string) string {
 	return last
 }
 
-// Helper es el auxiliar ("dockfly self-update <contenedor> <imagen>"): para
-// el contenedor de Dockfly, crea uno igual con la imagen nueva y espera a
-// que esté sano. Si algo falla, vuelve al anterior.
+// Helper is the helper itself ("dockfly self-update <container> <image>"):
+// it stops the Dockfly container, creates an identical one with the new
+// image and waits for it to be healthy. If anything fails, it rolls back.
 func Helper(ctx context.Context, dc *docker.Client, target, image string, log *slog.Logger) error {
 	old, err := dc.Inspect(ctx, target)
 	if err != nil {
 		return err
 	}
 	name := strings.TrimPrefix(old.Name, "/")
-	// Que el panel tenga tiempo de responder antes de pararlo.
+	// Give the panel time to answer before stopping it.
 	time.Sleep(3 * time.Second)
-	log.Info("parando Dockfly", "contenedor", name)
+	log.Info("stopping Dockfly", "container", name)
 	if err := dc.StopContainer(ctx, old.ID, 30*time.Second); err != nil {
-		return fmt.Errorf("parando %s: %w", name, err)
+		return fmt.Errorf("stopping %s: %w", name, err)
 	}
 	if err := dc.RenameContainer(ctx, old.ID, name+"-pre-update"); err != nil {
 		_ = dc.StartContainer(ctx, old.ID)
-		return fmt.Errorf("renombrando %s: %w", name, err)
+		return fmt.Errorf("renaming %s: %w", name, err)
 	}
 	var newID string
 	rollback := func(cause error) error {
-		log.Error("la versión nueva no arrancó bien: se vuelve a la anterior", "error", cause)
+		log.Error("the new version did not start properly: rolling back to the previous one", "error", cause)
 		if newID != "" {
 			_ = dc.RemoveContainerKeepVolumes(ctx, newID)
 		}
 		_ = dc.RenameContainer(ctx, old.ID, name)
 		if err := dc.StartContainer(ctx, old.ID); err != nil {
-			return fmt.Errorf("%v; y no se pudo volver a arrancar la versión anterior: %w", cause, err)
+			return fmt.Errorf("%v; and the previous version could not be started again: %w", cause, err)
 		}
 		return cause
 	}
-	log.Info("creando Dockfly con la imagen nueva", "imagen", image)
+	log.Info("creating Dockfly with the new image", "image", image)
 	if newID, err = dc.Clone(ctx, old, name, image); err != nil {
-		return rollback(fmt.Errorf("creando el contenedor nuevo: %w", err))
+		return rollback(fmt.Errorf("creating the new container: %w", err))
 	}
 	if err := dc.StartContainer(ctx, newID); err != nil {
-		return rollback(fmt.Errorf("arrancando el contenedor nuevo: %w", err))
+		return rollback(fmt.Errorf("starting the new container: %w", err))
 	}
 	if err := dc.WaitHealthy(ctx, newID, 3*time.Minute); err != nil {
-		return rollback(fmt.Errorf("la versión nueva %w", err))
+		return rollback(fmt.Errorf("the new version failed: %w", err))
 	}
-	log.Info("Dockfly actualizado", "imagen", image)
+	log.Info("Dockfly updated", "image", image)
 	return dc.RemoveContainerKeepVolumes(ctx, old.ID)
 }

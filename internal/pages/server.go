@@ -12,22 +12,22 @@ import (
 	"sync/atomic"
 )
 
-// Route indica qué despliegue sirve un dominio.
+// Route tells which deployment serves a domain.
 type Route struct {
-	Dir          string // vacío si el sitio aún no tiene despliegues
+	Dir          string // empty if the site has no deployments yet
 	DeploymentID int64
 	SPA          bool
 }
 
-// Server sirve los sitios estáticos. Traefik le reenvía el tráfico de los
-// dominios de cada sitio; el sitio se elige por la cabecera Host.
+// Server serves the static sites. Traefik forwards it the traffic of each
+// site's domains; the site is picked from the Host header.
 type Server struct {
 	routes atomic.Pointer[map[string]Route]
 }
 
-// SetRoutes reemplaza la tabla de dominios de forma atómica: las peticiones
-// en curso terminan con la tabla anterior y las nuevas usan la nueva, así
-// que publicar o hacer rollback no corta ninguna petición.
+// SetRoutes replaces the domain table atomically: in-flight requests finish
+// with the previous table and new ones use the new one, so publishing or
+// rolling back never cuts off a request.
 func (s *Server) SetRoutes(routes map[string]Route) {
 	s.routes.Store(&routes)
 }
@@ -44,8 +44,8 @@ func (s *Server) lookup(host string) (Route, bool) {
 	if r, ok := (*table)[host]; ok {
 		return r, true
 	}
-	// Un dominio comodín (*.ejemplo.com) cubre un solo nivel, como en Traefik
-	// y en los certificados; el dominio exacto de otro sitio va antes.
+	// A wildcard domain (*.example.com) covers a single level, as in Traefik
+	// and in the certificates; another site's exact domain comes first.
 	if _, parent, ok := strings.Cut(host, "."); ok && strings.Contains(parent, ".") {
 		r, ok := (*table)["*."+parent]
 		return r, ok
@@ -56,7 +56,7 @@ func (s *Server) lookup(host string) (Route, bool) {
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet && r.Method != http.MethodHead {
 		w.Header().Set("Allow", "GET, HEAD")
-		http.Error(w, "método no permitido", http.StatusMethodNotAllowed)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 	route, ok := s.lookup(r.Host)
@@ -70,8 +70,8 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	root, err := os.OpenRoot(route.Dir)
 	if err != nil {
-		// El despliegue pudo borrarse justo después de leer la tabla.
-		http.Error(w, "despliegue no disponible", http.StatusServiceUnavailable)
+		// The deployment may have been deleted right after reading the table.
+		http.Error(w, "deployment unavailable", http.StatusServiceUnavailable)
 		return
 	}
 	defer root.Close()
@@ -80,12 +80,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	rules := loadRules(route.Dir)
 	urlPath := path.Clean("/" + r.URL.Path)
 
-	// Primero, si la ruta es un archivo real (sin el respaldo del modo SPA).
+	// First, whether the path is a real file (without the SPA mode fallback).
 	name, status := resolve(root, urlPath, false)
 	target := urlPath
 	if to, code, ok := rules.Match(urlPath); ok {
 		if code != http.StatusOK {
-			// Las redirecciones se aplican antes que los archivos.
+			// Redirects are applied before files.
 			if !strings.Contains(to, "?") && r.URL.RawQuery != "" {
 				to += "?" + r.URL.RawQuery
 			}
@@ -93,7 +93,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, to, code)
 			return
 		}
-		// Una reescritura solo actúa si la ruta no es ya un archivo.
+		// A rewrite only kicks in if the path is not already a file.
 		target = to
 	}
 	if status != http.StatusOK {
@@ -107,12 +107,12 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	serveFile(w, r, root, name, status, route.DeploymentID, func(h http.Header) { rules.ApplyHeaders(h, urlPath) })
 }
 
-// resolve traduce una ruta URL al archivo que hay que servir, con la misma
-// convención que Cloudflare Pages:
+// resolve maps a URL path to the file to serve, with the same convention as
+// Cloudflare Pages:
 //
 //	/            → index.html
-//	/about       → about, about.html o about/index.html
-//	inexistente  → index.html (modo SPA), 404.html o 404 vacío
+//	/about       → about, about.html or about/index.html
+//	nonexistent  → index.html (SPA mode), 404.html or an empty 404
 func resolve(root *os.Root, urlPath string, spa bool) (name string, status int) {
 	p := strings.TrimPrefix(path.Clean("/"+urlPath), "/")
 	if hidden(p) {
@@ -143,9 +143,9 @@ func notFoundFile(root *os.Root, spa bool) (string, int) {
 	return "", http.StatusNotFound
 }
 
-// hidden oculta los archivos que empiezan por punto (.env, .htaccess…),
-// salvo .well-known (verificaciones de dominio), y los de configuración del
-// sitio (_redirects, _headers).
+// hidden hides the files starting with a dot (.env, .htaccess…), except
+// .well-known (domain verifications), and the site's configuration files
+// (_redirects, _headers).
 func hidden(p string) bool {
 	if p == redirectsFile || p == headersFile {
 		return true
@@ -163,34 +163,34 @@ func isFile(root *os.Root, name string) bool {
 	return err == nil && fi.Mode().IsRegular()
 }
 
-// serveFile sirve name. extra aplica las cabeceras de _headers, después de
-// las de Dockfly para que el sitio pueda sobrescribirlas (p. ej. Cache-Control).
+// serveFile serves name. extra applies the headers from _headers, after
+// Dockfly's own so the site can override them (e.g. Cache-Control).
 func serveFile(w http.ResponseWriter, r *http.Request, root *os.Root, name string, status int, deploymentID int64, extra func(http.Header)) {
 	f, err := root.Open(name)
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) {
 			http.NotFound(w, r)
 		} else {
-			http.Error(w, "error leyendo el archivo", http.StatusInternalServerError)
+			http.Error(w, "error reading the file", http.StatusInternalServerError)
 		}
 		return
 	}
 	defer f.Close()
 	fi, err := f.Stat()
 	if err != nil {
-		http.Error(w, "error leyendo el archivo", http.StatusInternalServerError)
+		http.Error(w, "error reading the file", http.StatusInternalServerError)
 		return
 	}
 
-	// Como en Pages: el navegador puede guardar los archivos, pero debe
-	// revalidarlos. El ETag incluye el despliegue, así que tras publicar o
-	// hacer rollback el navegador descarga la versión correcta.
+	// As in Pages: the browser may store the files, but it must revalidate
+	// them. The ETag includes the deployment, so after publishing or rolling
+	// back the browser downloads the right version.
 	w.Header().Set("Cache-Control", "public, max-age=0, must-revalidate")
 	w.Header().Set("ETag", fmt.Sprintf(`"%d-%x-%x"`, deploymentID, fi.Size(), fi.ModTime().UnixNano()))
 	extra(w.Header())
 
 	if status != http.StatusOK {
-		// ServeContent siempre responde 200; para 404.html escribimos a mano.
+		// ServeContent always answers 200; for 404.html we write it by hand.
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(status)
 		if r.Method != http.MethodHead {
@@ -205,7 +205,7 @@ func placeholder(w http.ResponseWriter) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusNotFound)
-	fmt.Fprint(w, `<!doctype html><meta charset="utf-8"><title>Sitio sin desplegar</title>
+	fmt.Fprint(w, `<!doctype html><meta charset="utf-8"><title>Site not deployed</title>
 <style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;color:#555}</style>
-<div><h1>Este sitio todavía no tiene despliegues</h1><p>Sube los archivos desde el panel de Dockfly.</p></div>`)
+<div><h1>This site has no deployments yet</h1><p>Upload the files from the Dockfly panel.</p></div>`)
 }

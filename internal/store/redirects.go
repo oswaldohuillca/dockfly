@@ -5,13 +5,13 @@ import (
 	"time"
 )
 
-// RedirectHost envía uno o varios dominios a otra URL.
+// RedirectHost sends one or more domains to another URL.
 type RedirectHost struct {
 	ID           int64     `bun:",pk,autoincrement" json:"id"`
 	Domains      []string  `json:"domains"`
 	Target       string    `json:"target"`
-	Permanent    bool      `json:"permanent"`     // 301; si no, 302
-	PreservePath bool      `json:"preserve_path"` // viejo.com/x → nuevo.com/x
+	Permanent    bool      `json:"permanent"`     // 301; otherwise 302
+	PreservePath bool      `json:"preserve_path"` // old.com/x → new.com/x
 	SSL          bool      `bun:"ssl" json:"ssl"`
 	Enabled      bool      `json:"enabled"`
 	CreatedAt    time.Time `json:"created_at"`

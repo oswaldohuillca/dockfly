@@ -51,7 +51,7 @@ export function Integrations() {
   );
 }
 
-/** Lista de cuentas conectadas. */
+/** The list of connected accounts. */
 function ConnectionList({ items, onRemove }: { items: GitConnection[]; onRemove: (c: GitConnection) => void }) {
   const { t } = useLingui();
   if (items.length === 0) return null;
@@ -93,7 +93,7 @@ function ConnectionList({ items, onRemove }: { items: GitConnection[]; onRemove:
   );
 }
 
-/** Ejecuta un flujo en la ventana emergente y avisa del resultado. */
+/** Runs a flow in the popup window and reports the result. */
 async function runPopup(popup: Window | null, onChange: () => void) {
   const res = await waitForPopup(popup);
   if (res.ok) toast.success(res.message);
@@ -118,7 +118,7 @@ function GitHubCard({ apps, connections, hasPublicURL, onChange, onRemove }: Git
   const [enterprise, setEnterprise] = useState('');
 
   async function connect() {
-    const popup = openPopup(); // antes de cualquier await, o el navegador la bloquea
+    const popup = openPopup(); // before any await, or the browser blocks it
     try {
       const res = await api.startGitHubManifest({ panel_url: location.origin, organization: org, enterprise_url: enterprise });
       postTo(popup, res.action, { manifest: res.manifest });
@@ -451,7 +451,7 @@ function CopyField({ value }: { value: string }) {
   );
 }
 
-/** Tokens de acceso personal: opción avanzada. */
+/** Personal access tokens: the advanced option. */
 function TokenCard({ connections, onChange, onRemove }: { connections: GitConnection[]; onChange: () => void; onRemove: (c: GitConnection) => void }) {
   const [open, setOpen] = useState(connections.length > 0);
   const [adding, setAdding] = useState<GitProvider | null>(null);

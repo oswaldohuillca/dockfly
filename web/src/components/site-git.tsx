@@ -21,11 +21,11 @@ import { useCan } from '@/lib/roles';
 
 interface Props {
   site: Site;
-  /** Recarga el sitio (tras enlazar, o cuando un build publica). */
+  /** Reloads the site (after linking, or when a build publishes). */
   onChange: () => void;
 }
 
-/** Tarjeta del repositorio enlazado y sus builds. */
+/** Card for the linked repository and its builds. */
 export function SiteGit({ site, onChange }: Props) {
   const { t } = useLingui();
   const [configuring, setConfiguring] = useState(false);
@@ -55,12 +55,12 @@ export function SiteGit({ site, onChange }: Props) {
     api
       .listConnections()
       .then((list) => setConn(list.find((c) => c.id === site.git_connection_id) ?? null))
-      .catch(() => {}); // solo es el icono del proveedor
+      .catch(() => {}); // it is only the provider's icon
   }, [site.git_connection_id]);
 
-  // Refrescamos la lista periódicamente: los builds que dispara un push
-  // llegan por webhook, sin pasar por esta página. Más a menudo si hay uno en
-  // marcha. Al terminar un build recargamos el sitio: hay un despliegue nuevo.
+  // We refresh the list periodically: the builds a push triggers arrive over a
+  // webhook, without going through this page. More often while one is running.
+  // When a build finishes we reload the site, since there is a new deployment.
   const active = builds.some((b) => !buildFinished(b));
   useEffect(() => {
     if (!linked) return;

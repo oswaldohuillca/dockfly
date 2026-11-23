@@ -1,7 +1,7 @@
 CREATE TABLE redirect_hosts (
 	id            INTEGER PRIMARY KEY AUTOINCREMENT,
 	domains       TEXT NOT NULL,
-	target        TEXT NOT NULL, -- https://nuevo.com o https://nuevo.com/landing
+	target        TEXT NOT NULL, -- https://new.com or https://new.com/landing
 	permanent     BOOLEAN NOT NULL DEFAULT TRUE,
 	preserve_path BOOLEAN NOT NULL DEFAULT TRUE,
 	ssl           BOOLEAN NOT NULL DEFAULT FALSE,

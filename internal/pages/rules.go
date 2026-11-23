@@ -11,14 +11,14 @@ import (
 	"sync"
 )
 
-// Archivos de configuración de un sitio, como en Cloudflare Pages y Netlify.
+// A site's configuration files, as in Cloudflare Pages and Netlify.
 const (
 	redirectsFile = "_redirects"
 	headersFile   = "_headers"
 	maxRules      = 2000
 )
 
-// Rules son las redirecciones y cabeceras de un despliegue.
+// Rules are a deployment's redirects and headers.
 type Rules struct {
 	Redirects []RedirectRule
 	Headers   []HeaderRule
@@ -28,7 +28,7 @@ type RedirectRule struct {
 	from   *regexp.Regexp
 	names  []string
 	To     string
-	Status int // 200 = reescritura (sirve otro archivo sin cambiar la URL)
+	Status int // 200 = rewrite (serves another file without changing the URL)
 }
 
 type HeaderRule struct {
@@ -37,8 +37,8 @@ type HeaderRule struct {
 	Remove []string
 }
 
-// pattern convierte "/blog/:slug/*" en una expresión regular anclada que
-// captura los parámetros (:slug) y el comodín (:splat).
+// pattern turns "/blog/:slug/*" into an anchored regular expression that
+// captures the parameters (:slug) and the wildcard (:splat).
 func pattern(p string) (*regexp.Regexp, []string) {
 	var b strings.Builder
 	var names []string
@@ -68,7 +68,7 @@ func isNameChar(c byte) bool {
 	return c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
 }
 
-// ParseRedirects lee un _redirects: "origen destino [código]" por línea.
+// ParseRedirects reads a _redirects file: "from to [code]" per line.
 func ParseRedirects(r io.Reader) []RedirectRule {
 	var out []RedirectRule
 	sc := bufio.NewScanner(r)
@@ -81,7 +81,7 @@ func ParseRedirects(r io.Reader) []RedirectRule {
 		if len(f) < 2 || !strings.HasPrefix(f[0], "/") {
 			continue
 		}
-		status := http.StatusFound // como en Cloudflare Pages: 302 por defecto
+		status := http.StatusFound // as in Cloudflare Pages: 302 by default
 		if len(f) >= 3 {
 			n, err := strconv.Atoi(strings.TrimSuffix(f[2], "!"))
 			if err != nil {
@@ -94,12 +94,12 @@ func ParseRedirects(r io.Reader) []RedirectRule {
 		default:
 			continue
 		}
-		// Destinos protocolo-relativos ("//host") o con "\" los tratan algunos
-		// navegadores como externos → redirección abierta. Se rechazan.
+		// Some browsers treat protocol-relative targets ("//host") or ones with
+		// "\" as external → open redirect. They are rejected.
 		if strings.ContainsRune(f[1], '\\') || strings.HasPrefix(f[1], "//") {
 			continue
 		}
-		// Una reescritura solo puede apuntar a otra ruta del propio sitio.
+		// A rewrite can only point at another path of the site itself.
 		if status == 200 && !strings.HasPrefix(f[1], "/") {
 			continue
 		}
@@ -109,9 +109,9 @@ func ParseRedirects(r io.Reader) []RedirectRule {
 	return out
 }
 
-// ParseHeaders lee un _headers: una ruta y, sangradas debajo, sus cabeceras
-// ("Nombre: valor", o "! Nombre" para quitarla).
-// forbiddenHeader son cabeceras que un _headers no puede fijar.
+// ParseHeaders reads a _headers file: a path and, indented below it, its
+// headers ("Name: value", or "! Name" to remove one).
+// forbiddenHeader lists the headers a _headers file cannot set.
 var forbiddenHeader = map[string]bool{"Set-Cookie": true}
 
 func ParseHeaders(r io.Reader) []HeaderRule {
@@ -144,8 +144,8 @@ func ParseHeaders(r io.Reader) []HeaderRule {
 		}
 		if name, value, ok := strings.Cut(line, ":"); ok {
 			key := http.CanonicalHeaderKey(strings.TrimSpace(name))
-			// Set-Cookie permitiría plantar cookies en el dominio padre
-			// (cookie tossing contra el panel si comparten dominio).
+			// Set-Cookie would allow planting cookies on the parent domain
+			// (cookie tossing against the panel if they share a domain).
 			if key != "" && !forbiddenHeader[key] {
 				cur.Set[key] = strings.TrimSpace(value)
 			}
@@ -154,8 +154,8 @@ func ParseHeaders(r io.Reader) []HeaderRule {
 	return out
 }
 
-// Match busca la primera redirección que coincide con path y devuelve el
-// destino con los parámetros sustituidos.
+// Match looks for the first redirect matching path and returns its target
+// with the parameters substituted.
 func (r *Rules) Match(path string) (to string, status int, ok bool) {
 	for _, rule := range r.Redirects {
 		m := rule.from.FindStringSubmatch(path)
@@ -171,7 +171,7 @@ func (r *Rules) Match(path string) (to string, status int, ok bool) {
 	return "", 0, false
 }
 
-// ApplyHeaders añade (o quita) las cabeceras de las reglas que coinciden.
+// ApplyHeaders adds (or removes) the headers of the rules that match.
 func (r *Rules) ApplyHeaders(h http.Header, path string) {
 	for _, rule := range r.Headers {
 		if !rule.from.MatchString(path) {
@@ -186,8 +186,8 @@ func (r *Rules) ApplyHeaders(h http.Header, path string) {
 	}
 }
 
-// rulesCache guarda las reglas de cada despliegue: son inmutables, así que
-// se leen una sola vez.
+// rulesCache keeps each deployment's rules: they are immutable, so they are
+// read only once.
 var rulesCache sync.Map // dir → *Rules
 
 func loadRules(dir string) *Rules {

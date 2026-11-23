@@ -10,16 +10,16 @@ import (
 	"testing"
 )
 
-var update = flag.Bool("update", false, "regenera web/src/lib/api-errors.gen.ts")
+var update = flag.Bool("update", false, "regenerate web/src/lib/api-errors.gen.ts")
 
 const errorsTSPath = "../../web/src/lib/api-errors.gen.ts"
 
-// errorsTS genera el catálogo de errores del frontend: un mensaje de Lingui
-// por código (el contexto evita que dos códigos con el mismo texto inglés
-// compartan traducción).
+// errorsTS generates the frontend's error catalog: one Lingui message per
+// code (the context keeps two codes with the same English text from sharing
+// a translation).
 func errorsTS() []byte {
 	var b bytes.Buffer
-	b.WriteString("// Generado desde internal/api/errors.go: no editar a mano.\n")
+	b.WriteString("// Generated from internal/api/errors.go: do not edit by hand.\n")
 	b.WriteString("// go test ./internal/api -run TestAPIErrorsTS -update\n")
 	b.WriteString("import type { MessageDescriptor } from '@lingui/core';\n")
 	b.WriteString("import { msg } from '@lingui/core/macro';\n\n")
@@ -32,7 +32,7 @@ func errorsTS() []byte {
 	return b.Bytes()
 }
 
-// El catálogo del frontend debe estar al día con los códigos del backend.
+// The frontend catalog must be up to date with the backend's codes.
 func TestAPIErrorsTS(t *testing.T) {
 	want := errorsTS()
 	if *update {
@@ -43,6 +43,6 @@ func TestAPIErrorsTS(t *testing.T) {
 	}
 	got, err := os.ReadFile(filepath.FromSlash(errorsTSPath))
 	if err != nil || !bytes.Equal(got, want) {
-		t.Fatalf("%s no está al día: ejecuta go test ./internal/api -run TestAPIErrorsTS -update", errorsTSPath)
+		t.Fatalf("%s is out of date: run go test ./internal/api -run TestAPIErrorsTS -update", errorsTSPath)
 	}
 }

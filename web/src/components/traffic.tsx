@@ -21,7 +21,7 @@ import {
 import { currentLocale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 
-/** Número abreviado (1,2 k…) en el idioma activo. */
+/** An abbreviated number (1.2 k…) in the active language. */
 export function compactNumber(n: number): string {
   return new Intl.NumberFormat(currentLocale(), {
     notation: "compact",
@@ -51,7 +51,7 @@ function pointLabel(p: TrafficPoint, range: TrafficRange) {
     : time;
 }
 
-/** Peticiones (barras por estado) y latencia p95 de un proxy host, sitio o app. */
+/** Requests (bars by status) and p95 latency of a proxy host, site or app. */
 export function TrafficCard({
   owner,
   bare,
@@ -354,7 +354,7 @@ function LatencyChart({
   );
 }
 
-/** Minigráfica de las peticiones por hora de las últimas 24 h. */
+/** Sparkline of the requests per hour over the last 24 h. */
 export function Sparkline({
   values,
   className,
@@ -385,7 +385,7 @@ export function Sparkline({
   );
 }
 
-/** Resumen de tráfico de todas las rutas (se refresca cada minuto). */
+/** Traffic summary for every route (refreshed every minute). */
 export function useTrafficSummary() {
   const [summary, setSummary] = useState<
     Awaited<ReturnType<typeof api.trafficSummary>>

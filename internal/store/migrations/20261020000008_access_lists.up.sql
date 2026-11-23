@@ -1,4 +1,4 @@
--- Listas de acceso: usuario/contraseña y/o IPs permitidas.
+-- Access lists: username/password and/or allowed IPs.
 CREATE TABLE access_lists (
 	id         INTEGER PRIMARY KEY AUTOINCREMENT,
 	name       TEXT NOT NULL,

@@ -13,7 +13,7 @@ import { formatDate } from '@/lib/format';
 interface Props {
   build: Build;
   onClose: () => void;
-  /** Se llama cuando el build cambia de estado (p. ej. termina). */
+  /** Called when the build changes state (when it finishes, for instance). */
   onChange: () => void;
 }
 

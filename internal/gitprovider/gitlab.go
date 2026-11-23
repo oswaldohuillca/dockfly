@@ -13,7 +13,7 @@ import (
 
 type gitlab struct{ *client }
 
-// project codifica la ruta "grupo/proyecto" como ID de proyecto ("grupo%2Fproyecto").
+// project encodes the path "group/project" as a project ID ("group%2Fproject").
 func project(repo string) string { return url.PathEscape(repo) }
 
 func (g *gitlab) CurrentUser(ctx context.Context) (string, error) {
@@ -115,8 +115,8 @@ func (g *gitlab) DeleteWebhook(ctx context.Context, repo, id string) error {
 	return err
 }
 
-// ParseGitLabWebhook verifica el token secreto y extrae el push. Como en
-// GitHub, ok=false indica un evento que hay que ignorar.
+// ParseGitLabWebhook verifies the secret token and extracts the push. As with
+// GitHub, ok=false marks an event that should be ignored.
 func ParseGitLabWebhook(h http.Header, body []byte, secret string) (push Push, ok bool, err error) {
 	token := h.Get("X-Gitlab-Token")
 	if secret == "" || subtle.ConstantTimeCompare([]byte(token), []byte(secret)) != 1 {
@@ -140,7 +140,7 @@ func ParseGitLabWebhook(h http.Header, body []byte, secret string) (push Push, o
 	if !isBranch {
 		return Push{}, false, nil
 	}
-	// checkout_sha es null cuando se borra la rama.
+	// checkout_sha is null when the branch is deleted.
 	if p.CheckoutSHA == nil || *p.CheckoutSHA == "" {
 		return Push{Branch: branch, Deleted: true}, true, nil
 	}

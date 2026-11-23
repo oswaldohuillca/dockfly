@@ -7,7 +7,7 @@ import { UserContext } from '@/lib/roles';
 import { getUser, setUser } from '@/lib/session';
 import { StatusContext } from '@/lib/status';
 
-// Layout de todo el panel. El "_" hace que no añada un segmento a la URL.
+// Layout for the whole panel. The "_" keeps it from adding a URL segment.
 export const Route = createFileRoute('/_app')({
   beforeLoad: async ({ location }) => {
     const user = await getUser();
@@ -36,7 +36,7 @@ function AppLayout() {
     try {
       await api.logout();
     } finally {
-      // Aunque falle la petición, este navegador deja de usar la sesión.
+      // Even if the request fails, this browser stops using the session.
       setUser(null);
       navigate({ to: '/login' });
     }

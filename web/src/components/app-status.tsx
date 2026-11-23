@@ -26,9 +26,9 @@ export function DeployStatusBadge({ status }: { status: AppDeployStatus }) {
   );
 }
 
-/** Estado real del contenedor de una app. */
+/** The real state of an app's container. */
 export function AppStateDot({ app }: { app: App }) {
-  useLingui(); // vuelve a renderizar al cambiar de idioma
+  useLingui(); // re-renders when the language changes
   const { label, color } = appState(app);
   return (
     <span className="flex items-center gap-1.5 text-sm">

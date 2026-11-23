@@ -13,15 +13,15 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Las previews publican cada rama (que no sea la de producción) de un sitio
-// en su propia URL: <rama>--<sitio>.<dominio de previews>. Todas cuelgan de
-// un único comodín, así que basta un registro DNS y un certificado comodín.
+// Previews publish every branch of a site other than production on its own
+// URL: <branch>--<site>.<preview domain>. They all hang off a single
+// wildcard, so one DNS record and one wildcard certificate are enough.
 
-// keepPreviewDeployments es cuántos despliegues se guardan por preview.
+// keepPreviewDeployments is how many deployments are kept per preview.
 const keepPreviewDeployments = 3
 
-// previewSlug convierte el nombre de una rama en una etiqueta DNS:
-// "feature/Nuevo_Login" → "feature-nuevo-login".
+// previewSlug turns a branch name into a DNS label:
+// "feature/New_Login" → "feature-new-login".
 func previewSlug(branch string) string {
 	var b strings.Builder
 	dash := false
@@ -45,7 +45,7 @@ func (s *Server) previewDomain(ctx context.Context) (string, error) {
 	return s.Store.GetSetting(ctx, store.SettingPreviewDomain)
 }
 
-// previewURL es la dirección pública de una preview ("" si no hay dominio).
+// previewURL is the public address of a preview ("" when there is no domain).
 func (s *Server) previewURL(ctx context.Context, site *store.Site, preview string) string {
 	domain, err := s.previewDomain(ctx)
 	if err != nil || domain == "" {
@@ -58,18 +58,18 @@ func (s *Server) previewURL(ctx context.Context, site *store.Site, preview strin
 	return scheme + "://" + routing.PreviewHost(domain, site.Name, preview)
 }
 
-// handleSitePush decide qué hacer con un push a la rama de un sitio:
-// construir producción, construir (o borrar) su preview, o nada.
+// handleSitePush decides what to do with a push to one of a site's
+// branches: build production, build (or delete) its preview, or nothing.
 func (s *Server) handleSitePush(ctx context.Context, site *store.Site, push gitprovider.Push) (buildID int64, status string, err error) {
 	if push.Branch == site.Branch {
 		if push.Deleted {
-			return 0, "ignorado: se borró la rama de producción", nil
+			return 0, "ignored: the production branch was deleted", nil
 		}
 		b, err := s.Builds.Enqueue(ctx, site.ID, store.TriggerPush, push.Branch, "", push.Commit)
 		if err != nil {
 			return 0, "", err
 		}
-		return b.ID, "en cola", nil
+		return b.ID, "queued", nil
 	}
 	domain, err := s.previewDomain(ctx)
 	if err != nil {
@@ -77,22 +77,22 @@ func (s *Server) handleSitePush(ctx context.Context, site *store.Site, push gitp
 	}
 	preview := previewSlug(push.Branch)
 	if !site.Previews || domain == "" || preview == "" {
-		return 0, "ignorado: la rama " + push.Branch + " no se despliega", nil
+		return 0, "ignored: branch " + push.Branch + " is not deployed", nil
 	}
 	if push.Deleted {
 		if err := s.removePreview(ctx, site.ID, preview); err != nil {
 			return 0, "", err
 		}
-		return 0, "preview borrada", nil
+		return 0, "preview deleted", nil
 	}
 	b, err := s.Builds.Enqueue(ctx, site.ID, store.TriggerPush, push.Branch, preview, push.Commit)
 	if err != nil {
 		return 0, "", err
 	}
-	return b.ID, "en cola (preview)", nil
+	return b.ID, "queued (preview)", nil
 }
 
-// removePreview borra todos los despliegues de una preview y deja de servirla.
+// removePreview deletes every deployment of a preview and stops serving it.
 func (s *Server) removePreview(ctx context.Context, siteID int64, preview string) error {
 	deps, err := s.Store.PreviewDeployments(ctx, siteID, preview)
 	if err != nil {
@@ -103,21 +103,21 @@ func (s *Server) removePreview(ctx context.Context, siteID int64, preview string
 			return err
 		}
 	}
-	// Primero se deja de servir y luego se borran los archivos.
+	// Stop serving it first, and only then delete the files.
 	if err := s.Apply(ctx); err != nil {
 		return err
 	}
 	for _, d := range deps {
 		if err := s.PagesStorage.RemoveDeployment(siteID, d.ID); err != nil {
-			s.Log.Error("borrando archivos de la preview", "deployment", d.ID, "error", err)
+			s.Log.Error("removing preview files", "deployment", d.ID, "error", err)
 		}
 	}
 	return nil
 }
 
-// prunePreview conserva solo los keepPreviewDeployments más recientes.
+// prunePreview keeps only the keepPreviewDeployments most recent ones.
 func (s *Server) prunePreview(ctx context.Context, siteID int64, preview string) {
-	deps, err := s.Store.PreviewDeployments(ctx, siteID, preview) // del más nuevo al más viejo
+	deps, err := s.Store.PreviewDeployments(ctx, siteID, preview) // newest to oldest
 	if err != nil || len(deps) <= keepPreviewDeployments {
 		return
 	}
@@ -129,10 +129,10 @@ func (s *Server) prunePreview(ctx context.Context, siteID int64, preview string)
 	}
 }
 
-// previews reúne las previews publicadas de los sitios que las tienen.
+// previews gathers the published previews of the sites that have them.
 func (s *Server) previews(ctx context.Context, sites []*store.Site) (routing.Previews, error) {
 	var p routing.Previews
-	// La lista cuenta como usada aunque las previews estén desactivadas.
+	// The list counts as in use even when previews are disabled.
 	if raw, _ := s.Store.GetSetting(ctx, store.SettingPreviewAccessList); raw != "" {
 		var id int64
 		if _, err := fmt.Sscan(raw, &id); err == nil {
@@ -194,8 +194,9 @@ func (s *Server) handleDeletePreview(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// StatusURL es el enlace del estado del commit: la web publicada si el build
-// salió bien y, si no, el sitio en el panel (si se conoce la URL pública).
+// StatusURL is the link for the commit status: the published site if the
+// build succeeded and, failing that, the site in the panel (when the public
+// URL is known).
 func (s *Server) StatusURL(ctx context.Context, site *store.Site, b *store.Build, depID int64) string {
 	if depID != 0 {
 		if b.Preview != "" {

@@ -1,9 +1,9 @@
-// Package routing decide qué publica Dockfly: a partir de lo configurado
-// (proxy hosts, sitios, apps, redirecciones, streams, listas de acceso y
-// previews) calcula las rutas de Traefik y la tabla del servidor estático.
+// Package routing decides what Dockfly publishes: from the configuration
+// (proxy hosts, sites, apps, redirects, streams, access lists and previews)
+// it computes the Traefik routes and the static server's table.
 //
-// Es una función pura: no lee la base de datos ni escribe archivos. Quien la
-// llama reúne un Snapshot y aplica el Plan.
+// It is a pure function: it neither reads the database nor writes files. The
+// caller gathers a Snapshot and applies the Plan.
 package routing
 
 import (
@@ -17,10 +17,10 @@ import (
 	"github.com/dockfly/dockfly/internal/traefik"
 )
 
-// PreviewRouteName es la ruta de Traefik del comodín de previews.
+// PreviewRouteName is the Traefik route of the preview wildcard.
 const PreviewRouteName = "previews"
 
-// Snapshot es todo lo que influye en el enrutado.
+// Snapshot is everything that affects routing.
 type Snapshot struct {
 	Hosts       []*store.ProxyHost
 	Sites       []*store.Site
@@ -29,40 +29,40 @@ type Snapshot struct {
 	Streams     []*store.Stream
 	AccessLists []*store.AccessList
 	Previews    Previews
-	// Certificates son los certificados propios, ya en disco.
+	// Certificates are the user's own certificates, already on disk.
 	Certificates []traefik.CertFile
 
-	// StaticURL es la dirección del servidor estático interno.
+	// StaticURL is the address of the internal static server.
 	StaticURL string
-	// SiteDir da la carpeta de un despliegue de un sitio.
+	// SiteDir gives the directory of a site deployment.
 	SiteDir func(siteID, deploymentID int64) string
-	// Resolver elige el certificado de unos dominios (ver traefik.Route.Resolver).
+	// Resolver picks the certificate for a set of domains (see traefik.Route.Resolver).
 	Resolver func(domains []string) string
 }
 
-// Previews son las ramas publicadas de los sitios con previews.
+// Previews are the published branches of the sites that have previews on.
 type Previews struct {
-	// Domain es el dominio de previews ("" = desactivadas).
+	// Domain is the preview domain ("" = previews disabled).
 	Domain string
-	// AccessListID protege todas las previews (además de la lista de su sitio).
+	// AccessListID protects every preview (on top of its site's own list).
 	AccessListID *int64
-	// BySite son los despliegues vigentes de cada preview, por sitio.
+	// BySite holds the current deployment of each preview, keyed by site.
 	BySite map[int64][]*store.Deployment
 }
 
-// Plan es el resultado: qué aplicar en Traefik y en el servidor estático.
+// Plan is the result: what to apply in Traefik and in the static server.
 type Plan struct {
-	// Dynamic es la configuración de Traefik de este servidor.
+	// Dynamic is this server's Traefik configuration.
 	Dynamic traefik.Dynamic
-	// Remote son las rutas de las apps de cada servidor remoto (usan los
-	// mismos middlewares que Dynamic).
+	// Remote holds the app routes of each remote server (they use the same
+	// middlewares as Dynamic).
 	Remote map[int64][]traefik.Route
-	// Static es la tabla del servidor estático: dominio → despliegue.
+	// Static is the static server's table: domain → deployment.
 	Static map[string]pages.Route
 }
 
-// PreviewHost es el dominio de la preview de un sitio, sin pasar de los 63
-// caracteres que permite una etiqueta DNS.
+// PreviewHost is the preview domain of a site, kept within the 63 characters
+// a DNS label allows.
 func PreviewHost(domain, site, preview string) string {
 	if room := 63 - len(site) - 2; len(preview) > room {
 		preview = trimDash(preview[:max(room, 1)])
@@ -81,10 +81,10 @@ func trimDash(s string) string {
 	return s
 }
 
-// RedirectRouteName es la ruta de Traefik de una redirección.
+// RedirectRouteName is the Traefik route of a redirect.
 func RedirectRouteName(id int64) string { return "rd-" + strconv.FormatInt(id, 10) }
 
-// Build calcula el plan.
+// Build computes the plan.
 func Build(s Snapshot) Plan {
 	b := builder{snap: s, middlewares: map[string]any{}, acl: map[int64][]string{}}
 	for _, l := range s.AccessLists {
@@ -106,9 +106,9 @@ func Build(s Snapshot) Plan {
 		routes = append(routes, b.locations(rt, h.Locations, h.AccessListID, h.SkipTLSVerify)...)
 	}
 
-	// Apps desplegadas, en marcha y con puerto y dominios: Traefik envía el
-	// tráfico a su contenedor actual (cambia en cada despliegue). Las de los
-	// servidores remotos van al Traefik de su servidor.
+	// Apps that are deployed, running and have a port and domains: Traefik
+	// sends the traffic to their current container (it changes on every
+	// deployment). Apps on remote servers go to their server's Traefik.
 	for _, a := range s.Apps {
 		if a.Stopped || a.Port == 0 || len(a.Domains) == 0 || a.Current == nil || a.Current.Container == "" {
 			continue
@@ -137,8 +137,8 @@ func Build(s Snapshot) Plan {
 	for _, site := range s.Sites {
 		if rt, ok := traefik.SiteRoute(site, s.StaticURL); ok {
 			routes = append(routes, b.withACL(rt, site.AccessListID))
-			// El destino de una ubicación es un backend, no el servidor
-			// estático: comprime él si quiere (y no se toca un text/event-stream).
+			// A location's target is a backend, not the static server: let it
+			// compress if it wants to (and leave text/event-stream alone).
 			rt.Compress = false
 			routes = append(routes, b.locations(rt, site.Locations, site.AccessListID, false)...)
 		}
@@ -152,8 +152,9 @@ func Build(s Snapshot) Plan {
 	}
 	routes = append(routes, b.previews(plan.Static)...)
 
-	// Cada ruta con SSL usa el certificado que le corresponde: propio, por
-	// DNS (zonas configuradas) o por HTTP, salvo que ya traiga uno elegido.
+	// Every SSL route uses the certificate that fits it: a user-provided one,
+	// a DNS one (from the configured zones) or an HTTP one, unless it already
+	// comes with one chosen.
 	for i := range routes {
 		if routes[i].SSL && routes[i].Resolver == "" {
 			routes[i].Resolver = s.Resolver(routes[i].Domains)
@@ -180,8 +181,8 @@ type builder struct {
 	acl         map[int64][]string
 }
 
-// withACL aplica la lista de acceso id a una ruta. Si la lista ya no existe
-// (se borró), deniega todo en vez de dejar la ruta pública.
+// withACL applies the access list id to a route. If the list no longer exists
+// (it was deleted), deny everything instead of leaving the route public.
 func (b *builder) withACL(rt traefik.Route, id *int64) traefik.Route {
 	if id != nil {
 		if mw, ok := b.acl[*id]; ok {
@@ -193,9 +194,9 @@ func (b *builder) withACL(rt traefik.Route, id *int64) traefik.Route {
 	return rt
 }
 
-// chainACL encadena varias listas de acceso en una ruta: hay que pasar todas
-// (p. ej. la puerta global de previews y la propia del sitio). Una lista
-// borrada deniega todo. nil se ignora; los duplicados se omiten.
+// chainACL chains several access lists on one route: the request must pass
+// all of them (for example the global preview gate and the site's own list).
+// A deleted list denies everything. nil is ignored; duplicates are skipped.
 func (b *builder) chainACL(ids ...*int64) []string {
 	var mw []string
 	for _, id := range ids {
@@ -215,11 +216,11 @@ func (b *builder) chainACL(ids ...*int64) []string {
 	return mw
 }
 
-// locations traduce las ubicaciones de un proxy host o de un sitio (parent,
-// ya con su nombre y sus dominios). Cada una es una ruta más del mismo
-// dominio, limitada a su prefijo, con su destino y su acceso; Traefik la
-// prefiere a la de su dominio porque su regla es más larga (o, con
-// comodines, por la prioridad que le da traefik.BuildDynamic).
+// locations translates the locations of a proxy host or a site (parent,
+// already carrying its name and domains). Each one is one more route on the
+// same domain, limited to its prefix, with its own target and access; Traefik
+// prefers it over the domain's route because its rule is longer (or, with
+// wildcards, because of the priority traefik.BuildDynamic gives it).
 func (b *builder) locations(parent traefik.Route, locations []store.ProxyLocation, parentACL *int64, skipTLSVerify bool) []traefik.Route {
 	routes := make([]traefik.Route, 0, len(locations))
 	for i, l := range locations {
@@ -241,9 +242,9 @@ func (b *builder) locations(parent traefik.Route, locations []store.ProxyLocatio
 	return routes
 }
 
-// previews añade a la tabla estática las previews de cada sitio y devuelve
-// sus rutas: el comodín y, para los sitios con lista de acceso, un router
-// por host con esa lista (gana al comodín por prioridad).
+// previews adds each site's previews to the static table and returns their
+// routes: the wildcard and, for sites with an access list, a per-host router
+// carrying that list (it beats the wildcard on priority).
 func (b *builder) previews(table map[string]pages.Route) []traefik.Route {
 	p := b.snap.Previews
 	if p.Domain == "" {
@@ -253,7 +254,8 @@ func (b *builder) previews(table map[string]pages.Route) []traefik.Route {
 		Name: PreviewRouteName, Domains: []string{"*." + p.Domain}, URL: b.snap.StaticURL,
 		PreserveHost: true, Compress: true,
 	}, p.AccessListID)
-	// Con certificado comodín (zona DNS o propio), las previews van por HTTPS.
+	// With a wildcard certificate (DNS zone or user-provided), previews go
+	// over HTTPS.
 	if b.snap.Resolver(wildcard.Domains) != "" {
 		wildcard.SSL, wildcard.ForceHTTPS = true, true
 	}
@@ -270,9 +272,9 @@ func (b *builder) previews(table map[string]pages.Route) []traefik.Route {
 			if site.AccessListID == nil {
 				continue
 			}
-			// El router por host gana al comodín por prioridad, así que debe
-			// repetir la puerta global de previews además de la del sitio; si no,
-			// las credenciales del sitio saltarían la lista global.
+			// The per-host router beats the wildcard on priority, so it has to
+			// repeat the global preview gate on top of the site's one; otherwise
+			// the site's credentials would bypass the global list.
 			rt := traefik.Route{
 				Name: fmt.Sprintf("preview-%d-%s", site.ID, host), Domains: []string{host},
 				URL: b.snap.StaticURL, PreserveHost: true, Compress: true,
@@ -280,7 +282,7 @@ func (b *builder) previews(table map[string]pages.Route) []traefik.Route {
 			}
 			rt.Middlewares = b.chainACL(p.AccessListID, site.AccessListID)
 			if rt.SSL {
-				rt.Resolver = traefik.NoResolver // el comodín ya tiene el certificado
+				rt.Resolver = traefik.NoResolver // the wildcard already has the certificate
 			}
 			routes = append(routes, rt)
 		}
@@ -288,9 +290,9 @@ func (b *builder) previews(table map[string]pages.Route) []traefik.Route {
 	return routes
 }
 
-// AccessListUsage cuenta cuántas cosas usan cada lista de acceso: proxy
-// hosts, sitios, apps y sus ubicaciones, y la lista de las previews. Cuenta
-// también lo que ahora no se publica (una app parada sigue usando su lista).
+// AccessListUsage counts how many things use each access list: proxy hosts,
+// sites, apps and their locations, plus the preview list. It also counts what
+// is not published right now (a stopped app still uses its list).
 func AccessListUsage(s Snapshot) map[int64]int {
 	used := map[int64]int{}
 	ref := func(id *int64) {

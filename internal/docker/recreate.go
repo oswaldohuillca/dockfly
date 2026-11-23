@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-// ContainerJSON es lo que hace falta de un contenedor para recrearlo.
+// ContainerJSON is what we need from a container in order to recreate it.
 type ContainerJSON struct {
 	ID         string         `json:"Id"`
 	Name       string         `json:"Name"`
@@ -34,7 +34,7 @@ type ContainerJSON struct {
 	} `json:"State"`
 }
 
-// Inspect devuelve la configuración completa de un contenedor.
+// Inspect returns a container's full configuration.
 func (c *Client) Inspect(ctx context.Context, id string) (*ContainerJSON, error) {
 	var out ContainerJSON
 	if err := c.do(ctx, http.MethodGet, "/containers/"+url.PathEscape(id)+"/json", nil, &out); err != nil {
@@ -43,13 +43,13 @@ func (c *Client) Inspect(ctx context.Context, id string) (*ContainerJSON, error)
 	return &out, nil
 }
 
-// RenameContainer cambia el nombre de un contenedor.
+// RenameContainer changes a container's name.
 func (c *Client) RenameContainer(ctx context.Context, id, name string) error {
 	return c.do(ctx, http.MethodPost, "/containers/"+url.PathEscape(id)+"/rename?name="+url.QueryEscape(name), nil, nil)
 }
 
-// RemoveContainerKeepVolumes borra un contenedor sin tocar sus volúmenes
-// anónimos (los datos de Dockfly pueden estar en uno: VOLUME /data).
+// RemoveContainerKeepVolumes deletes a container without touching its
+// anonymous volumes (Dockfly's own data may live in one: VOLUME /data).
 func (c *Client) RemoveContainerKeepVolumes(ctx context.Context, id string) error {
 	err := c.do(ctx, http.MethodDelete, "/containers/"+url.PathEscape(id)+"?force=1", nil, nil)
 	if IsNotFound(err) {
@@ -58,9 +58,9 @@ func (c *Client) RemoveContainerKeepVolumes(ctx context.Context, id string) erro
 	return err
 }
 
-// Clone crea (sin arrancarlo) un contenedor llamado name con la misma
-// configuración que old pero con otra imagen: volúmenes, puertos, redes,
-// variables, política de reinicio y etiquetas.
+// Clone creates (without starting it) a container called name with the same
+// configuration as old but a different image: volumes, ports, networks,
+// environment, restart policy and labels.
 func (c *Client) Clone(ctx context.Context, old *ContainerJSON, name, image string) (string, error) {
 	shortID := old.ID[:min(12, len(old.ID))]
 	cfg := map[string]any{}
@@ -68,12 +68,12 @@ func (c *Client) Clone(ctx context.Context, old *ContainerJSON, name, image stri
 		cfg[k] = v
 	}
 	cfg["Image"] = image
-	// Docker pone de hostname el ID corto: el nuevo debe tener el suyo
-	// (Dockfly se reconoce a sí mismo por él).
+	// Docker uses the short ID as the hostname: the new container must get
+	// its own (Dockfly recognises itself by it).
 	if h, _ := cfg["Hostname"].(string); h == shortID {
 		delete(cfg, "Hostname")
 	}
-	// Las etiquetas de la imagen vieja (versión…) no deben pasar a la nueva.
+	// The old image's labels (version…) must not carry over to the new one.
 	if labels, ok := cfg["Labels"].(map[string]any); ok {
 		clean := map[string]any{}
 		for k, v := range labels {
@@ -88,8 +88,8 @@ func (c *Client) Clone(ctx context.Context, old *ContainerJSON, name, image stri
 	for k, v := range old.HostConfig {
 		host[k] = v
 	}
-	// Los volúmenes anónimos (VOLUME /data sin montar nada) no están en
-	// HostConfig: sin esto el nuevo arrancaría con /data vacío.
+	// Anonymous volumes (VOLUME /data with nothing mounted) are not in
+	// HostConfig: without this the new container would start with /data empty.
 	declared := map[string]bool{}
 	if binds, ok := host["Binds"].([]any); ok {
 		for _, b := range binds {
@@ -150,8 +150,9 @@ func (c *Client) Clone(ctx context.Context, old *ContainerJSON, name, image stri
 	return out.ID, nil
 }
 
-// WaitHealthy espera a que el contenedor esté en marcha y, si tiene
-// healthcheck, sano. Falla si se para, se marca como enfermo o pasa timeout.
+// WaitHealthy waits for the container to be running and, when it has a
+// healthcheck, healthy. It fails if the container stops, is reported
+// unhealthy, or timeout goes by.
 func (c *Client) WaitHealthy(ctx context.Context, id string, timeout time.Duration) error {
 	deadline := time.Now().Add(timeout)
 	for {
@@ -161,16 +162,16 @@ func (c *Client) WaitHealthy(ctx context.Context, id string, timeout time.Durati
 		}
 		switch {
 		case !info.State.Running && info.State.Status != "created":
-			return fmt.Errorf("el contenedor se paró (código %d)", info.State.ExitCode)
+			return fmt.Errorf("the container stopped (exit code %d)", info.State.ExitCode)
 		case info.State.Health == nil && info.State.Running:
 			return nil
 		case info.State.Health != nil && info.State.Health.Status == "healthy":
 			return nil
 		case info.State.Health != nil && info.State.Health.Status == "unhealthy":
-			return fmt.Errorf("el healthcheck falla")
+			return fmt.Errorf("the healthcheck is failing")
 		}
 		if time.Now().After(deadline) {
-			return fmt.Errorf("no estuvo sano en %s", timeout)
+			return fmt.Errorf("did not become healthy within %s", timeout)
 		}
 		select {
 		case <-ctx.Done():

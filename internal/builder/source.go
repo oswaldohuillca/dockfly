@@ -12,25 +12,25 @@ import (
 	"time"
 )
 
-// buildUID es el usuario sin privilegios con el que corre el build. En
-// oven/bun es "bun" y en node, "node".
+// buildUID is the unprivileged user the build runs as. In oven/bun it is
+// "bun" and in node, "node".
 const buildUID = 1000
 
-// repack convierte el .tar.gz de GitHub/GitLab en el tar que se copia al
-// contenedor: descarta la carpeta raíz ("usuario-repo-sha/"), coloca todo
-// bajo workspace/ y asigna los archivos al usuario del build, para que este
-// pueda escribir (node_modules, dist…) sin ser root.
+// repack turns the .tar.gz from GitHub/GitLab into the tar that is copied into
+// the container: it drops the root folder ("user-repo-sha/"), puts everything
+// under workspace/ and assigns the files to the build user, so that it can
+// write (node_modules, dist…) without being root.
 func repack(gz io.Reader, w io.Writer, maxBytes int64) error {
 	zr, err := gzip.NewReader(gz)
 	if err != nil {
-		return fmt.Errorf("el código descargado no es un .tar.gz: %w", err)
+		return fmt.Errorf("the downloaded code is not a .tar.gz: %w", err)
 	}
 	tr := tar.NewReader(zr)
 	tw := tar.NewWriter(w)
 
-	// Docker crea como root las carpetas que no vienen en el tar, y el build
-	// no podría escribir en ellas. Por eso emitimos siempre cada carpeta
-	// antes de su contenido, con el usuario del build.
+	// Docker creates the folders missing from the tar as root, and the build
+	// would not be able to write in them. That is why every folder is always
+	// emitted before its contents, owned by the build user.
 	seen := map[string]bool{}
 	mkdir := func(dir string) error {
 		var missing []string
@@ -56,12 +56,12 @@ func repack(gz io.Reader, w io.Writer, maxBytes int64) error {
 			break
 		}
 		if err != nil {
-			return fmt.Errorf("leyendo el código: %w", err)
+			return fmt.Errorf("reading the code: %w", err)
 		}
 		switch hdr.Typeflag {
 		case tar.TypeReg, tar.TypeDir, tar.TypeSymlink:
 		default:
-			continue // cabeceras pax globales, hardlinks, dispositivos…
+			continue // pax global headers, hardlinks, devices…
 		}
 		_, rest, ok := strings.Cut(hdr.Name, "/")
 		rest = strings.TrimPrefix(path.Clean("/"+rest), "/")
@@ -70,11 +70,11 @@ func repack(gz io.Reader, w io.Writer, maxBytes int64) error {
 		}
 		total += hdr.Size
 		if total > maxBytes {
-			return fmt.Errorf("el repositorio supera %d MiB", maxBytes>>20)
+			return fmt.Errorf("the repository is larger than %d MiB", maxBytes>>20)
 		}
 		name := "workspace/" + rest
 		if hdr.Typeflag == tar.TypeDir {
-			// La carpeta se emite (una sola vez) con mkdir.
+			// The folder is emitted (just once) by mkdir.
 			if err := mkdir(name); err != nil {
 				return err
 			}
@@ -105,19 +105,19 @@ func repack(gz io.Reader, w io.Writer, maxBytes int64) error {
 	return tw.Close()
 }
 
-// CappedWriter deja de escribir al llegar a MaxLogBytes, para que un build
-// (o el deploy de una app) muy ruidoso no llene el disco.
+// CappedWriter stops writing once it reaches MaxLogBytes, so that a very
+// noisy build (or app deploy) cannot fill up the disk.
 type CappedWriter struct {
 	w         io.Writer
 	remaining int64
 	truncated bool
 }
 
-// NewCappedWriter limita w a MaxLogBytes.
+// NewCappedWriter caps w at MaxLogBytes.
 func NewCappedWriter(w io.Writer) *CappedWriter { return &CappedWriter{w: w, remaining: MaxLogBytes} }
 
-// PruneLogs borra los logs de builds y deploys de dir con más de maxAge.
-// Pesan hasta 5 MiB cada uno y no se borraban nunca.
+// PruneLogs deletes the build and deploy logs in dir older than maxAge. They
+// weigh up to 5 MiB each and used to be kept forever.
 func PruneLogs(dir string, maxAge time.Duration) {
 	entries, _ := os.ReadDir(dir)
 	for _, e := range entries {
@@ -131,7 +131,7 @@ func (c *CappedWriter) Write(p []byte) (int, error) {
 	if c.remaining <= 0 {
 		if !c.truncated {
 			c.truncated = true
-			io.WriteString(c.w, "\n… log truncado: se alcanzó el tamaño máximo\n")
+			io.WriteString(c.w, "\n… log truncated: maximum size reached\n")
 		}
 		return len(p), nil
 	}
@@ -146,13 +146,13 @@ func (c *CappedWriter) Write(p []byte) (int, error) {
 	return int(n), nil
 }
 
-// shellQuote envuelve s entre comillas simples para sh.
+// shellQuote wraps s in single quotes for sh.
 func shellQuote(s string) string {
 	return "'" + strings.ReplaceAll(s, "'", `'\''`) + "'"
 }
 
-// script genera el comando del contenedor: cada paso se anuncia en el log y
-// el primero que falle detiene el build.
+// script builds the container command: every step is announced in the log and
+// the first one that fails stops the build.
 func script(install, build string) string {
 	var b strings.Builder
 	b.WriteString("set -e\n")

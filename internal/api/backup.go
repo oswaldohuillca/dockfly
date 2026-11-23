@@ -13,11 +13,11 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Una copia incluye los sitios publicados: puede pesar bastante más que una
-// subida normal.
+// A backup includes the published sites: it can weigh a lot more than a
+// normal upload.
 const maxBackupBytes = 10 << 30
 
-// Errores de la restauración de copias.
+// Errors from restoring a backup.
 var (
 	errBackupMultipart  = newError("backup_multipart_required", "The backup must be sent as multipart/form-data")
 	errBackupNoFile     = newError("backup_missing", "No backup was received")
@@ -28,8 +28,9 @@ var (
 )
 
 func (s *Server) handleDownloadBackup(w http.ResponseWriter, r *http.Request) {
-	// Contraseña opcional (por cabecera, no en la URL, que acabaría en los logs):
-	// si viene, la copia se cifra. Incluye claves, así que cifrarla es sensato.
+	// Optional password (in a header, not in the URL, which would end up in the
+	// logs): if it comes, the backup is encrypted. It holds keys, so encrypting
+	// it is a sensible thing to do.
 	pw := r.Header.Get("X-Backup-Password")
 	name := "dockfly-backup-" + time.Now().UTC().Format("20060102-1504") + ".tar.gz"
 	ctype := "application/gzip"
@@ -51,32 +52,31 @@ func (s *Server) handleDownloadBackup(w http.ResponseWriter, r *http.Request) {
 		out = enc
 	}
 	if err := backup.Create(r.Context(), s.Store, s.DataDir, s.Version, out); err != nil {
-		// Las cabeceras ya se enviaron: solo queda cortar la descarga y
-		// registrarlo (el navegador verá la descarga fallida).
-		s.Log.Error("generando copia de seguridad", "error", err)
+		// The headers went out already: all that's left is cutting the download
+		// short and logging it (the browser will see a failed download).
+		s.Log.Error("creating backup", "error", err)
 		panic(http.ErrAbortHandler)
 	}
 	if enc != nil {
-		if err := enc.Close(); err != nil { // emite el último bloque cifrado
-			s.Log.Error("cerrando copia cifrada", "error", err)
+		if err := enc.Close(); err != nil { // flushes the last encrypted block
+			s.Log.Error("closing encrypted backup", "error", err)
 			panic(http.ErrAbortHandler)
 		}
 	}
 }
 
-// handleRestoreBackup prepara una copia y reinicia Dockfly para aplicarla.
-// En una instalación nueva (sin usuarios) no exige sesión: así se puede
-// migrar a otro servidor desde la pantalla de bienvenida.
+// handleRestoreBackup stages a backup and restarts Dockfly to apply it. On a
+// fresh install (no users) it doesn't require a session: that way you can
+// migrate to another server straight from the welcome screen.
 func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 	n, err := s.Store.CountUsers(r.Context())
 	if err != nil {
 		s.internalError(w, err)
 		return
 	}
-	// Restaurar sustituye la base de datos y las claves: con usuarios, solo
-	// un administrador con su sesión del panel (no un token de API) y
-	// volviendo a escribir su contraseña; en una instalación nueva, con el
-	// código de instalación.
+	// Restoring replaces the database and the keys: once there are users, only
+	// an administrator with a panel session (not an API token) and typing their
+	// password again; on a fresh install, with the setup code.
 	var admin *store.User
 	if n > 0 {
 		u, ok := s.sessionUser(r)
@@ -104,7 +104,7 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errBackupMultipart)
 		return
 	}
-	// Los campos de confirmación van antes que el archivo.
+	// The confirmation fields come before the file.
 	var password, setupToken, encPassword string
 	for {
 		part, err := mr.NextPart()
@@ -145,8 +145,8 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusForbidden, errSetupToken)
 			return
 		}
-		// Una copia cifrada (empieza por su magic) se descifra al vuelo con la
-		// contraseña de cifrado (distinta de la del admin).
+		// An encrypted backup (it starts with its magic) is decrypted on the fly
+		// with the encryption password (a different one from the admin's).
 		src, rest, err := backup.IsEncrypted(part)
 		if err != nil {
 			part.Close()
@@ -171,7 +171,7 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 		m, err := backup.Stage(reader, s.DataDir)
 		part.Close()
 		if errors.Is(err, backup.ErrInvalid) {
-			// El detalle es lo que sigue a "copia de seguridad inválida: ".
+			// The detail is whatever follows ErrInvalid's own text and ": ".
 			detail := strings.TrimPrefix(err.Error(), backup.ErrInvalid.Error()+": ")
 			writeError(w, http.StatusBadRequest, errBackupInvalid.With("detail", detail))
 			return
@@ -179,13 +179,13 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request) {
 			s.internalError(w, err)
 			return
 		}
-		s.Log.Warn("copia de seguridad preparada: Dockfly se reinicia para aplicarla",
-			"creada", m.CreatedAt, "version", m.Dockfly)
+		s.Log.Warn("backup staged: Dockfly is restarting to apply it",
+			"created", m.CreatedAt, "version", m.Dockfly)
 		writeJSON(w, http.StatusAccepted, map[string]any{
 			"created_at": m.CreatedAt,
-			"message":    fmt.Sprintf("Copia del %s preparada. Dockfly se está reiniciando para aplicarla.", m.CreatedAt.Format("02/01/2006 15:04")),
+			"message":    fmt.Sprintf("Backup from %s staged. Dockfly is restarting to apply it.", m.CreatedAt.Format("02/01/2006 15:04")),
 		})
-		// Dejamos que la respuesta llegue antes de reiniciar.
+		// We let the response go out before restarting.
 		go func() {
 			time.Sleep(time.Second)
 			s.Restart()

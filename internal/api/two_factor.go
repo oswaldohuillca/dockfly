@@ -11,9 +11,9 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Verificación en dos pasos: tras la contraseña, el login devuelve un ticket
-// de corta duración que se canjea por la sesión con un código TOTP (o un
-// código de recuperación).
+// Two-step verification: after the password, login returns a short-lived
+// ticket that is exchanged for the session with a TOTP code (or a recovery
+// code).
 
 const (
 	mfaTicketPurpose = "mfa"
@@ -21,9 +21,10 @@ const (
 	recoveryCodes    = 10
 )
 
-// Errores de la verificación en dos pasos.
+// Two-step verification errors.
 var (
-	// errLoginExpired: el ticket del segundo paso caducó; el panel vuelve a pedir la contraseña.
+	// errLoginExpired: the second-step ticket expired; the panel asks for the
+	// password again.
 	errLoginExpired      = newError("login_expired", "Your sign-in has expired; enter your password again")
 	errTooManyCodes      = newError("too_many_wrong_codes", "Too many wrong codes; wait a few minutes")
 	errWrongCode         = newError("wrong_2fa_code", "Wrong code")
@@ -34,7 +35,7 @@ var (
 	err2FANotEnabled     = newError("two_factor_not_enabled", "Two-step verification isn't enabled")
 )
 
-// checkSecondFactor acepta un código TOTP o uno de recuperación.
+// checkSecondFactor accepts either a TOTP code or a recovery code.
 func (s *Server) checkSecondFactor(ctx context.Context, u *store.User, code string) (ok bool, usedRecovery bool, err error) {
 	if !u.TOTPEnabled || len(u.TOTPSecretEnc) == 0 {
 		return false, false, nil
@@ -99,8 +100,8 @@ func (s *Server) handleLogin2FA(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"user": u, "used_recovery_code": recovery, "recovery_codes_left": left})
 }
 
-// requirePassword comprueba la contraseña del usuario de la sesión: las
-// operaciones sobre el segundo factor la piden aunque haya sesión.
+// requirePassword checks the password of the session's user: operations on
+// the second factor ask for it even when there is a session.
 func (s *Server) requirePassword(w http.ResponseWriter, r *http.Request, password string) (*store.User, bool) {
 	u := currentUser(r)
 	if !auth.CheckPassword(u.PasswordHash, password) {
@@ -115,8 +116,8 @@ func (s *Server) handleGet2FA(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"enabled": u.TOTPEnabled, "recovery_codes_left": len(u.RecoveryCodes)})
 }
 
-// handleSetup2FA genera un secreto nuevo (pendiente hasta confirmarlo con
-// un código) y devuelve el QR para escanearlo.
+// handleSetup2FA generates a new secret (pending until it is confirmed with
+// a code) and returns the QR code to scan.
 func (s *Server) handleSetup2FA(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Password string `json:"password"`
@@ -147,8 +148,8 @@ func (s *Server) handleSetup2FA(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"secret": secret, "uri": uri, "qr_svg": svg})
 }
 
-// handleEnable2FA activa el segundo factor si el código del secreto
-// pendiente es correcto, y devuelve los códigos de recuperación (solo esta vez).
+// handleEnable2FA turns the second factor on if the code for the pending
+// secret is correct, and returns the recovery codes (this one time only).
 func (s *Server) handleEnable2FA(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Code string `json:"code"`
@@ -196,8 +197,8 @@ func (s *Server) handleDisable2FA(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	// Desactivar 2FA exige también un código válido (TOTP o de recuperación),
-	// para que una contraseña robada no baste para quitar el segundo factor.
+	// Disabling 2FA also demands a valid code (TOTP or recovery), so that a
+	// stolen password is not enough to take the second factor off.
 	if s.mfa.blocked(u.ID, mfaMaxFailures) {
 		writeError(w, http.StatusTooManyRequests, errTooManyCodes)
 		return
@@ -253,12 +254,12 @@ func hashCodes(codes []string) []string {
 	return out
 }
 
-// Reset2FA desactiva la verificación en dos pasos de un usuario. Lo usa el
-// subcomando "dockfly reset-2fa" cuando alguien pierde el móvil y los códigos.
+// Reset2FA turns off a user's two-step verification. The "dockfly reset-2fa"
+// subcommand uses it when someone loses both their phone and their codes.
 func Reset2FA(ctx context.Context, st *store.Store, email string) error {
 	u, err := st.UserByEmail(ctx, strings.ToLower(strings.TrimSpace(email)))
 	if errors.Is(err, store.ErrNotFound) {
-		return errors.New("no hay ningún usuario con ese email")
+		return errors.New("there is no user with that email")
 	} else if err != nil {
 		return err
 	}

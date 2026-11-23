@@ -1,15 +1,15 @@
-name: Publicar imagen
+name: Publish image
 
-# Publica ghcr.io/<propietario>/dockfly (ghcr.io/oswaldohuillca/dockfly) para amd64 y arm64:
+# Publishes ghcr.io/<owner>/dockfly (ghcr.io/oswaldohuillca/dockfly) for amd64 and arm64:
 #   - push a main  → :edge
 #   - etiqueta v1.2.3 → :1.2.3, :1.2 y :latest
-# y, con cada etiqueta, el binario (servidor + CLI "dockfly deploy") para
-# Linux, macOS y Windows en la release de GitHub.
+# and, on every tag, the binary (server + the "dockfly deploy" CLI) for
+# Linux, macOS and Windows on the GitHub release.
 on:
   push:
     branches: [main]
     tags: ["v*.*.*"]
-    # La landing (site/) no forma parte de la imagen.
+    # The landing page (site/) is not part of the image.
     paths-ignore: ["site/**"]
 
 permissions:
@@ -17,7 +17,7 @@ permissions:
   packages: write
 
 jobs:
-  # No se publica nada que no pase los tests.
+  # Nothing is published unless the tests pass.
   ci:
     uses: ./.github/workflows/ci.yml
 

@@ -2,7 +2,7 @@ import { useCallback, useState, type FormEvent } from 'react';
 
 import { errorMessage } from '@/lib/api';
 
-/** Estado de un formulario con un setter por campo. */
+/** A form's state, with one setter per field. */
 export function useForm<T extends object>(initial: T | (() => T)) {
   const [form, setForm] = useState<T>(initial);
   const set = useCallback(<K extends keyof T>(key: K, value: T[K]) => setForm((f) => ({ ...f, [key]: value })), []);
@@ -10,8 +10,8 @@ export function useForm<T extends object>(initial: T | (() => T)) {
 }
 
 /**
- * Envío de un formulario: evita el submit del navegador, marca busy mientras
- * dura y deja en error el mensaje traducido si falla.
+ * Form submission: it prevents the browser's own submit, marks busy while it
+ * runs and leaves the translated message in error if it fails.
  */
 export function useSubmit(fn: () => Promise<unknown>) {
   const [busy, setBusy] = useState(false);

@@ -30,12 +30,12 @@ import {
 } from '@/lib/api';
 import { useForm, useSubmit } from '@/lib/use-form';
 
-// La opción activa debe distinguirse claramente: el estilo por defecto es muy sutil.
+// The active option has to stand out clearly: the default style is far too subtle.
 const segmentClass = 'flex-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground';
 
 /**
- * Docker muestra "sha256:…" cuando la etiqueta de la imagen se movió a otra
- * versión (p. ej. tras un pull) o se borró: lo acortamos.
+ * Docker shows "sha256:…" when the image tag has moved to another version
+ * (after a pull, for instance) or was deleted: we shorten it.
  */
 function imageLabel(image: string) {
   if (!image.startsWith('sha256:')) return image;
@@ -44,7 +44,7 @@ function imageLabel(image: string) {
 }
 
 interface Props {
-  /** Host a editar, o un objeto vacío para crear uno nuevo. */
+  /** The host to edit, or an empty object to create a new one. */
   host: Partial<ProxyHost>;
   dockerAvailable: boolean;
   onClose: () => void;
@@ -72,7 +72,7 @@ function initialForm(h: Partial<ProxyHost>, dockerAvailable: boolean): ProxyHost
 export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Props) {
   const { t } = useLingui();
   const isNew = host.id === undefined;
-  // El componente se monta en cada apertura, así que el estado inicial basta.
+  // The component mounts on every open, so the initial state is enough.
   const { form, set, setForm } = useForm(() => initialForm(host, dockerAvailable));
   const [warnings, setWarnings] = useState<string[]>([]);
 
@@ -80,7 +80,7 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
   const [selfNetworks, setSelfNetworks] = useState<string[]>([]);
   const [containersLoaded, setContainersLoaded] = useState(false);
 
-  // Los contenedores se cargan si los necesita el destino o alguna ubicación.
+  // The containers are loaded if the target or any location needs them.
   const wantsContainers = form.target_type === 'docker' || form.locations.some((l) => l.target_type === 'docker');
   useEffect(() => {
     if (!wantsContainers || containersLoaded || !dockerAvailable) return;
@@ -109,7 +109,7 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
             ...f,
             target_type: type,
             forward_host: type === 'host' ? 'host.docker.internal' : '',
-            // Los servicios externos (CDN, SaaS) suelen exigir su propio Host.
+            // External services (CDN, SaaS) usually require their own Host header.
             preserve_host: type !== 'external',
           },
     );
@@ -217,7 +217,7 @@ export function ProxyHostDialog({ host, dockerAvailable, onClose, onSaved }: Pro
                         <SelectTrigger className="w-full">
                           <SelectValue placeholder={containersLoaded ? t`Choose a container…` : t`Loading…`} />
                         </SelectTrigger>
-                        {/* popper + ancho máximo: el desplegable no se sale del diálogo. */}
+                        {/* popper + max width: the dropdown stays inside the dialog. */}
                         <SelectContent position="popper" className="max-w-[min(30rem,calc(100vw-2rem))]">
                           {containers.map((c) => (
                             <SelectItem key={c.id} value={c.name}>

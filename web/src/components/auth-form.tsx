@@ -13,9 +13,9 @@ import { Label } from '@/components/ui/label';
 import { api, ApiError, errorMessage, type User } from '@/lib/api';
 
 interface Props {
-  /** true en la primera instalación: crea el administrador en vez de iniciar sesión. */
+  /** true on the first install: creates the administrator instead of signing in. */
   setup: boolean;
-  /** La instalación exige el código de instalación (está en el log del servidor). */
+  /** The install requires the setup code (it is printed in the server log). */
   setupCodeRequired?: boolean;
   onAuthenticated: (user: User) => void;
 }
@@ -28,7 +28,7 @@ export function AuthForm({ setup, setupCodeRequired, onAuthenticated }: Props) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
-  // Con verificación en dos pasos, la contraseña da un ticket para pedir el código.
+  // With two-factor enabled, the password returns a ticket used to ask for the code.
   const [ticket, setTicket] = useState('');
   const [code, setCode] = useState('');
   const [useRecovery, setUseRecovery] = useState(false);
@@ -59,7 +59,7 @@ export function AuthForm({ setup, setupCodeRequired, onAuthenticated }: Props) {
       else onAuthenticated(res);
     } catch (err) {
       setError(errorMessage(err));
-      // El ticket caduca a los 5 minutos: hay que volver a la contraseña.
+      // The ticket expires after 5 minutes, so we have to go back to the password.
       if (ticket && err instanceof ApiError && err.code === 'login_expired') {
         setTicket('');
         setCode('');

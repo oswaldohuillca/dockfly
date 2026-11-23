@@ -1,5 +1,5 @@
-// Package backup exporta y restaura todo el estado de Dockfly: base de
-// datos, claves, sitios publicados y certificados de Let's Encrypt.
+// Package backup exports and restores all of Dockfly's state: database,
+// keys, published sites and Let's Encrypt certificates.
 package backup
 
 import (
@@ -18,39 +18,39 @@ import (
 	"time"
 )
 
-// Version del formato de la copia. Se incrementa si cambia la estructura.
+// Version of the backup format. It is bumped whenever the layout changes.
 const Version = 1
 
 const (
 	manifestName = "dockfly-backup.json"
-	pendingDir   = "restore-pending" // copia validada, se aplica al arrancar
+	pendingDir   = "restore-pending" // validated backup, applied on startup
 	stagingDir   = ".restore-staging"
-	// Una copia de 10 GiB descomprimida es sospechosa: protege de tar bombs.
+	// A backup that unpacks to 10 GiB is suspicious: guards against tar bombs.
 	maxRestoreBytes = 10 << 30
 )
 
-// Manifest describe una copia.
+// Manifest describes a backup.
 type Manifest struct {
 	Version   int       `json:"version"`
 	CreatedAt time.Time `json:"created_at"`
-	Dockfly   string    `json:"dockfly"` // versión de Dockfly que la generó
+	Dockfly   string    `json:"dockfly"` // Dockfly version that created it
 }
 
-// Archivos y carpetas de /data que forman parte de la copia. Lo demás
-// (logs de builds, configuración de Traefik, temporales) se regenera.
-// db-backups son las copias de bases de datos guardadas en local: sin ellas,
-// las de la base de datos restaurada apuntarían a archivos que no existen.
+// Files and directories under /data that are part of the backup. Everything
+// else (build logs, Traefik configuration, temporary files) is regenerated.
+// db-backups holds the database dumps kept locally: without them, the rows in
+// the restored database would point at files that do not exist.
 var (
 	files = []string{"secret.key", "encryption.key", "traefik/acme.json"}
 	dirs  = []string{"sites", "db-backups"}
 )
 
-// Snapshotter crea una copia consistente de la base de datos.
+// Snapshotter creates a consistent copy of the database.
 type Snapshotter interface {
 	Snapshot(ctx context.Context, path string) error
 }
 
-// Create escribe la copia como .tar.gz en w.
+// Create writes the backup as a .tar.gz to w.
 func Create(ctx context.Context, db Snapshotter, dataDir, dockflyVersion string, w io.Writer) error {
 	snap, err := os.CreateTemp(dataDir, ".backup-*.db")
 	if err != nil {
@@ -58,15 +58,15 @@ func Create(ctx context.Context, db Snapshotter, dataDir, dockflyVersion string,
 	}
 	snapPath := snap.Name()
 	snap.Close()
-	os.Remove(snapPath) // VACUUM INTO exige que el destino no exista
+	os.Remove(snapPath) // VACUUM INTO requires the destination not to exist
 	defer os.Remove(snapPath)
-	// Con PostgreSQL o MySQL la copia lleva solo los archivos (claves, sitios,
-	// certificados): la base de datos se copia con las herramientas de su servidor.
+	// With PostgreSQL or MySQL the backup carries only the files (keys, sites,
+	// certificates): the database is dumped with its own server's tools.
 	hasDB := true
 	if err := db.Snapshot(ctx, snapPath); errors.Is(err, errors.ErrUnsupported) {
 		hasDB = false
 	} else if err != nil {
-		return fmt.Errorf("copiando la base de datos: %w", err)
+		return fmt.Errorf("copying the database: %w", err)
 	}
 
 	gz := gzip.NewWriter(w)
@@ -91,7 +91,7 @@ func Create(ctx context.Context, db Snapshotter, dataDir, dockflyVersion string,
 			if err != nil {
 				return err
 			}
-			// Las subidas a medias no forman parte del estado.
+			// Half-finished uploads are not part of the state.
 			if strings.HasPrefix(e.Name(), ".staging-") {
 				if e.IsDir() {
 					return filepath.SkipDir
@@ -140,10 +140,10 @@ func writeFile(tw *tar.Writer, src, name string) error {
 	return err
 }
 
-var ErrInvalid = errors.New("copia de seguridad inválida")
+var ErrInvalid = errors.New("invalid backup")
 
-// Stage valida una copia y la deja preparada en dataDir/restore-pending. No
-// toca los datos en uso: se aplica con ApplyPending al arrancar.
+// Stage validates a backup and leaves it ready in dataDir/restore-pending. It
+// does not touch the data in use: ApplyPending applies it on startup.
 func Stage(r io.Reader, dataDir string) (*Manifest, error) {
 	tmp := filepath.Join(dataDir, stagingDir)
 	os.RemoveAll(tmp)
@@ -164,7 +164,7 @@ func Stage(r io.Reader, dataDir string) (*Manifest, error) {
 
 	gz, err := gzip.NewReader(r)
 	if err != nil {
-		return nil, fmt.Errorf("%w: no es un .tar.gz", ErrInvalid)
+		return nil, fmt.Errorf("%w: not a .tar.gz", ErrInvalid)
 	}
 	tr := tar.NewReader(gz)
 	var manifest *Manifest
@@ -183,16 +183,16 @@ func Stage(r io.Reader, dataDir string) (*Manifest, error) {
 		}
 		name := strings.TrimPrefix(path.Clean("/"+hdr.Name), "/")
 		if !allowed(name) {
-			continue // solo restauramos lo que una copia de Dockfly puede contener
+			continue // only restore what a Dockfly backup is allowed to contain
 		}
 		total += hdr.Size
 		if total > maxRestoreBytes {
-			return nil, fmt.Errorf("%w: demasiado grande", ErrInvalid)
+			return nil, fmt.Errorf("%w: too big", ErrInvalid)
 		}
 		if name == manifestName {
 			manifest = new(Manifest)
 			if err := json.NewDecoder(io.LimitReader(tr, 1<<20)).Decode(manifest); err != nil {
-				return nil, fmt.Errorf("%w: manifiesto ilegible", ErrInvalid)
+				return nil, fmt.Errorf("%w: unreadable manifest", ErrInvalid)
 			}
 			continue
 		}
@@ -202,7 +202,7 @@ func Stage(r io.Reader, dataDir string) (*Manifest, error) {
 				return nil, err
 			}
 		}
-		// os.Root: ninguna ruta del tar puede escribir fuera de la carpeta.
+		// os.Root: no path in the tar can write outside the directory.
 		f, err := root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, fs.FileMode(hdr.Mode).Perm()|0o600)
 		if err != nil {
 			return nil, err
@@ -217,11 +217,11 @@ func Stage(r io.Reader, dataDir string) (*Manifest, error) {
 	}
 	switch {
 	case manifest == nil:
-		return nil, fmt.Errorf("%w: no es una copia de Dockfly (falta %s)", ErrInvalid, manifestName)
+		return nil, fmt.Errorf("%w: not a Dockfly backup (%s is missing)", ErrInvalid, manifestName)
 	case manifest.Version > Version:
-		return nil, fmt.Errorf("%w: la copia es de una versión más nueva de Dockfly (%s); actualiza antes de restaurarla", ErrInvalid, manifest.Dockfly)
+		return nil, fmt.Errorf("%w: the backup comes from a newer version of Dockfly (%s); upgrade before restoring it", ErrInvalid, manifest.Dockfly)
 	case !hasDB:
-		return nil, fmt.Errorf("%w: falta la base de datos", ErrInvalid)
+		return nil, fmt.Errorf("%w: the database is missing", ErrInvalid)
 	}
 
 	pending := filepath.Join(dataDir, pendingDir)
@@ -250,13 +250,13 @@ func allowed(name string) bool {
 	return false
 }
 
-// ApplyPending aplica una copia preparada por Stage. Debe llamarse al
-// arrancar, antes de abrir la base de datos. Los datos que había se
-// conservan en dataDir/before-restore-<fecha>, por si hubiera que volver.
+// ApplyPending applies a backup staged by Stage. It must be called on
+// startup, before opening the database. The data that was there is kept in
+// dataDir/before-restore-<date>, in case it has to be rolled back.
 //
-// Se puede repetir si se corta a medias (OOM, reinicio): reutiliza la misma
-// carpeta de respaldo, no aparta dos veces lo ya apartado (que ahora sería
-// lo restaurado) y mueve la base de datos la última.
+// It can be retried if it is interrupted halfway (OOM, restart): it reuses
+// the same backup directory, does not set aside twice what was already set
+// aside (which by then would be the restored data) and moves the database last.
 func ApplyPending(dataDir string) (applied bool, keptAt string, err error) {
 	pending := filepath.Join(dataDir, pendingDir)
 	if _, err := os.Stat(pending); errors.Is(err, fs.ErrNotExist) {
@@ -272,17 +272,17 @@ func ApplyPending(dataDir string) (applied bool, keptAt string, err error) {
 	if err := os.MkdirAll(filepath.Join(keep, "traefik"), 0o700); err != nil {
 		return false, "", err
 	}
-	// La base de datos en uso, con su WAL, y todo lo que la copia reemplaza.
+	// The database in use, with its WAL, and everything the backup replaces.
 	current := append([]string{"dockfly.db", "dockfly.db-wal", "dockfly.db-shm"}, files...)
 	current = append(current, dirs...)
 	for _, name := range current {
 		src, dst := filepath.Join(dataDir, name), filepath.Join(keep, name)
 		if _, err := os.Stat(dst); err == nil {
-			continue // ya se apartó en un intento anterior
+			continue // already set aside by an earlier attempt
 		}
 		if _, err := os.Stat(src); err == nil {
 			if err := os.Rename(src, dst); err != nil {
-				return false, "", fmt.Errorf("apartando %s: %w", name, err)
+				return false, "", fmt.Errorf("setting aside %s: %w", name, err)
 			}
 		}
 	}
@@ -291,14 +291,14 @@ func ApplyPending(dataDir string) (applied bool, keptAt string, err error) {
 		return false, "", err
 	}
 	for _, e := range entries {
-		// dockfly.db va el último (abajo): mientras siga en pending, un
-		// reinicio vuelve a pasar por aquí.
+		// dockfly.db goes last (below): as long as it is still in pending, a
+		// restart comes back through here.
 		if e.Name() == keepMarker || e.Name() == "dockfly.db" {
 			continue
 		}
 		dst := filepath.Join(dataDir, e.Name())
 		if e.IsDir() {
-			// traefik/ ya existe (lo crea Dockfly): movemos su contenido.
+			// traefik/ already exists (Dockfly creates it): move its contents.
 			if err := mergeDir(filepath.Join(pending, e.Name()), dst); err != nil {
 				return false, "", err
 			}
@@ -315,7 +315,7 @@ func ApplyPending(dataDir string) (applied bool, keptAt string, err error) {
 	return true, keep, os.RemoveAll(pending)
 }
 
-// keepMarker guarda, dentro de pending, la carpeta de respaldo elegida.
+// keepMarker records, inside pending, which backup directory was chosen.
 const keepMarker = ".keep"
 
 func mergeDir(src, dst string) error {

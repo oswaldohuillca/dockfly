@@ -5,18 +5,18 @@ services:
     container_name: dockfly
     restart: unless-stopped
     ports:
-      - "80:80"     # HTTP de las apps
-      - "443:443"   # HTTPS de las apps
-      - "127.0.0.1:81:81"   # Panel de Dockfly (solo local; publícalo por un proxy host con HTTPS)
+      - "80:80"     # Application HTTP
+      - "443:443"   # Application HTTPS
+      - "127.0.0.1:81:81"   # Dockfly panel (local only; publish it through a proxy host over HTTPS)
     environment:
       # DOCKFLY_ACME_EMAIL: tu@email.com
-      # DOCKFLY_ACME_STAGING: "true"   # usa el entorno de pruebas de Let's Encrypt
+      # DOCKFLY_ACME_STAGING: "true"   # use Let's Encrypt's staging environment
       DOCKFLY_NETWORK: dockfly
     volumes:
       - dockfly-data:/data
       - /var/run/docker.sock:/var/run/docker.sock
     extra_hosts:
-      # Permite apuntar a apps que corren directamente en el servidor.
+      # Lets you point at apps running directly on the server.
       - "host.docker.internal:host-gateway"
     networks:
       - dockfly

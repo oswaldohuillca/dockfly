@@ -22,12 +22,12 @@ func TestSchedule(t *testing.T) {
 		{"0 3 * * *", "2026-11-12 03:01", false},
 		{"*/15 * * * *", "2026-11-12 10:45", true},
 		{"*/15 * * * *", "2026-11-12 10:50", false},
-		{"0 9-17 * * 1-5", "2026-11-12 12:00", true},  // jueves
-		{"0 9-17 * * 1-5", "2026-11-14 12:00", false}, // sábado
+		{"0 9-17 * * 1-5", "2026-11-12 12:00", true},  // Thursday
+		{"0 9-17 * * 1-5", "2026-11-14 12:00", false}, // Saturday
 		{"0 0 1,15 * *", "2026-11-15 00:00", true},
-		{"0 0 * * 7", "2026-11-15 00:00", true},  // 7 = domingo
-		{"0 0 1 * 1", "2026-11-16 00:00", true},  // día 1 O lunes, como en cron
-		{"0 0 1 * 1", "2026-11-17 00:00", false}, // ni día 1 ni lunes
+		{"0 0 * * 7", "2026-11-15 00:00", true},  // 7 = Sunday
+		{"0 0 1 * 1", "2026-11-16 00:00", true},  // day 1 OR Monday, as in cron
+		{"0 0 1 * 1", "2026-11-17 00:00", false}, // neither day 1 nor Monday
 		{"5/20 * * * *", "2026-11-12 10:25", true},
 	}
 	for _, c := range cases {
@@ -37,12 +37,12 @@ func TestSchedule(t *testing.T) {
 			continue
 		}
 		if got := s.Matches(at(c.when)); got != c.want {
-			t.Errorf("%q en %s: esperaba %v", c.expr, c.when, c.want)
+			t.Errorf("%q at %s: wanted %v", c.expr, c.when, c.want)
 		}
 	}
 	for _, bad := range []string{"", "* * * *", "60 * * * *", "* 24 * * *", "*/0 * * * *", "a * * * *", "5-1 * * * *", "* * 0 * *", "@daily"} {
 		if _, err := ParseSchedule(bad); err == nil {
-			t.Errorf("%q debería ser inválida", bad)
+			t.Errorf("%q should be invalid", bad)
 		}
 	}
 }
@@ -50,9 +50,9 @@ func TestSchedule(t *testing.T) {
 func TestNoShell(t *testing.T) {
 	const missing = "OCI runtime exec failed: exec failed: unable to start container process: exec: \"sh\": executable file not found in $PATH\r\n"
 	if !noShell(127, missing) {
-		t.Error("una imagen sin sh debe reconocerse")
+		t.Error("an image with no sh must be recognised")
 	}
 	if noShell(127, "sh: 1: foo: not found\n") || noShell(0, missing) {
-		t.Error("un comando que no existe o que terminó bien no es una imagen sin sh")
+		t.Error("a missing command, or one that finished fine, is not an image without sh")
 	}
 }

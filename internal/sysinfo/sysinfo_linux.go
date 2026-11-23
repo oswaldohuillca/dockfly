@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// Read mide los recursos de la máquina; el disco es el del sistema de
-// archivos de diskPath. Tarda ~200 ms: el uso de CPU sale de dos lecturas.
+// Read measures the machine's resources; the disk is the one of diskPath's
+// filesystem. It takes ~200 ms: the CPU usage comes from two readings.
 func Read(ctx context.Context, diskPath string) (Stats, error) {
 	before, err := os.ReadFile("/proc/stat")
 	if err != nil {
@@ -48,7 +48,7 @@ func Read(ctx context.Context, diskPath string) (Stats, error) {
 	}
 	var fs syscall.Statfs_t
 	if err := syscall.Statfs(diskPath, &fs); err == nil {
-		// Como df: lo que no está disponible para Dockfly cuenta como usado.
+		// Like df: whatever is not available to Dockfly counts as used.
 		st.DiskTotal = fs.Blocks * uint64(fs.Bsize)
 		st.DiskUsed = sub(st.DiskTotal, fs.Bavail*uint64(fs.Bsize))
 	}

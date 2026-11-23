@@ -35,7 +35,7 @@ func (in *redirectInput) toRedirect() (*store.RedirectHost, error) {
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
 		return nil, errRedirectTargetInvalid
 	}
-	// "$" tiene significado en el reemplazo de redirectRegex.
+	// "$" is meaningful in redirectRegex's replacement.
 	if strings.Contains(target, "$") {
 		return nil, errRedirectTargetDollar
 	}

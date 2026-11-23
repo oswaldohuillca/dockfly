@@ -24,9 +24,9 @@ import (
 
 var httpClient = &http.Client{Timeout: 20 * time.Second}
 
-// hideURL quita la URL de un error de red: la de Telegram lleva el token del
-// bot y la de un webhook de Discord/Slack es su secreto. El error se guarda en
-// last_error, que ven todos los usuarios.
+// hideURL strips the URL from a network error: Telegram's carries the bot
+// token and a Discord/Slack webhook URL is itself the secret. The error is
+// stored in last_error, which every user can see.
 func hideURL(err error) error {
 	var ue *url.Error
 	if errors.As(err, &ue) {
@@ -56,7 +56,7 @@ func postJSON(ctx context.Context, rawURL string, body any, headers map[string]s
 	defer resp.Body.Close()
 	if resp.StatusCode >= 300 {
 		msg, _ := io.ReadAll(io.LimitReader(resp.Body, 512))
-		return fmt.Errorf("respondió %d: %s", resp.StatusCode, strings.TrimSpace(string(msg)))
+		return fmt.Errorf("responded %d: %s", resp.StatusCode, strings.TrimSpace(string(msg)))
 	}
 	return nil
 }
@@ -64,10 +64,10 @@ func postJSON(ctx context.Context, rawURL string, body any, headers map[string]s
 func validURL(raw, prefix string) error {
 	u, err := url.Parse(raw)
 	if err != nil || u.Scheme != "https" && u.Scheme != "http" || u.Host == "" {
-		return fmt.Errorf("URL inválida")
+		return fmt.Errorf("invalid URL")
 	}
 	if prefix != "" && !strings.HasPrefix(raw, prefix) {
-		return fmt.Errorf("la URL debe empezar por %s", prefix)
+		return fmt.Errorf("the URL must start with %s", prefix)
 	}
 	return nil
 }
@@ -103,14 +103,14 @@ type Slack struct {
 
 func (s *Slack) validate() error { return validURL(s.WebhookURL, "") }
 
-// slackEscape escapa lo que Slack interpreta como sintaxis: "<…>" son
-// enlaces y menciones, así que un "<" en el mensaje lo rompería.
+// slackEscape escapes what Slack reads as syntax: "<…>" are links and
+// mentions, so a "<" in the message would break it.
 var slackEscape = strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;")
 
 func (s *Slack) Send(ctx context.Context, ev Event) error {
 	text := fmt.Sprintf("%s *%s*\n%s", emoji[ev.Severity], slackEscape.Replace(ev.Title), slackEscape.Replace(ev.Message))
 	if ev.URL != "" {
-		text += fmt.Sprintf("\n<%s|Abrir en Dockfly>", ev.URL)
+		text += fmt.Sprintf("\n<%s|Open in Dockfly>", ev.URL)
 	}
 	return postJSON(ctx, s.WebhookURL, map[string]string{"text": text}, nil)
 }
@@ -120,13 +120,13 @@ func (s *Slack) Send(ctx context.Context, ev Event) error {
 type Telegram struct {
 	BotToken string `json:"bot_token"`
 	ChatID   string `json:"chat_id"`
-	// APIURL permite usar un servidor propio de la Bot API (y los tests).
+	// APIURL allows using a self-hosted Bot API server (and the tests).
 	APIURL string `json:"api_url,omitempty"`
 }
 
 func (t *Telegram) validate() error {
 	if t.BotToken == "" || t.ChatID == "" {
-		return fmt.Errorf("%w: token del bot y chat ID", errMissing)
+		return fmt.Errorf("%w: bot token and chat ID", errMissing)
 	}
 	return nil
 }
@@ -138,18 +138,18 @@ func (t *Telegram) Send(ctx context.Context, ev Event) error {
 	}
 	text := fmt.Sprintf("%s <b>%s</b>\n%s", emoji[ev.Severity], html.EscapeString(ev.Title), html.EscapeString(ev.Message))
 	if ev.URL != "" {
-		text += fmt.Sprintf("\n<a href=\"%s\">Abrir en Dockfly</a>", html.EscapeString(ev.URL))
+		text += fmt.Sprintf("\n<a href=\"%s\">Open in Dockfly</a>", html.EscapeString(ev.URL))
 	}
 	return postJSON(ctx, api+"/bot"+t.BotToken+"/sendMessage", map[string]any{
 		"chat_id": t.ChatID, "text": text, "parse_mode": "HTML", "disable_web_page_preview": true,
 	}, nil)
 }
 
-// --- Webhook genérico ---
+// --- Generic webhook ---
 
-// Webhook envía el evento como JSON. Con Secret, firma el cuerpo con
-// HMAC-SHA256 en X-Dockfly-Signature (como hace GitHub), para que el
-// receptor compruebe que viene de Dockfly.
+// Webhook sends the event as JSON. With Secret, it signs the body with
+// HMAC-SHA256 in X-Dockfly-Signature (the way GitHub does), so the receiver
+// can check that it comes from Dockfly.
 type Webhook struct {
 	URL    string `json:"url"`
 	Secret string `json:"secret,omitempty"`
@@ -173,7 +173,7 @@ func (w *Webhook) Send(ctx context.Context, ev Event) error {
 type Email struct {
 	Host     string   `json:"host"`
 	Port     int      `json:"port"`
-	Security string   `json:"security"` // "starttls" (587), "tls" (465) o "none"
+	Security string   `json:"security"` // "starttls" (587), "tls" (465) or "none"
 	Username string   `json:"username,omitempty"`
 	Password string   `json:"password,omitempty"`
 	From     string   `json:"from"`
@@ -182,12 +182,12 @@ type Email struct {
 
 func (e *Email) validate() error {
 	if e.Host == "" || e.Port == 0 || e.From == "" || len(e.To) == 0 {
-		return fmt.Errorf("%w: servidor, puerto, remitente y destinatarios", errMissing)
+		return fmt.Errorf("%w: server, port, sender and recipients", errMissing)
 	}
 	switch e.Security {
 	case "starttls", "tls", "none":
 	default:
-		return fmt.Errorf("seguridad inválida: usa starttls, tls o none")
+		return fmt.Errorf("invalid security: use starttls, tls or none")
 	}
 	return nil
 }
@@ -203,7 +203,7 @@ func (e *Email) Send(ctx context.Context, ev Event) error {
 		conn, err = dialer.DialContext(ctx, "tcp", addr)
 	}
 	if err != nil {
-		return fmt.Errorf("conectando con %s: %w", addr, err)
+		return fmt.Errorf("connecting to %s: %w", addr, err)
 	}
 	if dl, ok := ctx.Deadline(); ok {
 		conn.SetDeadline(dl)
@@ -220,9 +220,9 @@ func (e *Email) Send(ctx context.Context, ev Event) error {
 		}
 	}
 	if e.Username != "" {
-		// net/smtp se niega a enviar la contraseña sin cifrar salvo a localhost.
+		// net/smtp refuses to send the password unencrypted except to localhost.
 		if err := c.Auth(smtp.PlainAuth("", e.Username, e.Password, e.Host)); err != nil {
-			return fmt.Errorf("autenticación: %w", err)
+			return fmt.Errorf("authentication: %w", err)
 		}
 	}
 	if err := c.Mail(e.From); err != nil {
@@ -230,7 +230,7 @@ func (e *Email) Send(ctx context.Context, ev Event) error {
 	}
 	for _, to := range e.To {
 		if err := c.Rcpt(to); err != nil {
-			return fmt.Errorf("destinatario %s: %w", to, err)
+			return fmt.Errorf("recipient %s: %w", to, err)
 		}
 	}
 	w, err := c.Data()
@@ -260,7 +260,7 @@ func (e *Email) message(ev Event) []byte {
 	return b.Bytes()
 }
 
-// Campos secretos de cada tipo: la API nunca los devuelve.
+// Secret fields of each kind: the API never returns them.
 var SecretFields = map[string][]string{
 	"email":    {"password"},
 	"discord":  {"webhook_url"},

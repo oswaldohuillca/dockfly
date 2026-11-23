@@ -1,5 +1,5 @@
-// Package store persiste el estado de Dockfly con Bun: en SQLite (por
-// defecto), PostgreSQL o MySQL/MariaDB.
+// Package store persists Dockfly's state with Bun: in SQLite (the default),
+// PostgreSQL or MySQL/MariaDB.
 package store
 
 import (
@@ -23,23 +23,23 @@ import (
 	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"github.com/uptrace/bun/driver/pgdriver"
 	"github.com/uptrace/bun/migrate"
-	_ "modernc.org/sqlite" // driver SQLite en Go puro: sin CGO
+	_ "modernc.org/sqlite" // pure Go SQLite driver: no CGO
 )
 
-var ErrNotFound = errors.New("no encontrado")
+var ErrNotFound = errors.New("not found")
 
-// migrationsFS contiene las migraciones SQL versionadas, una carpeta por
-// motor. Nunca edites una migración publicada: añade un archivo nuevo con un
-// timestamp posterior, en las tres carpetas.
+// migrationsFS holds the versioned SQL migrations, one directory per engine.
+// Never edit a migration that has shipped: add a new file with a later
+// timestamp, in all three directories.
 //
 //go:embed migrations/*.sql migrations_postgres/*.sql migrations_mysql/*.sql
 var migrationsFS embed.FS
 
-// Tipos de destino de un proxy host.
+// Target types of a proxy host.
 const (
-	TargetDocker   = "docker"   // contenedor Docker (por nombre)
-	TargetHost     = "host"     // aplicación en el mismo servidor
-	TargetExternal = "external" // IP o dominio externo
+	TargetDocker   = "docker"   // Docker container (by name)
+	TargetHost     = "host"     // application on this same server
+	TargetExternal = "external" // external IP or domain
 )
 
 type User struct {
@@ -48,14 +48,14 @@ type User struct {
 	ID           int64     `bun:",pk,autoincrement" json:"id"`
 	Email        string    `json:"email"`
 	Name         string    `json:"name"`
-	PasswordHash string    `json:"-"` // vacío hasta que acepta la invitación
+	PasswordHash string    `json:"-"` // empty until the invitation is accepted
 	Role         string    `json:"role"`
 	CreatedAt    time.Time `json:"created_at"`
-	// SessionVersion va en cada sesión: al subirla, las anteriores dejan de valer.
+	// SessionVersion goes in every session: bumping it invalidates the older ones.
 	SessionVersion int64 `json:"-"`
 
-	// Verificación en dos pasos. El secreto va cifrado; mientras se configura
-	// existe pero TOTPEnabled sigue a false.
+	// Two-factor authentication. The secret is stored encrypted; while it is
+	// being set up it exists but TOTPEnabled is still false.
 	TOTPSecretEnc []byte   `bun:"totp_secret_enc" json:"-"`
 	TOTPEnabled   bool     `bun:"totp_enabled" json:"totp_enabled"`
 	TOTPLastStep  int64    `bun:"totp_last_step" json:"-"`
@@ -66,7 +66,7 @@ type ProxyHost struct {
 	bun.BaseModel `bun:"table:proxy_hosts"`
 
 	ID            int64    `bun:",pk,autoincrement" json:"id"`
-	Domains       []string `json:"domains"` // Bun guarda los slices como JSON
+	Domains       []string `json:"domains"` // Bun stores slices as JSON
 	TargetType    string   `json:"target_type"`
 	ForwardScheme string   `json:"forward_scheme"`
 	ForwardHost   string   `json:"forward_host"`
@@ -78,34 +78,34 @@ type ProxyHost struct {
 	PreserveHost  bool     `json:"preserve_host"`
 	Enabled       bool     `json:"enabled"`
 	AccessListID  *int64   `json:"access_list_id"`
-	// Locations envían una parte del dominio (/api…) a otro destino.
+	// Locations send part of the domain (/api…) to a different target.
 	Locations []ProxyLocation `json:"locations"`
 	CreatedAt time.Time       `json:"created_at"`
 	UpdatedAt time.Time       `json:"updated_at"`
 }
 
-// Acceso de una ubicación: el de su proxy host o sitio, sin restricciones o una lista.
+// Access of a location: inherited from its proxy host or site, open to all, or an access list.
 const (
 	LocationAccessInherit = "inherit"
 	LocationAccessPublic  = "public"
 	LocationAccessList    = "list"
 )
 
-// ProxyLocation es una ubicación personalizada de un proxy host o de un sitio.
+// ProxyLocation is a custom location of a proxy host or of a site.
 type ProxyLocation struct {
 	Path          string `json:"path"` // "/api"
 	TargetType    string `json:"target_type"`
 	ForwardScheme string `json:"forward_scheme"`
 	ForwardHost   string `json:"forward_host"`
 	ForwardPort   int    `json:"forward_port"`
-	// StripPrefix quita Path antes de reenviar (/api/users → /users).
+	// StripPrefix removes Path before forwarding (/api/users → /users).
 	StripPrefix  bool   `json:"strip_prefix"`
 	Access       string `json:"access"`
 	AccessListID *int64 `json:"access_list_id"`
 }
 
-// El driver de SQLite devuelve las fechas con una zona fija "+0000" en vez de
-// UTC. Las normalizamos tras cada lectura para que el JSON sea uniforme.
+// The SQLite driver returns timestamps with a fixed "+0000" zone instead of
+// UTC. We normalize them after every read so the JSON stays uniform.
 var (
 	_ bun.AfterScanRowHook = (*User)(nil)
 	_ bun.AfterScanRowHook = (*ProxyHost)(nil)
@@ -128,8 +128,8 @@ type Store struct {
 	db *bun.DB
 }
 
-// Open abre la base de datos y aplica las migraciones pendientes. dsn es la
-// ruta de un archivo SQLite o una URL postgres:// o mysql://.
+// Open opens the database and applies the pending migrations. dsn is the path
+// of a SQLite file or a postgres:// or mysql:// URL.
 func Open(ctx context.Context, dsn string) (*Store, error) {
 	db, dir, err := connect(dsn)
 	if err != nil {
@@ -142,18 +142,18 @@ func Open(ctx context.Context, dsn string) (*Store, error) {
 	return &Store{db: db}, nil
 }
 
-// connect devuelve la conexión y la carpeta de migraciones de su motor.
+// connect returns the connection and the migrations directory of its engine.
 func connect(dsn string) (*bun.DB, string, error) {
 	scheme, _, isURL := strings.Cut(dsn, "://")
 	switch scheme {
 	case "postgres", "postgresql":
-		// Con el reloj de la sesión en UTC las fechas se leen como se guardaron.
+		// With the session's clock in UTC, timestamps read back as they were stored.
 		conn := pgdriver.NewConnector(pgdriver.WithDSN(dsn), pgdriver.WithConnParams(map[string]any{"timezone": "UTC"}))
 		return bun.NewDB(sql.OpenDB(conn), pgdialect.New()), "migrations_postgres", nil
 	case "mysql", "mariadb":
 		u, err := url.Parse(dsn)
 		if err != nil {
-			return nil, "", fmt.Errorf("URL de MySQL inválida: %w", err)
+			return nil, "", fmt.Errorf("invalid MySQL URL: %w", err)
 		}
 		cfg := mysql.NewConfig()
 		cfg.User = u.User.Username()
@@ -165,37 +165,37 @@ func connect(dsn string) (*bun.DB, string, error) {
 		cfg.DBName = strings.TrimPrefix(u.Path, "/")
 		cfg.TLSConfig = u.Query().Get("tls")
 		cfg.ParseTime, cfg.Loc = true, time.UTC
-		// Sin esto un UPDATE que no cambia nada cuenta 0 filas y mustAffect
-		// lo tomaría por "no encontrado".
+		// Without this, an UPDATE that changes nothing reports 0 rows and
+		// mustAffect would read it as "not found".
 		cfg.ClientFoundRows = true
 		conn, err := mysql.NewConnector(cfg)
 		if err != nil {
 			return nil, "", err
 		}
-		// DATETIME no guarda zona: todo se escribe y se lee en UTC.
+		// DATETIME stores no zone: everything is written and read in UTC.
 		return bun.NewDB(sql.OpenDB(conn), mysqldialect.New(mysqldialect.WithTimeLocation("UTC"))), "migrations_mysql", nil
 	}
 	if isURL {
-		return nil, "", fmt.Errorf("base de datos %q no admitida: usa postgres:// o mysql://", scheme)
+		return nil, "", fmt.Errorf("database %q is not supported: use postgres:// or mysql://", scheme)
 	}
 	sqldb, err := sql.Open("sqlite", "file:"+dsn+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)&_pragma=foreign_keys(1)")
 	if err != nil {
 		return nil, "", err
 	}
-	// SQLite admite un solo escritor; evita errores SQLITE_BUSY.
+	// SQLite allows a single writer; this avoids SQLITE_BUSY errors.
 	sqldb.SetMaxOpenConns(1)
 	return bun.NewDB(sqldb, sqlitedialect.New()), "migrations", nil
 }
 
-// sqlite indica si los datos están en el archivo local y no en un servidor.
+// sqlite reports whether the data lives in the local file and not on a server.
 func (s *Store) sqlite() bool { return s.db.Dialect().Name() == dialect.SQLite }
 
-// External indica si la base de datos es un servidor aparte (PostgreSQL o
-// MySQL): sus copias de seguridad no las hace Dockfly.
+// External reports whether the database is a separate server (PostgreSQL or
+// MySQL): Dockfly does not take its backups.
 func (s *Store) External() bool { return !s.sqlite() }
 
-// upsert hace que un INSERT actualice cols si la fila ya existe. conflict es
-// la clave que choca (MySQL la deduce sola).
+// upsert makes an INSERT update cols if the row already exists. conflict is
+// the key that collides (MySQL infers it on its own).
 func (s *Store) upsert(q *bun.InsertQuery, conflict string, cols ...string) *bun.InsertQuery {
 	set := "? = EXCLUDED.?"
 	if s.db.Dialect().Name() == dialect.MySQL {
@@ -218,13 +218,13 @@ func migrateUp(ctx context.Context, db *bun.DB, dir string) error {
 	}
 	migrations := migrate.NewMigrations()
 	if err := migrations.Discover(files); err != nil {
-		return fmt.Errorf("leyendo migraciones: %w", err)
+		return fmt.Errorf("reading migrations: %w", err)
 	}
 	m := migrate.NewMigrator(db, migrations,
 		migrate.WithTableName("schema_migrations"),
 		migrate.WithLocksTableName("schema_migration_locks"),
-		// Si una migración falla no se marca como aplicada, y se reintenta en
-		// el siguiente arranque.
+		// A migration that fails is not marked as applied, so it is retried on
+		// the next startup.
 		migrate.WithMarkAppliedOnSuccess(true),
 	)
 	if err := m.Init(ctx); err != nil {
@@ -236,19 +236,19 @@ func migrateUp(ctx context.Context, db *bun.DB, dir string) error {
 	defer m.Unlock(ctx) //nolint:errcheck
 	if db.Dialect().Name() == dialect.SQLite {
 		if err := adoptLegacy(ctx, db, m, migrations); err != nil {
-			return fmt.Errorf("adoptando base de datos anterior: %w", err)
+			return fmt.Errorf("adopting the older database: %w", err)
 		}
 	}
 	if _, err := m.Migrate(ctx); err != nil {
-		return fmt.Errorf("aplicando migraciones: %w", err)
+		return fmt.Errorf("applying migrations: %w", err)
 	}
 	return nil
 }
 
-// adoptLegacy reconoce las bases de datos creadas antes de usar Bun, que
-// llevaban la versión del esquema en PRAGMA user_version. Sus tablas ya
-// existen, así que la migración inicial se marca como aplicada en lugar de
-// ejecutarla (lo que fallaría con "table users already exists").
+// adoptLegacy recognizes the databases created before we used Bun, which kept
+// the schema version in PRAGMA user_version. Their tables already exist, so
+// the initial migration is marked as applied instead of being run (which
+// would fail with "table users already exists").
 func adoptLegacy(ctx context.Context, db *bun.DB, m *migrate.Migrator, migrations *migrate.Migrations) error {
 	var userVersion int
 	if err := db.QueryRowContext(ctx, `PRAGMA user_version`).Scan(&userVersion); err != nil {
@@ -262,10 +262,10 @@ func adoptLegacy(ctx context.Context, db *bun.DB, m *migrate.Migrator, migration
 		return err
 	}
 	if len(applied) > 0 {
-		return nil // ya adoptada en un arranque anterior
+		return nil // already adopted on an earlier startup
 	}
 
-	// Las primeras versiones no tenían la columna preserve_host.
+	// The earliest versions did not have the preserve_host column.
 	var hasPreserveHost bool
 	if err := db.QueryRowContext(ctx,
 		`SELECT COUNT(*) > 0 FROM pragma_table_info('proxy_hosts') WHERE name = 'preserve_host'`,
@@ -283,8 +283,8 @@ func adoptLegacy(ctx context.Context, db *bun.DB, m *migrate.Migrator, migration
 	return m.MarkApplied(ctx, &initial)
 }
 
-// IsDuplicate indica si err es el rechazo de un valor repetido en una columna
-// única (cada motor lo dice a su manera).
+// IsDuplicate reports whether err is the rejection of a repeated value in a
+// unique column (each engine words it differently).
 func IsDuplicate(err error) bool {
 	var pg pgdriver.Error
 	var my *mysql.MySQLError
@@ -299,12 +299,12 @@ func IsDuplicate(err error) bool {
 	return strings.Contains(err.Error(), "UNIQUE constraint failed")
 }
 
-// now devuelve la hora actual con la precisión que guarda SQLite vía Bun
-// (microsegundos), para que lo que devolvemos al crear coincida exactamente
-// con lo que se lee después.
+// now returns the current time with the precision SQLite stores through Bun
+// (microseconds), so that what we return on create matches exactly what is
+// read back afterwards.
 func now() time.Time { return time.Now().UTC().Truncate(time.Microsecond) }
 
-// notFound traduce sql.ErrNoRows al error propio del paquete.
+// notFound translates sql.ErrNoRows into this package's own error.
 func notFound(err error) error {
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound
@@ -312,7 +312,7 @@ func notFound(err error) error {
 	return err
 }
 
-// mustAffect devuelve ErrNotFound si la operación no tocó ninguna fila.
+// mustAffect returns ErrNotFound if the operation touched no rows.
 func mustAffect(res sql.Result, err error) error {
 	if err != nil {
 		return err
@@ -327,7 +327,7 @@ func mustAffect(res sql.Result, err error) error {
 	return nil
 }
 
-// --- Usuarios ---
+// --- Users ---
 
 func (s *Store) CountUsers(ctx context.Context) (int, error) {
 	n, err := s.db.NewSelect().Model((*User)(nil)).Count(ctx)
@@ -356,14 +356,14 @@ func (s *Store) UserByID(ctx context.Context, id int64) (*User, error) {
 	return u, nil
 }
 
-// Roles, de más a menos permisos.
+// Roles, from most to least permissions.
 const (
-	RoleAdmin    = "admin"    // todo, incluidos usuarios y ajustes
-	RoleDeployer = "deployer" // sitios, apps, builds y despliegues
-	RoleViewer   = "viewer"   // solo lectura
+	RoleAdmin    = "admin"    // everything, including users and settings
+	RoleDeployer = "deployer" // sites, apps, builds and deployments
+	RoleViewer   = "viewer"   // read only
 )
 
-// RoleRank ordena los roles: un rol incluye los permisos de los de menor rango.
+// RoleRank orders the roles: a role includes the permissions of the lower-ranked ones.
 func RoleRank(role string) int {
 	switch role {
 	case RoleAdmin:
@@ -382,16 +382,16 @@ func (s *Store) ListUsers(ctx context.Context) ([]*User, error) {
 	return users, err
 }
 
-// UpdateUserProfile cambia el nombre y el rol.
+// UpdateUserProfile changes the name and the role.
 func (s *Store) UpdateUserProfile(ctx context.Context, u *User) error {
 	return mustAffect(s.db.NewUpdate().Model(u).Column("name", "role").WherePK().Exec(ctx))
 }
 
-// SetPassword cambia la contraseña y sube la versión de sesión (cierra las
-// demás sesiones). Devuelve la versión nueva.
+// SetPassword changes the password and bumps the session version (which logs
+// out the other sessions). It returns the new version.
 func (s *Store) SetPassword(ctx context.Context, id int64, hash string) (int64, error) {
 	var version int64
-	// En una transacción y no con RETURNING, que MySQL no tiene.
+	// In a transaction rather than with RETURNING, which MySQL lacks.
 	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if err := mustAffect(tx.NewUpdate().Model((*User)(nil)).
 			Set("password_hash = ?", hash).Set("session_version = session_version + 1").
@@ -403,8 +403,8 @@ func (s *Store) SetPassword(ctx context.Context, id int64, hash string) (int64, 
 	return version, err
 }
 
-// BumpSessionVersion sube la versión de sesión del usuario (cierra todas sus
-// sesiones). Lo usa el logout.
+// BumpSessionVersion bumps the user's session version (which logs out all of
+// their sessions). Logout uses it.
 func (s *Store) BumpSessionVersion(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewUpdate().Model((*User)(nil)).
 		Set("session_version = session_version + 1").Where("id = ?", id).Exec(ctx))
@@ -414,13 +414,13 @@ func (s *Store) DeleteUser(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewDelete().Model((*User)(nil)).Where("id = ?", id).Exec(ctx))
 }
 
-// CountAdmins cuenta los administradores con la cuenta activada.
+// CountAdmins counts the administrators whose account is already activated.
 func (s *Store) CountAdmins(ctx context.Context) (int, error) {
 	n, err := s.db.NewSelect().Model((*User)(nil)).Where("role = ? AND password_hash <> ''", RoleAdmin).Count(ctx)
 	return int(n), err
 }
 
-// SetUserTOTP guarda la configuración de la verificación en dos pasos.
+// SetUserTOTP saves the two-factor authentication settings.
 func (s *Store) SetUserTOTP(ctx context.Context, u *User) error {
 	if u.RecoveryCodes == nil {
 		u.RecoveryCodes = []string{}
@@ -429,9 +429,9 @@ func (s *Store) SetUserTOTP(ctx context.Context, u *User) error {
 		Column("totp_secret_enc", "totp_enabled", "totp_last_step", "recovery_codes").WherePK().Exec(ctx))
 }
 
-// AdvanceTOTPStep registra el paso de un código aceptado. Devuelve false si
-// ya se usó ese paso (o uno posterior): dos peticiones simultáneas con el
-// mismo código no pueden entrar las dos.
+// AdvanceTOTPStep records the step of an accepted code. It returns false if
+// that step (or a later one) was already used: two concurrent requests with
+// the same code cannot both get in.
 func (s *Store) AdvanceTOTPStep(ctx context.Context, userID, step int64) (bool, error) {
 	res, err := s.db.NewUpdate().Model((*User)(nil)).Set("totp_last_step = ?", step).
 		Where("id = ? AND totp_last_step < ?", userID, step).Exec(ctx)
@@ -442,7 +442,7 @@ func (s *Store) AdvanceTOTPStep(ctx context.Context, userID, step int64) (bool, 
 	return n == 1, err
 }
 
-// UseRecoveryCode gasta un código de recuperación (por su hash).
+// UseRecoveryCode spends a recovery code (looked up by its hash).
 func (s *Store) UseRecoveryCode(ctx context.Context, userID int64, hash string) (bool, error) {
 	used := false
 	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
@@ -485,9 +485,9 @@ func (s *Store) CreateProxyHost(ctx context.Context, h *ProxyHost) error {
 	return err
 }
 
-// UpdateProxyHost reescribe todas las columnas editables. A diferencia de
-// GORM, Bun incluye los valores cero (false, 0, ""), así que desactivar un
-// host o quitarle el SSL se guarda correctamente.
+// UpdateProxyHost rewrites every editable column. Unlike GORM, Bun includes
+// the zero values (false, 0, ""), so disabling a host or turning off its SSL
+// is stored correctly.
 func (s *Store) UpdateProxyHost(ctx context.Context, h *ProxyHost) error {
 	h.UpdatedAt = now()
 	return mustAffect(s.db.NewUpdate().Model(h).WherePK().ExcludeColumn("created_at").Exec(ctx))
@@ -497,10 +497,10 @@ func (s *Store) DeleteProxyHost(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewDelete().Model((*ProxyHost)(nil)).Where("id = ?", id).Exec(ctx))
 }
 
-// Snapshot escribe en path una copia consistente de la base de datos,
-// incluidos los cambios que aún están en el WAL (copiar dockfly.db a mano
-// los perdería). Con PostgreSQL o MySQL devuelve errors.ErrUnsupported: esa
-// base de datos se copia con las herramientas de su servidor.
+// Snapshot writes a consistent copy of the database to path, including the
+// changes still sitting in the WAL (copying dockfly.db by hand would lose
+// them). With PostgreSQL or MySQL it returns errors.ErrUnsupported: such a
+// database is backed up with its server's own tools.
 func (s *Store) Snapshot(ctx context.Context, path string) error {
 	if !s.sqlite() {
 		return errors.ErrUnsupported

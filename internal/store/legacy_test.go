@@ -10,8 +10,8 @@ import (
 	"time"
 )
 
-// legacySchema es el esquema que creaba Dockfly antes de usar Bun, con la
-// versión guardada en PRAGMA user_version.
+// legacySchema is the schema Dockfly created before it used Bun, with the
+// version kept in PRAGMA user_version.
 const legacySchema = `
 CREATE TABLE users (
 	id            INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -39,8 +39,8 @@ CREATE TABLE proxy_hosts (
 PRAGMA user_version = 1;
 `
 
-// createLegacyDB escribe los datos igual que lo hacía el código anterior:
-// database/sql directo, con time.Time como parámetro.
+// createLegacyDB writes the data the way the old code did: database/sql
+// directly, passing time.Time as a parameter.
 func createLegacyDB(t *testing.T, withPreserveHost bool) (string, time.Time) {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "legacy.db")
@@ -73,22 +73,22 @@ func createLegacyDB(t *testing.T, withPreserveHost bool) (string, time.Time) {
 
 func TestAdoptLegacyDatabase(t *testing.T) {
 	if os.Getenv("DOCKFLY_TEST_DATABASE_URL") != "" {
-		t.Skip("las bases de datos anteriores a Bun solo existen en SQLite")
+		t.Skip("the pre-Bun databases only exist in SQLite")
 	}
 	for _, withPreserveHost := range []bool{true, false} {
-		name := "sin preserve_host"
+		name := "without preserve_host"
 		if withPreserveHost {
-			name = "con preserve_host"
+			name = "with preserve_host"
 		}
 		t.Run(name, func(t *testing.T) {
 			ctx := context.Background()
 			path, created := createLegacyDB(t, withPreserveHost)
 
-			// Abrir dos veces: la adopción debe ocurrir una sola vez.
+			// Open twice: the adoption must happen only once.
 			for range 2 {
 				s, err := Open(ctx, path)
 				if err != nil {
-					t.Fatalf("abrir base anterior: %v", err)
+					t.Fatalf("opening the legacy database: %v", err)
 				}
 				s.Close()
 			}
@@ -96,25 +96,25 @@ func TestAdoptLegacyDatabase(t *testing.T) {
 			s := openTest(t, path)
 			u, err := s.UserByEmail(ctx, "a@b.com")
 			if err != nil {
-				t.Fatalf("leer usuario anterior: %v", err)
+				t.Fatalf("reading the legacy user: %v", err)
 			}
 			if !u.CreatedAt.Equal(created) {
-				t.Errorf("fecha del usuario: guardada %v, leída %v", created, u.CreatedAt)
+				t.Errorf("user timestamp: stored %v, read %v", created, u.CreatedAt)
 			}
 
 			hosts, err := s.ListProxyHosts(ctx)
 			if err != nil {
-				t.Fatalf("leer proxy hosts anteriores: %v", err)
+				t.Fatalf("reading the legacy proxy hosts: %v", err)
 			}
 			h := hosts[0]
 			if len(h.Domains) != 2 || !h.SSL || !h.ForceHTTPS || h.HSTS || h.Enabled || h.ForwardPort != 3000 {
-				t.Errorf("proxy host anterior mal leído: %+v", h)
+				t.Errorf("legacy proxy host read incorrectly: %+v", h)
 			}
 			if !h.PreserveHost {
-				t.Error("preserve_host debe valer true por defecto en bases anteriores")
+				t.Error("preserve_host must default to true in legacy databases")
 			}
 
-			// Y se puede seguir escribiendo con normalidad.
+			// And writing keeps working as usual.
 			h.Enabled = true
 			if err := s.UpdateProxyHost(ctx, h); err != nil {
 				t.Fatal(err)

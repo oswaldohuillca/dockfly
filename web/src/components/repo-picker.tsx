@@ -21,7 +21,7 @@ interface Props {
   onError?: (msg: string) => void;
 }
 
-/** Elegir cuenta, repositorio (con búsqueda) y rama. */
+/** Pick an account, a repository (with search) and a branch. */
 export function RepoPicker({ connections, value, onChange, onError }: Props) {
   const { t } = useLingui();
   const [repos, setRepos] = useState<Repo[] | null>(null);

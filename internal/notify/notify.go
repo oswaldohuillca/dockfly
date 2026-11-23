@@ -1,5 +1,5 @@
-// Package notify envía avisos (build fallido, certificado por caducar,
-// contenedor caído…) por email, Discord, Slack, Telegram o webhook.
+// Package notify sends alerts (failed build, certificate about to expire,
+// container down…) over email, Discord, Slack, Telegram or a webhook.
 package notify
 
 import (
@@ -16,7 +16,7 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Eventos a los que se puede suscribir un canal.
+// Events a channel can subscribe to.
 const (
 	EventBuildFailed       = "build_failed"
 	EventBuildSucceeded    = "build_succeeded"
@@ -30,7 +30,7 @@ const (
 	EventResourceHigh      = "resource_high"
 	EventResourceNormal    = "resource_normal"
 	EventJobFailed         = "job_failed"
-	EventTest              = "test" // el botón «Probar»: llega a cualquier canal
+	EventTest              = "test" // the "Test" button: reaches any channel
 )
 
 var AllEvents = []string{
@@ -48,25 +48,25 @@ const (
 	Error   Severity = "error"
 )
 
-// Event es un aviso, independiente del canal por el que se envíe.
+// Event is an alert, independent of the channel it is sent through.
 type Event struct {
 	Kind     string    `json:"event"`
 	Severity Severity  `json:"severity"`
 	Title    string    `json:"title"`
 	Message  string    `json:"message"`
-	URL      string    `json:"url,omitempty"` // enlace al panel
+	URL      string    `json:"url,omitempty"` // link to the panel
 	Time     time.Time `json:"timestamp"`
 }
 
-// Sender envía un evento por un tipo de canal.
+// Sender sends an event through one kind of channel.
 type Sender interface {
 	Send(ctx context.Context, ev Event) error
 }
 
-// Types son los tipos de canal disponibles.
+// Types are the available channel kinds.
 var Types = []string{"email", "discord", "slack", "telegram", "webhook"}
 
-// NewSender interpreta la configuración (JSON) de un canal.
+// NewSender parses a channel's configuration (JSON).
 func NewSender(typ string, config []byte) (Sender, error) {
 	var s Sender
 	switch typ {
@@ -81,10 +81,10 @@ func NewSender(typ string, config []byte) (Sender, error) {
 	case "webhook":
 		s = new(Webhook)
 	default:
-		return nil, fmt.Errorf("tipo de canal desconocido: %q", typ)
+		return nil, fmt.Errorf("unknown channel kind: %q", typ)
 	}
 	if err := json.Unmarshal(config, s); err != nil {
-		return nil, fmt.Errorf("configuración inválida: %w", err)
+		return nil, fmt.Errorf("invalid configuration: %w", err)
 	}
 	if v, ok := s.(interface{ validate() error }); ok {
 		if err := v.validate(); err != nil {
@@ -94,18 +94,18 @@ func NewSender(typ string, config []byte) (Sender, error) {
 	return s, nil
 }
 
-// Dispatcher reparte cada evento entre los canales suscritos.
+// Dispatcher fans each event out to the subscribed channels.
 type Dispatcher struct {
 	Store   *store.Store
 	Secrets *secrets.Box
 	Log     *slog.Logger
 
 	mu   sync.Mutex
-	sent map[string]time.Time // claves de Once
+	sent map[string]time.Time // Once keys
 }
 
-// Notify envía el evento en segundo plano a todos los canales activos que
-// lo tengan suscrito. No bloquea: un SMTP lento no debe frenar un build.
+// Notify sends the event in the background to every enabled channel
+// subscribed to it. It does not block: a slow SMTP must not hold up a build.
 func (d *Dispatcher) Notify(ev Event) {
 	if ev.Time.IsZero() {
 		ev.Time = time.Now().UTC()
@@ -115,7 +115,7 @@ func (d *Dispatcher) Notify(ev Event) {
 		defer cancel()
 		channels, err := d.Store.ListNotificationChannels(ctx)
 		if err != nil {
-			d.Log.Error("leyendo canales de notificación", "error", err)
+			d.Log.Error("reading notification channels", "error", err)
 			return
 		}
 		var wg sync.WaitGroup
@@ -125,7 +125,7 @@ func (d *Dispatcher) Notify(ev Event) {
 			}
 			wg.Go(func() {
 				if err := d.SendTo(ctx, c, ev); err != nil {
-					d.Log.Warn("no se pudo enviar la notificación", "canal", c.Name, "error", err)
+					d.Log.Warn("could not send the notification", "channel", c.Name, "error", err)
 				}
 			})
 		}
@@ -133,7 +133,7 @@ func (d *Dispatcher) Notify(ev Event) {
 	}()
 }
 
-// SendTo envía el evento a un canal concreto y guarda el resultado.
+// SendTo sends the event to one specific channel and stores the result.
 func (d *Dispatcher) SendTo(ctx context.Context, c *store.NotificationChannel, ev Event) error {
 	if ev.Time.IsZero() {
 		ev.Time = time.Now().UTC()
@@ -161,9 +161,9 @@ func (d *Dispatcher) send(ctx context.Context, c *store.NotificationChannel, ev 
 	return s.Send(ctx, ev)
 }
 
-// Once devuelve true la primera vez que se ve key en el periodo ttl. Evita
-// avisar en bucle de algo que sigue igual (un certificado que Traefik
-// reintenta, un contenedor que sigue caído).
+// Once returns true the first time key is seen within the ttl window. It
+// avoids alerting in a loop about something that has not changed (a
+// certificate Traefik keeps retrying, a container that is still down).
 func (d *Dispatcher) Once(key string, ttl time.Duration) bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -177,12 +177,12 @@ func (d *Dispatcher) Once(key string, ttl time.Duration) bool {
 	return true
 }
 
-// Forget olvida key, para que el próximo Once vuelva a avisar (p. ej. cuando
-// un contenedor se recupera y vuelve a caer).
+// Forget drops key, so the next Once alerts again (for example when a
+// container recovers and then goes down once more).
 func (d *Dispatcher) Forget(key string) {
 	d.mu.Lock()
 	delete(d.sent, key)
 	d.mu.Unlock()
 }
 
-var errMissing = errors.New("faltan campos obligatorios")
+var errMissing = errors.New("required fields are missing")

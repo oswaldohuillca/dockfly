@@ -14,10 +14,10 @@ import { useSubmit } from '@/lib/use-form';
 
 const empty: BackupStorage = { type: 'local', endpoint: '', region: '', bucket: '', prefix: 'dockfly', access_key: '', secret_key: '' };
 
-// Formato del endpoint de Cloudflare R2.
+// Format of the Cloudflare R2 endpoint.
 const r2Endpoint = 'https://<account>.r2.cloudflarestorage.com';
 
-/** Dónde se guardan las copias de las bases de datos. */
+/** Where database backups are stored. */
 export function BackupStorageSettings() {
   const { t } = useLingui();
   const [form, setForm] = useState<BackupStorage | null>(null);

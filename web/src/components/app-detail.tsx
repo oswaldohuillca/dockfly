@@ -69,7 +69,7 @@ export function AppDetail({ id }: { id: number }) {
   const [removeData, setRemoveData] = useState(false);
   const [busy, setBusy] = useState(false);
   const action = useAction();
-  // Solo las apps de bases de datos tienen la pestaña de copias.
+  // Only database apps have the backups tab.
   const [backups, setBackups] = useState<DBBackups | null>(null);
 
   useEffect(() => {
@@ -86,13 +86,13 @@ export function AppDetail({ id }: { id: number }) {
       setDeployments(res.deployments);
       setLoadError(undefined);
     } catch (e) {
-      // Sin toast: se repite en cada tick; el siguiente lo reintenta solo.
+      // No toast: it would repeat on every tick, and the next one retries on its own.
       if (e instanceof ApiError && e.status === 404) setNotFound(true);
       else setLoadError(errorMessage(e));
     }
   }, [id]);
 
-  // Más a menudo mientras hay un despliegue en marcha.
+  // More often while a deployment is running.
   const active = deployments.some((d) => !appDeployFinished(d));
   useEffect(() => {
     load();

@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { api, errorMessage, type Settings } from '@/lib/api';
 
-/** Dominio bajo el que se publican las previews de las ramas. */
+/** The domain the branch previews are published under. */
 export function PreviewSettings() {
   const { t } = useLingui();
   const [settings, setSettings] = useState<Settings | null>(null);

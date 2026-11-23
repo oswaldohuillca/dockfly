@@ -28,10 +28,10 @@ import { timeAgo } from '@/lib/format';
 import { useSubmit } from '@/lib/use-form';
 import { useAction, useResource } from '@/lib/use-resource';
 
-/** Servidores remotos, cada uno con su agente. */
+/** Remote servers, each one with its agent. */
 export function Servers() {
   const { t } = useLingui();
-  // El estado de conexión cambia solo: se refresca cada pocos segundos.
+  // The connection state changes on its own, so it is refreshed every few seconds.
   const { data: servers = [], loading, error, reload } = useResource(api.listServers, { interval: 5000 });
   const [adding, setAdding] = useState(false);
   const [join, setJoin] = useState<{ name: string; command: string; warning: string } | null>(null);

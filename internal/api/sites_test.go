@@ -16,8 +16,9 @@ import (
 	"github.com/dockfly/dockfly/internal/pages"
 )
 
-// upload envía un despliegue. Con zipFiles != nil sube un .zip; si no, sube
-// files como si fuera una carpeta arrastrada al navegador.
+// upload sends a deployment. With zipFiles != nil it uploads a .zip;
+// otherwise it uploads files as if a folder had been dragged onto the
+// browser.
 func (c *client) upload(siteID int, files, zipFiles map[string]string, withHeader bool) (int, map[string]any) {
 	c.t.Helper()
 	var body bytes.Buffer
@@ -30,7 +31,7 @@ func (c *client) upload(siteID int, files, zipFiles map[string]string, withHeade
 			io.WriteString(w, content)
 		}
 		zw.Close()
-		w, _ := mw.CreateFormFile("archive", "sitio.zip")
+		w, _ := mw.CreateFormFile("archive", "site.zip")
 		w.Write(zbuf.Bytes())
 	}
 	for name, content := range files {
@@ -55,7 +56,7 @@ func (c *client) upload(siteID int, files, zipFiles map[string]string, withHeade
 	return resp.StatusCode, out
 }
 
-// visit pide una ruta al servidor estático como lo haría Traefik.
+// visit asks the static server for a path the way Traefik would.
 func visit(srv *pages.Server, host, path string) (int, string) {
 	req := httptest.NewRequest("GET", path, nil)
 	req.Host = host
@@ -71,91 +72,91 @@ func TestSiteDeployFlow(t *testing.T) {
 
 	code, body := c.do("POST", "/api/sites", `{"name":"Mi-Web","domains":["web.test"],"ssl":true,"force_https":true}`)
 	if code != http.StatusCreated {
-		t.Fatalf("crear sitio: %d %v", code, body)
+		t.Fatalf("creating a site: %d %v", code, body)
 	}
 	if body["name"] != "mi-web" {
-		t.Errorf("el nombre debe normalizarse a minúsculas: %v", body["name"])
+		t.Errorf("the name must be normalized to lowercase: %v", body["name"])
 	}
 	if code, _ := c.do("POST", "/api/sites", `{"name":"mi web","domains":["x.test"]}`); code != 400 {
-		t.Errorf("nombre con espacios: esperaba 400, obtuve %d", code)
+		t.Errorf("name with spaces: want 400, got %d", code)
 	}
-	if code, _ := c.do("POST", "/api/sites", `{"name":"mi-web","domains":["otro.test"]}`); code != 409 {
-		t.Errorf("nombre repetido: esperaba 409, obtuve %d", code)
+	if code, _ := c.do("POST", "/api/sites", `{"name":"mi-web","domains":["other.test"]}`); code != 409 {
+		t.Errorf("duplicate name: want 409, got %d", code)
 	}
 
-	// Un dominio no puede estar en un sitio y en un proxy host a la vez.
+	// A domain can't be on a site and on a proxy host at the same time.
 	if code, body := c.do("POST", "/api/proxy-hosts",
 		`{"domains":["web.test"],"target_type":"external","forward_host":"1.1.1.1","forward_port":80}`); code != 409 ||
 		body["code"] != "domain_in_use" {
-		t.Errorf("dominio de un sitio en un proxy host: %d %v", code, body)
+		t.Errorf("a site's domain on a proxy host: %d %v", code, body)
 	}
 
-	// Sin despliegues, Traefik ya enruta el dominio y se ve el aviso.
+	// With no deployments Traefik already routes the domain and the notice shows.
 	cfg, _ := os.ReadFile(dynDir + "/dockfly.yml")
 	if !strings.Contains(string(cfg), "site-1-secure") || !strings.Contains(string(cfg), "http://127.0.0.1:8099") {
-		t.Fatalf("el sitio no está en la configuración de Traefik:\n%s", cfg)
+		t.Fatalf("the site is missing from Traefik's configuration:\n%s", cfg)
 	}
-	if _, html := visit(static, "web.test", "/"); !strings.Contains(html, "todavía no tiene despliegues") {
-		t.Errorf("sin despliegues debe verse el aviso, se vio %q", html)
+	if _, html := visit(static, "web.test", "/"); !strings.Contains(html, "has no deployments yet") {
+		t.Errorf("with no deployments the notice must show, got %q", html)
 	}
 
-	// Despliegue 1: una carpeta.
+	// Deployment 1: a folder.
 	code, body = c.upload(1, map[string]string{"index.html": "v1", "css/app.css": "body{}"}, nil, true)
 	if code != http.StatusCreated || body["file_count"] != float64(2) {
-		t.Fatalf("subir carpeta: %d %v", code, body)
+		t.Fatalf("uploading a folder: %d %v", code, body)
 	}
 	if _, html := visit(static, "web.test", "/"); html != "v1" {
-		t.Errorf("tras el despliegue 1 debe servirse v1, se sirvió %q", html)
+		t.Errorf("after deployment 1 it must serve v1, served %q", html)
 	}
 	if _, css := visit(static, "web.test", "/css/app.css"); css != "body{}" {
-		t.Errorf("la ruta de la carpeta debe conservarse, se sirvió %q", css)
+		t.Errorf("the path inside the folder must be kept, served %q", css)
 	}
 
-	// Despliegue 2: un zip con todo dentro de dist/ (se sube un nivel).
-	code, _ = c.upload(1, nil, map[string]string{"dist/index.html": "v2", "dist/about.html": "acerca"}, true)
+	// Deployment 2: a zip with everything inside dist/ (one level is stripped).
+	code, _ = c.upload(1, nil, map[string]string{"dist/index.html": "v2", "dist/about.html": "about"}, true)
 	if code != http.StatusCreated {
-		t.Fatalf("subir zip: %d", code)
+		t.Fatalf("uploading a zip: %d", code)
 	}
 	if _, html := visit(static, "web.test", "/"); html != "v2" {
-		t.Errorf("tras el despliegue 2 debe servirse v2, se sirvió %q", html)
+		t.Errorf("after deployment 2 it must serve v2, served %q", html)
 	}
-	if _, html := visit(static, "web.test", "/about"); html != "acerca" {
-		t.Errorf("URL limpia /about: se sirvió %q", html)
+	if _, html := visit(static, "web.test", "/about"); html != "about" {
+		t.Errorf("clean URL /about: served %q", html)
 	}
 
-	// Rollback al despliegue 1.
+	// Rollback to deployment 1.
 	if code, _ := c.do("POST", "/api/sites/1/deployments/1/activate", ""); code != http.StatusNoContent {
 		t.Fatalf("rollback: %d", code)
 	}
 	if _, html := visit(static, "web.test", "/"); html != "v1" {
-		t.Errorf("tras el rollback debe servirse v1, se sirvió %q", html)
+		t.Errorf("after the rollback it must serve v1, served %q", html)
 	}
 
-	// El publicado no se puede borrar; el otro sí.
+	// The published one can't be deleted; the other one can.
 	if code, _ := c.do("DELETE", "/api/sites/1/deployments/1", ""); code != http.StatusConflict {
-		t.Errorf("borrar el publicado: esperaba 409, obtuve %d", code)
+		t.Errorf("deleting the published one: want 409, got %d", code)
 	}
 	if code, _ := c.do("DELETE", "/api/sites/1/deployments/2", ""); code != http.StatusNoContent {
-		t.Errorf("borrar despliegue: esperaba 204, obtuve %d", code)
+		t.Errorf("deleting a deployment: want 204, got %d", code)
 	}
 	if code, body := c.do("GET", "/api/sites/1", ""); code != 200 || len(body["deployments"].([]any)) != 1 {
-		t.Errorf("detalle del sitio: %d %v", code, body)
+		t.Errorf("site detail: %d %v", code, body)
 	}
 
-	// Activar el modo SPA al editar.
+	// Turn on SPA mode while editing.
 	if code, _ := c.do("PUT", "/api/sites/1", `{"name":"mi-web","domains":["web.test"],"spa":true}`); code != 200 {
-		t.Fatalf("editar sitio: %d", code)
+		t.Fatalf("editing the site: %d", code)
 	}
-	if _, html := visit(static, "web.test", "/usuarios/42"); html != "v1" {
-		t.Errorf("en modo SPA cualquier ruta debe servir index.html, se sirvió %q", html)
+	if _, html := visit(static, "web.test", "/users/42"); html != "v1" {
+		t.Errorf("in SPA mode any path must serve index.html, served %q", html)
 	}
 
-	// Borrar el sitio deja de servirlo y elimina sus archivos.
+	// Deleting the site stops serving it and removes its files.
 	if code, _ := c.do("DELETE", "/api/sites/1", ""); code != http.StatusNoContent {
-		t.Fatalf("borrar sitio: %d", code)
+		t.Fatalf("deleting the site: %d", code)
 	}
 	if code, _ := visit(static, "web.test", "/"); code != 404 {
-		t.Errorf("tras borrar el sitio debe dar 404, dio %d", code)
+		t.Errorf("after deleting the site it must give 404, gave %d", code)
 	}
 }
 
@@ -166,20 +167,20 @@ func TestUploadValidation(t *testing.T) {
 	c.do("POST", "/api/sites", `{"name":"s","domains":["s.test"]}`)
 
 	if code, _ := c.upload(1, map[string]string{"index.html": "x"}, nil, false); code != http.StatusUnsupportedMediaType {
-		t.Errorf("sin la cabecera anti-CSRF: esperaba 415, obtuve %d", code)
+		t.Errorf("without the anti-CSRF header: want 415, got %d", code)
 	}
 	if code, _ := c.upload(1, map[string]string{}, nil, true); code != 400 {
-		t.Errorf("subida vacía: esperaba 400, obtuve %d", code)
+		t.Errorf("empty upload: want 400, got %d", code)
 	}
-	// MaxUploadMB = 1 en el servidor de pruebas.
-	if code, _ := c.upload(1, map[string]string{"grande.bin": strings.Repeat("x", 2<<20)}, nil, true); code != http.StatusRequestEntityTooLarge {
-		t.Errorf("subida demasiado grande: esperaba 413, obtuve %d", code)
+	// MaxUploadMB = 1 on the test server.
+	if code, _ := c.upload(1, map[string]string{"large.bin": strings.Repeat("x", 2<<20)}, nil, true); code != http.StatusRequestEntityTooLarge {
+		t.Errorf("upload too large: want 413, got %d", code)
 	}
 	if code, _ := c.upload(99, map[string]string{"index.html": "x"}, nil, true); code != 404 {
-		t.Errorf("sitio inexistente: esperaba 404, obtuve %d", code)
+		t.Errorf("nonexistent site: want 404, got %d", code)
 	}
 	if code, body := c.do("GET", "/api/sites/1", ""); len(body["deployments"].([]any)) != 0 {
-		t.Errorf("las subidas fallidas no deben crear despliegues: %d %v", code, body)
+		t.Errorf("failed uploads must not create deployments: %d %v", code, body)
 	}
 }
 
@@ -192,29 +193,29 @@ func TestPruneKeepsLatestDeployments(t *testing.T) {
 	total := keepDeployments + 3
 	for i := 1; i <= total; i++ {
 		if code, _ := c.upload(1, map[string]string{"index.html": fmt.Sprint("v", i)}, nil, true); code != 201 {
-			t.Fatalf("subida %d: %d", i, code)
+			t.Fatalf("upload %d: %d", i, code)
 		}
 	}
 
 	_, body := c.do("GET", "/api/sites/1", "")
 	deps := body["deployments"].([]any)
 	if len(deps) != keepDeployments {
-		t.Fatalf("deben quedar %d despliegues, quedan %d", keepDeployments, len(deps))
+		t.Fatalf("%d deployments should be left, %d are", keepDeployments, len(deps))
 	}
-	// Se conservan los más recientes.
+	// The most recent ones are kept.
 	newest := deps[0].(map[string]any)["id"].(float64)
 	oldest := deps[len(deps)-1].(map[string]any)["id"].(float64)
 	if newest != float64(total) || oldest != float64(total-keepDeployments+1) {
-		t.Errorf("se conservaron los despliegues %v..%v, esperaba %d..%d", oldest, newest, total-keepDeployments+1, total)
+		t.Errorf("kept deployments %v..%v, want %d..%d", oldest, newest, total-keepDeployments+1, total)
 	}
 	if _, html := visit(static, "s.test", "/"); html != fmt.Sprint("v", total) {
-		t.Errorf("debe servirse el último subido, se sirvió %q", html)
+		t.Errorf("the last upload must be served, served %q", html)
 	}
-	// Se puede volver al más antiguo que queda, pero no a uno ya borrado.
+	// You can roll back to the oldest one left, but not to a deleted one.
 	if code, _ := c.do("POST", fmt.Sprintf("/api/sites/1/deployments/%d/activate", int(oldest)), ""); code != 204 {
-		t.Errorf("rollback al más antiguo conservado: %d", code)
+		t.Errorf("rollback to the oldest kept one: %d", code)
 	}
 	if code, _ := c.do("POST", "/api/sites/1/deployments/1/activate", ""); code != 404 {
-		t.Errorf("activar un despliegue borrado: esperaba 404, obtuve %d", code)
+		t.Errorf("activating a deleted deployment: want 404, got %d", code)
 	}
 }

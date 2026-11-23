@@ -34,7 +34,7 @@ export function GitDialog({ site, onClose, onSaved }: Props) {
     repo: site.repo,
     branch: site.branch,
     root_dir: site.root_dir,
-    // Un sitio nuevo empieza con el preset de Vite.
+    // A new site starts out with the Vite preset.
     install_command: linked ? site.install_command : presets[0].install,
     build_command: linked ? site.build_command : presets[0].build,
     output_dir: linked ? site.output_dir : presets[0].output,

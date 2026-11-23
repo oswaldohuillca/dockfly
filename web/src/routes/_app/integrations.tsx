@@ -4,7 +4,7 @@ import { Integrations } from '@/components/integrations';
 import { can } from '@/lib/roles';
 
 export const Route = createFileRoute('/_app/integrations')({
-  // Solo administradores (la API también lo exige).
+  // Administrators only (the API requires it too).
   beforeLoad: ({ context }) => {
     if (!can(context.user, 'admin')) throw redirect({ to: '/' });
   },

@@ -31,7 +31,7 @@ type streamInput struct {
 	Enabled     *bool  `json:"enabled"`
 }
 
-// reservedPorts no pueden usarse para streams: los usa Dockfly.
+// reservedPorts can't be used for streams: Dockfly itself uses them.
 func (s *Server) reservedPorts() map[int]string {
 	r := map[int]string{}
 	for _, addr := range []string{s.Traefik.HTTPAddr, s.Traefik.HTTPSAddr, s.ListenAddr, s.StaticURL} {
@@ -87,8 +87,8 @@ func (s *Server) readStream(w http.ResponseWriter, r *http.Request, selfID int64
 
 type streamView struct {
 	*store.Stream
-	// Published indica si el puerto está publicado en el contenedor de
-	// Dockfly; nil si no se puede saber (Dockfly no corre en Docker).
+	// Published tells whether the port is published on Dockfly's container;
+	// nil when there is no way to know (Dockfly isn't running under Docker).
 	Published *bool `json:"published"`
 }
 
@@ -166,8 +166,8 @@ func (s *Server) handleDeleteStream(w http.ResponseWriter, r *http.Request) {
 	s.streamChanged(w, r, http.StatusOK, nil)
 }
 
-// streamChanged aplica la parte dinámica y, si cambió el conjunto de
-// puertos, la estática (con reinicio de Traefik).
+// streamChanged applies the dynamic part and, if the set of ports changed,
+// the static one too (which restarts Traefik).
 func (s *Server) streamChanged(w http.ResponseWriter, r *http.Request, status int, st *store.Stream) {
 	restarted, err := s.syncStreamPorts(r.Context())
 	if err != nil {
@@ -181,8 +181,8 @@ func (s *Server) streamChanged(w http.ResponseWriter, r *http.Request, status in
 	writeJSON(w, status, map[string]any{"stream": st, "traefik_restarted": restarted})
 }
 
-// syncStreamPorts reescribe traefik.yml si los puertos de los streams
-// activos cambiaron, y reinicia Traefik para que los escuche.
+// syncStreamPorts rewrites traefik.yml if the ports of the enabled streams
+// changed, and restarts Traefik so that it listens on them.
 func (s *Server) syncStreamPorts(ctx context.Context) (bool, error) {
 	ports, err := s.StreamPorts(ctx)
 	if err != nil {
@@ -203,7 +203,7 @@ func (s *Server) syncStreamPorts(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-// StreamPorts son los puertos de los streams activos, ordenados.
+// StreamPorts are the ports of the enabled streams, sorted.
 func (s *Server) StreamPorts(ctx context.Context) ([]traefik.StreamPort, error) {
 	list, err := s.Store.ListStreams(ctx)
 	if err != nil {

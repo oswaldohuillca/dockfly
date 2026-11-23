@@ -19,11 +19,11 @@ func TestAPITokens(t *testing.T) {
 	admin.do("POST", "/api/sites", `{"name":"web","domains":["web.test"]}`)
 
 	if code, _ := admin.do("POST", "/api/tokens", `{"name":"","role":"deployer"}`); code != 400 {
-		t.Errorf("sin nombre: %d", code)
+		t.Errorf("no name: %d", code)
 	}
 	code, body := admin.do("POST", "/api/tokens", `{"name":"GitHub Actions","role":"deployer","expires_days":30}`)
 	if code != 201 {
-		t.Fatalf("crear token: %d %v", code, body)
+		t.Fatalf("creating a token: %d %v", code, body)
 	}
 	token := body["token"].(string)
 	meta := body["api_token"].(map[string]any)
@@ -31,24 +31,24 @@ func TestAPITokens(t *testing.T) {
 		t.Errorf("token: %s %v", token, meta)
 	}
 	if _, list := admin.doList("GET", "/api/tokens"); len(list) != 1 {
-		t.Fatalf("listar tokens: %v", list)
+		t.Fatalf("listing tokens: %v", list)
 	} else if _, has := list[0].(map[string]any)["token_hash"]; has {
-		t.Error("la lista nunca debe incluir el hash")
+		t.Error("the list must never include the hash")
 	}
 
-	// El token sirve sin cookie de sesión.
+	// The token works without a session cookie.
 	cli := newClient(t, ts)
 	bearer := func(method, path, body string) (int, map[string]any) {
 		return cli.do(method, path, body, "Authorization", "Bearer "+token)
 	}
 	if code, _ := bearer("GET", "/api/sites/1", ""); code != 200 {
-		t.Errorf("leer con token: %d", code)
+		t.Errorf("reading with a token: %d", code)
 	}
-	// Subir un despliegue, como hará el CLI.
+	// Upload a deployment, the way the CLI will.
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	fw, _ := mw.CreateFormFile("file:index.html", "index.html")
-	fmt.Fprint(fw, "desde el CLI")
+	fmt.Fprint(fw, "from the CLI")
 	mw.Close()
 	req, _ := http.NewRequest("POST", ts.URL+"/api/sites/1/deployments", &buf)
 	req.Header.Set("Content-Type", mw.FormDataContentType())
@@ -56,85 +56,86 @@ func TestAPITokens(t *testing.T) {
 	req.Header.Set("Authorization", "Bearer "+token)
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil || resp.StatusCode != 201 {
-		t.Fatalf("subir con token: %v %v", resp.StatusCode, err)
+		t.Fatalf("uploading with a token: %v %v", resp.StatusCode, err)
 	}
 	resp.Body.Close()
-	if _, html := visit(static, "web.test", "/"); html != "desde el CLI" {
-		t.Errorf("se sirvió %q", html)
+	if _, html := visit(static, "web.test", "/"); html != "from the CLI" {
+		t.Errorf("served %q", html)
 	}
 
-	// Con un token de despliegue no se toca lo de administrador, ni la cuenta, ni otros tokens.
+	// A deploy token touches neither the admin side, nor the account, nor other tokens.
 	if code, _ := bearer("POST", "/api/proxy-hosts", `{}`); code != 403 {
-		t.Errorf("token deployer en una ruta de admin: %d", code)
+		t.Errorf("deployer token on an admin route: %d", code)
 	}
 	if code, _ := bearer("POST", "/api/tokens", `{"name":"x","role":"admin"}`); code != 403 {
-		t.Errorf("un token no debe crear tokens: %d", code)
+		t.Errorf("a token must not create tokens: %d", code)
 	}
-	if code, _ := bearer("PUT", "/api/auth/password", `{"current":"secreto123","new":"otra-clave"}`); code != 403 {
-		t.Errorf("un token no debe cambiar la contraseña: %d", code)
+	if code, _ := bearer("PUT", "/api/auth/password", `{"current":"secret123","new":"other-password"}`); code != 403 {
+		t.Errorf("a token must not change the password: %d", code)
 	}
-	if code, _ := cli.do("GET", "/api/sites", "", "Authorization", "Bearer dfy_falso"); code != 401 {
-		t.Errorf("token falso: %d", code)
+	if code, _ := cli.do("GET", "/api/sites", "", "Authorization", "Bearer dfy_fake"); code != 401 {
+		t.Errorf("bogus token: %d", code)
 	}
-	// Un Authorization inválido no se salta con una cookie válida.
-	if code, _ := admin.do("GET", "/api/sites", "", "Authorization", "Bearer dfy_falso"); code != 401 {
-		t.Errorf("cookie válida con token falso: %d", code)
+	// An invalid Authorization is not waved through by a valid cookie.
+	if code, _ := admin.do("GET", "/api/sites", "", "Authorization", "Bearer dfy_fake"); code != 401 {
+		t.Errorf("valid cookie with a bogus token: %d", code)
 	}
 
-	// Un token nunca puede más que su usuario, aunque el usuario baje de rol después.
+	// A token can never do more than its user, even if the user is demoted later.
 	s := serverOf(t, ts)
 	_, inv := admin.do("POST", "/api/users", `{"name":"Mira","email":"mira@test.com","role":"deployer"}`)
 	viewer := newClient(t, ts)
-	accept(t, viewer, inv["link"].(string), "mira-secreto")
+	accept(t, viewer, inv["link"].(string), "mira-secret")
 	if code, _ := viewer.do("POST", "/api/tokens", `{"name":"x","role":"admin"}`); code != 403 {
-		t.Errorf("token con más rol que el usuario: %d", code)
+		t.Errorf("token with a higher role than its user: %d", code)
 	}
 	_, vt := viewer.do("POST", "/api/tokens", `{"name":"ci","role":"deployer"}`)
 	admin.do("PUT", "/api/users/2", `{"name":"Mira","role":"viewer"}`)
 	if code, _ := viewer.do("POST", "/api/sites/1/builds", "", "Authorization", "Bearer "+vt["token"].(string)); code != 403 {
-		t.Errorf("el token debe perder permisos con su usuario: %d", code)
+		t.Errorf("the token must lose permissions along with its user: %d", code)
 	}
 
-	// Caducado o revocado: fuera.
+	// Expired or revoked: out.
 	old := newToken()
 	past := time.Now().Add(-time.Hour)
 	if err := s.Store.CreateAPIToken(context.Background(), &store.APIToken{
-		UserID: 1, Name: "viejo", Role: "admin", TokenHash: hashToken(old), Prefix: old[:10], ExpiresAt: &past,
+		UserID: 1, Name: "old", Role: "admin", TokenHash: hashToken(old), Prefix: old[:10], ExpiresAt: &past,
 	}); err != nil {
 		t.Fatal(err)
 	}
 	if code, _ := cli.do("GET", "/api/sites", "", "Authorization", "Bearer "+old); code != 401 {
-		t.Errorf("token caducado: %d", code)
+		t.Errorf("expired token: %d", code)
 	}
 	if code, _ := admin.do("DELETE", "/api/tokens/1", ""); code != 204 {
-		t.Errorf("revocar: %d", code)
+		t.Errorf("revoking: %d", code)
 	}
 	if code, _ := viewer.do("DELETE", "/api/tokens/1", ""); code != 404 {
-		t.Errorf("no se pueden revocar tokens ajenos: %d", code)
+		t.Errorf("someone else's tokens can't be revoked: %d", code)
 	}
 }
 
-// Un token de API de rol admin no puede gestionar usuarios: crear un admin con
-// enlace de invitación/reset sería una persistencia que sobrevive a revocar el
-// token, justo lo que el veto "solo-panel" evita para /api/auth y /api/tokens (M-B).
+// An API token with the admin role can't manage users: creating an admin
+// with an invite/reset link would be a foothold that outlives revoking the
+// token, exactly what the "panel-only" veto prevents for /api/auth and
+// /api/tokens (M-B).
 func TestAdminTokenCannotManageUsers(t *testing.T) {
 	ts, _, _ := testServerWithPages(t)
 	admin := newClient(t, ts)
 	admin.do("POST", "/api/setup", adminJSON)
-	admin.do("PUT", "/api/settings", `{"public_url":"https://dockfly.ejemplo.com"}`)
+	admin.do("PUT", "/api/settings", `{"public_url":"https://dockfly.example.com"}`)
 
 	_, body := admin.do("POST", "/api/tokens", `{"name":"ci","role":"admin"}`)
 	token := body["token"].(string)
 	bearer := func(method, path, b string) (int, map[string]any) {
 		return newClient(t, ts).do(method, path, b, "Authorization", "Bearer "+token)
 	}
-	// Con cookie admin sí se gestionan usuarios; con el token admin, no.
+	// With an admin cookie users can be managed; with an admin token, not.
 	if code, res := admin.do("POST", "/api/users", `{"name":"X","email":"x@test.com","role":"admin"}`); code != 201 {
-		t.Fatalf("el admin por panel sí invita: %d %v", code, res)
+		t.Fatalf("the admin does invite from the panel: %d %v", code, res)
 	}
 	for _, p := range []string{"/api/users", "/api/users/2/link"} {
 		if code, res := bearer("POST", p, `{"name":"Y","email":"y@test.com","role":"admin"}`); code != 403 || res["code"] != "panel_only" {
-			t.Errorf("token admin en %s: %d %v (esperaba 403 panel_only)", p, code, res)
+			t.Errorf("admin token on %s: %d %v (want 403 panel_only)", p, code, res)
 		}
 	}
 }

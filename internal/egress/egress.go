@@ -1,10 +1,11 @@
-// Package egress da a los builds salida a internet, y solo a internet.
+// Package egress gives builds access to the internet, and only to the
+// internet.
 //
-// Los contenedores de build corren en una red interna de Docker (sin ruta
-// hacia fuera) y salen por un proxy HTTP que Dockfly escucha en esa red. El
-// proxy solo conecta con direcciones públicas: un script de build no puede
-// leer las credenciales de la nube (169.254.169.254), ni llegar al host, a
-// la red local o a otros contenedores.
+// Build containers run on an internal Docker network (with no route out) and
+// reach the outside through an HTTP proxy that Dockfly listens on in that
+// network. The proxy only connects to public addresses: a build script cannot
+// read the cloud credentials (169.254.169.254), nor reach the host, the local
+// network or other containers.
 package egress
 
 import (
@@ -23,35 +24,35 @@ import (
 	"github.com/dockfly/dockfly/internal/docker"
 )
 
-// Network es la red interna de los builds.
+// Network is the internal network of the builds.
 const Network = "dockfly-build"
 
-// Port es el puerto del proxy dentro de la red de builds.
+// Port is the proxy's port inside the build network.
 const Port = "3128"
 
-// blocked son los rangos que no son internet aunque Go no los marque como
-// privados.
+// blocked are the ranges that are not the internet even though Go does not
+// mark them as private.
 var blocked = []netip.Prefix{
 	netip.MustParsePrefix("0.0.0.0/8"),
-	netip.MustParsePrefix("100.64.0.0/10"), // CGNAT (y metadata de Alibaba Cloud)
+	netip.MustParsePrefix("100.64.0.0/10"), // CGNAT (and Alibaba Cloud metadata)
 	netip.MustParsePrefix("192.0.0.0/24"),
 	netip.MustParsePrefix("192.0.2.0/24"),
 	netip.MustParsePrefix("198.18.0.0/15"),
 	netip.MustParsePrefix("198.51.100.0/24"),
 	netip.MustParsePrefix("203.0.113.0/24"),
 	netip.MustParsePrefix("240.0.0.0/4"),
-	netip.MustParsePrefix("64:ff9b::/96"),   // NAT64: puede envolver una IPv4 privada
-	netip.MustParsePrefix("64:ff9b:1::/48"), // NAT64 local
-	netip.MustParsePrefix("2002::/16"),      // 6to4: ídem
+	netip.MustParsePrefix("64:ff9b::/96"),   // NAT64: may wrap a private IPv4
+	netip.MustParsePrefix("64:ff9b:1::/48"), // local NAT64
+	netip.MustParsePrefix("2002::/16"),      // 6to4: same
 	netip.MustParsePrefix("2001:db8::/32"),
 	netip.MustParsePrefix("100::/64"),
 }
 
-// Public indica si ip es una dirección de internet.
+// Public reports whether ip is an internet address.
 func Public(ip netip.Addr) bool {
 	ip = ip.Unmap()
 	if !ip.IsGlobalUnicast() || ip.IsPrivate() {
-		return false // loopback, link-local, multicast, sin especificar, privadas
+		return false // loopback, link-local, multicast, unspecified, private
 	}
 	for _, p := range blocked {
 		if p.Contains(ip) {
@@ -61,19 +62,20 @@ func Public(ip netip.Addr) bool {
 	return true
 }
 
-// LinkLocalOrUnspecified marca las IPs que no deben alcanzarse ni siquiera
-// cuando es el admin quien configura el destino: el endpoint de metadatos de
-// nube (169.254.169.254, fe80::/10) y la dirección sin especificar.
+// LinkLocalOrUnspecified flags the IPs that must not be reached even when
+// the admin is the one configuring the destination: the cloud metadata
+// endpoint (169.254.169.254, fe80::/10) and the unspecified address.
 func LinkLocalOrUnspecified(ip netip.Addr) bool {
 	ip = ip.Unmap()
 	return ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified()
 }
 
-// SafeTransport es un http.Transport que, al conectar (ya resuelto el DNS, así
-// que cubre el DNS-rebinding), rechaza LinkLocalOrUnspecified. A diferencia del
-// proxy de builds, permite loopback y redes privadas: lo usan destinos que
-// configura el admin (cuentas Git, endpoint S3), donde autoalojar en LAN es
-// legítimo, pero sin dejar robar las credenciales de nube por SSRF.
+// SafeTransport is an http.Transport that, when connecting (with DNS already
+// resolved, so it covers DNS rebinding), rejects LinkLocalOrUnspecified.
+// Unlike the build proxy, it allows loopback and private networks: it is used
+// for destinations the admin configures (Git accounts, S3 endpoint), where
+// self-hosting on the LAN is legitimate, while still not letting SSRF steal
+// the cloud credentials.
 func SafeTransport() *http.Transport {
 	t := http.DefaultTransport.(*http.Transport).Clone()
 	d := &net.Dialer{Timeout: 30 * time.Second, Control: func(_, address string, _ syscall.RawConn) error {
@@ -82,7 +84,7 @@ func SafeTransport() *http.Transport {
 			return err
 		}
 		if LinkLocalOrUnspecified(ap.Addr()) {
-			return fmt.Errorf("destino no permitido (metadatos/link-local): %s", ap.Addr())
+			return fmt.Errorf("destination not allowed (metadata/link-local): %s", ap.Addr())
 		}
 		return nil
 	}}
@@ -90,13 +92,13 @@ func SafeTransport() *http.Transport {
 	return t
 }
 
-// allow decide a qué IPs se conecta (los tests lo cambian).
+// allow decides which IPs may be connected to (the tests override it).
 var allow = Public
 
-var errNotPublic = errors.New("destino no permitido: los builds solo pueden conectar con internet")
+var errNotPublic = errors.New("destination not allowed: builds can only connect to the internet")
 
-// dialer comprueba la IP justo al conectar (después de resolver el nombre),
-// así un DNS que responda con una IP interna tampoco sirve.
+// dialer checks the IP right as it connects (after resolving the name), so a
+// DNS that answers with an internal IP does not work either.
 var dialer = &net.Dialer{
 	Timeout: 30 * time.Second,
 	Control: func(network, address string, _ syscall.RawConn) error {
@@ -108,8 +110,8 @@ var dialer = &net.Dialer{
 	},
 }
 
-// Proxy es un proxy HTTP de salida: túneles CONNECT (HTTPS, git…) y
-// peticiones http:// absolutas.
+// Proxy is an outbound HTTP proxy: CONNECT tunnels (HTTPS, git…) and
+// absolute http:// requests.
 type Proxy struct {
 	Log *slog.Logger
 
@@ -122,7 +124,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if r.URL.Scheme != "http" || r.URL.Host == "" {
-		http.Error(w, "esto es un proxy: usa CONNECT o una URL http:// absoluta", http.StatusBadRequest)
+		http.Error(w, "this is a proxy: use CONNECT or an absolute http:// URL", http.StatusBadRequest)
 		return
 	}
 	p.forward.ServeHTTP(w, r)
@@ -145,7 +147,7 @@ func (p *Proxy) tunnel(w http.ResponseWriter, r *http.Request) {
 		up.Close()
 		return
 	}
-	// Lo que el cliente ya haya enviado tras la cabecera CONNECT.
+	// Whatever the client already sent after the CONNECT header.
 	if n := buf.Reader.Buffered(); n > 0 {
 		pending, _ := buf.Peek(n)
 		if _, err := up.Write(pending); err != nil {
@@ -163,8 +165,8 @@ func (p *Proxy) tunnel(w http.ResponseWriter, r *http.Request) {
 	down.Close()
 }
 
-// pipe copia de src a dst y cierra la escritura de dst al acabar (el otro
-// sentido sigue abierto hasta que también termine).
+// pipe copies from src to dst and closes dst for writing when done (the
+// other direction stays open until it finishes too).
 func pipe(dst, src net.Conn) {
 	_, _ = io.Copy(dst, src)
 	if c, ok := dst.(interface{ CloseWrite() error }); ok {
@@ -176,14 +178,14 @@ func pipe(dst, src net.Conn) {
 
 func (p *Proxy) deny(w http.ResponseWriter, host string, err error) {
 	if errors.Is(err, errNotPublic) {
-		p.Log.Warn("build: conexión bloqueada", "destino", host)
+		p.Log.Warn("build: connection blocked", "destination", host)
 		http.Error(w, err.Error(), http.StatusForbidden)
 		return
 	}
 	http.Error(w, err.Error(), http.StatusBadGateway)
 }
 
-// NewProxy crea el proxy.
+// NewProxy creates the proxy.
 func NewProxy(log *slog.Logger) *Proxy {
 	p := &Proxy{Log: log}
 	p.forward = &httputil.ReverseProxy{
@@ -205,7 +207,7 @@ func NewProxy(log *slog.Logger) *Proxy {
 	return p
 }
 
-// Serve sirve el proxy en addr (subcomando "dockfly egress").
+// Serve serves the proxy on addr (the "dockfly egress" subcommand).
 func Serve(addr string, log *slog.Logger) error {
 	srv := &http.Server{
 		Addr:              addr,
@@ -216,26 +218,27 @@ func Serve(addr string, log *slog.Logger) error {
 	return srv.ListenAndServe()
 }
 
-// Container es el contenedor del proxy; OutNetwork, su red con salida.
+// Container is the proxy's container; OutNetwork, its network with egress.
 const (
 	Container  = "dockfly-egress"
 	OutNetwork = "dockfly-egress"
 )
 
-// Start prepara la red de builds y (re)crea el contenedor del proxy, con la
-// misma imagen que Dockfly, entre esa red y una con salida a internet.
-// Dockfly no se conecta a la red de builds: así los builds no llegan al
-// panel ni a Traefik por una IP privada. Devuelve la URL del proxy.
+// Start prepares the build network and (re)creates the proxy container, with
+// the same image as Dockfly, straddling that network and one with internet
+// access. Dockfly does not join the build network: that way builds cannot
+// reach the panel or Traefik over a private IP. It returns the proxy URL.
 func Start(ctx context.Context, dc *docker.Client, image string) (string, error) {
 	err := dc.CreateInternalNetwork(ctx, Network, map[string]string{"dockfly.role": "build"})
 	var apiErr *docker.APIError
 	if err != nil && !(errors.As(err, &apiErr) && apiErr.Status == http.StatusConflict) {
-		return "", fmt.Errorf("creando la red %s: %w", Network, err)
+		return "", fmt.Errorf("creating the %s network: %w", Network, err)
 	}
 	if err := dc.CreateNetwork(ctx, OutNetwork); err != nil {
-		return "", fmt.Errorf("creando la red %s: %w", OutNetwork, err)
+		return "", fmt.Errorf("creating the %s network: %w", OutNetwork, err)
 	}
-	// Se recrea en cada arranque para que use la versión actual de Dockfly.
+	// It is recreated on every startup so that it runs the current Dockfly
+	// version.
 	if err := dc.RemoveContainer(ctx, Container); err != nil {
 		return "", err
 	}
@@ -247,15 +250,15 @@ func Start(ctx context.Context, dc *docker.Client, image string) (string, error)
 		Network: OutNetwork, Restart: "unless-stopped", ReadOnly: true, NoHealthcheck: true,
 	})
 	if err != nil {
-		return "", fmt.Errorf("creando el contenedor %s: %w", Container, err)
+		return "", fmt.Errorf("creating the %s container: %w", Container, err)
 	}
 	if err := dc.ConnectNetwork(ctx, Network, id); err != nil {
-		return "", fmt.Errorf("conectando %s a %s: %w", Container, Network, err)
+		return "", fmt.Errorf("connecting %s to %s: %w", Container, Network, err)
 	}
 	if err := dc.StartContainer(ctx, id); err != nil {
-		return "", fmt.Errorf("iniciando %s: %w", Container, err)
+		return "", fmt.Errorf("starting %s: %w", Container, err)
 	}
-	// Por nombre: el DNS de Docker lo resuelve dentro de la red de builds
-	// aunque cambie de IP al reiniciarse.
+	// By name: Docker's DNS resolves it inside the build network even if its
+	// IP changes after a restart.
 	return "http://" + net.JoinHostPort(Container, Port), nil
 }

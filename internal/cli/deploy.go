@@ -1,5 +1,5 @@
-// Package cli implementa los subcomandos que se usan desde fuera del
-// servidor (el portátil, la integración continua) contra la API de Dockfly.
+// Package cli implements the subcommands used from outside the server (a
+// laptop, continuous integration) against the Dockfly API.
 package cli
 
 import (
@@ -18,23 +18,23 @@ import (
 	"time"
 )
 
-const usage = `uso: dockfly deploy <carpeta> --site <nombre> [--url URL] [--token TOKEN]
+const usage = `usage: dockfly deploy <directory> --site <name> [--url URL] [--token TOKEN]
 
-Publica una carpeta (p. ej. dist/) como un despliegue nuevo del sitio.
+Publishes a directory (dist/, for example) as a new deployment of the site.
 
-  --site   nombre (o id) del sitio
-  --url    dirección del panel (o DOCKFLY_URL), p. ej. https://dockfly.midominio.com
-  --token  token de API (o DOCKFLY_TOKEN); créalo en Mi cuenta → Tokens de API
+  --site   name (or id) of the site
+  --url    panel address (or DOCKFLY_URL), e.g. https://dockfly.mydomain.com
+  --token  API token (or DOCKFLY_TOKEN); create one in My account → API tokens
 `
 
-// Deploy implementa "dockfly deploy". Devuelve el código de salida.
+// Deploy implements "dockfly deploy". It returns the exit code.
 func Deploy(args []string, stdout, stderr io.Writer) int {
 	fl := flag.NewFlagSet("deploy", flag.ContinueOnError)
 	fl.SetOutput(io.Discard)
 	site := fl.String("site", "", "")
 	base := fl.String("url", os.Getenv("DOCKFLY_URL"), "")
 	token := fl.String("token", os.Getenv("DOCKFLY_TOKEN"), "")
-	// La carpeta puede ir antes o después de las opciones.
+	// The directory may come before or after the options.
 	var dir string
 	if len(args) > 0 && !strings.HasPrefix(args[0], "-") {
 		dir, args = args[0], args[1:]
@@ -97,7 +97,7 @@ func (c *client) do(req *http.Request, out any) error {
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-// findSite busca el sitio por nombre o por id.
+// findSite looks the site up by name or by id.
 func (c *client) findSite(nameOrID string) (*site, error) {
 	req, err := http.NewRequest(http.MethodGet, c.base+"/api/sites", nil)
 	if err != nil {
@@ -105,7 +105,7 @@ func (c *client) findSite(nameOrID string) (*site, error) {
 	}
 	var list []site
 	if err := c.do(req, &list); err != nil {
-		return nil, fmt.Errorf("conectando con %s: %w", c.base, err)
+		return nil, fmt.Errorf("connecting to %s: %w", c.base, err)
 	}
 	id, _ := strconv.ParseInt(nameOrID, 10, 64)
 	for i := range list {
@@ -113,10 +113,10 @@ func (c *client) findSite(nameOrID string) (*site, error) {
 			return &list[i], nil
 		}
 	}
-	return nil, fmt.Errorf("no hay ningún sitio llamado %q", nameOrID)
+	return nil, fmt.Errorf("there is no site called %q", nameOrID)
 }
 
-// skip son archivos que nunca deben publicarse.
+// skip are the files that must never be published.
 func skip(name string) bool {
 	return name == ".git" || name == ".DS_Store" || name == "Thumbs.db"
 }
@@ -127,15 +127,15 @@ func (c *client) deploy(dir, siteName string, stdout io.Writer) error {
 		return err
 	}
 	if !info.IsDir() {
-		return fmt.Errorf("%s no es una carpeta", dir)
+		return fmt.Errorf("%s is not a directory", dir)
 	}
 	s, err := c.findSite(siteName)
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "▶ Subiendo %s a %s…\n", dir, s.Name)
+	fmt.Fprintf(stdout, "▶ Uploading %s to %s…\n", dir, s.Name)
 
-	// Los archivos se envían en streaming: no hace falta un .zip temporal.
+	// The files are streamed: no temporary .zip needed.
 	pr, pw := io.Pipe()
 	mw := multipart.NewWriter(pw)
 	go func() {
@@ -150,7 +150,7 @@ func (c *client) deploy(dir, siteName string, stdout io.Writer) error {
 				return nil
 			}
 			if !d.Type().IsRegular() {
-				return nil // carpetas, enlaces simbólicos…
+				return nil // directories, symlinks…
 			}
 			rel, err := filepath.Rel(dir, path)
 			if err != nil {
@@ -184,7 +184,7 @@ func (c *client) deploy(dir, siteName string, stdout io.Writer) error {
 	if err := c.do(req, &dep); err != nil {
 		return err
 	}
-	fmt.Fprintf(stdout, "✔ Despliegue #%d publicado: %d archivos (%s)\n", dep.ID, dep.FileCount, humanBytes(dep.TotalBytes))
+	fmt.Fprintf(stdout, "✔ Deployment #%d published: %d files (%s)\n", dep.ID, dep.FileCount, humanBytes(dep.TotalBytes))
 	if len(s.Domains) > 0 && !strings.HasPrefix(s.Domains[0], "*.") {
 		scheme := "http"
 		if s.SSL {

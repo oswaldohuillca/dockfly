@@ -5,7 +5,7 @@ export type Locale = keyof typeof locales;
 
 const storageKey = 'dockfly.locale';
 
-/** El idioma elegido en este navegador; inglés por defecto. */
+/** The language chosen in this browser; English by default. */
 export function savedLocale(): Locale {
   const saved = localStorage.getItem(storageKey);
   return saved && saved in locales ? (saved as Locale) : 'en';
@@ -16,7 +16,7 @@ const loaders: Record<Locale, () => Promise<{ messages: Messages }>> = {
   es: () => import('../locales/es/messages.po'),
 };
 
-/** Carga y activa un idioma (cada catálogo se descarga solo cuando se usa). */
+/** Loads and activates a language (each catalog is downloaded only when it is used). */
 export async function activateLocale(locale: Locale) {
   const { messages } = await loaders[locale]();
   i18n.loadAndActivate({ locale, messages });
@@ -24,7 +24,7 @@ export async function activateLocale(locale: Locale) {
   localStorage.setItem(storageKey, locale);
 }
 
-/** Idioma activo, para Intl (fechas, números…). */
+/** The active language, for Intl (dates, numbers…). */
 export function currentLocale(): Locale {
   return (i18n.locale || 'en') as Locale;
 }

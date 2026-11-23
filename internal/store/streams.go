@@ -5,8 +5,8 @@ import (
 	"time"
 )
 
-// Stream reenvía un puerto TCP o UDP a otro servicio (bases de datos,
-// servidores de juegos, MQTT…).
+// Stream forwards a TCP or UDP port to another service (databases, game
+// servers, MQTT…).
 type Stream struct {
 	ID          int64     `bun:",pk,autoincrement" json:"id"`
 	Protocol    string    `json:"protocol"`

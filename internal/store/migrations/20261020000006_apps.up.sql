@@ -1,7 +1,7 @@
--- Apps: contenedores que Dockfly gestiona de principio a fin.
+-- Apps: containers Dockfly manages end to end.
 CREATE TABLE apps (
 	id                INTEGER PRIMARY KEY AUTOINCREMENT,
-	name              TEXT NOT NULL UNIQUE, -- también es su nombre en la red de Dockfly
+	name              TEXT NOT NULL UNIQUE, -- also its name on the Dockfly network
 	source            TEXT NOT NULL,        -- "image" | "git"
 	image             TEXT NOT NULL DEFAULT '',
 	git_connection_id INTEGER REFERENCES git_connections (id) ON DELETE SET NULL,
@@ -11,7 +11,7 @@ CREATE TABLE apps (
 	dockerfile        TEXT NOT NULL DEFAULT '',
 	webhook_id        TEXT NOT NULL DEFAULT '',
 	webhook_secret    TEXT NOT NULL DEFAULT '',
-	port              INTEGER NOT NULL DEFAULT 0, -- 0 = sin tráfico web (workers, bases de datos)
+	port              INTEGER NOT NULL DEFAULT 0, -- 0 = no web traffic (workers, databases)
 	domains           TEXT NOT NULL DEFAULT '[]',
 	ssl               BOOLEAN NOT NULL DEFAULT FALSE,
 	force_https       BOOLEAN NOT NULL DEFAULT FALSE,
@@ -22,7 +22,7 @@ CREATE TABLE apps (
 	memory_mb         INTEGER NOT NULL DEFAULT 0,
 	cpus              REAL NOT NULL DEFAULT 0,
 	health_path       TEXT NOT NULL DEFAULT '',
-	stopped           BOOLEAN NOT NULL DEFAULT FALSE, -- detenida a propósito por el usuario
+	stopped           BOOLEAN NOT NULL DEFAULT FALSE, -- stopped on purpose by the user
 	current_deployment_id INTEGER,
 	created_at        DATETIME NOT NULL,
 	updated_at        DATETIME NOT NULL
@@ -35,8 +35,8 @@ CREATE TABLE app_deployments (
 	app_id         INTEGER NOT NULL REFERENCES apps (id) ON DELETE CASCADE,
 	status         TEXT NOT NULL,
 	trigger        TEXT NOT NULL,
-	image          TEXT NOT NULL DEFAULT '', -- imagen que se ejecuta (la descargada o la construida)
-	container      TEXT NOT NULL DEFAULT '', -- nombre del contenedor
+	image          TEXT NOT NULL DEFAULT '', -- the image that runs (pulled or built)
+	container      TEXT NOT NULL DEFAULT '', -- container name
 	commit_sha     TEXT NOT NULL DEFAULT '',
 	commit_message TEXT NOT NULL DEFAULT '',
 	error          TEXT NOT NULL DEFAULT '',

@@ -9,7 +9,7 @@ import (
 
 const stagingPrefix = ".staging-"
 
-// Storage organiza los despliegues en disco:
+// Storage lays out the deployments on disk:
 //
 //	<Root>/<siteID>/<deploymentID>/index.html
 type Storage struct {
@@ -25,8 +25,8 @@ func (st *Storage) DeploymentDir(siteID, deploymentID int64) string {
 	return filepath.Join(st.SiteDir(siteID), strconv.FormatInt(deploymentID, 10))
 }
 
-// NewStaging crea un directorio temporal para un despliegue nuevo. Hay que
-// llamar a Commit o Discard al terminar.
+// NewStaging creates a temporary directory for a new deployment. Commit or
+// Discard must be called when done.
 func (st *Storage) NewStaging(siteID int64) (*Staging, error) {
 	siteDir := st.SiteDir(siteID)
 	if err := os.MkdirAll(siteDir, 0o755); err != nil {
@@ -48,8 +48,8 @@ func (st *Storage) NewStaging(siteID int64) (*Staging, error) {
 	return &Staging{Dir: dir, root: root, limits: limits}, nil
 }
 
-// Commit publica el despliegue en su ubicación definitiva. Es un rename
-// dentro del mismo sistema de archivos: atómico.
+// Commit publishes the deployment at its final location. It is a rename
+// within the same filesystem: atomic.
 func (st *Storage) Commit(s *Staging, siteID, deploymentID int64) error {
 	s.close()
 	return os.Rename(s.Dir, st.DeploymentDir(siteID, deploymentID))
@@ -68,8 +68,8 @@ func (st *Storage) RemoveSite(siteID int64) error {
 	return os.RemoveAll(st.SiteDir(siteID))
 }
 
-// CleanStaging borra los despliegues a medio subir que quedaron de un
-// reinicio o una caída. Se llama al arrancar.
+// CleanStaging deletes the half-uploaded deployments left by a restart or a
+// crash. It is called at startup.
 func (st *Storage) CleanStaging() error {
 	sites, err := os.ReadDir(st.Root)
 	if os.IsNotExist(err) {

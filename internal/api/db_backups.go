@@ -21,7 +21,7 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// --- Almacenamiento de las copias (S3 o disco) ---
+// --- Where the backups live (S3 or disk) ---
 
 const settingBackupStorage = "backup_storage"
 
@@ -40,7 +40,7 @@ var (
 	errDBBackupStillRunning  = newError("db_backup_running", "The backup is still running")
 )
 
-// backupStorageConfig se guarda cifrado en los ajustes.
+// backupStorageConfig is stored encrypted in the settings.
 type backupStorageConfig struct {
 	Type      string `json:"type"` // "local" | "s3"
 	Endpoint  string `json:"endpoint"`
@@ -77,7 +77,7 @@ func (c backupStorageConfig) store(localDir string) objstore.Store {
 
 func (s *Server) localBackupDir() string { return path.Join(s.DataDir, "db-backups") }
 
-// BackupStorage es el almacenamiento configurado ahora mismo.
+// BackupStorage is the storage configured right now.
 func (s *Server) BackupStorage(ctx context.Context) (objstore.Store, error) {
 	cfg, err := s.backupStorageConfig(ctx)
 	if err != nil {
@@ -127,7 +127,7 @@ func (s *Server) handlePutBackupStorage(w http.ResponseWriter, r *http.Request) 
 			writeError(w, http.StatusBadRequest, errBackupMissingKeys)
 			return
 		}
-		// Antes de guardarla, se comprueba que se puede escribir en el bucket.
+		// Before storing it, check that the bucket can be written to.
 		if err := in.store("").Check(r.Context()); err != nil {
 			writeError(w, http.StatusBadRequest, errBackupWriteFailed.With("detail", err.Error()))
 			return
@@ -144,10 +144,10 @@ func (s *Server) handlePutBackupStorage(w http.ResponseWriter, r *http.Request) 
 	s.handleGetBackupStorage(w, r)
 }
 
-// --- Copias de una app ---
+// --- Backups of an app ---
 
-// dbBackupsAvailable responde 503 si no hay Docker (las copias se hacen
-// dentro de los contenedores).
+// dbBackupsAvailable answers 503 if there's no Docker (the backups are taken
+// inside the containers).
 func (s *Server) dbBackupsAvailable(w http.ResponseWriter) bool {
 	if s.DBBackups == nil {
 		writeError(w, http.StatusServiceUnavailable, errDBBackupsNoDocker)
@@ -311,7 +311,7 @@ func (s *Server) handleDeleteDBBackup(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// OnDBBackupFinished avisa de las copias fallidas.
+// OnDBBackupFinished reports the backups that failed.
 func (s *Server) OnDBBackupFinished(ctx context.Context, app *store.App, b *store.DBBackup) {
 	if s.Notify == nil || b.Status != store.DBBackupFailed {
 		return
@@ -319,7 +319,7 @@ func (s *Server) OnDBBackupFinished(ctx context.Context, app *store.App, b *stor
 	s.Notify.Notify(notify.Event{
 		Kind: notify.EventBackupFailed, Severity: notify.Error,
 		URL:     s.panelLink(ctx, fmt.Sprintf("/apps/%d", app.ID)),
-		Title:   fmt.Sprintf("La copia de %s falló", app.Name),
+		Title:   fmt.Sprintf("The %s backup failed", app.Name),
 		Message: b.Error,
 	})
 }

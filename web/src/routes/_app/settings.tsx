@@ -15,11 +15,11 @@ import { Users } from '@/components/users';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { can } from '@/lib/roles';
 
-// Ruta donde se conservan los datos anteriores a una restauración.
+// Path where the data from before a restore is kept.
 const beforeRestoreDir = '/data/before-restore-<date>';
 
 export const Route = createFileRoute('/_app/settings')({
-  // Solo administradores (la API también lo exige).
+  // Administrators only (the API requires it too).
   beforeLoad: ({ context }) => {
     if (!can(context.user, 'admin')) throw redirect({ to: '/' });
   },

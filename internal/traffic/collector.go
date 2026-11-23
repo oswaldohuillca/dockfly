@@ -11,11 +11,11 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Retention es cuánto tiempo se guarda el tráfico.
+// Retention is how long the traffic is kept.
 const Retention = 7 * 24 * time.Hour
 
-// Collector lee las métricas de Traefik cada minuto y guarda lo que ha
-// cambiado desde la lectura anterior.
+// Collector reads Traefik's metrics every minute and stores what has
+// changed since the previous reading.
 type Collector struct {
 	URL    string // http://127.0.0.1:8082/metrics
 	Bounds []float64
@@ -28,8 +28,8 @@ type Collector struct {
 
 func (c *Collector) Run(ctx context.Context) {
 	c.http = &http.Client{Timeout: 10 * time.Second}
-	// La referencia se toma en cuanto Traefik responde: lo que pase desde
-	// entonces cuenta.
+	// The baseline is taken as soon as Traefik answers: everything from then
+	// on counts.
 	for c.prev == nil {
 		if err := c.collect(ctx, time.Now()); err == nil {
 			break
@@ -52,7 +52,7 @@ func (c *Collector) Run(ctx context.Context) {
 			_ = c.Store.PruneTraffic(ctx, time.Now().Add(-Retention).Unix()/60)
 		case <-t.C:
 			if err := c.collect(ctx, time.Now()); err != nil && ctx.Err() == nil {
-				c.Log.Debug("leyendo las métricas de Traefik", "error", err)
+				c.Log.Debug("reading Traefik's metrics", "error", err)
 			}
 		}
 	}
@@ -69,19 +69,19 @@ func (c *Collector) collect(ctx context.Context, now time.Time) error {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("Traefik respondió %s", resp.Status)
+		return fmt.Errorf("Traefik responded %s", resp.Status)
 	}
 	cur, err := Parse(resp.Body, c.Bounds)
 	if err != nil {
 		return err
 	}
-	// La primera lectura solo sirve de referencia: lo anterior no se sabe
-	// cuándo pasó.
+	// The first reading is only a baseline: there is no way to know when the
+	// earlier traffic happened.
 	if c.prev == nil {
 		c.prev = cur
 		return nil
 	}
-	minute := now.Unix()/60 - 1 // lo leído corresponde al minuto que acaba de terminar
+	minute := now.Unix()/60 - 1 // what was read belongs to the minute that just ended
 	var rows []*store.TrafficMinute
 	for owner, counters := range cur {
 		d := Delta(c.prev[owner], counters)

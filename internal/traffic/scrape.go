@@ -1,5 +1,5 @@
-// Package traffic recoge el tráfico de cada proxy host, sitio y app a partir
-// de las métricas de Traefik y lo guarda minuto a minuto.
+// Package traffic collects the traffic of each proxy host, site and app from
+// Traefik's metrics and stores it minute by minute.
 package traffic
 
 import (
@@ -10,16 +10,16 @@ import (
 	"strings"
 )
 
-// Counters son los contadores acumulados de un dueño (proxy host, sitio…)
-// desde que arrancó Traefik.
+// Counters are an owner's cumulative counters (proxy host, site…) since
+// Traefik started.
 type Counters struct {
 	Requests float64
 	S4xx     float64
 	S5xx     float64
-	// Buckets[i] cuenta las peticiones que tardaron <= LatencyBuckets[i]
-	// (acumulado, como en Prometheus); el último es +Inf.
+	// Buckets[i] counts the requests that took <= LatencyBuckets[i]
+	// (cumulative, as in Prometheus); the last one is +Inf.
 	Buckets []float64
-	Sum     float64 // segundos
+	Sum     float64 // seconds
 }
 
 func (c *Counters) ensure(n int) {
@@ -28,29 +28,29 @@ func (c *Counters) ensure(n int) {
 	}
 }
 
-// Owner traduce un router de Traefik ("ph-3-secure@file") al dueño que lo
-// generó ("ph-3"). Los routers internos de Traefik no tienen dueño.
+// Owner maps a Traefik router ("ph-3-secure@file") to the owner that
+// generated it ("ph-3"). Traefik's internal routers have no owner.
 func Owner(router string) string {
 	name, provider, _ := strings.Cut(router, "@")
 	if provider != "file" {
 		return ""
 	}
 	name = strings.TrimSuffix(name, "-secure")
-	// Las previews protegidas tienen un router por host (preview-1-<host>):
-	// cuentan con las demás previews.
+	// Protected previews have one router per host (preview-1-<host>): they
+	// count together with the other previews.
 	if strings.HasPrefix(name, "preview-") {
 		return "previews"
 	}
-	// Las ubicaciones personalizadas (ph-3-loc0, site-2-loc1) cuentan como
-	// su proxy host o su sitio.
+	// Custom locations (ph-3-loc0, site-2-loc1) count as their proxy host or
+	// their site.
 	if i := strings.LastIndex(name, "-loc"); i > 0 {
 		name = name[:i]
 	}
 	return name
 }
 
-// Parse lee la salida de /metrics de Traefik y suma los contadores de cada
-// dueño. bounds son los límites del histograma de latencia.
+// Parse reads Traefik's /metrics output and adds up each owner's counters.
+// bounds are the bounds of the latency histogram.
 func Parse(r io.Reader, bounds []float64) (map[string]*Counters, error) {
 	out := map[string]*Counters{}
 	get := func(owner string) *Counters {
@@ -115,7 +115,7 @@ func bucketIndex(le string, bounds []float64) int {
 	return -1
 }
 
-// parseLine lee una muestra: nombre{etiqueta="valor",…} valor
+// parseLine reads one sample: name{label="value",…} value
 func parseLine(line string) (name string, labels map[string]string, value float64, ok bool) {
 	open := strings.IndexByte(line, '{')
 	closeIdx := strings.LastIndexByte(line, '}')
@@ -131,7 +131,7 @@ func parseLine(line string) (name string, labels map[string]string, value float6
 			return "", nil, 0, false
 		}
 		key := strings.TrimSpace(rest[:eq])
-		// Valor entre comillas, con \" y \\ escapados.
+		// Quoted value, with \" and \\ escaped.
 		var b strings.Builder
 		i := eq + 2
 		for ; i < len(rest); i++ {
@@ -159,8 +159,8 @@ func parseLine(line string) (name string, labels map[string]string, value float6
 	return name, labels, v, true
 }
 
-// Delta es lo que ha pasado entre dos lecturas. Si Traefik se reinició (los
-// contadores bajan), la lectura nueva cuenta entera.
+// Delta is what happened between two readings. If Traefik restarted (the
+// counters go down), the new reading counts in full.
 func Delta(prev, cur *Counters) Counters {
 	if prev == nil || cur.Requests < prev.Requests {
 		return *cur
@@ -182,8 +182,9 @@ func Delta(prev, cur *Counters) Counters {
 	return d
 }
 
-// Quantile estima el cuantil q (0.5, 0.95…) de un histograma acumulado,
-// interpolando dentro del bucket como hace Prometheus. Devuelve segundos.
+// Quantile estimates quantile q (0.5, 0.95…) of a cumulative histogram,
+// interpolating inside the bucket the way Prometheus does. It returns
+// seconds.
 func Quantile(q float64, buckets, bounds []float64) float64 {
 	if len(buckets) == 0 {
 		return 0
@@ -197,7 +198,7 @@ func Quantile(q float64, buckets, bounds []float64) float64 {
 	for i, count := range buckets {
 		if count >= rank {
 			if i >= len(bounds) {
-				// En +Inf: lo más que se puede decir es el último límite.
+				// In +Inf: the most that can be said is the last bound.
 				return bounds[len(bounds)-1]
 			}
 			inBucket := count - prevCount

@@ -7,7 +7,7 @@ import (
 	"net/url"
 )
 
-// dialURL abre una conexión TCP (o TLS para https) con el host de u.
+// dialURL opens a TCP connection (or TLS for https) to u's host.
 func dialURL(ctx context.Context, u *url.URL) (net.Conn, error) {
 	host := u.Host
 	if u.Port() == "" {

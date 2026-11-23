@@ -1,7 +1,7 @@
 import { api, type User } from '@/lib/api';
 
-// Usuario de la sesión, comprobado una sola vez y reutilizado entre
-// navegaciones. undefined = todavía no se ha comprobado.
+// The session's user, checked just once and reused across navigations.
+// undefined = not checked yet.
 let current: User | null | undefined;
 
 export async function getUser(): Promise<User | null> {
@@ -15,7 +15,7 @@ export function setUser(user: User | null) {
   current = user;
 }
 
-/** Solo rutas internas: evita usar ?redirect= para mandar al usuario fuera. */
+/** Internal routes only: stops ?redirect= from sending the user off-site. */
 export function safeRedirect(target: string | undefined): string {
   return target && target.startsWith('/') && !target.startsWith('//') ? target : '/';
 }

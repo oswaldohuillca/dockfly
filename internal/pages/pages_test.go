@@ -53,27 +53,27 @@ func TestZipSlipStaysInside(t *testing.T) {
 	defer st.Discard(s)
 
 	z := makeZip(t, map[string]string{
-		"../../escapado.txt":    "malo",
-		"/etc/absoluto.txt":     "malo",
-		`..\..\windows.txt`:     "malo",
+		"../../escaped.txt":     "bad",
+		"/etc/absolute.txt":     "bad",
+		`..\..\windows.txt`:     "bad",
 		"index.html":            "ok",
-		"__MACOSX/._index.html": "basura",
-		"sub/.DS_Store":         "basura",
+		"__MACOSX/._index.html": "junk",
+		"sub/.DS_Store":         "junk",
 	})
 	if err := s.AddZip(bytes.NewReader(z), int64(len(z))); err != nil {
 		t.Fatal(err)
 	}
-	// Las rutas maliciosas quedan ancladas dentro del despliegue.
-	for _, p := range []string{"escapado.txt", "etc/absoluto.txt", "windows.txt", "index.html"} {
+	// The malicious paths stay anchored inside the deployment.
+	for _, p := range []string{"escaped.txt", "etc/absolute.txt", "windows.txt", "index.html"} {
 		if _, err := os.Stat(filepath.Join(s.Dir, p)); err != nil {
-			t.Errorf("%s debería estar dentro del despliegue: %v", p, err)
+			t.Errorf("%s should be inside the deployment: %v", p, err)
 		}
 	}
-	if _, err := os.Stat(filepath.Join(filepath.Dir(st.Root), "escapado.txt")); err == nil {
-		t.Fatal("zip slip: se escribió fuera del directorio")
+	if _, err := os.Stat(filepath.Join(filepath.Dir(st.Root), "escaped.txt")); err == nil {
+		t.Fatal("zip slip: something was written outside the directory")
 	}
 	if _, err := os.Stat(filepath.Join(s.Dir, "__MACOSX")); err == nil {
-		t.Error("__MACOSX debe ignorarse")
+		t.Error("__MACOSX must be ignored")
 	}
 }
 
@@ -82,16 +82,16 @@ func TestSymlinkInsideStagingCannotEscape(t *testing.T) {
 	s, _ := st.NewStaging(1)
 	defer st.Discard(s)
 	outside := t.TempDir()
-	// Simulamos un symlink plantado en el directorio (p. ej. por un zip que
-	// los incluyera): os.Root no debe seguirlo hacia fuera.
+	// Simulate a symlink planted in the directory (e.g. by a zip that carried
+	// one): os.Root must not follow it outwards.
 	if err := os.Symlink(outside, filepath.Join(s.Dir, "link")); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.Add("link/pwned.txt", strings.NewReader("x")); err == nil {
-		t.Error("escribir a través de un symlink hacia fuera debe fallar")
+		t.Error("writing through a symlink pointing outside must fail")
 	}
 	if _, err := os.Stat(filepath.Join(outside, "pwned.txt")); err == nil {
-		t.Fatal("se escribió fuera a través del symlink")
+		t.Fatal("something was written outside through the symlink")
 	}
 }
 
@@ -100,20 +100,20 @@ func TestLimits(t *testing.T) {
 		st := newStorage(t, Limits{MaxFiles: 100, MaxBytes: 1000})
 		s, _ := st.NewStaging(1)
 		defer st.Discard(s)
-		z := makeZip(t, map[string]string{"bomba.txt": strings.Repeat("A", 1_000_000)})
+		z := makeZip(t, map[string]string{"bomb.txt": strings.Repeat("A", 1_000_000)})
 		if len(z) > 10_000 {
-			t.Fatalf("el zip de prueba debería comprimir mucho, ocupa %d", len(z))
+			t.Fatalf("the test zip should compress a lot, it takes up %d", len(z))
 		}
 		err := s.AddZip(bytes.NewReader(z), int64(len(z)))
 		if !errors.Is(err, ErrInvalid) {
-			t.Fatalf("esperaba ErrInvalid por tamaño, obtuve %v", err)
+			t.Fatalf("expected ErrInvalid because of the size, got %v", err)
 		}
-		fi, _ := os.Stat(filepath.Join(s.Dir, "bomba.txt"))
+		fi, _ := os.Stat(filepath.Join(s.Dir, "bomb.txt"))
 		if fi != nil && fi.Size() > 1001 {
-			t.Errorf("se descomprimieron %d bytes, más del límite", fi.Size())
+			t.Errorf("%d bytes were uncompressed, more than the limit", fi.Size())
 		}
 	})
-	t.Run("archivos", func(t *testing.T) {
+	t.Run("files", func(t *testing.T) {
 		st := newStorage(t, Limits{MaxFiles: 2, MaxBytes: 1 << 20})
 		s, _ := st.NewStaging(1)
 		defer st.Discard(s)
@@ -123,19 +123,19 @@ func TestLimits(t *testing.T) {
 			}
 		}
 		if err := s.Add("c", strings.NewReader("x")); !errors.Is(err, ErrInvalid) {
-			t.Errorf("esperaba ErrInvalid por número de archivos, obtuve %v", err)
+			t.Errorf("expected ErrInvalid because of the file count, got %v", err)
 		}
 	})
-	t.Run("duplicados y vacío", func(t *testing.T) {
+	t.Run("duplicates and empty", func(t *testing.T) {
 		st := newStorage(t, DefaultLimits)
 		s, _ := st.NewStaging(1)
 		defer st.Discard(s)
 		if _, _, err := s.Finish(); !errors.Is(err, ErrInvalid) {
-			t.Errorf("un despliegue vacío debe ser inválido: %v", err)
+			t.Errorf("an empty deployment must be invalid: %v", err)
 		}
 		s.Add("a.html", strings.NewReader("1"))
 		if err := s.Add("./a.html", strings.NewReader("2")); !errors.Is(err, ErrInvalid) {
-			t.Errorf("un archivo duplicado debe ser inválido: %v", err)
+			t.Errorf("a duplicate file must be invalid: %v", err)
 		}
 	})
 }
@@ -149,14 +149,14 @@ func TestFinishHoistsSingleFolder(t *testing.T) {
 	}
 	files, size, err := s.Finish()
 	if err != nil || files != 2 || size != 6 {
-		t.Fatalf("Finish: %d archivos, %d bytes, %v", files, size, err)
+		t.Fatalf("Finish: %d files, %d bytes, %v", files, size, err)
 	}
 	if err := st.Commit(s, 7, 42); err != nil {
 		t.Fatal(err)
 	}
 	dir := st.DeploymentDir(7, 42)
 	if readFile(t, filepath.Join(dir, "index.html")) != "home" || readFile(t, filepath.Join(dir, "assets/app.js")) != "js" {
-		t.Error("el contenido de dist/ debe quedar en la raíz del despliegue")
+		t.Error("the contents of dist/ must end up at the deployment root")
 	}
 }
 
@@ -164,16 +164,16 @@ func TestCleanStaging(t *testing.T) {
 	st := newStorage(t, DefaultLimits)
 	s, _ := st.NewStaging(1)
 	s.Add("index.html", strings.NewReader("x"))
-	s.close() // simula una caída a mitad de subida
+	s.close() // simulates a crash halfway through the upload
 	if err := st.CleanStaging(); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(s.Dir); !os.IsNotExist(err) {
-		t.Error("CleanStaging debe borrar los despliegues a medio subir")
+		t.Error("CleanStaging must delete the half-uploaded deployments")
 	}
 }
 
-// --- Servidor ---
+// --- Server ---
 
 func deploy(t *testing.T, files map[string]string) string {
 	t.Helper()
@@ -201,10 +201,10 @@ func TestServerResolution(t *testing.T) {
 		"index.html":      "home",
 		"about.html":      "about",
 		"docs/index.html": "docs",
-		"404.html":        "no encontrado",
+		"404.html":        "not found",
 		"assets/app.js":   "js",
-		".env":            "SECRETO=1",
-		".well-known/x":   "verificación",
+		".env":            "SECRET=1",
+		".well-known/x":   "verification",
 	})
 	spa := deploy(t, map[string]string{"index.html": "spa"})
 
@@ -227,42 +227,42 @@ func TestServerResolution(t *testing.T) {
 		{"site.test", "/docs", 200, "docs"},
 		{"site.test", "/docs/", 200, "docs"},
 		{"site.test", "/assets/app.js", 200, "js"},
-		{"site.test", "/no-existe", 404, "no encontrado"},
-		{"site.test", "/../../etc/passwd", 404, "no encontrado"},
-		{"site.test", "/.env", 404, "no encontrado"},
-		{"site.test", "/.well-known/x", 200, "verificación"},
-		{"spa.test", "/usuarios/42", 200, "spa"},
-		{"empty.test", "/", 404, "todavía no tiene despliegues"},
-		{"otro.test", "/", 404, ""},
+		{"site.test", "/does-not-exist", 404, "not found"},
+		{"site.test", "/../../etc/passwd", 404, "not found"},
+		{"site.test", "/.env", 404, "not found"},
+		{"site.test", "/.well-known/x", 200, "verification"},
+		{"spa.test", "/users/42", 200, "spa"},
+		{"empty.test", "/", 404, "no deployments yet"},
+		{"other.test", "/", 404, ""},
 	}
 	for _, c := range cases {
 		rec := get(srv, c.host, c.path)
 		if rec.Code != c.status || !strings.Contains(rec.Body.String(), c.body) {
-			t.Errorf("%s%s: esperaba %d %q, obtuve %d %q", c.host, c.path, c.status, c.body, rec.Code, rec.Body.String())
+			t.Errorf("%s%s: expected %d %q, got %d %q", c.host, c.path, c.status, c.body, rec.Code, rec.Body.String())
 		}
 	}
 
 	rec := get(srv, "site.test", "/assets/app.js")
 	if rec.Header().Get("Cache-Control") != "public, max-age=0, must-revalidate" || rec.Header().Get("ETag") == "" {
-		t.Errorf("cabeceras de caché: %v", rec.Header())
+		t.Errorf("cache headers: %v", rec.Header())
 	}
 	if ct := rec.Header().Get("Content-Type"); !strings.Contains(ct, "javascript") {
-		t.Errorf("Content-Type de .js: %q", ct)
+		t.Errorf("Content-Type of .js: %q", ct)
 	}
 
-	// Revalidación: con el mismo ETag el navegador recibe 304.
+	// Revalidation: with the same ETag the browser gets a 304.
 	req := httptest.NewRequest("GET", "/assets/app.js", nil)
 	req.Host = "site.test"
 	req.Header.Set("If-None-Match", rec.Header().Get("ETag"))
 	rec304 := httptest.NewRecorder()
 	srv.ServeHTTP(rec304, req)
 	if rec304.Code != http.StatusNotModified {
-		t.Errorf("If-None-Match: esperaba 304, obtuve %d", rec304.Code)
+		t.Errorf("If-None-Match: expected 304, got %d", rec304.Code)
 	}
 }
 
-// Un sitio con un dominio comodín sirve cualquier subdominio de un nivel,
-// como lo enruta Traefik; un dominio exacto de otro sitio le gana.
+// A site with a wildcard domain serves any single-level subdomain, the way
+// Traefik routes it; another site's exact domain wins over it.
 func TestServerWildcardHosts(t *testing.T) {
 	app := deploy(t, map[string]string{"index.html": "app"})
 	admin := deploy(t, map[string]string{"index.html": "admin"})
@@ -279,16 +279,16 @@ func TestServerWildcardHosts(t *testing.T) {
 	}{
 		{"app.test", "/", 200, "app"},
 		{"brasa.app.test", "/", 200, "app"},
-		{"Carbon.App.test:443", "/mesas/4", 200, "app"},
+		{"Carbon.App.test:443", "/tables/4", 200, "app"},
 		{"admin.app.test", "/", 200, "admin"},
-		// Un comodín cubre un solo nivel, como el certificado.
+		// A wildcard covers a single level, just like the certificate.
 		{"a.b.app.test", "/", 404, ""},
-		{"otro.test", "/", 404, ""},
+		{"other.test", "/", 404, ""},
 	}
 	for _, c := range cases {
 		rec := get(srv, c.host, c.path)
 		if rec.Code != c.status || !strings.Contains(rec.Body.String(), c.body) {
-			t.Errorf("%s%s: esperaba %d %q, obtuve %d %q", c.host, c.path, c.status, c.body, rec.Code, rec.Body.String())
+			t.Errorf("%s%s: expected %d %q, got %d %q", c.host, c.path, c.status, c.body, rec.Code, rec.Body.String())
 		}
 	}
 }
@@ -303,10 +303,10 @@ func TestServerSwapIsAtomic(t *testing.T) {
 	srv.SetRoutes(map[string]Route{"s.test": {Dir: v2, DeploymentID: 2}})
 	rec := get(srv, "s.test", "/")
 	if rec.Body.String() != "v2" {
-		t.Errorf("tras publicar debe servirse v2, se sirvió %q", rec.Body.String())
+		t.Errorf("after publishing, v2 must be served, %q was served instead", rec.Body.String())
 	}
 	if rec.Header().Get("ETag") == etag1 {
-		t.Error("el ETag debe cambiar entre despliegues para invalidar la caché del navegador")
+		t.Error("the ETag must change between deployments to invalidate the browser cache")
 	}
 }
 
@@ -331,7 +331,7 @@ func TestAddTar(t *testing.T) {
 		"web-abc/dist/assets/a.js":  "js",
 		"web-abc/distractor/x.html": "no",
 		"web-abc/src/main.ts":       "no",
-		"web-abc/../../fuera.txt":   "malo",
+		"web-abc/../../outside.txt": "bad",
 	}, map[string]string{"web-abc/dist/link": "/etc/passwd"})
 
 	st := newStorage(t, DefaultLimits)
@@ -341,52 +341,52 @@ func TestAddTar(t *testing.T) {
 		t.Fatal(err)
 	}
 	if n, _, err := s.Finish(); err != nil || n != 2 {
-		t.Fatalf("con prefix=dist deben quedar 2 archivos, quedan %d (%v)", n, err)
+		t.Fatalf("with prefix=dist there must be 2 files left, there are %d (%v)", n, err)
 	}
 	if readFile(t, filepath.Join(s.Dir, "index.html")) != "home" {
-		t.Error("dist/index.html debe quedar en la raíz")
+		t.Error("dist/index.html must end up at the root")
 	}
 	for _, p := range []string{"link", "main.ts", "x.html"} {
 		if _, err := os.Lstat(filepath.Join(s.Dir, p)); err == nil {
-			t.Errorf("%s no debería estar en el despliegue", p)
+			t.Errorf("%s should not be in the deployment", p)
 		}
 	}
 
-	// Sin prefix entra todo lo que cuelga de la carpeta raíz.
+	// With no prefix, everything hanging off the root folder gets in.
 	s2, _ := st.NewStaging(1)
 	defer st.Discard(s2)
 	if err := s2.AddTar(bytes.NewReader(src), ""); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(filepath.Join(s2.Dir, "src/main.ts")); err != nil {
-		t.Error("sin prefix debe incluirse todo el árbol")
+		t.Error("with no prefix the whole tree must be included")
 	}
 }
 
 func TestRedirectsAndHeaders(t *testing.T) {
 	site := deploy(t, map[string]string{
-		"index.html":      "home",
-		"nuevo/post.html": "post nuevo",
-		"app/index.html":  "app shell",
-		"existe.html":     "archivo real",
-		"_redirects": `# comentario
-/viejo            /nuevo            301
-/blog/*           /nuevo/:splat     301
-/u/:id            https://perfil.com/:id
+		"index.html":     "home",
+		"new/post.html":  "new post",
+		"app/index.html": "app shell",
+		"exists.html":    "real file",
+		"_redirects": `# comment
+/old              /new              301
+/blog/*           /new/:splat       301
+/u/:id            https://profile.com/:id
 /app/*            /app/index.html   200
-/existe           /index.html       200
-/temporal         /                 307
+/exists           /index.html       200
+/temporary        /                 307
 `,
 		"_headers": `/*
   X-Frame-Options: DENY
   Set-Cookie: evil=1; Domain=test
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
-/sin-frame
+/no-frame
   ! X-Frame-Options
 `,
-		"assets/a.js":    "js",
-		"sin-frame.html": "embebible",
+		"assets/a.js":   "js",
+		"no-frame.html": "embeddable",
 	})
 	srv := &Server{}
 	srv.SetRoutes(map[string]Route{"s.test": {Dir: site, DeploymentID: 3}})
@@ -395,40 +395,40 @@ func TestRedirectsAndHeaders(t *testing.T) {
 		t.Helper()
 		rec := get(srv, "s.test", path)
 		if rec.Code != wantCode || rec.Header().Get("Location") != wantLoc {
-			t.Errorf("%s: %d %q, esperaba %d %q", path, rec.Code, rec.Header().Get("Location"), wantCode, wantLoc)
+			t.Errorf("%s: %d %q, expected %d %q", path, rec.Code, rec.Header().Get("Location"), wantCode, wantLoc)
 		}
 	}
-	redirect("/viejo", "/nuevo", 301)
-	redirect("/blog/2026/hola?ref=x", "/nuevo/2026/hola?ref=x", 301)
-	redirect("/u/oswa", "https://perfil.com/oswa", 302) // sin código: 302, como Cloudflare Pages
-	redirect("/temporal", "/", 307)
+	redirect("/old", "/new", 301)
+	redirect("/blog/2026/hello?ref=x", "/new/2026/hello?ref=x", 301)
+	redirect("/u/oswa", "https://profile.com/oswa", 302) // no code: 302, as in Cloudflare Pages
+	redirect("/temporary", "/", 307)
 
 	cases := []struct{ path, body string }{
-		{"/app/usuarios/42", "app shell"}, // reescritura: misma URL, otro archivo
-		{"/existe", "archivo real"},       // la reescritura no pisa un archivo que existe
-		{"/nuevo/post", "post nuevo"},
+		{"/app/users/42", "app shell"}, // rewrite: same URL, another file
+		{"/exists", "real file"},       // a rewrite does not override an existing file
+		{"/new/post", "new post"},
 	}
 	for _, c := range cases {
 		if rec := get(srv, "s.test", c.path); rec.Code != 200 || rec.Body.String() != c.body {
-			t.Errorf("%s: %d %q, esperaba %q", c.path, rec.Code, rec.Body.String(), c.body)
+			t.Errorf("%s: %d %q, expected %q", c.path, rec.Code, rec.Body.String(), c.body)
 		}
 	}
 
 	if h := get(srv, "s.test", "/").Header(); h.Get("X-Frame-Options") != "DENY" {
-		t.Errorf("las cabeceras de /* deben aplicarse: %v", h)
+		t.Errorf("the headers of /* must be applied: %v", h)
 	}
 	if h := get(srv, "s.test", "/assets/a.js").Header(); h.Get("Cache-Control") != "public, max-age=31536000, immutable" {
-		t.Errorf("_headers debe poder sobrescribir el Cache-Control de Dockfly: %q", h.Get("Cache-Control"))
+		t.Errorf("_headers must be able to override Dockfly's Cache-Control: %q", h.Get("Cache-Control"))
 	}
-	if h := get(srv, "s.test", "/sin-frame").Header(); h.Get("X-Frame-Options") != "" {
-		t.Errorf("«! Cabecera» debe quitarla: %v", h)
+	if h := get(srv, "s.test", "/no-frame").Header(); h.Get("X-Frame-Options") != "" {
+		t.Errorf("«! Header» must remove it: %v", h)
 	}
 	if h := get(srv, "s.test", "/").Header(); h.Get("Set-Cookie") != "" {
-		t.Errorf("_headers no debe poder fijar Set-Cookie: %q", h.Get("Set-Cookie"))
+		t.Errorf("_headers must not be able to set Set-Cookie: %q", h.Get("Set-Cookie"))
 	}
 	for _, p := range []string{"/_redirects", "/_headers"} {
 		if rec := get(srv, "s.test", p); rec.Code != 404 {
-			t.Errorf("%s no debe servirse: %d", p, rec.Code)
+			t.Errorf("%s must not be served: %d", p, rec.Code)
 		}
 	}
 }

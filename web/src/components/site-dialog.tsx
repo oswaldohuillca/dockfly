@@ -16,7 +16,7 @@ import { api, type Site, type SiteInput } from '@/lib/api';
 import { useForm, useSubmit } from '@/lib/use-form';
 
 interface Props {
-  /** Sitio a editar, o undefined para crear uno nuevo. */
+  /** The site to edit, or undefined to create a new one. */
   site?: Site;
   onClose: () => void;
   onSaved: (site: Site) => void;
@@ -37,8 +37,8 @@ export function SiteDialog({ site, onClose, onSaved }: Props) {
     locations: (site?.locations ?? []).map((l) => ({ ...l })),
   }));
 
-  // Los contenedores, para sugerirlos, solo si alguna ubicación va a uno. Sin
-  // Docker la lista queda vacía y el nombre se escribe a mano.
+  // Containers, to suggest them, only if some location points at one. Without
+  // Docker the list stays empty and the name is typed by hand.
   const [containers, setContainers] = useState<string[] | null>(null);
   const wantsContainers = form.locations.some((l) => l.target_type === 'docker');
   useEffect(() => {

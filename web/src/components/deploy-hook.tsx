@@ -10,8 +10,8 @@ import { api } from '@/lib/api';
 import { useAction, useResource } from '@/lib/use-resource';
 
 /**
- * Deploy hook de un sitio: la URL secreta que lanza un build al recibir un
- * POST (un CMS al publicar contenido, un cron…). Solo para quien puede desplegar.
+ * A site's deploy hook: the secret URL that starts a build when it receives a
+ * POST (a CMS publishing content, a cron job…). Only for users who can deploy.
  */
 export function DeployHook({ siteId }: { siteId: number }) {
   const { t } = useLingui();
@@ -19,7 +19,7 @@ export function DeployHook({ siteId }: { siteId: number }) {
   const run = useAction();
   const { confirm, dialog } = useConfirm();
 
-  // Si falla la carga no se ofrece «crear»: regeneraría un hook que quizá ya existe.
+  // If loading fails we do not offer "create": it would regenerate a hook that may already exist.
   if (!data) return error ? <p className="px-6 text-sm text-destructive">{error}</p> : null;
 
   const url = data.token ? `${window.location.origin}/api/hooks/deploy/${data.token}` : '';

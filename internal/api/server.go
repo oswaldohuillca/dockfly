@@ -1,4 +1,4 @@
-// Package api expone la API REST del panel y sirve el frontend.
+// Package api exposes the panel's REST API and serves the frontend.
 package api
 
 import (
@@ -31,9 +31,9 @@ import (
 
 const sessionCookieDev = "dockfly_session"
 
-// sessionCookieName usa el prefijo __Host- en producción (exige Secure, Path=/
-// y sin Domain). En desarrollo (sin Traefik, HTTP en localhost) usa el nombre
-// plano para que la cookie funcione sin HTTPS.
+// sessionCookieName uses the __Host- prefix in production (which requires
+// Secure, Path=/ and no Domain). In development (no Traefik, plain HTTP on
+// localhost) it uses the bare name so the cookie works without HTTPS.
 func (s *Server) sessionCookieName() string {
 	if s.Super == nil {
 		return sessionCookieDev
@@ -50,63 +50,63 @@ type ctxKey struct{}
 type Server struct {
 	Store    *store.Store
 	Signer   *auth.Signer
-	Docker   *docker.Client // nil si Docker no está disponible
+	Docker   *docker.Client // nil when Docker isn't available
 	Traefik  traefik.Options
-	Super    *traefik.Supervisor // nil si Traefik está desactivado (desarrollo)
+	Super    *traefik.Supervisor // nil when Traefik is disabled (development)
 	Certs    *traefik.CertTracker
-	Notify   *notify.Dispatcher // nil en algunos tests
+	Notify   *notify.Dispatcher // nil in some tests
 	Frontend fs.FS
 	Version  string
 	Log      *slog.Logger
-	// TrustedProxies son los rangos (CIDR) de los que se acepta X-Forwarded-For
-	// para obtener la IP del cliente. Vacío = el panel se expone directamente.
+	// TrustedProxies are the CIDR ranges whose X-Forwarded-For is accepted to
+	// work out the client IP. Empty = the panel is exposed directly.
 	TrustedProxies []string
 
-	// Sitios estáticos.
-	Pages        *pages.Server  // sirve los archivos publicados
-	PagesStorage *pages.Storage // despliegues en disco
-	StaticURL    string         // URL interna del servidor estático, para Traefik
+	// Static sites.
+	Pages        *pages.Server  // serves the published files
+	PagesStorage *pages.Storage // deployments on disk
+	StaticURL    string         // the static server's internal URL, for Traefik
 	MaxUploadMB  int64
 
-	// Builds desde GitHub/GitLab.
+	// Builds from GitHub/GitLab.
 	Builds  *builder.Manager
 	Secrets *secrets.Box
 	Git     *gitauth.Resolver
 	Apps    *apps.Manager
-	// DBBackups hace las copias de las apps de bases de datos.
+	// DBBackups takes the backups of the database apps.
 	DBBackups *dbbackup.Manager
-	// Hub conecta con los agentes de los servidores remotos.
+	// Hub connects to the agents on the remote servers.
 	Hub *tunnel.Hub
-	// Image es la imagen de Dockfly (para el comando de los agentes).
+	// Image is the Dockfly image (used in the agents' command).
 	Image   string
 	remotes remotes
 
 	oauthStates stateStore
 
 	DataDir    string
-	ListenAddr string // dirección del panel (para no reutilizar su puerto en un stream)
-	// Restart detiene Dockfly para que Docker lo vuelva a arrancar (lo usa la
-	// restauración de copias, que se aplica al arrancar).
+	ListenAddr string // the panel's address (so a stream can't reuse its port)
+	// Restart stops Dockfly so that Docker starts it again (used by the backup
+	// restore, which is applied on startup).
 	Restart func()
-	// Updater actualiza Dockfly desde el panel.
+	// Updater updates Dockfly from the panel.
 	Updater *selfupdate.Updater
 
-	// SetupToken es el código de instalación mientras no hay usuarios.
+	// SetupToken is the setup code, valid while there are no users.
 	SetupToken string
 
 	applyMu   sync.Mutex
-	mfa       failures[int64] // códigos de 2FA incorrectos por usuario
+	mfa       failures[int64] // wrong 2FA codes per user
 	csrf      *http.CrossOriginProtection
 	csrfOnce  sync.Once
-	loginFail failures[string] // contraseñas incorrectas por email
+	loginFail failures[string] // wrong passwords per email
 }
 
-// Apply publica el estado actual: regenera la configuración de Traefik y la
-// tabla de dominios del servidor estático.
+// Apply publishes the current state: it regenerates Traefik's configuration
+// and the static server's domain table.
 //
-// Ignora la cancelación de ctx: si el cliente se desconecta justo después de
-// guardar un cambio, la base de datos ya está actualizada y Traefik debe
-// enterarse igualmente.
+// It ignores ctx cancellation: if the client disconnects right after saving a
+// change, the database is already updated and Traefik has to hear about it
+// anyway.
 func (s *Server) Apply(ctx context.Context) error {
 	ctx = context.WithoutCancel(ctx)
 	s.applyMu.Lock()
@@ -120,13 +120,13 @@ func (s *Server) Apply(ctx context.Context) error {
 	if s.Hub != nil {
 		defer s.pushServers(plan.Remote, plan.Dynamic.Middlewares)
 	}
-	// Primero el servidor estático y luego Traefik: así, cuando Traefik
-	// empiece a enrutar un dominio nuevo, el servidor ya sabe qué servir.
+	// The static server first and Traefik second: that way, by the time
+	// Traefik starts routing a new domain, the server knows what to serve.
 	s.Pages.SetRoutes(plan.Static)
 	return traefik.WriteDynamic(s.Traefik, plan.Dynamic)
 }
 
-// snapshot reúne todo lo que influye en el enrutado (ver routing.Build).
+// snapshot gathers everything that affects routing (see routing.Build).
 func (s *Server) snapshot(ctx context.Context) (routing.Snapshot, error) {
 	var snap routing.Snapshot
 	var err error
@@ -165,7 +165,7 @@ func (s *Server) snapshot(ctx context.Context) (routing.Snapshot, error) {
 	return snap, nil
 }
 
-// Errores del alta y el login (y del resto de la gestión de cuentas).
+// Errors from signup and login (and the rest of account management).
 var (
 	errNameRequired     = newError("name_required", "Name is required")
 	errInvalidEmail     = newError("invalid_email", "Invalid email")
@@ -180,7 +180,7 @@ func currentUser(r *http.Request) *store.User {
 	return u
 }
 
-// --- Sesión ---
+// --- Session ---
 
 func (s *Server) setSession(w http.ResponseWriter, r *http.Request, u *store.User) {
 	token, exp := s.Signer.Issue(u.ID, u.SessionVersion)
@@ -208,11 +208,12 @@ type credentials struct {
 	Name     string `json:"name"`
 	Email    string `json:"email"`
 	Password string `json:"password"`
-	// SetupToken es el código de instalación (solo en el alta inicial).
+	// SetupToken is the setup code (only used by the initial signup).
 	SetupToken string `json:"setup_token,omitempty"`
 }
 
-// handleSetup crea el primer administrador. Solo funciona mientras no haya usuarios.
+// handleSetup creates the first administrator. It only works while there
+// are no users.
 func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 	var in credentials
 	if !decode(w, r, &in) {
@@ -232,8 +233,8 @@ func (s *Server) handleSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// applyMu serializa también el setup para que dos peticiones simultáneas
-	// no creen dos administradores.
+	// applyMu serializes setup too, so that two simultaneous requests can't
+	// create two administrators.
 	s.applyMu.Lock()
 	defer s.applyMu.Unlock()
 	n, err := s.Store.CountUsers(r.Context())
@@ -278,9 +279,9 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
-	// Si el usuario no existe (o aún no aceptó la invitación) comparamos
-	// igualmente contra un hash ficticio: así la respuesta tarda lo mismo y
-	// no revela qué emails están registrados o pendientes.
+	// If the user doesn't exist (or hasn't accepted the invitation yet) we
+	// compare against a dummy hash anyway: the response then takes just as
+	// long and doesn't reveal which emails are registered or pending.
 	hash := auth.DummyHash()
 	if u != nil && u.PasswordHash != "" {
 		hash = u.PasswordHash
@@ -302,8 +303,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
-	// Subir la versión de sesión invalida la cookie en el servidor (una cookie
-	// robada deja de valer). Cierra todas las sesiones de ese usuario.
+	// Bumping the session version invalidates the cookie on the server (a
+	// stolen cookie stops working). It closes every session of that user.
 	if u, ok := s.sessionUser(r); ok {
 		_ = s.Store.BumpSessionVersion(r.Context(), u.ID)
 	}
@@ -323,12 +324,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if s.Super != nil {
 		out["traefik"] = s.Super.Status()
 	} else {
-		out["traefik"] = map[string]any{"running": false, "last_error": "Traefik desactivado (modo desarrollo)"}
+		out["traefik"] = map[string]any{"running": false, "last_error": "Traefik disabled (development mode)"}
 	}
 	writeJSON(w, http.StatusOK, out)
 }
 
-// --- Utilidades ---
+// --- Helpers ---
 
 func decode(w http.ResponseWriter, r *http.Request, v any) bool {
 	dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1<<20))
@@ -347,12 +348,12 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 }
 
 func (s *Server) internalError(w http.ResponseWriter, err error) {
-	s.Log.Error("error interno", "error", err)
+	s.Log.Error("internal error", "error", err)
 	writeError(w, http.StatusInternalServerError, errInternal)
 }
 
-// spaHandler sirve los archivos del frontend y devuelve index.html para
-// cualquier ruta desconocida (enrutado del lado del cliente).
+// spaHandler serves the frontend's files and returns index.html for any
+// unknown route (client-side routing).
 func spaHandler(fsys fs.FS) http.Handler {
 	files := http.FileServerFS(fsys)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -360,7 +361,7 @@ func spaHandler(fsys fs.FS) http.Handler {
 		if p != "" {
 			if _, err := fs.Stat(fsys, p); err == nil {
 				if strings.HasPrefix(p, "assets/") {
-					// Vite genera nombres con hash: se pueden cachear para siempre.
+					// Vite generates hashed names: they can be cached forever.
 					w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
 				}
 				files.ServeHTTP(w, r)

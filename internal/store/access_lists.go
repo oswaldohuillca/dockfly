@@ -10,8 +10,8 @@ type AccessUser struct {
 	PasswordHash string `json:"password_hash,omitempty"`
 }
 
-// AccessList protege proxy hosts, sitios y apps. Si tiene usuarios e IPs,
-// se exigen ambas cosas.
+// AccessList protects proxy hosts, sites and apps. If it has both users and
+// IPs, both are required.
 type AccessList struct {
 	ID        int64        `bun:",pk,autoincrement" json:"id"`
 	Name      string       `json:"name"`

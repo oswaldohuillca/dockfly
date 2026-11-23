@@ -37,8 +37,8 @@ func (g *github) ListRepos(ctx context.Context, query string) ([]Repo, error) {
 	}
 	query = strings.ToLower(query)
 	var out []Repo
-	// Hasta 300 repos, ordenados por actividad reciente: suficiente para
-	// elegir en el panel, y la búsqueda filtra sobre ellos.
+	// Up to 300 repos, sorted by recent activity: enough to pick from in the
+	// panel, and the search filters over them.
 	for page := 1; page <= 3; page++ {
 		var raw []ghRepo
 		path := "/user/repos?per_page=100&sort=updated&page=" + strconv.Itoa(page)
@@ -57,8 +57,8 @@ func (g *github) ListRepos(ctx context.Context, query string) ([]Repo, error) {
 	return out, nil
 }
 
-// installationRepos lista los repos a los que el usuario dio acceso al
-// instalar la GitHub App.
+// installationRepos lists the repos the user granted access to when
+// installing the GitHub App.
 func (g *github) installationRepos(ctx context.Context, query string) ([]Repo, error) {
 	query = strings.ToLower(query)
 	var out []Repo
@@ -140,20 +140,20 @@ func (g *github) CreateWebhook(ctx context.Context, repo, hookURL, secret string
 func (g *github) DeleteWebhook(ctx context.Context, repo, id string) error {
 	err := g.do(ctx, http.MethodDelete, "/repos/"+repoPath(repo)+"/hooks/"+url.PathEscape(id), nil, nil)
 	if IsNotFound(err) {
-		return nil // ya no existía
+		return nil // it was already gone
 	}
 	return err
 }
 
-// repoPath escapa cada parte de "usuario/repo" por separado.
+// repoPath escapes each part of "user/repo" separately.
 func repoPath(repo string) string {
 	owner, name, _ := strings.Cut(repo, "/")
 	return url.PathEscape(owner) + "/" + url.PathEscape(name)
 }
 
-var ErrBadSignature = errors.New("firma del webhook inválida")
+var ErrBadSignature = errors.New("invalid webhook signature")
 
-// VerifyGitHubSignature comprueba la firma HMAC-SHA256 de un webhook.
+// VerifyGitHubSignature checks the HMAC-SHA256 signature of a webhook.
 func VerifyGitHubSignature(h http.Header, body []byte, secret string) error {
 	sig, found := strings.CutPrefix(h.Get("X-Hub-Signature-256"), "sha256=")
 	if !found || secret == "" {
@@ -168,9 +168,10 @@ func VerifyGitHubSignature(h http.Header, body []byte, secret string) error {
 	return nil
 }
 
-// ParseGitHubWebhook verifica la firma HMAC-SHA256 y extrae el push.
-// Devuelve ok=false para eventos que no son un push a una rama (ping, tags,
-// ramas borradas…), que deben responderse con 2xx pero ignorarse.
+// ParseGitHubWebhook verifies the HMAC-SHA256 signature and extracts the
+// push. It returns ok=false for events that are not a push to a branch
+// (ping, tags, deleted branches…), which must be answered with 2xx but
+// otherwise ignored.
 func ParseGitHubWebhook(h http.Header, body []byte, secret string) (push Push, ok bool, err error) {
 	if err := VerifyGitHubSignature(h, body, secret); err != nil {
 		return Push{}, false, err
@@ -178,7 +179,7 @@ func ParseGitHubWebhook(h http.Header, body []byte, secret string) (push Push, o
 	return ParseGitHubPush(h, body)
 }
 
-// ParseGitHubPush extrae el push de un webhook ya verificado.
+// ParseGitHubPush extracts the push from an already verified webhook.
 func ParseGitHubPush(h http.Header, body []byte) (push Push, ok bool, err error) {
 	if h.Get("X-GitHub-Event") != "push" {
 		return Push{}, false, nil
@@ -218,8 +219,9 @@ func ParseGitHubPush(h http.Header, body []byte) (push Push, ok bool, err error)
 	}, true, nil
 }
 
-// ParseGitHubInstallationDeleted indica si el webhook (ya verificado) avisa
-// de que alguien desinstaló la GitHub App de su cuenta.
+// ParseGitHubInstallationDeleted reports whether the (already verified)
+// webhook is telling us that someone uninstalled the GitHub App from their
+// account.
 func ParseGitHubInstallationDeleted(h http.Header, body []byte) (installationID int64, ok bool) {
 	if h.Get("X-GitHub-Event") != "installation" {
 		return 0, false

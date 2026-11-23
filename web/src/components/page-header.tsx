@@ -3,7 +3,7 @@ import type { LucideIcon } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
-/** Título de página, fuera de las tarjetas, con la acción principal a la derecha. */
+/** Page title, outside the cards, with the primary action on the right. */
 export function PageHeader({ title, description, children }: { title: ReactNode; description?: ReactNode; children?: ReactNode }) {
   return (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-x-6 gap-y-3">
@@ -29,7 +29,7 @@ export function StatGrid({ children }: { children: ReactNode }) {
   return <dl className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">{children}</dl>;
 }
 
-/** Cifra destacada con su etiqueta. */
+/** A prominent figure with its label. */
 export function Stat({ label, value, icon: Icon, tone = 'primary' }: { label: ReactNode; value: ReactNode; icon: LucideIcon; tone?: keyof typeof tones }) {
   return (
     <div className="flex items-center gap-4 rounded-2xl bg-card p-5 shadow-card">

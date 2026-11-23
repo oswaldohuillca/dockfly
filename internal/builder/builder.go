@@ -1,9 +1,9 @@
-// Package builder construye sitios estáticos a partir de un repositorio de
-// GitHub o GitLab y publica el resultado como un despliegue.
+// Package builder builds static sites from a GitHub or GitLab repository and
+// publishes the result as a deployment.
 //
-// Cada build corre en un contenedor efímero y aislado: sin privilegios, con
-// límites de recursos y sin acceso al token del repositorio (el código lo
-// descarga Dockfly y lo copia dentro).
+// Every build runs in an isolated, throwaway container: unprivileged, with
+// resource limits and with no access to the repository token (Dockfly
+// downloads the code and copies it in).
 package builder
 
 import (
@@ -28,7 +28,7 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Valores por defecto de un build, al estilo de un proyecto Vite.
+// Build defaults, in the style of a Vite project.
 const (
 	DefaultImage   = "oven/bun:1"
 	DefaultInstall = "bun install"
@@ -36,40 +36,40 @@ const (
 	DefaultOutput  = "dist"
 )
 
-// LabelBuild marca los contenedores de build, para limpiarlos si Dockfly se
-// reinicia a mitad de uno.
+// LabelBuild marks the build containers, so they can be cleaned up if Dockfly
+// restarts in the middle of one.
 const LabelBuild = "dockfly.build"
 
 const (
-	maxSourceBytes = 1 << 30 // 1 GiB de código fuente
-	MaxLogBytes    = 5 << 20 // 5 MiB de log por build o deploy
+	maxSourceBytes = 1 << 30 // 1 GiB of source code
+	MaxLogBytes    = 5 << 20 // 5 MiB of log per build or deploy
 )
 
-// Providers da un cliente con credenciales vigentes para una conexión
-// (lo implementa gitauth.Resolver).
+// Providers gives a client with valid credentials for a connection
+// (implemented by gitauth.Resolver).
 type Providers interface {
 	Provider(ctx context.Context, conn *store.GitConnection) (gitprovider.Provider, error)
 }
 
 type Config struct {
 	Store     *store.Store
-	Docker    *docker.Client // nil si Docker no está disponible
+	Docker    *docker.Client // nil if Docker is unavailable
 	Secrets   *secrets.Box
 	Providers Providers
 	Pages     *pages.Storage
 	LogDir    string
 	Log       *slog.Logger
-	// Publish activa un despliegue recién creado (lo implementa la API, que
-	// sabe regenerar Traefik y el servidor estático).
+	// Publish activates a freshly created deployment (implemented by the API,
+	// which knows how to regenerate Traefik and the static server).
 	Publish func(ctx context.Context, siteID, deploymentID int64) error
-	// OnFinish, si no es nil, se llama al terminar cada build (notificaciones).
+	// OnFinish, if not nil, is called when each build finishes (notifications).
 	OnFinish func(ctx context.Context, buildID int64)
-	// StatusURL, si no es nil, da el enlace del estado del commit: el sitio
-	// publicado si el build salió bien (depID != 0) o el panel si no.
+	// StatusURL, if not nil, gives the link for the commit status: the
+	// published site if the build succeeded (depID != 0), or the panel if not.
 	StatusURL func(ctx context.Context, site *store.Site, b *store.Build, depID int64) string
 
-	// Network y EgressProxy, si no están vacíos, meten los builds en una red
-	// interna con salida solo por ese proxy (ver el paquete egress).
+	// Network and EgressProxy, if not empty, put the builds on an internal
+	// network whose only way out is that proxy (see the egress package).
 	Network     string
 	EgressProxy string
 
@@ -98,12 +98,12 @@ func (m *Manager) LogPath(buildID int64) string {
 	return filepath.Join(m.cfg.LogDir, strconv.FormatInt(buildID, 10)+".log")
 }
 
-// Run arranca los workers y bloquea hasta que ctx se cancela. Antes recupera
-// el estado de un posible reinicio: los builds que estaban en marcha se dan
-// por fallidos y los que esperaban vuelven a la cola.
+// Run starts the workers and blocks until ctx is canceled. First it recovers
+// the state left by a possible restart: builds that were running are marked
+// as failed and the ones that were waiting go back into the queue.
 func (m *Manager) Run(ctx context.Context) {
 	if err := os.MkdirAll(m.cfg.LogDir, 0o755); err != nil {
-		m.cfg.Log.Error("creando directorio de logs", "error", err)
+		m.cfg.Log.Error("creating the log directory", "error", err)
 	}
 	m.recover(ctx)
 
@@ -126,11 +126,11 @@ func (m *Manager) Run(ctx context.Context) {
 func (m *Manager) recover(ctx context.Context) {
 	running, err := m.cfg.Store.ListBuildsByStatus(ctx, store.BuildRunning)
 	if err != nil {
-		m.cfg.Log.Error("recuperando builds", "error", err)
+		m.cfg.Log.Error("recovering builds", "error", err)
 		return
 	}
 	for _, b := range running {
-		_ = m.cfg.Store.FinishBuild(ctx, b.ID, store.BuildFailed, "interrumpido por un reinicio de Dockfly", nil)
+		_ = m.cfg.Store.FinishBuild(ctx, b.ID, store.BuildFailed, "interrupted by a Dockfly restart", nil)
 	}
 	if m.cfg.Docker != nil {
 		if ids, err := m.cfg.Docker.ContainersWithLabel(ctx, LabelBuild); err == nil {
@@ -148,9 +148,9 @@ func (m *Manager) recover(ctx context.Context) {
 	}
 }
 
-// Enqueue crea un build y lo pone en cola. Los builds que esperaban para el
-// mismo sitio (y la misma preview) se cancelan: solo tiene sentido construir
-// el commit más nuevo. preview vacío es un build de producción.
+// Enqueue creates a build and queues it. Builds already waiting for the same
+// site (and the same preview) are canceled: only the newest commit is worth
+// building. An empty preview means a production build.
 func (m *Manager) Enqueue(ctx context.Context, siteID int64, trigger, branch, preview string, commit gitprovider.Commit) (*store.Build, error) {
 	b := &store.Build{
 		SiteID: siteID, Status: store.BuildQueued, Trigger: trigger, Branch: branch, Preview: preview,
@@ -160,18 +160,18 @@ func (m *Manager) Enqueue(ctx context.Context, siteID int64, trigger, branch, pr
 		return nil, err
 	}
 	if _, err := m.cfg.Store.SupersedeQueued(ctx, siteID, b.ID); err != nil {
-		m.cfg.Log.Error("cancelando builds anteriores", "site", siteID, "error", err)
+		m.cfg.Log.Error("canceling earlier builds", "site", siteID, "error", err)
 	}
 	select {
 	case m.queue <- b.ID:
 		return b, nil
 	default:
-		_ = m.cfg.Store.FinishBuild(ctx, b.ID, store.BuildFailed, "la cola de builds está llena", nil)
-		return nil, errors.New("la cola de builds está llena; inténtalo en unos minutos")
+		_ = m.cfg.Store.FinishBuild(ctx, b.ID, store.BuildFailed, "the build queue is full", nil)
+		return nil, errors.New("the build queue is full; try again in a few minutes")
 	}
 }
 
-// Cancel detiene un build en marcha o lo saca de la cola.
+// Cancel stops a running build or takes it out of the queue.
 func (m *Manager) Cancel(ctx context.Context, buildID int64) error {
 	m.mu.Lock()
 	cancel, ok := m.running[buildID]
@@ -180,33 +180,34 @@ func (m *Manager) Cancel(ctx context.Context, buildID int64) error {
 		cancel()
 		return nil
 	}
-	err := m.cfg.Store.FinishBuild(ctx, buildID, store.BuildCanceled, "cancelado", nil)
+	err := m.cfg.Store.FinishBuild(ctx, buildID, store.BuildCanceled, "canceled", nil)
 	if errors.Is(err, store.ErrNotFound) {
-		return errors.New("el build ya terminó")
+		return errors.New("the build already finished")
 	}
 	return err
 }
 
-var errCanceled = errors.New("cancelado")
+var errCanceled = errors.New("canceled")
 
-// minBuildFreeBytes es el mínimo de disco libre para empezar un build.
+// minBuildFreeBytes is the minimum free disk space needed to start a build.
 const minBuildFreeBytes = 2 << 30 // 2 GiB
 
 func (m *Manager) run(parent context.Context, id int64) {
 	st := m.cfg.Store
-	// Si se canceló mientras esperaba en cola, MarkBuildStarted falla y no
-	// hay nada que hacer.
+	// If it was canceled while waiting in the queue, MarkBuildStarted fails
+	// and there is nothing to do.
 	if err := st.MarkBuildStarted(parent, id); err != nil {
 		return
 	}
-	// No empezar si el disco está casi lleno: un build puede escribir GiB en la
-	// capa del contenedor y en la caché, y llenar el host.
-	// shortcut: solo mira el FS de LogDir (/data); si /var/lib/docker está en otro
-	// disco no lo cubre. Subir a cuota por capa (StorageOpt) cuando el driver de
-	// almacenamiento de Docker lo soporte (overlay2+xfs/pquota, btrfs…).
+	// Do not start if the disk is nearly full: a build can write GiBs into the
+	// container layer and the cache, and fill up the host.
+	// shortcut: only looks at the filesystem holding LogDir (/data); it does not
+	// cover /var/lib/docker on another disk. Move to a per-layer quota
+	// (StorageOpt) once Docker's storage driver supports it (overlay2+xfs/pquota,
+	// btrfs…).
 	if free, err := freeDiskBytes(m.cfg.LogDir); err == nil && free < minBuildFreeBytes {
 		_ = st.FinishBuild(parent, id, store.BuildFailed,
-			fmt.Sprintf("espacio en disco insuficiente: %d MiB libres, se necesitan al menos %d MiB", free>>20, minBuildFreeBytes>>20), nil)
+			fmt.Sprintf("not enough disk space: %d MiB free, at least %d MiB are needed", free>>20, minBuildFreeBytes>>20), nil)
 		return
 	}
 	b, err := st.GetBuild(parent, id)
@@ -229,7 +230,7 @@ func (m *Manager) run(parent context.Context, id int64) {
 
 	logFile, err := os.Create(m.LogPath(id))
 	if err != nil {
-		_ = st.FinishBuild(parent, id, store.BuildFailed, "no se pudo crear el log: "+err.Error(), nil)
+		_ = st.FinishBuild(parent, id, store.BuildFailed, "could not create the log: "+err.Error(), nil)
 		return
 	}
 	defer logFile.Close()
@@ -238,18 +239,18 @@ func (m *Manager) run(parent context.Context, id int64) {
 	start := time.Now()
 	depID, err := m.pipeline(ctx, b, logw)
 
-	// La causa distingue una cancelación del usuario de un timeout.
+	// The cause tells a user cancellation apart from a timeout.
 	status, msg := store.BuildSuccess, ""
 	switch {
 	case errors.Is(context.Cause(ctx), errCanceled):
-		status, msg = store.BuildCanceled, "cancelado"
+		status, msg = store.BuildCanceled, "canceled"
 	case errors.Is(ctx.Err(), context.DeadlineExceeded):
-		status, msg = store.BuildFailed, fmt.Sprintf("superó el tiempo máximo de %s", m.cfg.Timeout)
+		status, msg = store.BuildFailed, fmt.Sprintf("exceeded the %s time limit", m.cfg.Timeout)
 	case err != nil:
 		status, msg = store.BuildFailed, err.Error()
 	}
 	if status == store.BuildSuccess {
-		fmt.Fprintf(logw, "\n✔ Publicado en %s\n", time.Since(start).Round(time.Second))
+		fmt.Fprintf(logw, "\n✔ Published in %s\n", time.Since(start).Round(time.Second))
 	} else {
 		fmt.Fprintf(logw, "\n✘ %s\n", msg)
 	}
@@ -257,17 +258,17 @@ func (m *Manager) run(parent context.Context, id int64) {
 	if depID != 0 {
 		dep = &depID
 	}
-	// El build terminó: guardamos el resultado aunque ctx ya esté cancelado.
+	// The build is over: save the result even if ctx is already canceled.
 	if err := st.FinishBuild(context.WithoutCancel(parent), id, status, msg, dep); err != nil &&
 		!errors.Is(err, store.ErrNotFound) {
-		m.cfg.Log.Error("guardando resultado del build", "build", id, "error", err)
+		m.cfg.Log.Error("saving the build result", "build", id, "error", err)
 	}
 	if m.cfg.OnFinish != nil && status != store.BuildCanceled {
 		m.cfg.OnFinish(context.WithoutCancel(parent), id)
 	}
-	state, desc := gitprovider.StateSuccess, "Publicado"
+	state, desc := gitprovider.StateSuccess, "Published"
 	if b.Preview != "" {
-		desc = "Preview publicada"
+		desc = "Preview published"
 	}
 	if status != store.BuildSuccess {
 		state, desc = gitprovider.StateFailure, msg
@@ -278,9 +279,9 @@ func (m *Manager) run(parent context.Context, id int64) {
 	}
 }
 
-// report marca el commit del build en GitHub/GitLab. Es informativo: si
-// falla (p. ej. una GitHub App creada antes de pedir el permiso de
-// estados), solo se registra.
+// report marks the build's commit on GitHub/GitLab. It is informational: if
+// it fails (e.g. a GitHub App created before the statuses permission was
+// requested), it is only logged.
 func (m *Manager) report(ctx context.Context, b *store.Build, state, desc string, depID int64) {
 	if b.CommitSHA == "" {
 		return
@@ -303,11 +304,11 @@ func (m *Manager) report(ctx context.Context, b *store.Build, state, desc string
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	if err := prov.SetStatus(ctx, site.Repo, b.CommitSHA, st); err != nil {
-		m.cfg.Log.Warn("no se pudo marcar el estado del commit", "site", site.ID, "sha", short(b.CommitSHA), "error", err)
+		m.cfg.Log.Warn("could not set the commit status", "site", site.ID, "sha", short(b.CommitSHA), "error", err)
 	}
 }
 
-// Env descifra las variables de entorno del build de un sitio.
+// Env decrypts a site's build environment variables.
 func Env(box *secrets.Box, site *store.Site) (map[string]string, error) {
 	env := map[string]string{}
 	if len(site.BuildEnvEnc) == 0 {
@@ -322,18 +323,18 @@ func Env(box *secrets.Box, site *store.Site) (map[string]string, error) {
 
 func (m *Manager) provider(ctx context.Context, site *store.Site) (gitprovider.Provider, string, error) {
 	if site.Repo == "" || site.GitConnectionID == nil {
-		return nil, "", errors.New("el sitio no está enlazado a ningún repositorio")
+		return nil, "", errors.New("the site is not linked to any repository")
 	}
 	conn, err := m.cfg.Store.GetGitConnection(ctx, *site.GitConnectionID)
 	if err != nil {
-		return nil, "", fmt.Errorf("la cuenta de %s vinculada ya no existe", site.Repo)
+		return nil, "", fmt.Errorf("the account linked to %s no longer exists", site.Repo)
 	}
 	p, err := m.cfg.Providers.Provider(ctx, conn)
 	return p, conn.Provider, err
 }
 
-// pipeline descarga el código, lo construye y crea el despliegue. Devuelve
-// el ID del despliegue publicado.
+// pipeline downloads the code, builds it and creates the deployment. It
+// returns the ID of the published deployment.
 func (m *Manager) pipeline(ctx context.Context, b *store.Build, log io.Writer) (int64, error) {
 	st := m.cfg.Store
 	site, err := st.GetSite(ctx, b.SiteID)
@@ -347,18 +348,18 @@ func (m *Manager) pipeline(ctx context.Context, b *store.Build, log io.Writer) (
 
 	commit := gitprovider.Commit{SHA: b.CommitSHA, Message: b.CommitMessage}
 	if commit.SHA == "" {
-		fmt.Fprintf(log, "▶ Buscando el último commit de %s…\n", b.Branch)
+		fmt.Fprintf(log, "▶ Looking up the latest commit on %s…\n", b.Branch)
 		if commit, err = prov.LatestCommit(ctx, site.Repo, b.Branch); err != nil {
-			return 0, fmt.Errorf("obteniendo el último commit: %w", err)
+			return 0, fmt.Errorf("getting the latest commit: %w", err)
 		}
 		_ = st.SetBuildCommit(ctx, b.ID, commit.SHA, commit.Message)
 	}
 	fmt.Fprintf(log, "▶ %s@%s (%s): %s\n", site.Repo, short(commit.SHA), b.Branch, commit.Message)
 	if b.Preview != "" {
-		fmt.Fprintf(log, "▶ Preview de la rama %s\n", b.Branch)
+		fmt.Fprintf(log, "▶ Preview of branch %s\n", b.Branch)
 	}
 	b.CommitSHA = commit.SHA
-	m.report(ctx, b, gitprovider.StatePending, "Construyendo…", 0)
+	m.report(ctx, b, gitprovider.StatePending, "Building…", 0)
 
 	staging, err := m.cfg.Pages.NewStaging(site.ID)
 	if err != nil {
@@ -372,8 +373,8 @@ func (m *Manager) pipeline(ctx context.Context, b *store.Build, log io.Writer) (
 	}()
 
 	if site.InstallCommand == "" && site.BuildCommand == "" {
-		// Sin comandos (HTML plano): se publica directamente desde el código,
-		// sin contenedor.
+		// No commands (plain HTML): published straight from the source, with
+		// no container.
 		if err := m.publishSource(ctx, prov, site, commit.SHA, staging, log); err != nil {
 			return 0, err
 		}
@@ -385,7 +386,7 @@ func (m *Manager) pipeline(ctx context.Context, b *store.Build, log io.Writer) (
 	if err != nil {
 		return 0, err
 	}
-	fmt.Fprintf(log, "▶ Publicando %d archivos (%s)…\n", files, humanBytes(size))
+	fmt.Fprintf(log, "▶ Publishing %d files (%s)…\n", files, humanBytes(size))
 	dep := &store.Deployment{
 		SiteID: site.ID, Source: providerName, FileCount: files, TotalBytes: size,
 		CommitSHA: commit.SHA, CommitMessage: commit.Message, Branch: b.Branch, Preview: b.Preview,
@@ -398,24 +399,24 @@ func (m *Manager) pipeline(ctx context.Context, b *store.Build, log io.Writer) (
 		return 0, err
 	}
 	committed = true
-	// Publicar no debe quedarse a medias si se cancela justo ahora.
+	// Publishing must not be left half done if it is canceled right now.
 	if err := m.cfg.Publish(context.WithoutCancel(ctx), site.ID, dep.ID); err != nil {
-		return dep.ID, fmt.Errorf("publicando: %w", err)
+		return dep.ID, fmt.Errorf("publishing: %w", err)
 	}
 	return dep.ID, nil
 }
 
 func (m *Manager) publishSource(ctx context.Context, prov gitprovider.Provider, site *store.Site, sha string,
 	staging *pages.Staging, log io.Writer) error {
-	fmt.Fprintln(log, "▶ Sin comandos de build: se publican los archivos del repositorio")
+	fmt.Fprintln(log, "▶ No build commands: the repository files are published as they are")
 	rc, err := prov.Tarball(ctx, site.Repo, sha)
 	if err != nil {
-		return fmt.Errorf("descargando el código: %w", err)
+		return fmt.Errorf("downloading the code: %w", err)
 	}
 	defer rc.Close()
 	gz, err := gzip.NewReader(rc)
 	if err != nil {
-		return fmt.Errorf("el código descargado no es un .tar.gz: %w", err)
+		return fmt.Errorf("the downloaded code is not a .tar.gz: %w", err)
 	}
 	return staging.AddTar(gz, path.Join(site.RootDir, outputDir(site)))
 }
@@ -424,7 +425,7 @@ func (m *Manager) buildInContainer(ctx context.Context, prov gitprovider.Provide
 	commit gitprovider.Commit, staging *pages.Staging, log io.Writer) error {
 	dc := m.cfg.Docker
 	if dc == nil {
-		return errors.New("Docker no está disponible: monta /var/run/docker.sock para poder hacer builds")
+		return errors.New("Docker is unavailable: mount /var/run/docker.sock to be able to run builds")
 	}
 	image := site.BuildImage
 	if image == "" {
@@ -433,15 +434,15 @@ func (m *Manager) buildInContainer(ctx context.Context, prov gitprovider.Provide
 	if ok, err := dc.ImageExists(ctx, docker.WithDefaultTag(image)); err != nil {
 		return err
 	} else if !ok {
-		fmt.Fprintf(log, "▶ Descargando la imagen %s…\n", image)
+		fmt.Fprintf(log, "▶ Pulling image %s…\n", image)
 		if err := dc.PullImage(ctx, image, log); err != nil {
-			return fmt.Errorf("descargando la imagen %s: %w", image, err)
+			return fmt.Errorf("pulling image %s: %w", image, err)
 		}
 	}
 
 	env, err := Env(m.cfg.Secrets, site)
 	if err != nil {
-		return fmt.Errorf("leyendo las variables de entorno: %w", err)
+		return fmt.Errorf("reading the environment variables: %w", err)
 	}
 	envList := []string{"CI=true", "HOME=/tmp", "NO_COLOR=1",
 		"DOCKFLY_COMMIT_SHA=" + commit.SHA, "DOCKFLY_BRANCH=" + b.Branch}
@@ -449,7 +450,7 @@ func (m *Manager) buildInContainer(ctx context.Context, prov gitprovider.Provide
 		envList = append(envList, k+"="+v)
 	}
 	if m.cfg.EgressProxy != "" {
-		// Las herramientas leen unas u otras: se ponen todas.
+		// Different tools read different ones: set them all.
 		for _, k := range []string{"HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"} {
 			envList = append(envList, k+"="+m.cfg.EgressProxy)
 		}
@@ -478,25 +479,25 @@ func (m *Manager) buildInContainer(ctx context.Context, prov gitprovider.Provide
 		Network:    m.cfg.Network,
 	})
 	if err != nil {
-		return fmt.Errorf("creando el contenedor de build: %w", err)
+		return fmt.Errorf("creating the build container: %w", err)
 	}
 	defer func() {
-		// Con un contexto propio: hay que limpiar aunque el build se haya cancelado.
+		// With its own context: cleanup must happen even if the build was canceled.
 		rmCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 		defer cancel()
 		if err := dc.RemoveContainer(rmCtx, id); err != nil {
-			m.cfg.Log.Error("borrando contenedor de build", "container", id, "error", err)
+			m.cfg.Log.Error("removing the build container", "container", id, "error", err)
 		}
 	}()
 
-	fmt.Fprintln(log, "▶ Descargando el código…")
+	fmt.Fprintln(log, "▶ Downloading the code…")
 	if err := m.copySource(ctx, prov, site.Repo, commit.SHA, id); err != nil {
 		return err
 	}
 
-	fmt.Fprintf(log, "▶ Ejecutando el build en %s\n", image)
+	fmt.Fprintf(log, "▶ Running the build in %s\n", image)
 	if err := dc.StartContainer(ctx, id); err != nil {
-		return fmt.Errorf("iniciando el build: %w", err)
+		return fmt.Errorf("starting the build: %w", err)
 	}
 	logs, err := dc.Logs(ctx, id)
 	if err != nil {
@@ -508,7 +509,7 @@ func (m *Manager) buildInContainer(ctx context.Context, prov gitprovider.Provide
 		_ = docker.Demux(logs, log)
 	}()
 	code, err := dc.Wait(ctx, id)
-	// Si se cancela, cerrar el flujo desbloquea la lectura de logs.
+	// On cancellation, closing the stream unblocks the log reader.
 	if err != nil {
 		logs.Close()
 		<-logsDone
@@ -517,13 +518,13 @@ func (m *Manager) buildInContainer(ctx context.Context, prov gitprovider.Provide
 	<-logsDone
 	logs.Close()
 	if code != 0 {
-		return fmt.Errorf("el build terminó con código %d", code)
+		return fmt.Errorf("the build exited with code %d", code)
 	}
 
 	out := path.Join(workdir, outputDir(site))
 	rc, err := dc.GetArchive(ctx, id, out)
 	if docker.IsNotFound(err) {
-		return fmt.Errorf("no se encontró la carpeta de salida %q: revisa el directorio de salida del sitio", outputDir(site))
+		return fmt.Errorf("output folder %q not found: check the site's output directory", outputDir(site))
 	}
 	if err != nil {
 		return err
@@ -532,12 +533,12 @@ func (m *Manager) buildInContainer(ctx context.Context, prov gitprovider.Provide
 	return staging.AddTar(rc, "")
 }
 
-// copySource descarga el código y lo transmite al contenedor sin pasar por
-// disco: GitHub → repack → API de Docker.
+// copySource downloads the code and streams it into the container without
+// going through disk: GitHub → repack → Docker API.
 func (m *Manager) copySource(ctx context.Context, prov gitprovider.Provider, repo, sha, containerID string) error {
 	rc, err := prov.Tarball(ctx, repo, sha)
 	if err != nil {
-		return fmt.Errorf("descargando el código: %w", err)
+		return fmt.Errorf("downloading the code: %w", err)
 	}
 	defer rc.Close()
 
@@ -546,7 +547,7 @@ func (m *Manager) copySource(ctx context.Context, prov gitprovider.Provider, rep
 	err = m.cfg.Docker.PutArchive(ctx, containerID, "/", pr)
 	pr.Close()
 	if err != nil {
-		return fmt.Errorf("copiando el código al contenedor: %w", err)
+		return fmt.Errorf("copying the code into the container: %w", err)
 	}
 	return nil
 }

@@ -1,6 +1,6 @@
--- Esquema inicial para PostgreSQL, equivalente a las migraciones de SQLite
--- (../migrations) hasta 20261112000022. Cada migración nueva necesita su
--- archivo en las tres carpetas.
+-- Initial schema for PostgreSQL, equivalent to the SQLite migrations
+-- (../migrations) up to 20261112000022. Every new migration needs its own
+-- file in all three directories.
 
 CREATE TABLE users (
 	id            BIGSERIAL PRIMARY KEY,

@@ -13,32 +13,32 @@ func TestSealOpen(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	sealed := b.Seal([]byte("ghp_secreto"))
-	if bytes.Contains(sealed, []byte("ghp_secreto")) {
-		t.Fatal("el texto cifrado contiene el secreto en claro")
+	sealed := b.Seal([]byte("ghp_secret"))
+	if bytes.Contains(sealed, []byte("ghp_secret")) {
+		t.Fatal("the ciphertext contains the secret in the clear")
 	}
 	if bytes.Equal(b.Seal([]byte("x")), b.Seal([]byte("x"))) {
-		t.Error("cada cifrado debe usar un nonce distinto")
+		t.Error("every encryption must use a different nonce")
 	}
 
-	// La misma clave, recargada del disco, descifra.
+	// The same key, reloaded from disk, decrypts.
 	b2, err := LoadOrCreate(path)
 	if err != nil {
 		t.Fatal(err)
 	}
 	got, err := b2.Open(sealed)
-	if err != nil || string(got) != "ghp_secreto" {
+	if err != nil || string(got) != "ghp_secret" {
 		t.Fatalf("Open: %q %v", got, err)
 	}
 
-	// Manipular un byte invalida el mensaje (GCM autentica).
+	// Tampering with a single byte invalidates the message (GCM authenticates).
 	sealed[len(sealed)-1] ^= 1
 	if _, err := b2.Open(sealed); !errors.Is(err, ErrDecrypt) {
-		t.Errorf("un mensaje manipulado debe rechazarse: %v", err)
+		t.Errorf("a tampered message must be rejected: %v", err)
 	}
 
-	other, _ := LoadOrCreate(filepath.Join(t.TempDir(), "otra"))
+	other, _ := LoadOrCreate(filepath.Join(t.TempDir(), "other"))
 	if _, err := other.Open(b.Seal([]byte("x"))); !errors.Is(err, ErrDecrypt) {
-		t.Error("otra clave no debe poder descifrar")
+		t.Error("a different key must not be able to decrypt")
 	}
 }

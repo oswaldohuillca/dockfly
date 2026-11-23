@@ -14,10 +14,10 @@ import (
 	"strings"
 )
 
-// ExecStream ejecuta cmd en un contenedor enviando su salida estándar a
-// stdout y la de error a stderr (sin mezclarlas: stdout puede ser un volcado
-// binario). Con stdin, se le envía como entrada estándar. Devuelve el
-// código de salida del comando.
+// ExecStream runs cmd in a container, sending its standard output to stdout
+// and its error output to stderr (kept apart: stdout may be a binary dump).
+// When stdin is given, it is fed to the command as standard input. It
+// returns the command's exit code.
 func (c *Client) ExecStream(ctx context.Context, container string, cmd []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
 	var created struct {
 		ID string `json:"Id"`
@@ -43,13 +43,13 @@ func (c *Client) ExecStream(ctx context.Context, container string, cmd []string,
 			return 0, err
 		}
 		out = conn
-		// La entrada se envía mientras se lee la salida; al acabar se cierra
-		// la escritura para que el comando reciba EOF.
+		// Input is sent while the output is being read; once it is done we
+		// close the write side so the command sees EOF.
 		go func() {
 			_, err := io.Copy(conn, stdin)
 			copyErr <- err
 			if err != nil {
-				conn.Close() // la entrada se cortó: que no parezca un final normal
+				conn.Close() // input was cut short: do not let it look like a clean end
 				return
 			}
 			if cw, ok := conn.Conn.(interface{ CloseWrite() error }); ok {
@@ -62,12 +62,12 @@ func (c *Client) ExecStream(ctx context.Context, container string, cmd []string,
 	err := demuxTo(out, stdout, stderr)
 	out.Close()
 	if ctx.Err() != nil {
-		return 0, ctx.Err() // cancelado o fuera de tiempo: la salida está incompleta
+		return 0, ctx.Err() // cancelled or out of time: the output is incomplete
 	}
-	// Si la entrada se cortó (p. ej. falló la descarga de una copia), el
-	// comando solo recibió una parte aunque termine con código 0.
+	// If the input was cut short (e.g. a copy's download failed), the command
+	// only got part of it even when it exits with code 0.
 	if cerr := <-copyErr; cerr != nil {
-		return 0, fmt.Errorf("la entrada se cortó a medias: %w", cerr)
+		return 0, fmt.Errorf("input was cut short midway: %w", cerr)
 	}
 	if err != nil {
 		return 0, err
@@ -83,8 +83,8 @@ func (c *Client) ExecStream(ctx context.Context, container string, cmd []string,
 	return info.ExitCode, nil
 }
 
-// hijackedConn es la conexión tras el "101 Switching Protocols": lo que
-// quedó en el búfer se lee antes que la conexión.
+// hijackedConn is the connection after the "101 Switching Protocols":
+// whatever was left in the buffer is read before the connection itself.
 type hijackedConn struct {
 	net.Conn
 	r *bufio.Reader
@@ -92,7 +92,7 @@ type hijackedConn struct {
 
 func (h *hijackedConn) Read(p []byte) (int, error) { return h.r.Read(p) }
 
-// hijack abre la conexión bidireccional de Docker para enviar stdin.
+// hijack opens Docker's bidirectional connection so stdin can be sent.
 func (c *Client) hijack(ctx context.Context, path, body string) (*hijackedConn, error) {
 	conn, err := c.Dial(ctx)
 	if err != nil {
@@ -127,7 +127,7 @@ func (c *Client) hijack(ctx context.Context, path, body string) (*hijackedConn, 
 	return &hijackedConn{Conn: conn, r: br}, nil
 }
 
-// demuxTo separa el flujo multiplexado de Docker en stdout y stderr.
+// demuxTo splits Docker's multiplexed stream into stdout and stderr.
 func demuxTo(r io.Reader, stdout, stderr io.Writer) error {
 	var hdr [8]byte
 	for {
@@ -143,7 +143,7 @@ func demuxTo(r io.Reader, stdout, stderr io.Writer) error {
 			w = stderr
 		case 0, 1:
 		default:
-			return fmt.Errorf("flujo de Docker inesperado (tipo %d)", hdr[0])
+			return fmt.Errorf("unexpected Docker stream (kind %d)", hdr[0])
 		}
 		if _, err := io.CopyN(w, r, int64(binary.BigEndian.Uint32(hdr[4:]))); err != nil {
 			return err

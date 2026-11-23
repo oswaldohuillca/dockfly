@@ -10,7 +10,7 @@ interface Props {
   disabled?: boolean;
 }
 
-/** Casilla con etiqueta y descripción opcional. */
+/** Checkbox with a label and an optional description. */
 export function CheckField({ id, checked, onChange, label, hint, disabled }: Props) {
   return (
     <div className="flex items-start gap-3 has-disabled:opacity-50">

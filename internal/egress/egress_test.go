@@ -23,13 +23,14 @@ func TestPublic(t *testing.T) {
 		"64:ff9b::a00:1": false, "2002:a00:1::": false, "224.0.0.1": false,
 	} {
 		if got := Public(netip.MustParseAddr(ip)); got != want {
-			t.Errorf("Public(%s) = %v, quiero %v", ip, got, want)
+			t.Errorf("Public(%s) = %v, want %v", ip, got, want)
 		}
 	}
 }
 
-// SafeTransport (cuentas Git, endpoint S3) solo bloquea link-local/metadatos;
-// loopback y privadas se permiten (autoalojar GitLab/MinIO en LAN).
+// SafeTransport (Git accounts, S3 endpoint) only blocks link-local/metadata;
+// loopback and private addresses are allowed (self-hosted GitLab/MinIO on the
+// LAN).
 func TestLinkLocalOrUnspecified(t *testing.T) {
 	for ip, want := range map[string]bool{
 		"169.254.169.254": true, "fe80::1": true, "0.0.0.0": true, "::": true,
@@ -37,7 +38,7 @@ func TestLinkLocalOrUnspecified(t *testing.T) {
 		"::ffff:169.254.169.254": true,
 	} {
 		if got := LinkLocalOrUnspecified(netip.MustParseAddr(ip)); got != want {
-			t.Errorf("LinkLocalOrUnspecified(%s) = %v, quiero %v", ip, got, want)
+			t.Errorf("LinkLocalOrUnspecified(%s) = %v, want %v", ip, got, want)
 		}
 	}
 }
@@ -50,9 +51,9 @@ func proxyClient(t *testing.T) (*httptest.Server, *http.Client) {
 	return p, &http.Client{Transport: &http.Transport{Proxy: http.ProxyURL(u)}}
 }
 
-// Un build no llega a servicios internos, ni por HTTP ni por CONNECT.
+// A build cannot reach internal services, neither over HTTP nor CONNECT.
 func TestProxyBlocksInternal(t *testing.T) {
-	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "secreto") }))
+	backend := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "secret") }))
 	defer backend.Close()
 	p, client := proxyClient(t)
 
@@ -62,8 +63,8 @@ func TestProxyBlocksInternal(t *testing.T) {
 	}
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
-	if resp.StatusCode != http.StatusForbidden || strings.Contains(string(body), "secreto") {
-		t.Fatalf("HTTP a loopback: %d %s", resp.StatusCode, body)
+	if resp.StatusCode != http.StatusForbidden || strings.Contains(string(body), "secret") {
+		t.Fatalf("HTTP to loopback: %d %s", resp.StatusCode, body)
 	}
 
 	conn, err := net.Dial("tcp", p.Listener.Addr().String())
@@ -78,21 +79,22 @@ func TestProxyBlocksInternal(t *testing.T) {
 		t.Fatal(err)
 	}
 	if cr.StatusCode != http.StatusForbidden {
-		t.Fatalf("CONNECT a loopback: %d", cr.StatusCode)
+		t.Fatalf("CONNECT to loopback: %d", cr.StatusCode)
 	}
 }
 
-// Con destinos permitidos, el proxy reenvía HTTP y abre túneles (HTTPS).
+// With allowed destinations, the proxy forwards HTTP and opens tunnels
+// (HTTPS).
 func TestProxyForwards(t *testing.T) {
 	allow = func(netip.Addr) bool { return true }
 	defer func() { allow = Public }()
-	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "hola") }))
+	plain := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "hi") }))
 	defer plain.Close()
-	tls := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "seguro") }))
+	tls := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { fmt.Fprint(w, "secure") }))
 	defer tls.Close()
 	_, client := proxyClient(t)
 
-	for _, c := range []struct{ url, want string }{{plain.URL, "hola"}, {tls.URL, "seguro"}} {
+	for _, c := range []struct{ url, want string }{{plain.URL, "hi"}, {tls.URL, "secure"}} {
 		tr := client.Transport.(*http.Transport)
 		tr.TLSClientConfig = tls.Client().Transport.(*http.Transport).TLSClientConfig
 		resp, err := client.Get(c.url)

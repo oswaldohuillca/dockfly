@@ -8,7 +8,7 @@ import { useResource } from '@/lib/use-resource';
 
 const pct = (used: number, total: number) => (total > 0 ? (100 * used) / total : 0);
 
-/** CPU, memoria y disco de un servidor (0 = el del panel), al día cada 5 s. */
+/** CPU, memory and disk of a server (0 = the panel's own), kept up to date every 5 s. */
 export function ServerResources({ serverId }: { serverId: number }) {
   const { t } = useLingui();
   const { data: s, loading, error, reload } = useResource(() => api.serverStats(serverId), { interval: 5000 });

@@ -14,12 +14,12 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Tokens de API: "Authorization: Bearer dfy_…". Actúan en nombre de su
-// usuario con, como mucho, el rol que se les dio al crearlos.
+// API tokens: "Authorization: Bearer dfy_…". They act on behalf of their
+// user with, at most, the role they were given when they were created.
 
 const tokenPrefix = "dfy_"
 
-// Errores de los tokens de API.
+// API token errors.
 var (
 	errTokenNameRequired = newError("token_name_required", "Give it a name (e.g. \"GitHub Actions\")")
 	errTokenRoleTooHigh  = newError("token_role_too_high", "A token can't have more permissions than your user")
@@ -29,8 +29,8 @@ var (
 
 type tokenCtxKey struct{}
 
-// currentToken devuelve el token con el que se autenticó la petición (nil
-// si se usó la sesión del panel).
+// currentToken returns the token the request authenticated with (nil when
+// the panel's session was used).
 func currentToken(r *http.Request) *store.APIToken {
 	t, _ := r.Context().Value(tokenCtxKey{}).(*store.APIToken)
 	return t
@@ -49,7 +49,7 @@ func newToken() string {
 	return tokenPrefix + hex.EncodeToString(b)
 }
 
-// bearerUser autentica una petición con un token de API.
+// bearerUser authenticates a request with an API token.
 func (s *Server) bearerUser(r *http.Request) (*store.User, *store.APIToken, bool) {
 	raw, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if !ok || !strings.HasPrefix(raw, tokenPrefix) {
@@ -67,8 +67,8 @@ func (s *Server) bearerUser(r *http.Request) (*store.User, *store.APIToken, bool
 	return u, t, true
 }
 
-// touchToken guarda el último uso como mucho una vez por minuto, para no
-// escribir en la base de datos en cada petición de un script.
+// touchToken records the last use at most once a minute, so that a script
+// doesn't write to the database on every single request.
 var touched sync.Map // id → time.Time
 
 func (s *Server) touchToken(ctx context.Context, t *store.APIToken) {
@@ -79,8 +79,8 @@ func (s *Server) touchToken(ctx context.Context, t *store.APIToken) {
 	_ = s.Store.TouchAPIToken(context.WithoutCancel(ctx), t.ID)
 }
 
-// effectiveRole es el rol con el que se atiende la petición: el del usuario
-// o, con un token, el menor entre el del token y el del usuario.
+// effectiveRole is the role the request is served with: the user's or, when
+// a token is used, the lower of the token's and the user's.
 func effectiveRole(u *store.User, t *store.APIToken) string {
 	if t != nil && store.RoleRank(t.Role) < store.RoleRank(u.Role) {
 		return t.Role
@@ -101,7 +101,7 @@ func (s *Server) handleCreateToken(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		Name string `json:"name"`
 		Role string `json:"role"`
-		// Días hasta que caduca; 0 = nunca.
+		// Days until it expires; 0 = never.
 		ExpiresDays int `json:"expires_days"`
 	}
 	if !decode(w, r, &in) {

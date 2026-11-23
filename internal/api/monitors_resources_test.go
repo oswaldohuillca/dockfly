@@ -21,32 +21,32 @@ func TestResourceWatch(t *testing.T) {
 		want string
 	}{
 		{disk(50), ""},
-		{disk(92), notify.EventResourceHigh}, // el disco avisa a la primera
-		{disk(95), ""},                       // y no repite
-		{disk(88), ""},                       // dentro del margen: sigue en aviso
+		{disk(92), notify.EventResourceHigh}, // disk alerts on the first reading
+		{disk(95), ""},                       // and does not repeat
+		{disk(88), ""},                       // within the margin: still alerting
 		{disk(80), notify.EventResourceNormal},
 		{disk(91), notify.EventResourceHigh},
 	}
 	for i, s := range steps {
 		got := kinds(w.observe("srv", s.st))
 		if (s.want == "" && len(got) != 0) || (s.want != "" && (len(got) != 1 || got[0] != s.want)) {
-			t.Errorf("paso %d: esperaba %q, obtuve %v", i, s.want, got)
+			t.Errorf("step %d: expected %q, got %v", i, s.want, got)
 		}
 	}
 
-	// La memoria necesita 5 lecturas seguidas: un pico suelto no avisa.
+	// Memory needs 5 readings in a row: a lone spike does not alert.
 	w = resourceWatch{}
 	mem := sysinfo.Stats{MemUsed: 95, MemTotal: 100}
 	for i := 0; i < 4; i++ {
 		if evs := w.observe("srv", mem); len(evs) != 0 {
-			t.Fatalf("lectura %d: aviso prematuro %v", i, kinds(evs))
+			t.Fatalf("reading %d: premature alert %v", i, kinds(evs))
 		}
 	}
-	w.observe("srv", sysinfo.Stats{MemUsed: 10, MemTotal: 100}) // baja: se reinicia la cuenta
+	w.observe("srv", sysinfo.Stats{MemUsed: 10, MemTotal: 100}) // drops: the count restarts
 	for i := 0; i < 4; i++ {
 		w.observe("srv", mem)
 	}
 	if evs := w.observe("srv", mem); len(evs) != 1 {
-		t.Errorf("a la quinta lectura seguida debe avisar, obtuve %v", kinds(evs))
+		t.Errorf("it must alert on the fifth reading in a row, got %v", kinds(evs))
 	}
 }

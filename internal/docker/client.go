@@ -1,7 +1,7 @@
-// Package docker es un cliente mínimo de la API de Docker sobre el socket unix
-// (o por TCP, p. ej. detrás de un proxy del socket).
-// Evitamos el SDK oficial porque añade decenas de MB de dependencias para
-// las pocas llamadas que necesitamos.
+// Package docker is a minimal client for the Docker API over the unix socket
+// (or over TCP, e.g. behind a socket proxy).
+// We avoid the official SDK because it drags in tens of MB of dependencies
+// for the handful of calls we need.
 package docker
 
 import (
@@ -23,16 +23,16 @@ const apiVersion = "v1.44"
 
 type Client struct {
 	Socket string
-	// dial, si no es nil, sustituye a la conexión con Socket (el Docker de un
-	// servidor remoto, por el túnel de su agente).
+	// dial, when not nil, replaces the connection to Socket (the Docker of a
+	// remote server, reached through its agent's tunnel).
 	dial func(ctx context.Context) (net.Conn, error)
 	http *http.Client
-	// stream no tiene timeout global: lo usan las operaciones largas (pull,
-	// logs, wait, copiar archivos), cuyo límite lo marca el contexto.
+	// stream has no global timeout: it is used by the long operations (pull,
+	// logs, wait, copying files), whose limit comes from the context.
 	stream *http.Client
 }
 
-// New conecta con el socket unix de Docker, o con "tcp://host:puerto".
+// New connects to the Docker unix socket, or to "tcp://host:port".
 func New(socket string) *Client {
 	c := &Client{Socket: socket}
 	transport := &http.Transport{
@@ -43,15 +43,15 @@ func New(socket string) *Client {
 	return c
 }
 
-// NewRemote crea un cliente que llega a Docker con dial. name solo sirve
-// para identificarlo.
+// NewRemote creates a client that reaches Docker through dial. name only
+// serves to identify it.
 func NewRemote(name string, dial func(ctx context.Context) (net.Conn, error)) *Client {
 	c := New(name)
 	c.dial = dial
 	return c
 }
 
-// Dial abre una conexión con la API de Docker.
+// Dial opens a connection to the Docker API.
 func (c *Client) Dial(ctx context.Context) (net.Conn, error) {
 	if c.dial != nil {
 		return c.dial(ctx)
@@ -63,7 +63,7 @@ func (c *Client) Dial(ctx context.Context) (net.Conn, error) {
 	return d.DialContext(ctx, "unix", strings.TrimPrefix(c.Socket, "unix://"))
 }
 
-// Available indica si Docker responde.
+// Available reports whether Docker answers.
 func (c *Client) Available(ctx context.Context) bool {
 	if c.dial == nil && !strings.HasPrefix(c.Socket, "tcp://") {
 		if _, err := os.Stat(strings.TrimPrefix(c.Socket, "unix://")); err != nil {
@@ -73,17 +73,17 @@ func (c *Client) Available(ctx context.Context) bool {
 	return c.do(ctx, http.MethodGet, "/_ping", nil, nil) == nil
 }
 
-// SelfInfo es lo que Dockfly necesita saber de su propio contenedor.
+// SelfInfo is what Dockfly needs to know about its own container.
 type SelfInfo struct {
-	// Image es la imagen con la que se creó el contenedor.
+	// Image is the image the container was created from.
 	Image string
-	// IPs por red.
+	// IPs per network.
 	IPs map[string]string
-	// Mounts son los orígenes en el host de sus montajes (rutas o volúmenes).
+	// Mounts are the host sources of its mounts (paths or volumes).
 	Mounts []string
 }
 
-// Self inspecciona el contenedor de Dockfly (ok=false si no corre en Docker).
+// Self inspects Dockfly's container (ok=false when it does not run in Docker).
 func (c *Client) Self(ctx context.Context) (SelfInfo, bool) {
 	host, err := os.Hostname()
 	if err != nil {
@@ -126,9 +126,9 @@ type Container struct {
 	State    string   `json:"state"`
 	Status   string   `json:"status"`
 	Networks []string `json:"networks"`
-	Ports    []int    `json:"ports"` // puertos internos expuestos
-	// Self marca el contenedor del propio Dockfly (útil para publicar el
-	// panel con un dominio, pero conviene distinguirlo).
+	Ports    []int    `json:"ports"` // exposed internal ports
+	// Self marks Dockfly's own container (useful to publish the panel under
+	// a domain, but worth telling apart from the rest).
 	Self bool `json:"self"`
 }
 
@@ -151,7 +151,7 @@ func (c *Client) ListContainers(ctx context.Context) ([]Container, error) {
 		return nil, err
 	}
 
-	// Dentro de Docker, el hostname por defecto es el ID corto del contenedor.
+	// Inside Docker, the default hostname is the container's short ID.
 	self, _ := os.Hostname()
 	out := make([]Container, 0, len(raw))
 	for _, r := range raw {
@@ -181,8 +181,8 @@ func (c *Client) ListContainers(ctx context.Context) ([]Container, error) {
 	return out, nil
 }
 
-// SelfNetworks devuelve las redes del contenedor de Dockfly. Dentro de Docker
-// el hostname por defecto es el ID corto del contenedor.
+// SelfNetworks returns the networks of Dockfly's container. Inside Docker
+// the default hostname is the container's short ID.
 func (c *Client) SelfNetworks(ctx context.Context) ([]string, error) {
 	host, err := os.Hostname()
 	if err != nil {
@@ -204,7 +204,7 @@ func (c *Client) SelfNetworks(ctx context.Context) ([]string, error) {
 	return nets, nil
 }
 
-// ConnectNetwork conecta un contenedor a una red. Si ya está conectado no es error.
+// ConnectNetwork attaches a container to a network. Already attached is not an error.
 func (c *Client) ConnectNetwork(ctx context.Context, network, container string) error {
 	body := map[string]string{"Container": container}
 	err := c.do(ctx, http.MethodPost, "/networks/"+url.PathEscape(network)+"/connect", body, nil)
@@ -259,8 +259,8 @@ func (c *Client) do(ctx context.Context, method, path string, body, out any) err
 	return json.NewDecoder(resp.Body).Decode(out)
 }
 
-// SelfPublishedPorts devuelve los puertos que el contenedor de Dockfly
-// publica en el host ("5432/tcp"…). ok=false si Dockfly no corre en Docker.
+// SelfPublishedPorts returns the ports that Dockfly's container publishes on
+// the host ("5432/tcp"…). ok=false when Dockfly does not run in Docker.
 func (c *Client) SelfPublishedPorts(ctx context.Context) (ports map[string]bool, ok bool) {
 	host, err := os.Hostname()
 	if err != nil {

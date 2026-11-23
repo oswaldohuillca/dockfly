@@ -24,71 +24,72 @@ func TestCheckCreate(t *testing.T) {
 		allowed    bool
 	}{
 		{"normal", ok(`{"Binds":["dockfly-web_db:/var/lib/postgresql/data"],"NetworkMode":"dockfly-web_default"}`), true},
-		{"anónimo y ruta propia", ok(`{"Mounts":[{"Type":"volume","Source":""},{"Type":"bind","Source":"/srv/apps/web"}]}`), true},
-		{"otro proyecto", `{"Labels":{"com.docker.compose.project":"dockfly-otra"},"HostConfig":{}}`, false},
-		{"sin etiqueta", `{"HostConfig":{}}`, false},
+		{"anonymous volume and own path", ok(`{"Mounts":[{"Type":"volume","Source":""},{"Type":"bind","Source":"/srv/apps/web"}]}`), true},
+		{"another project", `{"Labels":{"com.docker.compose.project":"dockfly-other"},"HostConfig":{}}`, false},
+		{"no label", `{"HostConfig":{}}`, false},
 		{"privileged", ok(`{"Privileged":true}`), false},
 		{"cap_add", ok(`{"CapAdd":["SYS_ADMIN"]}`), false},
 		{"devices", ok(`{"Devices":[{"PathOnHost":"/dev/sda"}]}`), false},
 		{"gpus", ok(`{"DeviceRequests":[{"Count":-1}]}`), false},
 		{"pid host", ok(`{"PidMode":"host"}`), false},
-		{"red del host", ok(`{"NetworkMode":"host"}`), false},
+		{"host network", ok(`{"NetworkMode":"host"}`), false},
 		{"seccomp", ok(`{"SecurityOpt":["seccomp=unconfined"]}`), false},
 		{"socket", ok(`{"Binds":["/var/run/docker.sock:/var/run/docker.sock"]}`), false},
-		{"raíz", ok(`{"Binds":["/:/host"]}`), false},
+		{"root", ok(`{"Binds":["/:/host"]}`), false},
 		{"etc", ok(`{"Mounts":[{"Type":"bind","Source":"/etc/../etc/shadow"}]}`), false},
-		{"socket en otra ruta", ok(`{"Binds":["/srv/podman.sock:/s"]}`), false},
-		{"datos de Dockfly", ok(`{"Binds":["/srv/dockfly/data/dockfly.db:/x"]}`), false},
-		{"carpeta con los datos de Dockfly", ok(`{"Binds":["/srv:/srv"]}`), false},
-		{"volumen ajeno", ok(`{"Binds":["dockfly_data:/data"]}`), false},
-		{"volumen ajeno por Mounts", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-otra_db"}]}`), false},
+		{"socket under another path", ok(`{"Binds":["/srv/podman.sock:/s"]}`), false},
+		{"Dockfly data", ok(`{"Binds":["/srv/dockfly/data/dockfly.db:/x"]}`), false},
+		{"directory holding the Dockfly data", ok(`{"Binds":["/srv:/srv"]}`), false},
+		{"volume of another app", ok(`{"Binds":["dockfly_data:/data"]}`), false},
+		{"volume of another app through Mounts", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-other_db"}]}`), false},
 		{"volumes_from", ok(`{"VolumesFrom":["dockfly"]}`), false},
-		// C2: compartir namespaces con otro contenedor (no del proyecto).
-		{"pid container (lo comprueba el proxy con Docker)", ok(`{"PidMode":"container:dockfly-web-db-1"}`), true},
-		{"network container del proyecto", ok(`{"NetworkMode":"container:dockfly-web-api-1"}`), true},
-		{"network red ajena", ok(`{"NetworkMode":"otra_red"}`), false},
-		{"network red de Dockfly", ok(`{"NetworkMode":"dockfly"}`), true},
-		{"endpoint en red de otra app", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"NetworkingConfig":{"EndpointsConfig":{"dockfly-web-db_default":{}}}}`, false},
-		{"endpoint en red propia y de Dockfly", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"NetworkingConfig":{"EndpointsConfig":{"dockfly-web_default":{},"dockfly":{}}}}`, true},
+		// C2: sharing namespaces with another (non-project) container.
+		{"pid container (the proxy checks it against Docker)", ok(`{"PidMode":"container:dockfly-web-db-1"}`), true},
+		{"network container of the project", ok(`{"NetworkMode":"container:dockfly-web-api-1"}`), true},
+		{"network of another app", ok(`{"NetworkMode":"other_net"}`), false},
+		{"Dockfly network", ok(`{"NetworkMode":"dockfly"}`), true},
+		{"endpoint on another app's network", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"NetworkingConfig":{"EndpointsConfig":{"dockfly-web-db_default":{}}}}`, false},
+		{"endpoint on its own network and Dockfly's", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"NetworkingConfig":{"EndpointsConfig":{"dockfly-web_default":{},"dockfly":{}}}}`, true},
 		{"ipc shareable", ok(`{"IpcMode":"shareable"}`), true},
-		// A1: campos de HostConfig fuera de la lista blanca.
+		// A1: HostConfig fields outside the allowlist.
 		{"sysctls", ok(`{"Sysctls":{"net.ipv4.ip_forward":"1"}}`), false},
-		{"maskedpaths vacío (desenmascara /proc)", ok(`{"MaskedPaths":[]}`), false},
-		{"maskedpaths acortado", ok(`{"MaskedPaths":["/proc/kcore"]}`), false},
+		{"empty maskedpaths (unmasks /proc)", ok(`{"MaskedPaths":[]}`), false},
+		{"shortened maskedpaths", ok(`{"MaskedPaths":["/proc/kcore"]}`), false},
 		{"oomkilldisable", ok(`{"OomKillDisable":true}`), false},
 		{"cgroupparent", ok(`{"CgroupParent":"/"}`), false},
-		{"runtime ajeno", ok(`{"Runtime":"custom"}`), false},
+		{"runtime of another kind", ok(`{"Runtime":"custom"}`), false},
 		{"tmpfs", ok(`{"Tmpfs":{"/run":""}}`), false},
 		{"deviceCgroupRules", ok(`{"DeviceCgroupRules":["c 1:3 rwm"]}`), false},
-		{"campo desconocido futuro", ok(`{"FutureEscapeField":true}`), false},
-		// Mounts con VolumeOptions.DriverConfig local: bind al host sin pasar
-		// por /volumes/create (el volumen se crea al vuelo en el create).
-		{"mount volume local bind a /", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-web_x","VolumeOptions":{"DriverConfig":{"Name":"local","Options":{"type":"none","o":"bind","device":"/"}}}}]}`), false},
-		{"mount volume anónimo bind a /etc", ok(`{"Mounts":[{"Type":"volume","Source":"","VolumeOptions":{"DriverConfig":{"Options":{"device":"/etc"}}}}]}`), false},
-		{"mount volume bind a datos de Dockfly", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-web_x","VolumeOptions":{"DriverConfig":{"Options":{"device":"/srv/dockfly/data"}}}}]}`), false},
-		{"mount volume device a ruta propia", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-web_x","VolumeOptions":{"DriverConfig":{"Options":{"device":"/srv/apps/web"}}}}]}`), true},
-		// Desenmascarar /proc con la clave en minúsculas (Docker es case-insensitive).
-		{"maskedpaths en minúsculas", ok(`{"maskedpaths":[]}`), false},
-		{"readonlypaths en minúsculas", ok(`{"readonlypaths":[]}`), false},
-		{"maskedpaths duplicado con otra caja", ok(`{"MaskedPaths":null,"maskedpaths":[]}`), false},
-		{"sysctls en minúsculas", ok(`{"sysctls":{"net.ipv4.ip_forward":"1"}}`), false},
-		// Montar un ANCESTRO de una ruta sensible (/var/lib ⊃ /var/lib/docker).
-		{"bind a /var/lib", ok(`{"Binds":["/var/lib:/x"]}`), false},
-		{"bind a /var", ok(`{"Mounts":[{"Type":"bind","Source":"/var"}]}`), false},
-		{"device a /var/lib", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-web_x","VolumeOptions":{"DriverConfig":{"Options":{"device":"/var/lib"}}}}]}`), false},
-		// uts/userns/cgroup con host: rechazado como pid/ipc/network.
+		{"unknown future field", ok(`{"FutureEscapeField":true}`), false},
+		// Mounts with a local VolumeOptions.DriverConfig: a bind to the host
+		// without going through /volumes/create (the volume is created on the
+		// fly inside the create).
+		{"mount local volume binding /", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-web_x","VolumeOptions":{"DriverConfig":{"Name":"local","Options":{"type":"none","o":"bind","device":"/"}}}}]}`), false},
+		{"mount anonymous volume binding /etc", ok(`{"Mounts":[{"Type":"volume","Source":"","VolumeOptions":{"DriverConfig":{"Options":{"device":"/etc"}}}}]}`), false},
+		{"mount volume binding the Dockfly data", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-web_x","VolumeOptions":{"DriverConfig":{"Options":{"device":"/srv/dockfly/data"}}}}]}`), false},
+		{"mount volume with a device under its own path", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-web_x","VolumeOptions":{"DriverConfig":{"Options":{"device":"/srv/apps/web"}}}}]}`), true},
+		// Unmasking /proc with a lowercased key (Docker is case-insensitive).
+		{"lowercased maskedpaths", ok(`{"maskedpaths":[]}`), false},
+		{"lowercased readonlypaths", ok(`{"readonlypaths":[]}`), false},
+		{"maskedpaths duplicated under another case", ok(`{"MaskedPaths":null,"maskedpaths":[]}`), false},
+		{"lowercased sysctls", ok(`{"sysctls":{"net.ipv4.ip_forward":"1"}}`), false},
+		// Mounting an ANCESTOR of a sensitive path (/var/lib ⊃ /var/lib/docker).
+		{"bind to /var/lib", ok(`{"Binds":["/var/lib:/x"]}`), false},
+		{"bind to /var", ok(`{"Mounts":[{"Type":"bind","Source":"/var"}]}`), false},
+		{"device to /var/lib", ok(`{"Mounts":[{"Type":"volume","Source":"dockfly-web_x","VolumeOptions":{"DriverConfig":{"Options":{"device":"/var/lib"}}}}]}`), false},
+		// uts/userns/cgroup set to host: refused just like pid/ipc/network.
 		{"uts host", ok(`{"UTSMode":"host"}`), false},
 		{"userns host", ok(`{"UsernsMode":"host"}`), false},
 		{"cgroupns host", ok(`{"CgroupnsMode":"host"}`), false},
-		// Lo que Compose envía de verdad: campos estándar vacíos y defaults.
-		{"compose típico", ok(`{"RestartPolicy":{"Name":"unless-stopped"},"Memory":134217728,"NetworkMode":"dockfly-web_default","CpuRealtimePeriod":0,"CpuRealtimeRuntime":0,"CgroupParent":"","Runtime":"","Cgroup":"","OomKillDisable":false,"Sysctls":null,"MaskedPaths":null,"ReadonlyPaths":null,"Tmpfs":null}`), true},
-		{"maskedpaths por defecto", ok(`{"MaskedPaths":["/proc/asound","/proc/acpi","/proc/kcore","/proc/keys","/proc/latency_stats","/proc/timer_list","/proc/timer_stats","/proc/sched_debug","/proc/scsi","/sys/firmware","/sys/devices/virtual/powercap"]}`), true},
-		{"runc explícito", ok(`{"Runtime":"runc"}`), true},
-		{"campos normales permitidos", ok(`{"RestartPolicy":{"Name":"always"},"Memory":536870912,"CapDrop":["ALL"],"ReadonlyRootfs":true,"Init":true,"Ulimits":[{"Name":"nofile","Soft":1024,"Hard":2048}]}`), true},
+		// What Compose really sends: empty standard fields and defaults.
+		{"typical compose", ok(`{"RestartPolicy":{"Name":"unless-stopped"},"Memory":134217728,"NetworkMode":"dockfly-web_default","CpuRealtimePeriod":0,"CpuRealtimeRuntime":0,"CgroupParent":"","Runtime":"","Cgroup":"","OomKillDisable":false,"Sysctls":null,"MaskedPaths":null,"ReadonlyPaths":null,"Tmpfs":null}`), true},
+		{"default maskedpaths", ok(`{"MaskedPaths":["/proc/asound","/proc/acpi","/proc/kcore","/proc/keys","/proc/latency_stats","/proc/timer_list","/proc/timer_stats","/proc/sched_debug","/proc/scsi","/sys/firmware","/sys/devices/virtual/powercap"]}`), true},
+		{"explicit runc", ok(`{"Runtime":"runc"}`), true},
+		{"ordinary allowed fields", ok(`{"RestartPolicy":{"Name":"always"},"Memory":536870912,"CapDrop":["ALL"],"ReadonlyRootfs":true,"Init":true,"Ulimits":[{"Name":"nofile","Soft":1024,"Hard":2048}]}`), true},
 	} {
 		_, err := checkCreate([]byte(tc.body), project, "dockfly", protected)
 		if (err == nil) != tc.allowed {
-			t.Errorf("%s: err=%v, permitido=%v", tc.name, err, tc.allowed)
+			t.Errorf("%s: err=%v, allowed=%v", tc.name, err, tc.allowed)
 		}
 	}
 }
@@ -109,16 +110,16 @@ func TestCheckRoute(t *testing.T) {
 	} {
 		r := httptest.NewRequest("POST", "http://d"+path, nil)
 		if err := checkRoute(r, cleanRoute(path)); (err == nil) != allowed {
-			t.Errorf("%s: err=%v, permitido=%v", path, err, allowed)
+			t.Errorf("%s: err=%v, allowed=%v", path, err, allowed)
 		}
 	}
 	r := httptest.NewRequest("POST", "http://d/v1.47/build?networkmode=host", nil)
 	if checkRoute(r, "/build") == nil {
-		t.Error("un build con la red del host no debe permitirse")
+		t.Error("a build on the host network must not be allowed")
 	}
 }
 
-// fakeDocker escucha en un socket unix como el Docker real.
+// fakeDocker listens on a unix socket just like the real Docker.
 func fakeDocker(t *testing.T) (dial func(context.Context) (net.Conn, error), seen chan string) {
 	t.Helper()
 	sock := filepath.Join(t.TempDir(), "docker.sock")
@@ -129,7 +130,7 @@ func fakeDocker(t *testing.T) (dial func(context.Context) (net.Conn, error), see
 	seen = make(chan string, 20)
 	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
-		case strings.HasSuffix(r.URL.Path, "/containers/mio/json"):
+		case strings.HasSuffix(r.URL.Path, "/containers/mine/json"):
 			io.WriteString(w, `{"Config":{"Labels":{"com.docker.compose.project":"dockfly-web"}}}`)
 			return
 		case strings.HasSuffix(r.URL.Path, "/containers/dockfly-web-db-postgres-1/json"):
@@ -147,7 +148,7 @@ func fakeDocker(t *testing.T) (dial func(context.Context) (net.Conn, error), see
 		case strings.HasSuffix(r.URL.Path, "/containers/dockfly/json"):
 			io.WriteString(w, `{"Config":{"Labels":{}}}`)
 			return
-		case strings.HasSuffix(r.URL.Path, "/containers/fantasma/json"):
+		case strings.HasSuffix(r.URL.Path, "/containers/ghost/json"):
 			w.WriteHeader(404)
 			return
 		case r.Method == "GET" && strings.HasSuffix(r.URL.Path, "/networks/4a38"):
@@ -190,54 +191,54 @@ func TestProxy(t *testing.T) {
 	}
 
 	if code, _ := do("GET", "/v1.47/containers/json", ""); code != 200 || <-seen != "GET /v1.47/containers/json" {
-		t.Errorf("listar: %d", code)
+		t.Errorf("list: %d", code)
 	}
 	create := `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"Binds":["dockfly-web_db:/d"]}}`
 	if code, _ := do("POST", "/v1.47/containers/create?name=x", create); code != 200 {
-		t.Errorf("crear: %d", code)
+		t.Errorf("create: %d", code)
 	}
 	if got := <-seen; got != "POST /v1.47/containers/create" {
-		t.Errorf("crear llegó como %q", got)
+		t.Errorf("create arrived as %q", got)
 	}
 	if got := <-seen; got != "body "+create {
-		t.Errorf("el cuerpo debe llegar intacto: %q", got)
+		t.Errorf("the body must arrive untouched: %q", got)
 	}
 	code, body := do("POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"Privileged":true}}`)
 	var msg struct{ Message string }
 	json.Unmarshal([]byte(body), &msg)
-	if code != 403 || !strings.Contains(msg.Message, "privilegiados") {
+	if code != 403 || !strings.Contains(msg.Message, "privileged") {
 		t.Errorf("privileged: %d %s", code, body)
 	}
-	if code, _ := do("POST", "/v1.47/containers/mio/start", ""); code != 200 || <-seen != "POST /v1.47/containers/mio/start" {
-		t.Errorf("arrancar un contenedor del proyecto: %d", code)
+	if code, _ := do("POST", "/v1.47/containers/mine/start", ""); code != 200 || <-seen != "POST /v1.47/containers/mine/start" {
+		t.Errorf("start a container of the project: %d", code)
 	}
 	if code, _ := do("GET", "/v1.47/containers/dockfly/archive?path=/data", ""); code != 403 {
-		t.Errorf("copiar de un contenedor ajeno: %d", code)
+		t.Errorf("copy from another app's container: %d", code)
 	}
-	if code, _ := do("POST", "/v1.47/containers/fantasma/stop", ""); code != 200 || <-seen != "POST /v1.47/containers/fantasma/stop" {
-		t.Errorf("un contenedor inexistente lo responde Docker: %d", code)
+	if code, _ := do("POST", "/v1.47/containers/ghost/stop", ""); code != 200 || <-seen != "POST /v1.47/containers/ghost/stop" {
+		t.Errorf("a non-existent container is Docker's to answer: %d", code)
 	}
-	for _, raw := range []string{"/v1.47/containers/mio/../dockfly/archive", "/v1.47/containers/mio%2F..%2Fdockfly/json", "/v1.47//swarm"} {
+	for _, raw := range []string{"/v1.47/containers/mine/../dockfly/archive", "/v1.47/containers/mine%2F..%2Fdockfly/json", "/v1.47//swarm"} {
 		req, _ := http.NewRequest("GET", ts.URL, nil)
-		req.URL.Opaque = raw // tal cual, sin que el cliente la normalice
+		req.URL.Opaque = raw // as is, without the client normalising it
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {
 			t.Fatal(err)
 		}
 		resp.Body.Close()
 		if resp.StatusCode != 403 {
-			t.Errorf("ruta no canónica %s: %d", raw, resp.StatusCode)
+			t.Errorf("non-canonical path %s: %d", raw, resp.StatusCode)
 		}
 	}
-	// Volúmenes y redes: solo los del proyecto.
+	// Volumes and networks: only the project's own.
 	for _, tc := range []struct {
 		method, path, body string
 		want               int
 	}{
 		{"POST", "/v1.47/volumes/create", `{"Name":"dockfly-web_db"}`, 200},
-		{"POST", "/v1.47/volumes/create", `{"Name":"dockfly-otra_db"}`, 403},
-		// Volumen local con device = bind al host: montaría / o los datos
-		// de Dockfly saltándose checkMount (allí es solo un nombre).
+		{"POST", "/v1.47/volumes/create", `{"Name":"dockfly-other_db"}`, 403},
+		// A local volume with a device is a bind to the host: it would mount /
+		// or the Dockfly data going around checkMount (there it is only a name).
 		{"POST", "/v1.47/volumes/create", `{"Name":"dockfly-web_x","Driver":"local","DriverOpts":{"type":"none","o":"bind","device":"/"}}`, 403},
 		{"POST", "/v1.47/volumes/create", `{"Name":"dockfly-web_x","DriverOpts":{"o":"bind","device":"/srv/dockfly/data"}}`, 403},
 		{"POST", "/v1.47/volumes/create", `{"Name":"dockfly-web_x","DriverOpts":{"Device":"/etc"}}`, 403},
@@ -248,30 +249,30 @@ func TestProxy(t *testing.T) {
 		{"POST", "/v1.47/volumes/prune", "", 403},
 		{"POST", "/v1.47/containers/prune", "", 403},
 		{"POST", "/v1.47/networks/create", `{"Name":"dockfly-web_default"}`, 200},
-		{"POST", "/v1.47/networks/create", `{"Name":"red-ajena"}`, 403},
-		{"POST", "/v1.47/networks/dockfly/connect", `{"Container":"mio"}`, 200},
+		{"POST", "/v1.47/networks/create", `{"Name":"other-net"}`, 403},
+		{"POST", "/v1.47/networks/dockfly/connect", `{"Container":"mine"}`, 200},
 		{"POST", "/v1.47/networks/dockfly-web_default/connect", `{"Container":"dockfly"}`, 403},
-		// Otra app cuyo nombre empieza igual ("web-db"): ni su red ni sus contenedores.
-		{"POST", "/v1.47/networks/dockfly-web-db_default/connect", `{"Container":"mio"}`, 403},
+		// Another app whose name starts the same ("web-db"): neither its network nor its containers.
+		{"POST", "/v1.47/networks/dockfly-web-db_default/connect", `{"Container":"mine"}`, 403},
 		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"NetworkMode":"container:dockfly-web-db-postgres-1"}}`, 403},
-		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"PidMode":"container:mio"}}`, 200},
+		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"PidMode":"container:mine"}}`, 200},
 		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"PidMode":"container:dockfly"}}`, 403},
 		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"IpcMode":"container:dockfly"}}`, 403},
-		// uts/userns/cgroup: container:<x> solo de contenedores del proyecto.
-		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"UTSMode":"container:mio"}}`, 200},
+		// uts/userns/cgroup: container:<x> only for the project's containers.
+		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"UTSMode":"container:mine"}}`, 200},
 		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"UTSMode":"container:dockfly"}}`, 403},
 		{"POST", "/v1.47/containers/create", `{"Labels":{"com.docker.compose.project":"dockfly-web"},"HostConfig":{"CgroupnsMode":"container:dockfly"}}`, 403},
-		// exec: no se permite privilegiado (daría todas las capabilities).
-		{"POST", "/v1.47/containers/mio/exec", `{"Privileged":true}`, 403},
-		{"POST", "/v1.47/containers/mio/exec", `{"privileged":true}`, 403},
-		{"POST", "/v1.47/containers/mio/exec", `{"Cmd":["ls"]}`, 200},
+		// exec: privileged is not allowed (it would grant every capability).
+		{"POST", "/v1.47/containers/mine/exec", `{"Privileged":true}`, 403},
+		{"POST", "/v1.47/containers/mine/exec", `{"privileged":true}`, 403},
+		{"POST", "/v1.47/containers/mine/exec", `{"Cmd":["ls"]}`, 200},
 		{"POST", "/v1.47/containers/dockfly/exec", `{"Cmd":["ls"]}`, 403},
 		{"DELETE", "/v1.47/networks/4a38", "", 200},
 		{"DELETE", "/v1.47/networks/9f01", "", 403},
 	} {
 		code, body := do(tc.method, tc.path, tc.body)
 		if code != tc.want {
-			t.Errorf("%s %s %s: %d, quería %d (%s)", tc.method, tc.path, tc.body, code, tc.want, body)
+			t.Errorf("%s %s %s: %d, want %d (%s)", tc.method, tc.path, tc.body, code, tc.want, body)
 		}
 		if code == 200 {
 			<-seen

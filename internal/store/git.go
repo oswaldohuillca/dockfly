@@ -9,39 +9,39 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// Formas de autenticar una conexión.
+// Ways of authenticating a connection.
 const (
-	AuthToken       = "token"        // token de acceso personal pegado a mano
-	AuthGitHubApp   = "github_app"   // instalación de la GitHub App de Dockfly
-	AuthGitLabOAuth = "gitlab_oauth" // autorización OAuth de GitLab
+	AuthToken       = "token"        // personal access token pasted by hand
+	AuthGitHubApp   = "github_app"   // installation of Dockfly's GitHub App
+	AuthGitLabOAuth = "gitlab_oauth" // GitLab OAuth authorization
 )
 
-// GitConnection es una cuenta u organización de GitHub o GitLab vinculada.
+// GitConnection is a linked GitHub or GitLab account or organization.
 type GitConnection struct {
 	ID          int64     `bun:",pk,autoincrement" json:"id"`
 	Provider    string    `json:"provider"` // "github" | "gitlab"
 	AuthType    string    `json:"auth_type"`
-	BaseURL     string    `json:"base_url"` // URL de la API: permite GitHub Enterprise y GitLab propio
-	Username    string    `json:"username"` // usuario u organización
+	BaseURL     string    `json:"base_url"` // API URL: allows GitHub Enterprise and self-hosted GitLab
+	Username    string    `json:"username"` // user or organization
 	AccountType string    `json:"account_type"`
 	SettingsURL string    `json:"settings_url"`
 	CreatedAt   time.Time `json:"created_at"`
 
-	// Token de acceso (personal u OAuth). Vacío en las instalaciones de la
-	// GitHub App, cuyos tokens se generan al momento y caducan en una hora.
+	// Access token (personal or OAuth). Empty for GitHub App installations,
+	// whose tokens are minted on demand and expire in an hour.
 	TokenEnc        []byte     `json:"-"`
 	RefreshTokenEnc []byte     `json:"-"`
 	TokenExpiresAt  *time.Time `json:"-"`
-	RedirectURI     string     `json:"-"` // GitLab la exige también al refrescar
+	RedirectURI     string     `json:"-"` // GitLab requires it on refresh too
 
 	GitHubAppID    *int64 `bun:"github_app_id" json:"github_app_id"`
 	InstallationID *int64 `json:"installation_id"`
 	GitLabAppID    *int64 `bun:"gitlab_app_id" json:"gitlab_app_id"`
 }
 
-// GitHubApp es la GitHub App propia de esta instalación de Dockfly.
+// GitHubApp is this Dockfly installation's own GitHub App.
 type GitHubApp struct {
-	// Sin el nombre explícito, Bun lo deduciría como "git_hub_apps".
+	// Without the explicit name, Bun would infer "git_hub_apps".
 	bun.BaseModel `bun:"table:github_apps"`
 
 	ID               int64     `bun:",pk,autoincrement" json:"id"`
@@ -60,7 +60,7 @@ type GitHubApp struct {
 	CreatedAt        time.Time `json:"created_at"`
 }
 
-// GitLabApp es una aplicación OAuth registrada en una instancia de GitLab.
+// GitLabApp is an OAuth application registered on a GitLab instance.
 type GitLabApp struct {
 	bun.BaseModel `bun:"table:gitlab_apps"`
 
@@ -109,15 +109,15 @@ func (s *Store) CreateGitConnection(ctx context.Context, c *GitConnection) error
 	return err
 }
 
-// UpsertInstallation registra (o actualiza) la conexión de una instalación
-// de la GitHub App. Instalar dos veces la misma cuenta no la duplica.
+// UpsertInstallation records (or updates) the connection of a GitHub App
+// installation. Installing the same account twice does not duplicate it.
 func (s *Store) UpsertInstallation(ctx context.Context, c *GitConnection) error {
 	existing := new(GitConnection)
 	err := s.db.NewSelect().Model(existing).
 		Where("github_app_id = ? AND installation_id = ?", c.GitHubAppID, c.InstallationID).Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
-		// Las instalaciones no guardan token (se genera al momento), pero la
-		// columna es NOT NULL desde la primera versión: va vacía, no nula.
+		// Installations store no token (it is minted on demand), but the column
+		// has been NOT NULL since the first version: store it empty, not null.
 		if c.TokenEnc == nil {
 			c.TokenEnc = []byte{}
 		}
@@ -131,7 +131,7 @@ func (s *Store) UpsertInstallation(ctx context.Context, c *GitConnection) error 
 	return err
 }
 
-// ConnectionsByInstallation devuelve las conexiones de una instalación.
+// ConnectionsByInstallation returns the connections of one installation.
 func (s *Store) ConnectionsByInstallation(ctx context.Context, appID, installationID int64) ([]*GitConnection, error) {
 	out := []*GitConnection{}
 	err := s.db.NewSelect().Model(&out).
@@ -139,8 +139,8 @@ func (s *Store) ConnectionsByInstallation(ctx context.Context, appID, installati
 	return out, err
 }
 
-// SaveGitLabConnection guarda una autorización OAuth de GitLab. Si el mismo
-// usuario vuelve a autorizar, se actualizan sus tokens en lugar de duplicarla.
+// SaveGitLabConnection stores a GitLab OAuth authorization. If the same user
+// authorizes again, their tokens are updated instead of being duplicated.
 func (s *Store) SaveGitLabConnection(ctx context.Context, c *GitConnection) error {
 	existing := new(GitConnection)
 	err := s.db.NewSelect().Model(existing).
@@ -157,7 +157,7 @@ func (s *Store) SaveGitLabConnection(ctx context.Context, c *GitConnection) erro
 	return err
 }
 
-// UpdateConnectionTokens guarda un token OAuth renovado.
+// UpdateConnectionTokens stores a refreshed OAuth token.
 func (s *Store) UpdateConnectionTokens(ctx context.Context, c *GitConnection) error {
 	return mustAffect(s.db.NewUpdate().Model(c).WherePK().
 		Column("token_enc", "refresh_token_enc", "token_expires_at").Exec(ctx))
@@ -167,7 +167,7 @@ func (s *Store) DeleteGitConnection(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewDelete().Model((*GitConnection)(nil)).Where("id = ?", id).Exec(ctx))
 }
 
-// --- Ajustes ---
+// --- Settings ---
 
 type setting struct {
 	Key   string `bun:",pk"`
@@ -176,14 +176,14 @@ type setting struct {
 
 const (
 	SettingPublicURL = "public_url"
-	// SettingPreviewDomain es el dominio bajo el que se publican las previews
-	// (rama--sitio.<dominio>).
+	// SettingPreviewDomain is the domain the previews are published under
+	// (branch--site.<domain>).
 	SettingPreviewDomain = "preview_domain"
-	// SettingPreviewAccessList protege todas las previews con una lista de acceso.
+	// SettingPreviewAccessList protects every preview with an access list.
 	SettingPreviewAccessList = "preview_access_list"
 )
 
-// GetSetting devuelve "" si el ajuste no existe.
+// GetSetting returns "" if the setting does not exist.
 func (s *Store) GetSetting(ctx context.Context, key string) (string, error) {
 	st := &setting{Key: key}
 	err := s.db.NewSelect().Model(st).WherePK().Scan(ctx)
@@ -211,7 +211,7 @@ const (
 const (
 	TriggerPush   = "push"
 	TriggerManual = "manual"
-	TriggerHook   = "hook" // deploy hook del sitio
+	TriggerHook   = "hook" // the site's deploy hook
 )
 
 type Build struct {
@@ -220,7 +220,7 @@ type Build struct {
 	Status        string     `json:"status"`
 	Trigger       string     `json:"trigger"`
 	Branch        string     `json:"branch"`
-	Preview       string     `json:"preview"` // "" = producción
+	Preview       string     `json:"preview"` // "" = production
 	CommitSHA     string     `json:"commit_sha"`
 	CommitMessage string     `json:"commit_message"`
 	DeploymentID  *int64     `json:"deployment_id"`
@@ -243,7 +243,7 @@ func (b *Build) AfterScanRow(context.Context) error {
 	return nil
 }
 
-// Finished indica si el build ya no va a cambiar de estado.
+// Finished reports whether the build will no longer change state.
 func (b *Build) Finished() bool {
 	return b.Status == BuildSuccess || b.Status == BuildFailed || b.Status == BuildCanceled
 }
@@ -274,16 +274,17 @@ func (s *Store) ListBuildsByStatus(ctx context.Context, status string) ([]*Build
 	return out, err
 }
 
-// MarkBuildStarted pasa un build de queued a running. Devuelve ErrNotFound si
-// ya no estaba en cola (p. ej. se canceló mientras esperaba).
+// MarkBuildStarted moves a build from queued to running. It returns
+// ErrNotFound if it was no longer queued (for example it was canceled while
+// it waited).
 func (s *Store) MarkBuildStarted(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewUpdate().Model((*Build)(nil)).
 		Set("status = ?", BuildRunning).Set("started_at = ?", now()).
 		Where("id = ? AND status = ?", id, BuildQueued).Exec(ctx))
 }
 
-// FinishBuild fija el estado final. Solo actúa sobre builds sin terminar,
-// así que un build cancelado no puede "resucitar" como exitoso.
+// FinishBuild sets the final status. It only acts on unfinished builds, so a
+// canceled build cannot come back to life as a successful one.
 func (s *Store) FinishBuild(ctx context.Context, id int64, status, errMsg string, deploymentID *int64) error {
 	return mustAffect(s.db.NewUpdate().Model((*Build)(nil)).
 		Set("status = ?", status).Set("error = ?", errMsg).Set("deployment_id = ?", deploymentID).
@@ -291,9 +292,9 @@ func (s *Store) FinishBuild(ctx context.Context, id int64, status, errMsg string
 		Where("id = ? AND status IN (?, ?)", id, BuildQueued, BuildRunning).Exec(ctx))
 }
 
-// SupersedeQueued cancela los builds en cola del mismo sitio y la misma
-// preview (o producción), excepto keepID: si llegan varios pushes seguidos,
-// solo merece la pena construir el último.
+// SupersedeQueued cancels the queued builds of the same site and the same
+// preview (or production), except keepID: when several pushes arrive in a
+// row, only the last one is worth building.
 func (s *Store) SupersedeQueued(ctx context.Context, siteID, keepID int64) ([]int64, error) {
 	keep, err := s.GetBuild(ctx, keepID)
 	if err != nil {
@@ -306,7 +307,7 @@ func (s *Store) SupersedeQueued(ctx context.Context, siteID, keepID int64) ([]in
 		return nil, err
 	}
 	for _, id := range ids {
-		if err := s.FinishBuild(ctx, id, BuildCanceled, "reemplazado por un commit más reciente", nil); err != nil &&
+		if err := s.FinishBuild(ctx, id, BuildCanceled, "superseded by a more recent commit", nil); err != nil &&
 			!errors.Is(err, ErrNotFound) {
 			return nil, err
 		}
@@ -314,15 +315,15 @@ func (s *Store) SupersedeQueued(ctx context.Context, siteID, keepID int64) ([]in
 	return ids, nil
 }
 
-// SetBuildCommit guarda el commit que se va a construir (en los builds
-// manuales se conoce al empezar, no al encolar).
+// SetBuildCommit stores the commit that is going to be built (for manual
+// builds it is only known when the build starts, not when it is queued).
 func (s *Store) SetBuildCommit(ctx context.Context, id int64, sha, message string) error {
 	return mustAffect(s.db.NewUpdate().Model((*Build)(nil)).
 		Set("commit_sha = ?", sha).Set("commit_message = ?", message).
 		Where("id = ?", id).Exec(ctx))
 }
 
-// --- Aplicaciones OAuth ---
+// --- OAuth applications ---
 
 func (s *Store) ListGitHubApps(ctx context.Context) ([]*GitHubApp, error) {
 	out := []*GitHubApp{}
@@ -338,7 +339,7 @@ func (s *Store) GetGitHubApp(ctx context.Context, id int64) (*GitHubApp, error) 
 	return a, nil
 }
 
-// GitHubAppByAppID busca la app por el ID que le asignó GitHub.
+// GitHubAppByAppID looks the app up by the ID GitHub assigned to it.
 func (s *Store) GitHubAppByAppID(ctx context.Context, appID int64) (*GitHubApp, error) {
 	a := new(GitHubApp)
 	if err := s.db.NewSelect().Model(a).Where("app_id = ?", appID).Limit(1).Scan(ctx); err != nil {
@@ -375,13 +376,14 @@ func (s *Store) GetGitLabApp(ctx context.Context, id int64) (*GitLabApp, error) 
 	return a, nil
 }
 
-// SaveGitLabApp crea la app o, si ya hay una para esa instancia, la reemplaza.
+// SaveGitLabApp creates the app or, if one already exists for that instance,
+// replaces it.
 func (s *Store) SaveGitLabApp(ctx context.Context, a *GitLabApp) error {
 	a.CreatedAt = now()
 	if _, err := s.upsert(s.db.NewInsert().Model(a), "web_url", "client_id", "client_secret_enc").Exec(ctx); err != nil {
 		return err
 	}
-	// El id de la fila que quedó (al reemplazar, el INSERT no lo devuelve en MySQL).
+	// The id of the surviving row (on replace, MySQL's INSERT does not return it).
 	return s.db.NewSelect().Model(a).Column("id").Where("web_url = ?", a.WebURL).Scan(ctx)
 }
 
@@ -389,7 +391,7 @@ func (s *Store) DeleteGitLabApp(ctx context.Context, id int64) error {
 	return mustAffect(s.db.NewDelete().Model((*GitLabApp)(nil)).Where("id = ?", id).Exec(ctx))
 }
 
-// SitesUsingConnections devuelve los sitios enlazados a alguna de las conexiones.
+// SitesUsingConnections returns the sites linked to any of the connections.
 func (s *Store) SitesUsingConnections(ctx context.Context, ids []int64) ([]*Site, error) {
 	out := []*Site{}
 	if len(ids) == 0 {

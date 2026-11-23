@@ -25,7 +25,7 @@ import { useForm, useSubmit } from '@/lib/use-form';
 import { cn } from '@/lib/utils';
 
 interface Props {
-  /** App a editar, o undefined para crear una nueva. */
+  /** The app to edit, or undefined to create a new one. */
   app?: App;
   onClose: () => void;
   onSaved: (app: App) => void;
@@ -38,7 +38,7 @@ const empty: AppInput = {
   memory_mb: 0, cpus: 0, health_path: '', access_list_id: null,
 };
 
-// Solo los campos que acepta la API: rechaza los desconocidos (id, created_at…).
+// Only the fields the API accepts: it rejects the unknown ones (id, created_at…).
 const appInput = (a: App): AppInput => ({
   name: a.name, source: a.source, image: a.image, connection_id: a.git_connection_id ?? 0, repo: a.repo,
   branch: a.branch, root_dir: a.root_dir, dockerfile: a.dockerfile, compose_file: a.compose_file,
@@ -53,7 +53,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
   const { form, set, setForm } = useForm<AppInput>(() => (app ? appInput(app) : empty));
   const [env, setEnv] = useState<EnvRow[]>([]);
   const [envTouched, setEnvTouched] = useState(false);
-  // Sin las variables actuales cargadas, guardar las pisaría con lo poco que haya en pantalla.
+  // Until the current variables are loaded, saving would overwrite them with whatever little is on screen.
   const [envLoaded, setEnvLoaded] = useState(isNew);
   const [connections, setConnections] = useState<GitConnection[]>([]);
   const [servers, setServers] = useState<RemoteServer[]>([]);
@@ -86,8 +86,8 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
   });
   const onRepoError = useCallback((msg: string) => setError(msg), [setError]);
 
-  // Por id y no por objeto: la página refresca la app cada pocos segundos y
-  // no debe pisar las variables que se están editando.
+  // Keyed by id and not by object: the page refreshes the app every few seconds
+  // and must not overwrite the variables being edited.
   const appId = app?.id;
   useEffect(() => {
     api
@@ -109,7 +109,7 @@ export function AppDialog({ app, onClose, onSaved }: Props) {
       api
         .listServers()
         .then(setServers)
-        .catch(() => {}); // solo los administradores ven los servidores
+        .catch(() => {}); // only administrators can see the servers
   }, [appId, setForm, setError]);
 
   function applyTemplate(id: string) {

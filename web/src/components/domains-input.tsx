@@ -9,9 +9,9 @@ interface Props {
 }
 
 /**
- * Campo de dominios con "chips". El texto pendiente se convierte en dominio al
- * pulsar Enter, coma o espacio, y al perder el foco (por ejemplo, al pulsar
- * Guardar sin haber pulsado Enter).
+ * Domain field with "chips". Pending text becomes a domain on Enter, comma or
+ * space, and on blur (for example, when Save is clicked without having pressed
+ * Enter).
  */
 export function DomainsInput({ id, value, onChange }: Props) {
   const { t } = useLingui();

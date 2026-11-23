@@ -1,4 +1,4 @@
--- Cuentas de GitHub/GitLab vinculadas. El token se guarda cifrado.
+-- Linked GitHub/GitLab accounts. The token is stored encrypted.
 CREATE TABLE git_connections (
 	id         INTEGER PRIMARY KEY AUTOINCREMENT,
 	provider   TEXT NOT NULL,
@@ -10,7 +10,7 @@ CREATE TABLE git_connections (
 
 --bun:split
 
--- Ajustes globales clave/valor (p. ej. la URL pública para los webhooks).
+-- Global key/value settings (for example the public URL for the webhooks).
 CREATE TABLE settings (
 	key   TEXT PRIMARY KEY,
 	value TEXT NOT NULL
@@ -18,7 +18,7 @@ CREATE TABLE settings (
 
 --bun:split
 
--- Configuración de build de un sitio enlazado a un repositorio.
+-- Build configuration of a site linked to a repository.
 ALTER TABLE sites ADD COLUMN git_connection_id INTEGER REFERENCES git_connections (id) ON DELETE SET NULL;
 
 --bun:split
@@ -51,7 +51,7 @@ ALTER TABLE sites ADD COLUMN build_image TEXT NOT NULL DEFAULT '';
 
 --bun:split
 
--- Variables de entorno del build, cifradas (pueden contener claves de API).
+-- Build environment variables, encrypted (they may hold API keys).
 ALTER TABLE sites ADD COLUMN build_env_enc BLOB;
 
 --bun:split
@@ -89,7 +89,7 @@ CREATE INDEX builds_status ON builds (status);
 
 --bun:split
 
--- Los despliegues que vienen de un build recuerdan su commit.
+-- Deployments that come from a build remember their commit.
 ALTER TABLE deployments ADD COLUMN commit_sha TEXT NOT NULL DEFAULT '';
 
 --bun:split

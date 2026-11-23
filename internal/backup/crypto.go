@@ -12,31 +12,32 @@ import (
 	"golang.org/x/crypto/scrypt"
 )
 
-// Cifrado opcional de las copias con una contraseña. El formato va por bloques
-// autenticados (AES-256-GCM) para poder cifrar/descifrar en streaming sin
-// cargar toda la copia en memoria, y detecta truncados y manipulaciones.
+// Optional password encryption of the backups. The format is a chain of
+// authenticated chunks (AES-256-GCM) so it can be encrypted/decrypted as a
+// stream without holding the whole backup in memory, and it detects
+// truncation and tampering.
 //
-// Formato: magic | salt(16) | noncePrefix(8) | [ bloque ]...
-// Cada bloque: flag(1) | len(4, big-endian) | ciphertext.
-// nonce = noncePrefix | contador(4). AAD = flag. flag=1 marca el último bloque
-// (siempre hay uno, aunque esté vacío), así un corte del stream se nota.
+// Format: magic | salt(16) | noncePrefix(8) | [ chunk ]...
+// Each chunk: flag(1) | len(4, big-endian) | ciphertext.
+// nonce = noncePrefix | counter(4). AAD = flag. flag=1 marks the last chunk
+// (there is always one, even if empty), so a cut-off stream is noticed.
 var encMagic = []byte("DFLYENC1")
 
 const (
 	encChunk    = 64 * 1024
 	encSaltLen  = 16
 	encNoncePre = 8
-	// Parámetros de scrypt (recomendados para derivar claves interactivas).
+	// scrypt parameters (the recommended ones for interactive key derivation).
 	scryptN = 1 << 15
 	scryptR = 8
 	scryptP = 1
 )
 
-// ErrEncrypted indica que la copia está cifrada y hace falta la contraseña.
-var ErrEncrypted = errors.New("la copia está cifrada: hace falta la contraseña")
+// ErrEncrypted means the backup is encrypted and the password is required.
+var ErrEncrypted = errors.New("the backup is encrypted: the password is required")
 
-// ErrWrongPassword indica que la contraseña no descifra la copia.
-var ErrWrongPassword = errors.New("contraseña incorrecta o copia dañada")
+// ErrWrongPassword means the password does not decrypt the backup.
+var ErrWrongPassword = errors.New("wrong password or damaged backup")
 
 func deriveKey(password string, salt []byte) ([]byte, error) {
 	return scrypt.Key([]byte(password), salt, scryptN, scryptR, scryptP, 32)
@@ -50,8 +51,8 @@ func newGCM(key []byte) (cipher.AEAD, error) {
 	return cipher.NewGCM(block)
 }
 
-// EncryptWriter devuelve un io.WriteCloser que cifra lo que se le escribe con
-// password y lo manda a w. Hay que llamar a Close para emitir el último bloque.
+// EncryptWriter returns an io.WriteCloser that encrypts whatever is written to
+// it with password and sends it to w. Close must be called to emit the last chunk.
 func EncryptWriter(w io.Writer, password string) (io.WriteCloser, error) {
 	salt := make([]byte, encSaltLen)
 	noncePre := make([]byte, encNoncePre)
@@ -107,7 +108,7 @@ func (e *encWriter) Close() error {
 		return nil
 	}
 	e.closed = true
-	return e.seal(e.buf, true) // último bloque (puede ir vacío)
+	return e.seal(e.buf, true) // last chunk (may be empty)
 }
 
 func (e *encWriter) seal(chunk []byte, last bool) error {
@@ -130,8 +131,9 @@ func (e *encWriter) seal(chunk []byte, last bool) error {
 	return err
 }
 
-// IsEncrypted mira si r empieza por el magic de una copia cifrada. Devuelve un
-// lector equivalente (hay que usarlo en vez de r, porque consume la cabecera).
+// IsEncrypted checks whether r starts with the magic of an encrypted backup.
+// It returns an equivalent reader (use it instead of r, since the header has
+// already been consumed).
 func IsEncrypted(r io.Reader) (bool, io.Reader, error) {
 	head := make([]byte, len(encMagic))
 	n, err := io.ReadFull(r, head)
@@ -145,8 +147,8 @@ func IsEncrypted(r io.Reader) (bool, io.Reader, error) {
 	return bytes.Equal(head, encMagic), rest, nil
 }
 
-// DecryptReader descifra una copia creada con EncryptWriter. r debe incluir el
-// magic (tal cual lo deja IsEncrypted).
+// DecryptReader decrypts a backup created with EncryptWriter. r must include
+// the magic (exactly as IsEncrypted leaves it).
 func DecryptReader(r io.Reader, password string) (io.Reader, error) {
 	head := make([]byte, len(encMagic))
 	if _, err := io.ReadFull(r, head); err != nil || !bytes.Equal(head, encMagic) {
@@ -198,7 +200,7 @@ func (d *decReader) next() error {
 	var hdr [5]byte
 	if _, err := io.ReadFull(d.r, hdr[:]); err != nil {
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			return io.ErrUnexpectedEOF // stream cortado antes del último bloque
+			return io.ErrUnexpectedEOF // stream cut off before the last chunk
 		}
 		return err
 	}

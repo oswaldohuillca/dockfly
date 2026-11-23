@@ -15,30 +15,30 @@ import (
 	"time"
 )
 
-// AppSpec es la configuración de un contenedor de app. A diferencia de los
-// builds, son servicios de larga duración en los que el usuario confía (una
-// base de datos necesita sus capabilities para arrancar).
+// AppSpec is the configuration of an app container. Unlike builds, these are
+// long-running services the user trusts (a database needs its capabilities
+// just to start up).
 type AppSpec struct {
 	Name     string
 	Image    string
-	Cmd      []string // vacío = el de la imagen
+	Cmd      []string // empty = the image's own
 	Env      []string
 	Labels   map[string]string
 	Network  string
-	Aliases  []string          // nombres con los que lo encuentran otras apps
-	Volumes  map[string]string // volumen → ruta
+	Aliases  []string          // names other apps use to find it
+	Volumes  map[string]string // volume → path
 	MemoryMB int64
 	CPUs     float64
 }
 
-// CreateAppContainer crea el contenedor de una app sin política de reinicio:
-// mientras se comprueba si arranca bien, una caída debe quedarse caída (con
-// su código de salida). Cuando está listo, KeepRunning le pone unless-stopped.
+// CreateAppContainer creates an app's container with no restart policy: while
+// we are checking whether it starts up fine, a crash must stay crashed (with
+// its exit code). Once it is ready, KeepRunning sets unless-stopped.
 func (c *Client) CreateAppContainer(ctx context.Context, spec AppSpec) (string, error) {
 	host := map[string]any{
 		"RestartPolicy": map[string]any{"Name": "no"},
 		"Init":          true,
-		// Rotación de logs: un servicio que escribe mucho no llena el disco.
+		// Log rotation: a chatty service must not fill up the disk.
 		"LogConfig": map[string]any{"Type": "json-file", "Config": map[string]string{"max-size": "10m", "max-file": "3"}},
 	}
 	if spec.MemoryMB > 0 {
@@ -77,7 +77,7 @@ func (c *Client) CreateAppContainer(ctx context.Context, spec AppSpec) (string, 
 	return out.ID, nil
 }
 
-// ContainerInfo es el estado de un contenedor.
+// ContainerInfo is the state of a container.
 type ContainerInfo struct {
 	ID         string
 	Name       string
@@ -86,9 +86,9 @@ type ContainerInfo struct {
 	Restarting bool
 	ExitCode   int
 	OOMKilled  bool
-	Health     string // "" si la imagen no define HEALTHCHECK; starting, healthy, unhealthy
+	Health     string // "" when the image defines no HEALTHCHECK; starting, healthy, unhealthy
 	StartedAt  time.Time
-	IPs        map[string]string // red → IP
+	IPs        map[string]string // network → IP
 	Labels     map[string]string
 }
 
@@ -134,13 +134,13 @@ func (c *Client) InspectContainer(ctx context.Context, id string) (*ContainerInf
 	return info, nil
 }
 
-// StopContainer detiene el contenedor dándole timeout para terminar bien
-// (una base de datos necesita unos segundos para cerrar sus archivos).
+// StopContainer stops the container, giving it timeout to shut down cleanly
+// (a database needs a few seconds to close its files).
 func (c *Client) StopContainer(ctx context.Context, id string, timeout time.Duration) error {
 	err := c.postLong(ctx, "/containers/"+url.PathEscape(id)+"/stop?t="+strconv.Itoa(int(timeout.Seconds())))
 	var apiErr *APIError
 	if errors.As(err, &apiErr) && apiErr.Status == http.StatusNotModified {
-		return nil // ya estaba parado
+		return nil // it was already stopped
 	}
 	return err
 }
@@ -149,9 +149,10 @@ func (c *Client) RestartContainer(ctx context.Context, id string, timeout time.D
 	return c.postLong(ctx, "/containers/"+url.PathEscape(id)+"/restart?t="+strconv.Itoa(int(timeout.Seconds())))
 }
 
-// postLong hace un POST que puede tardar más que el timeout de 15 s de
-// c.http: parar un contenedor espera hasta su timeout (20 s) a que termine,
-// y cortarlo antes deja el deploy a medias con el contenedor parándose.
+// postLong does a POST that can take longer than c.http's 15 s timeout:
+// stopping a container waits up to its own timeout (20 s) for it to finish,
+// and cutting that short leaves the deploy half done with the container
+// still shutting down.
 func (c *Client) postLong(ctx context.Context, path string) error {
 	resp, err := c.raw(ctx, c.stream, http.MethodPost, path, nil, "")
 	if err != nil {
@@ -160,8 +161,8 @@ func (c *Client) postLong(ctx context.Context, path string) error {
 	return resp.Body.Close()
 }
 
-// FollowLogs sigue los logs de un contenedor (multiplexados: usar Demux),
-// empezando por las últimas tail líneas.
+// FollowLogs follows a container's logs (multiplexed: use Demux), starting
+// from its last tail lines.
 func (c *Client) FollowLogs(ctx context.Context, id string, tail int) (io.ReadCloser, error) {
 	path := fmt.Sprintf("/containers/%s/logs?follow=1&stdout=1&stderr=1&tail=%d", url.PathEscape(id), tail)
 	resp, err := c.raw(ctx, c.stream, http.MethodGet, path, nil, "")
@@ -171,8 +172,8 @@ func (c *Client) FollowLogs(ctx context.Context, id string, tail int) (io.ReadCl
 	return resp.Body, nil
 }
 
-// BuildImage construye una imagen a partir de un contexto en tar (el
-// repositorio) y escribe en log la salida del build.
+// BuildImage builds an image from a context in tar form (the repository) and
+// writes the build output to log.
 func (c *Client) BuildImage(ctx context.Context, tag, dockerfile string, buildContext io.Reader, memoryMB int64, log io.Writer) error {
 	q := url.Values{"t": {tag}, "rm": {"1"}, "forcerm": {"1"}}
 	if dockerfile != "" {
@@ -186,7 +187,7 @@ func (c *Client) BuildImage(ctx context.Context, tag, dockerfile string, buildCo
 		return err
 	}
 	defer resp.Body.Close()
-	// Como en el pull, un error a mitad del build llega como {"error": ...}.
+	// As with the pull, an error midway through the build arrives as {"error": ...}.
 	dec := json.NewDecoder(resp.Body)
 	for {
 		var msg struct {
@@ -208,7 +209,7 @@ func (c *Client) BuildImage(ctx context.Context, tag, dockerfile string, buildCo
 	}
 }
 
-// RemoveImage borra una imagen (las construidas para despliegues antiguos).
+// RemoveImage deletes an image (the ones built for older deploys).
 func (c *Client) RemoveImage(ctx context.Context, ref string) error {
 	err := c.do(ctx, http.MethodDelete, "/images/"+ref, nil, nil)
 	if IsNotFound(err) {
@@ -217,7 +218,7 @@ func (c *Client) RemoveImage(ctx context.Context, ref string) error {
 	return err
 }
 
-// CreateNetwork crea una red bridge. No es un error que ya exista.
+// CreateNetwork creates a bridge network. It already existing is not an error.
 func (c *Client) CreateNetwork(ctx context.Context, name string) error {
 	err := c.do(ctx, http.MethodPost, "/networks/create", map[string]any{"Name": name, "CheckDuplicate": true}, nil)
 	var apiErr *APIError
@@ -227,16 +228,16 @@ func (c *Client) CreateNetwork(ctx context.Context, name string) error {
 	return err
 }
 
-// EnsureSelfNetwork crea la red si no existe y conecta a ella el contenedor
-// de Dockfly. connected indica si hubo que conectarlo ahora (false si ya lo
-// estaba o si Dockfly no corre en un contenedor).
+// EnsureSelfNetwork creates the network if it does not exist and attaches
+// Dockfly's container to it. connected reports whether it had to be attached
+// now (false when it already was, or when Dockfly does not run in a container).
 func (c *Client) EnsureSelfNetwork(ctx context.Context, network string) (connected bool, err error) {
 	if err := c.CreateNetwork(ctx, network); err != nil {
 		return false, err
 	}
 	nets, err := c.SelfNetworks(ctx)
 	if err != nil || len(nets) == 0 {
-		return false, nil // Dockfly no corre en un contenedor (desarrollo)
+		return false, nil // Dockfly does not run in a container (development)
 	}
 	if slices.Contains(nets, network) {
 		return false, nil
@@ -248,14 +249,15 @@ func (c *Client) EnsureSelfNetwork(ctx context.Context, network string) (connect
 	return true, nil
 }
 
-// CreateInternalNetwork crea una red sin salida a internet ni al host, con
-// etiquetas. Devuelve error si ya existe.
+// CreateInternalNetwork creates a labelled network with no route out to the
+// internet or to the host. It returns an error if it already exists.
 func (c *Client) CreateInternalNetwork(ctx context.Context, name string, labels map[string]string) error {
 	return c.do(ctx, http.MethodPost, "/networks/create",
 		map[string]any{"Name": name, "CheckDuplicate": true, "Internal": true, "Labels": labels}, nil)
 }
 
-// DisconnectNetwork saca un contenedor de una red (si no estaba, no es error).
+// DisconnectNetwork takes a container out of a network (not being in it is
+// not an error).
 func (c *Client) DisconnectNetwork(ctx context.Context, network, container string) error {
 	err := c.do(ctx, http.MethodPost, "/networks/"+url.PathEscape(network)+"/disconnect",
 		map[string]any{"Container": container, "Force": true}, nil)
@@ -266,7 +268,7 @@ func (c *Client) DisconnectNetwork(ctx context.Context, network, container strin
 	return err
 }
 
-// RemoveNetwork borra una red (si no existe, no es error).
+// RemoveNetwork deletes a network (it not existing is not an error).
 func (c *Client) RemoveNetwork(ctx context.Context, network string) error {
 	err := c.do(ctx, http.MethodDelete, "/networks/"+url.PathEscape(network), nil, nil)
 	var apiErr *APIError
@@ -276,7 +278,7 @@ func (c *Client) RemoveNetwork(ctx context.Context, network string) error {
 	return err
 }
 
-// NetworksWithLabel devuelve los nombres de las redes con una etiqueta ("clave" o "clave=valor").
+// NetworksWithLabel returns the names of the networks carrying a label ("key" or "key=value").
 func (c *Client) NetworksWithLabel(ctx context.Context, label string) ([]string, error) {
 	filters, _ := json.Marshal(map[string][]string{"label": {label}})
 	var raw []struct {
@@ -292,7 +294,7 @@ func (c *Client) NetworksWithLabel(ctx context.Context, label string) ([]string,
 	return names, nil
 }
 
-// ContainerIP devuelve la IP de un contenedor en una red.
+// ContainerIP returns a container's IP on a network.
 func (c *Client) ContainerIP(ctx context.Context, container, network string) (string, error) {
 	var raw struct {
 		NetworkSettings struct {
@@ -306,13 +308,13 @@ func (c *Client) ContainerIP(ctx context.Context, container, network string) (st
 	}
 	ip := raw.NetworkSettings.Networks[network].IPAddress
 	if ip == "" {
-		return "", fmt.Errorf("el contenedor %s no tiene IP en la red %s", container, network)
+		return "", fmt.Errorf("container %s has no IP on network %s", container, network)
 	}
 	return ip, nil
 }
 
-// Exec ejecuta un comando dentro de un contenedor y devuelve su salida
-// (stdout y stderr).
+// Exec runs a command inside a container and returns its output (stdout and
+// stderr).
 func (c *Client) Exec(ctx context.Context, container string, cmd []string) (string, error) {
 	var created struct {
 		ID string `json:"Id"`
@@ -332,21 +334,21 @@ func (c *Client) Exec(ctx context.Context, container string, cmd []string) (stri
 	return out.String(), err
 }
 
-// KeepRunning hace que Docker reinicie el contenedor si se cae o si se
-// reinicia el servidor (unless-stopped).
+// KeepRunning makes Docker restart the container if it crashes or if the
+// server reboots (unless-stopped).
 func (c *Client) KeepRunning(ctx context.Context, id string) error {
 	body := map[string]any{"RestartPolicy": map[string]any{"Name": "unless-stopped"}}
 	return c.do(ctx, http.MethodPost, "/containers/"+url.PathEscape(id)+"/update", body, nil)
 }
 
-// ContainerUsage es el consumo de un contenedor en este momento.
+// ContainerUsage is a container's consumption right now.
 type ContainerUsage struct {
-	CPUPercent float64 `json:"cpu_percent"` // sobre todos los núcleos del servidor: 100 = todos ocupados
+	CPUPercent float64 `json:"cpu_percent"` // over every core of the server: 100 = all of them busy
 	MemUsed    uint64  `json:"mem_used"`
-	MemLimit   uint64  `json:"mem_limit"` // su límite o, si no tiene, la memoria del servidor
+	MemLimit   uint64  `json:"mem_limit"` // its limit or, when it has none, the server's memory
 }
 
-// containerStats es lo que se usa de GET /containers/{id}/stats.
+// containerStats is the part of GET /containers/{id}/stats that we use.
 type containerStats struct {
 	CPU    cpuSample `json:"cpu_stats"`
 	PreCPU cpuSample `json:"precpu_stats"`
@@ -366,8 +368,8 @@ type cpuSample struct {
 
 func (s *containerStats) usage() ContainerUsage {
 	u := ContainerUsage{MemUsed: s.Memory.Usage, MemLimit: s.Memory.Limit}
-	// Igual que `docker stats`: la caché de archivos no cuenta como memoria usada
-	// (inactive_file en cgroup v2, total_inactive_file en v1).
+	// Same as `docker stats`: the file cache does not count as used memory
+	// (inactive_file on cgroup v2, total_inactive_file on v1).
 	for _, k := range []string{"inactive_file", "total_inactive_file"} {
 		if cache := s.Memory.Stats[k]; cache > 0 && cache < u.MemUsed {
 			u.MemUsed -= cache
@@ -380,8 +382,8 @@ func (s *containerStats) usage() ContainerUsage {
 	return u
 }
 
-// ContainerUsage mide la CPU y la memoria de un contenedor. Docker toma dos
-// muestras separadas un segundo para la CPU, así que tarda eso en responder.
+// ContainerUsage measures a container's CPU and memory. Docker takes two CPU
+// samples a second apart, so it takes that long to answer.
 func (c *Client) ContainerUsage(ctx context.Context, id string) (ContainerUsage, error) {
 	var raw containerStats
 	if err := c.do(ctx, http.MethodGet, "/containers/"+url.PathEscape(id)+"/stats?stream=false", nil, &raw); err != nil {

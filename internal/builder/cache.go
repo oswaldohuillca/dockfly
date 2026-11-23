@@ -10,11 +10,11 @@ import (
 	"github.com/dockfly/dockfly/internal/docker"
 )
 
-// cacheDir es donde se monta la caché de dependencias de cada sitio.
+// cacheDir is where each site's dependency cache is mounted.
 const cacheDir = "/cache"
 
-// cacheEnv apunta la caché de cada gestor de paquetes al volumen. Así el
-// segundo build no vuelve a descargar todas las dependencias.
+// cacheEnv points every package manager's cache at the volume, so that the
+// second build does not download all the dependencies again.
 var cacheEnv = []string{
 	"BUN_INSTALL_CACHE_DIR=" + cacheDir + "/bun",
 	"npm_config_cache=" + cacheDir + "/npm",
@@ -23,32 +23,32 @@ var cacheEnv = []string{
 	"XDG_CACHE_HOME=" + cacheDir + "/xdg",
 }
 
-// CacheVolume es el volumen de Docker con la caché de un sitio.
+// CacheVolume is the Docker volume holding a site's cache.
 func CacheVolume(siteID int64) string {
 	return "dockfly-build-cache-" + strconv.FormatInt(siteID, 10)
 }
 
-// ensureCache crea el volumen de caché si no existe y se lo cede al usuario
-// del build: Docker crea los volúmenes nuevos como root, y el build (sin
-// privilegios) no podría escribir en él. Devuelve false si no se pudo
-// preparar; el build sigue entonces sin caché.
+// ensureCache creates the cache volume if it does not exist and hands it over
+// to the build user: Docker creates new volumes as root, and the build (which
+// is unprivileged) would not be able to write in it. Returns false if it
+// could not be prepared; the build then goes on without a cache.
 func (m *Manager) ensureCache(ctx context.Context, siteID int64, image string, log io.Writer) bool {
 	dc := m.cfg.Docker
 	name := CacheVolume(siteID)
 	exists, err := dc.VolumeExists(ctx, name)
 	if err != nil {
-		fmt.Fprintf(log, "▶ Sin caché de dependencias: %v\n", err)
+		fmt.Fprintf(log, "▶ No dependency cache: %v\n", err)
 		return false
 	}
 	if exists {
 		return true
 	}
 	if err := dc.CreateVolume(ctx, name, map[string]string{"dockfly.cache": strconv.FormatInt(siteID, 10)}); err != nil {
-		fmt.Fprintf(log, "▶ Sin caché de dependencias: %v\n", err)
+		fmt.Fprintf(log, "▶ No dependency cache: %v\n", err)
 		return false
 	}
-	// Contenedor auxiliar con la misma imagen (ya descargada): solo hace
-	// chown, no ejecuta código del repositorio.
+	// Helper container with the same image (already pulled): all it does is a
+	// chown, it never runs any repository code.
 	id, err := dc.CreateContainer(ctx, docker.ContainerSpec{
 		Image: image, User: "0:0", KeepCaps: true,
 		Cmd:      []string{"chown", fmt.Sprintf("%d:%d", buildUID, buildUID), cacheDir},
@@ -65,20 +65,20 @@ func (m *Manager) ensureCache(ctx context.Context, siteID int64, image string, l
 		if err = dc.StartContainer(ctx, id); err == nil {
 			var code int
 			if code, err = dc.Wait(ctx, id); err == nil && code != 0 {
-				err = fmt.Errorf("chown terminó con código %d", code)
+				err = fmt.Errorf("chown exited with code %d", code)
 			}
 		}
 	}
 	if err != nil {
 		_ = dc.RemoveVolume(ctx, name)
-		fmt.Fprintf(log, "▶ Sin caché de dependencias (no se pudo preparar el volumen: %v)\n", err)
+		fmt.Fprintf(log, "▶ No dependency cache (could not prepare the volume: %v)\n", err)
 		return false
 	}
-	fmt.Fprintln(log, "▶ Caché de dependencias creada: los próximos builds serán más rápidos")
+	fmt.Fprintln(log, "▶ Dependency cache created: the next builds will be faster")
 	return true
 }
 
-// ClearCache borra la caché de dependencias de un sitio.
+// ClearCache deletes a site's dependency cache.
 func (m *Manager) ClearCache(ctx context.Context, siteID int64) error {
 	if m.cfg.Docker == nil {
 		return nil

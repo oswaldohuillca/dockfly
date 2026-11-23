@@ -12,10 +12,10 @@ import (
 	"time"
 )
 
-// testDSN permite pasar estos tests contra otro motor: con
-// DOCKFLY_TEST_DATABASE_URL (postgres://… o mysql://…, un usuario que pueda
-// crear bases de datos) cada ruta de archivo se convierte en una base de datos
-// propia de ese servidor.
+// testDSN allows running these tests against another engine: with
+// DOCKFLY_TEST_DATABASE_URL (postgres://… or mysql://…, a user that can
+// create databases) every file path becomes a database of its own on that
+// server.
 func testDSN(path string) string {
 	base := os.Getenv("DOCKFLY_TEST_DATABASE_URL")
 	if base == "" {
@@ -28,7 +28,7 @@ func testDSN(path string) string {
 		panic(err)
 	}
 	defer admin.Close()
-	admin.ExecContext(context.Background(), "CREATE DATABASE "+name) //nolint:errcheck // ya existe al reabrir
+	admin.ExecContext(context.Background(), "CREATE DATABASE "+name) //nolint:errcheck // already exists when reopening
 	u, _ := url.Parse(base)
 	u.Path = "/" + name
 	return u.String()
@@ -36,7 +36,7 @@ func testDSN(path string) string {
 
 func TestConnectRejectsUnknownEngine(t *testing.T) {
 	if _, _, err := connect("oracle://u:p@host/db"); err == nil {
-		t.Fatal("un motor desconocido no debe abrirse como archivo SQLite")
+		t.Fatal("an unknown engine must not be opened as a SQLite file")
 	}
 }
 
@@ -61,31 +61,31 @@ func TestProxyHostRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	if h.ID == 0 {
-		t.Fatal("CreateProxyHost debe rellenar el ID")
+		t.Fatal("CreateProxyHost must fill in the ID")
 	}
 	s.Close()
 
-	// Reabrir no debe volver a aplicar migraciones ni perder datos.
+	// Reopening must neither reapply migrations nor lose data.
 	s = openTest(t, path)
 	got, err := s.GetProxyHost(ctx, h.ID)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if len(got.Domains) != 2 || got.Domains[1] != "www.a.com" {
-		t.Errorf("dominios distintos tras releer: %v", got.Domains)
+		t.Errorf("domains differ after reading back: %v", got.Domains)
 	}
 	if !got.SSL || !got.HSTS || got.PreserveHost || got.ForwardPort != 443 || got.ForwardScheme != "https" {
-		t.Errorf("proxy host distinto tras releer: %+v", got)
+		t.Errorf("proxy host differs after reading back: %+v", got)
 	}
 	if got.CreatedAt.Location() != time.UTC {
-		t.Errorf("las fechas leídas deben estar en UTC, están en %v", got.CreatedAt.Location())
+		t.Errorf("timestamps must be read in UTC, they are in %v", got.CreatedAt.Location())
 	}
 	if !got.CreatedAt.Equal(h.CreatedAt) {
-		t.Errorf("created_at distinto: guardado %v, leído %v", h.CreatedAt, got.CreatedAt)
+		t.Errorf("created_at differs: stored %v, read %v", h.CreatedAt, got.CreatedAt)
 	}
 }
 
-// Bun debe guardar los valores cero en un UPDATE (GORM los ignora con Updates).
+// Bun must store the zero values in an UPDATE (GORM skips them in Updates).
 func TestUpdatePersistsZeroValues(t *testing.T) {
 	ctx := context.Background()
 	s := openTest(t, filepath.Join(t.TempDir(), "t.db"))
@@ -104,26 +104,26 @@ func TestUpdatePersistsZeroValues(t *testing.T) {
 	}
 	got, _ := s.GetProxyHost(ctx, h.ID)
 	if got.SSL || got.ForceHTTPS || got.PreserveHost || got.Enabled {
-		t.Errorf("los false no se guardaron: %+v", got)
+		t.Errorf("the false values were not stored: %+v", got)
 	}
 	if !got.CreatedAt.Equal(created) {
-		t.Error("UpdateProxyHost no debe modificar created_at")
+		t.Error("UpdateProxyHost must not modify created_at")
 	}
 	if !got.UpdatedAt.After(created) {
-		t.Error("UpdateProxyHost debe actualizar updated_at")
+		t.Error("UpdateProxyHost must update updated_at")
 	}
 
 	if err := s.UpdateProxyHost(ctx, &ProxyHost{ID: 999, Domains: []string{}}); !errors.Is(err, ErrNotFound) {
-		t.Errorf("editar inexistente debe dar ErrNotFound, dio %v", err)
+		t.Errorf("editing a missing host must give ErrNotFound, gave %v", err)
 	}
 	if err := s.DeleteProxyHost(ctx, h.ID); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.DeleteProxyHost(ctx, h.ID); !errors.Is(err, ErrNotFound) {
-		t.Errorf("borrar dos veces debe dar ErrNotFound, dio %v", err)
+		t.Errorf("deleting twice must give ErrNotFound, gave %v", err)
 	}
 	if _, err := s.GetProxyHost(ctx, h.ID); !errors.Is(err, ErrNotFound) {
-		t.Errorf("leer borrado debe dar ErrNotFound, dio %v", err)
+		t.Errorf("reading a deleted host must give ErrNotFound, gave %v", err)
 	}
 }
 
@@ -132,26 +132,26 @@ func TestUsers(t *testing.T) {
 	s := openTest(t, filepath.Join(t.TempDir(), "t.db"))
 
 	if n, err := s.CountUsers(ctx); err != nil || n != 0 {
-		t.Fatalf("CountUsers inicial: %d %v", n, err)
+		t.Fatalf("initial CountUsers: %d %v", n, err)
 	}
 	u := &User{Email: "a@b.com", Name: "A", PasswordHash: "x"}
 	if err := s.CreateUser(ctx, u); err != nil {
 		t.Fatal(err)
 	}
 	if err := s.CreateUser(ctx, &User{Email: "a@b.com", Name: "B", PasswordHash: "y"}); err == nil {
-		t.Error("el email debe ser único")
+		t.Error("the email must be unique")
 	}
 	if n, _ := s.CountUsers(ctx); n != 1 {
-		t.Errorf("CountUsers: esperaba 1, obtuve %d", n)
+		t.Errorf("CountUsers: expected 1, got %d", n)
 	}
 	got, err := s.UserByEmail(ctx, "a@b.com")
 	if err != nil || got.ID != u.ID || got.PasswordHash != "x" {
 		t.Errorf("UserByEmail: %+v %v", got, err)
 	}
-	if got, err := s.UserByEmail(ctx, "nadie@b.com"); !errors.Is(err, ErrNotFound) || got != nil {
-		t.Errorf("usuario inexistente: debe devolver nil y ErrNotFound, dio %v %v", got, err)
+	if got, err := s.UserByEmail(ctx, "nobody@b.com"); !errors.Is(err, ErrNotFound) || got != nil {
+		t.Errorf("missing user: must return nil and ErrNotFound, gave %v %v", got, err)
 	}
 	if _, err := s.UserByID(ctx, 999); !errors.Is(err, ErrNotFound) {
-		t.Errorf("UserByID inexistente: %v", err)
+		t.Errorf("UserByID on a missing user: %v", err)
 	}
 }

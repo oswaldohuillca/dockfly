@@ -15,7 +15,7 @@ import (
 type accessListView struct {
 	ID       int64    `json:"id"`
 	Name     string   `json:"name"`
-	Users    []string `json:"users"` // solo nombres: los hashes no salen del servidor
+	Users    []string `json:"users"` // names only: the hashes never leave the server
 	AllowIPs []string `json:"allow_ips"`
 	UsedBy   int      `json:"used_by"`
 }
@@ -42,7 +42,7 @@ func (s *Server) handleListAccessLists(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// accessListUsage cuenta cuántas cosas usan cada lista (ver routing.AccessListUsage).
+// accessListUsage counts how many things use each list (see routing.AccessListUsage).
 func (s *Server) accessListUsage(ctx context.Context) (map[int64]int, error) {
 	snap, err := s.snapshot(ctx)
 	if err != nil {
@@ -55,7 +55,7 @@ type accessListInput struct {
 	Name  string `json:"name"`
 	Users []struct {
 		Username string `json:"username"`
-		Password string `json:"password"` // vacío al editar = conservar la actual
+		Password string `json:"password"` // empty when editing = keep the current one
 	} `json:"users"`
 	AllowIPs []string `json:"allow_ips"`
 }
@@ -110,8 +110,8 @@ func (in *accessListInput) build(previous *store.AccessList) (*store.AccessList,
 		if ip == "" {
 			continue
 		}
-		// Una IP suelta se convierte en /32 (o /128): Traefik exige rangos válidos
-		// y uno mal escrito invalidaría toda la configuración.
+		// A bare IP becomes a /32 (or /128): Traefik demands valid ranges, and a
+		// malformed one would invalidate the whole configuration.
 		if addr, err := netip.ParseAddr(ip); err == nil {
 			ip = netip.PrefixFrom(addr, addr.BitLen()).String()
 		} else if p, err := netip.ParsePrefix(ip); err == nil {
@@ -184,8 +184,8 @@ func (s *Server) handleDeleteAccessList(w http.ResponseWriter, r *http.Request) 
 		s.internalError(w, err)
 		return
 	}
-	// Borrarla dejaría públicos de golpe los hosts que protege: mejor que el
-	// usuario lo decida uno a uno.
+	// Deleting it would make every host it protects public all at once: better
+	// to let the user decide host by host.
 	if used[id] > 0 {
 		writeError(w, http.StatusConflict, errAccessListInUse.With("count", used[id]))
 		return
@@ -200,7 +200,7 @@ func (s *Server) handleDeleteAccessList(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// checkAccessList responde 400 si id apunta a una lista que no existe.
+// checkAccessList answers 400 if id points to a list that doesn't exist.
 func (s *Server) checkAccessList(w http.ResponseWriter, r *http.Request, id *int64) bool {
 	if id == nil {
 		return true

@@ -28,14 +28,14 @@ import (
 	"github.com/dockfly/dockfly/internal/tunnel"
 )
 
-// testServer levanta la API completa sobre un directorio temporal.
+// testServer brings up the whole API on a temporary directory.
 func testServer(t *testing.T) (*httptest.Server, string) {
 	ts, _, dyn := testServerWithPages(t)
 	return ts, dyn
 }
 
-// testServerWithPages devuelve además el servidor estático, para comprobar
-// qué se publica.
+// testServerWithPages also returns the static server, so tests can check
+// what gets published.
 func testServerWithPages(t *testing.T) (*httptest.Server, *pages.Server, string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -66,7 +66,7 @@ func testServerWithPages(t *testing.T) (*httptest.Server, *pages.Server, string)
 	}
 	s.DataDir = dir
 	s.Hub = &tunnel.Hub{OnConnect: s.OnAgentConnect}
-	s.Restart = func() { s.Log.Info("reinicio solicitado") }
+	s.Restart = func() { s.Log.Info("restart requested") }
 	s.Secrets, _ = secrets.New(make([]byte, 32))
 	s.Git = gitauth.New(st, s.Secrets)
 	s.Notify = &notify.Dispatcher{Store: st, Secrets: s.Secrets, Log: s.Log}
@@ -85,15 +85,15 @@ func testServerWithPages(t *testing.T) (*httptest.Server, *pages.Server, string)
 	return ts, s.Pages, opts.DynamicDir()
 }
 
-// testServers relaciona cada servidor de pruebas con su *Server, para los
-// tests que llaman directamente a sus métodos.
+// testServers maps each test server to its *Server, for the tests that call
+// its methods directly.
 var testServers sync.Map
 
 func serverOf(t *testing.T, ts *httptest.Server) *Server {
 	t.Helper()
 	s, ok := testServers.Load(ts)
 	if !ok {
-		t.Fatal("servidor de pruebas desconocido")
+		t.Fatal("unknown test server")
 	}
 	return s.(*Server)
 }
@@ -109,7 +109,7 @@ func newClient(t *testing.T, ts *httptest.Server) *client {
 	return &client{t: t, base: ts.URL, http: &http.Client{Jar: jar}}
 }
 
-// do envía una petición y devuelve el código y el cuerpo decodificado.
+// do sends a request and returns the status code and the decoded body.
 func (c *client) do(method, path, body string, header ...string) (int, map[string]any) {
 	c.t.Helper()
 	req, err := http.NewRequest(method, c.base+path, strings.NewReader(body))
@@ -133,37 +133,37 @@ func (c *client) do(method, path, body string, header ...string) (int, map[strin
 	return resp.StatusCode, out
 }
 
-const adminJSON = `{"name":"Admin","email":"admin@test.com","password":"secreto123"}`
+const adminJSON = `{"name":"Admin","email":"admin@test.com","password":"secret123"}`
 
 func TestAuthFlow(t *testing.T) {
 	ts, _ := testServer(t)
 	c := newClient(t, ts)
 
 	if code, _ := c.do("GET", "/api/proxy-hosts", ""); code != http.StatusUnauthorized {
-		t.Fatalf("sin sesión: esperaba 401, obtuve %d", code)
+		t.Fatalf("no session: expected 401, got %d", code)
 	}
 	if code, body := c.do("GET", "/api/setup", ""); code != 200 || body["needs_setup"] != true {
-		t.Fatalf("setup pendiente: %d %v", code, body)
+		t.Fatalf("setup pending: %d %v", code, body)
 	}
 	if code, _ := c.do("POST", "/api/setup", adminJSON); code != http.StatusCreated {
-		t.Fatalf("setup: esperaba 201, obtuve %d", code)
+		t.Fatalf("setup: expected 201, got %d", code)
 	}
 	if code, _ := c.do("POST", "/api/setup", adminJSON); code != http.StatusConflict {
-		t.Fatalf("segundo setup: esperaba 409, obtuve %d", code)
+		t.Fatalf("second setup: expected 409, got %d", code)
 	}
 	if code, body := c.do("GET", "/api/auth/me", ""); code != 200 || body["email"] != "admin@test.com" {
 		t.Fatalf("me: %d %v", code, body)
 	}
 
 	other := newClient(t, ts)
-	if code, _ := other.do("POST", "/api/auth/login", `{"email":"admin@test.com","password":"mala"}`); code != http.StatusUnauthorized {
-		t.Fatalf("contraseña incorrecta: esperaba 401, obtuve %d", code)
+	if code, _ := other.do("POST", "/api/auth/login", `{"email":"admin@test.com","password":"wrong"}`); code != http.StatusUnauthorized {
+		t.Fatalf("wrong password: expected 401, got %d", code)
 	}
 	if code, _ := other.do("POST", "/api/auth/login", `{"email":"nadie@test.com","password":"x"}`); code != http.StatusUnauthorized {
-		t.Fatalf("usuario inexistente: esperaba 401, obtuve %d", code)
+		t.Fatalf("user doesn't exist: expected 401, got %d", code)
 	}
-	if code, _ := other.do("POST", "/api/auth/login", `{"email":"ADMIN@test.com","password":"secreto123"}`); code != 200 {
-		t.Fatalf("login (email sin distinguir mayúsculas): esperaba 200, obtuve %d", code)
+	if code, _ := other.do("POST", "/api/auth/login", `{"email":"ADMIN@test.com","password":"secret123"}`); code != 200 {
+		t.Fatalf("login (case-insensitive email): expected 200, got %d", code)
 	}
 }
 
@@ -171,13 +171,13 @@ func TestRoutingErrorsAreJSON(t *testing.T) {
 	ts, _ := testServer(t)
 	c := newClient(t, ts)
 
-	if code, body := c.do("GET", "/api/no-existe", ""); code != 404 || body["error"] == nil {
+	if code, body := c.do("GET", "/api/does-not-exist", ""); code != 404 || body["error"] == nil {
 		t.Errorf("404: %d %v", code, body)
 	}
 	if code, body := c.do("PATCH", "/api/setup", "{}"); code != 405 || body["error"] == nil {
 		t.Errorf("405: %d %v", code, body)
 	}
-	// Un formulario HTML de otro sitio no puede enviar JSON: bloquea CSRF.
+	// An HTML form on another site can't send JSON: that blocks CSRF.
 	req, _ := http.NewRequest("POST", ts.URL+"/api/auth/login", strings.NewReader("a=b"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	resp, err := http.DefaultClient.Do(req)
@@ -186,20 +186,20 @@ func TestRoutingErrorsAreJSON(t *testing.T) {
 	}
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusUnsupportedMediaType {
-		t.Errorf("form POST: esperaba 415, obtuve %d", resp.StatusCode)
+		t.Errorf("form POST: expected 415, got %d", resp.StatusCode)
 	}
 }
 
 func TestSPAFallback(t *testing.T) {
 	ts, _ := testServer(t)
-	resp, err := http.Get(ts.URL + "/proxy-hosts/editar")
+	resp, err := http.Get(ts.URL + "/proxy-hosts/edit")
 	if err != nil {
 		t.Fatal(err)
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode != 200 || !strings.Contains(string(body), "spa") {
-		t.Errorf("las rutas del cliente deben servir index.html: %d %q", resp.StatusCode, body)
+		t.Errorf("client-side routes must serve index.html: %d %q", resp.StatusCode, body)
 	}
 }
 
@@ -209,13 +209,13 @@ func TestLoginRateLimitIgnoresSpoofedHeaders(t *testing.T) {
 
 	var last int
 	for i := range authAttempts + 1 {
-		// Cada intento finge venir de una IP distinta: no debe servir de nada,
-		// porque no hay proxies de confianza configurados.
+		// Each attempt pretends to come from a different IP: that must get it
+		// nowhere, because no trusted proxies are configured.
 		last, _ = c.do("POST", "/api/auth/login", `{"email":"a@b.com","password":"x"}`,
 			"X-Forwarded-For", "203.0.113."+string(rune('1'+i%9)))
 	}
 	if last != http.StatusTooManyRequests {
-		t.Fatalf("tras %d intentos esperaba 429, obtuve %d", authAttempts+1, last)
+		t.Fatalf("after %d attempts expected 429, got %d", authAttempts+1, last)
 	}
 }
 
@@ -227,48 +227,48 @@ func TestProxyHostCRUD(t *testing.T) {
 	host := `{"domains":["App.Test.com","app.test.com"],"target_type":"external","forward_host":"10.0.0.5","forward_port":8080}`
 	code, body := c.do("POST", "/api/proxy-hosts", host)
 	if code != http.StatusCreated {
-		t.Fatalf("crear: %d %v", code, body)
+		t.Fatalf("create: %d %v", code, body)
 	}
 	ph := body["proxy_host"].(map[string]any)
 	if d := ph["domains"].([]any); len(d) != 1 || d[0] != "app.test.com" {
-		t.Errorf("los dominios deben normalizarse y deduplicarse: %v", d)
+		t.Errorf("the domains must be normalized and deduplicated: %v", d)
 	}
 
 	cfg, err := os.ReadFile(filepath.Join(dynDir, "dockfly.yml"))
 	if err != nil || !strings.Contains(string(cfg), "Host(`app.test.com`)") ||
 		!strings.Contains(string(cfg), "http://10.0.0.5:8080") {
-		t.Fatalf("la configuración de Traefik no refleja el host creado (%v):\n%s", err, cfg)
+		t.Fatalf("the Traefik configuration doesn't reflect the new host (%v):\n%s", err, cfg)
 	}
 
 	if code, _ := c.do("POST", "/api/proxy-hosts", host); code != http.StatusConflict {
-		t.Errorf("dominio duplicado: esperaba 409, obtuve %d", code)
+		t.Errorf("duplicate domain: expected 409, got %d", code)
 	}
 	if code, _ := c.do("POST", "/api/proxy-hosts",
 		`{"domains":["x.com"],"target_type":"external","forward_host":"http://1.1.1.1/","forward_port":80}`); code != 400 {
-		t.Errorf("host con esquema: esperaba 400, obtuve %d", code)
+		t.Errorf("host with a scheme: expected 400, got %d", code)
 	}
 	if code, _ := c.do("PUT", "/api/proxy-hosts/abc", host); code != 400 {
-		t.Errorf("id no numérico: esperaba 400, obtuve %d", code)
+		t.Errorf("non-numeric id: expected 400, got %d", code)
 	}
 	if code, _ := c.do("PUT", "/api/proxy-hosts/999", host); code != 404 {
-		t.Errorf("editar inexistente: esperaba 404, obtuve %d", code)
+		t.Errorf("editing one that doesn't exist: expected 404, got %d", code)
 	}
 
-	// Editar el propio host con sus dominios no es un conflicto.
+	// Editing the host itself with its own domains isn't a conflict.
 	updated := strings.Replace(host, "8080", "9090", 1)
 	if code, body := c.do("PUT", "/api/proxy-hosts/1", updated); code != 200 {
-		t.Fatalf("editar: %d %v", code, body)
+		t.Fatalf("edit: %d %v", code, body)
 	}
 	cfg, _ = os.ReadFile(filepath.Join(dynDir, "dockfly.yml"))
 	if !strings.Contains(string(cfg), "http://10.0.0.5:9090") {
-		t.Errorf("la edición no se aplicó en Traefik:\n%s", cfg)
+		t.Errorf("the edit wasn't applied in Traefik:\n%s", cfg)
 	}
 
 	if code, _ := c.do("DELETE", "/api/proxy-hosts/1", ""); code != http.StatusNoContent {
-		t.Errorf("eliminar: esperaba 204, obtuve %d", code)
+		t.Errorf("delete: expected 204, got %d", code)
 	}
 	cfg, _ = os.ReadFile(filepath.Join(dynDir, "dockfly.yml"))
 	if strings.Contains(string(cfg), "app.test.com") {
-		t.Errorf("el host eliminado sigue en Traefik:\n%s", cfg)
+		t.Errorf("the deleted host is still in Traefik:\n%s", cfg)
 	}
 }

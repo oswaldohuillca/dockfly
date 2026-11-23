@@ -34,7 +34,7 @@ func TestTargetImage(t *testing.T) {
 	} {
 		got, ok := targetImage(ref, "0.4.1")
 		if got != want || ok != (want != "") {
-			t.Errorf("targetImage(%s) = %q %v, quería %q", ref, got, ok, want)
+			t.Errorf("targetImage(%s) = %q %v, wanted %q", ref, got, ok, want)
 		}
 	}
 }
@@ -45,7 +45,7 @@ func TestLatestFromGitHub(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		w.Write([]byte(`{"tag_name":"v0.4.0","html_url":"https://github.com/x/releases/v0.4.0","body":"novedades"}`))
+		w.Write([]byte(`{"tag_name":"v0.4.0","html_url":"https://github.com/x/releases/v0.4.0","body":"release notes"}`))
 	}))
 	defer gh.Close()
 	u := &Updater{API: gh.URL, Version: "0.3.0"}
@@ -53,8 +53,9 @@ func TestLatestFromGitHub(t *testing.T) {
 	if info.Latest == nil || info.Latest.Version != "0.4.0" || !info.Available {
 		t.Fatalf("info: %+v", info)
 	}
-	// Sin Docker hay versión nueva, pero no se puede actualizar desde el panel.
+	// Without Docker there is a new version, but it cannot be updated from
+	// the panel.
 	if info.CanUpdate || info.Reason != ReasonNotInDocker {
-		t.Errorf("sin Docker: %+v", info)
+		t.Errorf("without Docker: %+v", info)
 	}
 }

@@ -1,8 +1,8 @@
--- Esquema inicial para MySQL y MariaDB, equivalente a las migraciones de SQLite
--- (../migrations) hasta 20261112000022. Cada migración nueva necesita su
--- archivo en las tres carpetas.
+-- Initial schema for MySQL and MariaDB, equivalent to the SQLite migrations
+-- (../migrations) up to 20261112000022. Every new migration needs its own
+-- file in all three directories.
 
--- utf8mb4_bin: compara como SQLite y PostgreSQL (distingue mayúsculas).
+-- utf8mb4_bin: compares like SQLite and PostgreSQL (case-sensitive).
 
 CREATE TABLE users (
 	id            BIGINT PRIMARY KEY AUTO_INCREMENT,

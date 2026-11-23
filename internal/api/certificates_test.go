@@ -35,74 +35,74 @@ func TestCertificatesAndWildcards(t *testing.T) {
 		return c.do("POST", "/api/proxy-hosts", fmt.Sprintf(`{"domains":[%q],"target_type":"external","forward_host":"1.1.1.1","forward_port":80,"ssl":true}`, domain))
 	}
 
-	// Sin zona DNS, un comodín con SSL no es posible.
-	if code, res := host("*.zona.com"); code != 400 || res["code"] != "wildcard_ssl_needs_dns" {
-		t.Errorf("comodín sin zona: %d %v", code, res)
+	// With no DNS zone, a wildcard with SSL isn't possible.
+	if code, res := host("*.zone.com"); code != 400 || res["code"] != "wildcard_ssl_needs_dns" {
+		t.Errorf("wildcard with no zone: %d %v", code, res)
 	}
 
-	// Proveedor DNS del catálogo: se exigen sus campos obligatorios.
-	if code, _ := c.do("PUT", "/api/dns-providers", `{"provider":"cloudflare","zones":["zona.com"],"env":{}}`); code != 400 {
-		t.Errorf("cloudflare sin token: %d", code)
+	// A DNS provider from the catalog: its required fields are enforced.
+	if code, _ := c.do("PUT", "/api/dns-providers", `{"provider":"cloudflare","zones":["zone.com"],"env":{}}`); code != 400 {
+		t.Errorf("cloudflare with no token: %d", code)
 	}
-	if code, res := c.do("PUT", "/api/dns-providers", `{"provider":"cloudflare","zones":["zona.com"],"env":{"CLOUDFLARE_DNS_API_TOKEN":"cf-secreto"}}`); code != 200 {
-		t.Fatalf("guardar proveedor: %d %v", code, res)
+	if code, res := c.do("PUT", "/api/dns-providers", `{"provider":"cloudflare","zones":["zone.com"],"env":{"CLOUDFLARE_DNS_API_TOKEN":"cf-secret"}}`); code != 200 {
+		t.Fatalf("save provider: %d %v", code, res)
 	}
 	_, list := c.doList("GET", "/api/dns-providers")
-	if strings.Contains(fmt.Sprint(list), "cf-secreto") {
-		t.Fatal("las credenciales DNS nunca deben salir del servidor")
+	if strings.Contains(fmt.Sprint(list), "cf-secret") {
+		t.Fatal("the DNS credentials must never leave the server")
 	}
-	// Reenviar el valor enmascarado conserva la credencial.
-	c.do("PUT", "/api/dns-providers", fmt.Sprintf(`{"provider":"cloudflare","zones":["zona.com","otra.com"],"env":{"CLOUDFLARE_DNS_API_TOKEN":%q}}`, secretMask))
-	if env := serverOf(t, ts).DNSEnv(); len(env) != 1 || env[0] != "CLOUDFLARE_DNS_API_TOKEN=cf-secreto" {
-		t.Errorf("la credencial debe conservarse para Traefik: %v", env)
+	// Sending the masked value back keeps the credential.
+	c.do("PUT", "/api/dns-providers", fmt.Sprintf(`{"provider":"cloudflare","zones":["zone.com","otra.com"],"env":{"CLOUDFLARE_DNS_API_TOKEN":%q}}`, secretMask))
+	if env := serverOf(t, ts).DNSEnv(); len(env) != 1 || env[0] != "CLOUDFLARE_DNS_API_TOKEN=cf-secret" {
+		t.Errorf("the credential must be kept for Traefik: %v", env)
 	}
 	static, _ := os.ReadFile(serverOf(t, ts).Traefik.StaticFile())
 	if !strings.Contains(string(static), "dns-cloudflare") || !strings.Contains(string(static), "provider: cloudflare") {
-		t.Errorf("traefik.yml debe tener el resolver DNS:\n%s", static)
+		t.Errorf("traefik.yml must have the DNS resolver:\n%s", static)
 	}
 
-	if code, res := host("*.zona.com"); code != 201 {
-		t.Fatalf("comodín con zona: %d %v", code, res)
+	if code, res := host("*.zone.com"); code != 201 {
+		t.Fatalf("wildcard with a zone: %d %v", code, res)
 	}
-	if code, _ := host("app.zona.com"); code != 201 {
-		t.Fatal("host concreto en la zona")
+	if code, _ := host("app.zone.com"); code != 201 {
+		t.Fatal("a specific host in the zone")
 	}
 	cfg, _ := os.ReadFile(dynDir + "/dockfly.yml")
-	if !strings.Contains(string(cfg), "certResolver: dns-cloudflare") || !strings.Contains(string(cfg), "main: '*.zona.com'") {
-		t.Errorf("los hosts de la zona deben usar el resolver DNS:\n%s", cfg)
+	if !strings.Contains(string(cfg), "certResolver: dns-cloudflare") || !strings.Contains(string(cfg), "main: '*.zone.com'") {
+		t.Errorf("the hosts in the zone must use the DNS resolver:\n%s", cfg)
 	}
 
-	// Certificado propio: cubre su dominio y Traefik lo carga de archivo.
-	cert, key := selfSigned(t, "propio.com", "*.propio.com")
-	_, otherKey := selfSigned(t, "otro.com")
+	// Our own certificate: it covers its domain and Traefik loads it from file.
+	cert, key := selfSigned(t, "own.com", "*.own.com")
+	_, otherKey := selfSigned(t, "other.com")
 	body, _ := json.Marshal(map[string]string{"cert": cert, "key": otherKey})
 	if code, _ := c.do("POST", "/api/custom-certificates", string(body)); code != 400 {
-		t.Errorf("una clave que no corresponde debe rechazarse: %d", code)
+		t.Errorf("a key that doesn't match must be rejected: %d", code)
 	}
 	body, _ = json.Marshal(map[string]string{"cert": cert, "key": key})
 	if code, res := c.do("POST", "/api/custom-certificates", string(body)); code != 201 {
-		t.Fatalf("subir certificado: %d %v", code, res)
+		t.Fatalf("upload certificate: %d %v", code, res)
 	}
-	if code, _ := host("api.propio.com"); code != 201 {
-		t.Fatal("host cubierto por el certificado propio")
+	if code, _ := host("api.own.com"); code != 201 {
+		t.Fatal("a host covered by our own certificate")
 	}
 	cfg, _ = os.ReadFile(dynDir + "/dockfly.yml")
 	if !strings.Contains(string(cfg), "certFile:") || !strings.Contains(string(cfg), "keyFile:") {
-		t.Errorf("Traefik debe cargar el certificado propio:\n%s", cfg)
+		t.Errorf("Traefik must load our own certificate:\n%s", cfg)
 	}
 	keyFile := serverOf(t, ts).certDir() + "/1.key"
 	if fi, err := os.Stat(keyFile); err != nil || fi.Mode().Perm() != 0o600 {
-		t.Errorf("la clave en disco debe tener permisos 0600: %v %v", fi, err)
+		t.Errorf("the key on disk must have 0600 permissions: %v %v", fi, err)
 	}
 	_, certs := c.doList("GET", "/api/certificates")
 	found := false
 	for _, x := range certs {
 		m := x.(map[string]any)
-		if m["domain"] == "api.propio.com" {
+		if m["domain"] == "api.own.com" {
 			found = m["status"] == "valid"
 		}
 	}
 	if !found {
-		t.Errorf("el comodín propio debe cubrir api.propio.com en el estado: %v", certs)
+		t.Errorf("our own wildcard must cover api.own.com in the status: %v", certs)
 	}
 }

@@ -12,7 +12,7 @@ export const envToRows = (env: Record<string, string>): EnvRow[] =>
 export const rowsToEnv = (rows: EnvRow[]): Record<string, string> =>
   Object.fromEntries(rows.filter((r) => r.key.trim()).map((r) => [r.key.trim(), r.value]));
 
-/** Editor de variables de entorno (NOMBRE = valor). */
+/** Environment variable editor (NAME = value). */
 export function EnvEditor({ rows, onChange }: { rows: EnvRow[]; onChange: (rows: EnvRow[]) => void }) {
   const { t } = useLingui();
   return (
@@ -25,7 +25,7 @@ export function EnvEditor({ rows, onChange }: { rows: EnvRow[]; onChange: (rows:
             aria-label={t`Variable name`}
             value={row.key}
             onChange={(e) => {
-              // Pegar KEY=foo:bar rellena las dos casillas; el valor va entero.
+              // Pasting KEY=foo:bar fills both boxes; the value is kept whole.
               const [name, ...value] = e.target.value.split('=');
               const key = name.replace(/[^A-Za-z0-9_]/g, '_');
               onChange(rows.map((r, j) => (j === i ? { key, value: value.length ? value.join('=') : r.value } : r)));

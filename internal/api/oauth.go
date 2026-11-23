@@ -26,12 +26,12 @@ var (
 	errGitLabAppNotConfigured = newError("gitlab_app_not_configured", "Set up the GitLab application first")
 )
 
-// --- Estados OAuth ---
+// --- OAuth states ---
 //
-// Los retornos desde GitHub/GitLab no llevan la cookie de sesión (es
-// SameSite=Strict y la navegación viene de otro sitio), así que se
-// autentican con el parámetro state: aleatorio, de un solo uso, con
-// caducidad y creado por un usuario con sesión.
+// The returns from GitHub/GitLab don't carry the session cookie (it is
+// SameSite=Strict and the navigation comes from another site), so they are
+// authenticated with the state parameter: random, single-use, with an expiry
+// and created by a user with a session.
 
 const stateTTL = 15 * time.Minute
 
@@ -40,7 +40,7 @@ type oauthState struct {
 	panelURL    string
 	webURL      string
 	apiURL      string
-	appID       int64 // github_apps.id o gitlab_apps.id
+	appID       int64 // github_apps.id or gitlab_apps.id
 	redirectURI string
 	created     time.Time
 }
@@ -67,7 +67,7 @@ func (s *stateStore) issue(st oauthState) string {
 	return key
 }
 
-// take consume el estado: un mismo state no puede usarse dos veces.
+// take consumes the state: the same state can't be used twice.
 func (s *stateStore) take(key, kind string) (oauthState, bool) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -79,8 +79,8 @@ func (s *stateStore) take(key, kind string) (oauthState, bool) {
 	return st, true
 }
 
-// panelURL valida la dirección con la que el navegador abre el panel: los
-// retornos de GitHub/GitLab volverán a ella.
+// panelURL validates the address the browser opens the panel with: the
+// returns from GitHub/GitLab will come back to it.
 func panelURL(raw string) (string, error) {
 	u, err := url.Parse(strings.TrimRight(strings.TrimSpace(raw), "/"))
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || (u.Path != "" && u.Path != "/") {
@@ -89,16 +89,16 @@ func panelURL(raw string) (string, error) {
 	return u.Scheme + "://" + u.Host, nil
 }
 
-// --- Página de retorno ---
+// --- Return page ---
 
 var callbackPage = template.Must(template.New("cb").Parse(`<!doctype html>
-<html lang="es"><meta charset="utf-8"><title>Dockfly</title>
+<html lang="en"><meta charset="utf-8"><title>Dockfly</title>
 <style>body{font-family:system-ui,sans-serif;display:grid;place-items:center;min-height:100vh;margin:0;color:#333}
 .box{text-align:center;max-width:28rem;padding:1rem}.ok{color:#16a34a}.err{color:#dc2626}</style>
-<div class="box"><h2 class="{{if .OK}}ok{{else}}err{{end}}">{{if .OK}}✔ Conectado{{else}}No se pudo conectar{{end}}</h2>
-<p>{{.Message}}</p><p><a href="/integrations">Volver a Dockfly</a></p></div>
+<div class="box"><h2 class="{{if .OK}}ok{{else}}err{{end}}">{{if .OK}}✔ Connected{{else}}Couldn't connect{{end}}</h2>
+<p>{{.Message}}</p><p><a href="/integrations">Back to Dockfly</a></p></div>
 <script>
-// Esta página se abre en la ventana emergente: avisa al panel y se cierra.
+// This page opens in the popup window: it notifies the panel and closes.
 if (window.opener) {
   window.opener.postMessage({type: "dockfly-oauth", ok: {{.OK}}, message: {{.Message}}}, location.origin);
   window.close();
@@ -116,8 +116,8 @@ func writeCallback(w http.ResponseWriter, ok bool, msg string) {
 
 // --- GitHub App ---
 
-// handleGitHubManifestStart prepara la GitHub App de esta instalación. El
-// navegador envía el manifiesto a GitHub, que crea la app con un clic.
+// handleGitHubManifestStart prepares this installation's GitHub App. The
+// browser posts the manifest to GitHub, which creates the app in one click.
 func (s *Server) handleGitHubManifestStart(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		PanelURL      string `json:"panel_url"`
@@ -142,8 +142,8 @@ func (s *Server) handleGitHubManifestStart(w http.ResponseWriter, r *http.Reques
 	if publicURL != "" {
 		hookURL = publicURL + "/api/hooks/github-app"
 	}
-	// El nombre de una GitHub App es único en todo GitHub: un sufijo
-	// aleatorio evita choques entre instalaciones de Dockfly.
+	// A GitHub App's name is unique across all of GitHub, so a random suffix
+	// avoids clashes between Dockfly installations.
 	manifest := gitprovider.NewManifest("Dockfly "+randomHex(3), panel, hookURL)
 	raw, _ := json.Marshal(manifest)
 	state := s.oauthStates.issue(oauthState{kind: "github_manifest", panelURL: panel, webURL: web, apiURL: apiURL})
@@ -154,19 +154,19 @@ func (s *Server) handleGitHubManifestStart(w http.ResponseWriter, r *http.Reques
 	})
 }
 
-// handleGitHubManifestCallback recibe a la vuelta de GitHub el código con el
-// que se obtienen las credenciales de la app recién creada, y lleva al
-// usuario a instalarla en su cuenta u organización.
+// handleGitHubManifestCallback receives, on the way back from GitHub, the code
+// that the just-created app's credentials are obtained with, and then sends the
+// user off to install it on their account or organization.
 func (s *Server) handleGitHubManifestCallback(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	st, ok := s.oauthStates.take(q.Get("state"), "github_manifest")
 	if !ok {
-		writeCallback(w, false, "El enlace caducó o ya se usó. Vuelve a pulsar «Conectar con GitHub».")
+		writeCallback(w, false, "The link expired or was already used. Click “Connect with GitHub” again.")
 		return
 	}
 	creds, err := gitprovider.ConvertManifest(r.Context(), st.apiURL, q.Get("code"))
 	if err != nil {
-		writeCallback(w, false, "GitHub no devolvió la app: "+err.Error())
+		writeCallback(w, false, "GitHub didn't return the app: "+err.Error())
 		return
 	}
 	app := &store.GitHubApp{
@@ -180,32 +180,33 @@ func (s *Server) handleGitHubManifestCallback(w http.ResponseWriter, r *http.Req
 		app.WebhookActive = true
 	}
 	if err := s.Store.CreateGitHubApp(r.Context(), app); err != nil {
-		s.Log.Error("guardando la GitHub App", "error", err)
-		writeCallback(w, false, "No se pudo guardar la app.")
+		s.Log.Error("saving the GitHub App", "error", err)
+		writeCallback(w, false, "Couldn't save the app.")
 		return
 	}
 	next := s.oauthStates.issue(oauthState{kind: "github_install", panelURL: st.panelURL, appID: app.ID})
 	http.Redirect(w, r, gitprovider.InstallURL(app.WebURL, app.Slug, next), http.StatusFound)
 }
 
-// handleGitHubSetup es adonde vuelve GitHub tras instalar la app (o cambiar
-// sus repositorios): registra la cuenta u organización como conexión.
+// handleGitHubSetup is where GitHub comes back to after the app is installed
+// (or its repositories change): it registers the account or organization as a
+// connection.
 func (s *Server) handleGitHubSetup(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	if q.Get("setup_action") == "request" {
-		writeCallback(w, true, "Se pidió la instalación a un administrador de la organización. Cuando la apruebe, aparecerá aquí.")
+		writeCallback(w, true, "The installation was requested from an organization administrator. It will show up here once they approve it.")
 		return
 	}
 	instID, err := strconv.ParseInt(q.Get("installation_id"), 10, 64)
 	if err != nil || instID < 1 {
-		writeCallback(w, false, "GitHub no indicó la instalación.")
+		writeCallback(w, false, "GitHub didn't say which installation it was.")
 		return
 	}
 	ctx := r.Context()
 
-	// Con un state válido sabemos qué app es. Sin él (el usuario cambió los
-	// repositorios desde GitHub) la buscamos: solo la app dueña de la
-	// instalación puede consultarla, así que no se puede falsificar.
+	// With a valid state we know which app it is. Without one (the user
+	// changed the repositories from GitHub) we look for it: only the app that
+	// owns the installation can query it, so this can't be forged.
 	var apps []*store.GitHubApp
 	if st, ok := s.oauthStates.take(q.Get("state"), "github_install"); ok {
 		if app, err := s.Store.GetGitHubApp(ctx, st.appID); err == nil {
@@ -229,19 +230,19 @@ func (s *Server) handleGitHubSetup(w http.ResponseWriter, r *http.Request) {
 			GitHubAppID: &app.ID, InstallationID: &inst.ID,
 		}
 		if err := s.Store.UpsertInstallation(ctx, conn); err != nil {
-			s.Log.Error("guardando la instalación", "error", err)
-			writeCallback(w, false, "No se pudo guardar la conexión.")
+			s.Log.Error("saving the installation", "error", err)
+			writeCallback(w, false, "Couldn't save the connection.")
 			return
 		}
-		s.Git.Forget(conn.ID) // los repos visibles pudieron cambiar
-		writeCallback(w, true, "GitHub conectado: "+inst.Account)
+		s.Git.Forget(conn.ID) // the visible repos may have changed
+		writeCallback(w, true, "GitHub connected: "+inst.Account)
 		return
 	}
-	writeCallback(w, false, "Esta instalación no pertenece a ninguna GitHub App de este Dockfly.")
+	writeCallback(w, false, "This installation doesn't belong to any GitHub App of this Dockfly.")
 }
 
-// handleGitHubInstallURL devuelve el enlace para instalar la app en otra
-// cuenta u organización.
+// handleGitHubInstallURL returns the link to install the app on another
+// account or organization.
 func (s *Server) handleGitHubInstallURL(w http.ResponseWriter, r *http.Request) {
 	id, ok := pathID(w, r)
 	if !ok {
@@ -285,8 +286,8 @@ func (s *Server) handleDeleteGitHubApp(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// refuseIfInUse responde 409 si algún sitio usa una de las conexiones que
-// cumplen match.
+// refuseIfInUse answers 409 if any site uses one of the connections that
+// match.
 func (s *Server) refuseIfInUse(w http.ResponseWriter, r *http.Request, match func(*store.GitConnection) bool) bool {
 	conns, err := s.Store.ListGitConnections(r.Context())
 	if err != nil {
@@ -299,7 +300,7 @@ func (s *Server) refuseIfInUse(w http.ResponseWriter, r *http.Request, match fun
 			ids = append(ids, c.ID)
 		}
 	}
-	// Sus sitios y apps quedarían sin poder construir y con webhooks huérfanos.
+	// Their sites and apps would be left unable to build and with orphan webhooks.
 	sites, err := s.Store.SitesUsingConnections(r.Context(), ids)
 	if err != nil {
 		s.internalError(w, err)
@@ -340,8 +341,8 @@ func (s *Server) handleListGitApps(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"github": gh, "gitlab": gl})
 }
 
-// syncGitHubWebhooks apunta el webhook de cada GitHub App a la URL pública
-// actual. Se llama al cambiar esa URL.
+// syncGitHubWebhooks points every GitHub App's webhook at the current public
+// URL. It is called when that URL changes.
 func (s *Server) syncGitHubWebhooks(r *http.Request, publicURL string) []string {
 	if publicURL == "" {
 		return nil
@@ -362,15 +363,15 @@ func (s *Server) syncGitHubWebhooks(r *http.Request, publicURL string) []string 
 		}
 		if err != nil {
 			warnings = append(warnings, fmt.Sprintf(
-				"no se pudo actualizar el webhook de la app %s: actívalo en %s con la URL %s/api/hooks/github-app (%v)",
+				"couldn't update the webhook of app %s: enable it at %s with the URL %s/api/hooks/github-app (%v)",
 				app.Name, app.HTMLURL, publicURL, err))
 		}
 	}
 	return warnings
 }
 
-// handleGitHubAppWebhook recibe los eventos de todas las instalaciones de
-// una GitHub App: un único webhook para todos sus repositorios.
+// handleGitHubAppWebhook receives the events from every installation of a
+// GitHub App: a single webhook for all of its repositories.
 func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) {
 	body, err := readWebhookBody(w, r)
 	if err != nil {
@@ -393,14 +394,14 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// Si desinstalan la app de una cuenta, sus conexiones dejan de servir.
+	// If the app is uninstalled from an account, its connections are useless.
 	if instID, ok := gitprovider.ParseGitHubInstallationDeleted(r.Header, body); ok {
 		conns, _ := s.Store.ConnectionsByInstallation(ctx, app.ID, instID)
 		for _, c := range conns {
 			_ = s.Store.DeleteGitConnection(ctx, c.ID)
 			s.Git.Forget(c.ID)
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"status": "instalación eliminada"})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "installation deleted"})
 		return
 	}
 
@@ -410,7 +411,7 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if !isPush {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ignorado"})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ignored"})
 		return
 	}
 	conns, err := s.Store.ConnectionsByInstallation(ctx, app.ID, push.InstallationID)
@@ -462,23 +463,23 @@ func (s *Server) handleGitHubAppWebhook(w http.ResponseWriter, r *http.Request) 
 		}
 	}
 	if handled && len(builds) == 0 {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "rama borrada"})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "branch deleted"})
 		return
 	}
 	if len(builds) == 0 {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ignorado: ningún sitio despliega " + push.Repo + "@" + push.Branch})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ignored: no site deploys " + push.Repo + "@" + push.Branch})
 		return
 	}
-	writeJSON(w, http.StatusAccepted, map[string]any{"status": "en cola", "build_ids": builds})
+	writeJSON(w, http.StatusAccepted, map[string]any{"status": "queued", "build_ids": builds})
 }
 
-// maxWebhookBytes limita el cuerpo de un webhook (un push de GitHub/GitLab es
-// de unos KB). Antes se aceptaban 25 MB sin autenticar.
+// maxWebhookBytes caps a webhook's body (a GitHub/GitLab push is a few KB).
+// It used to accept 25 MB unauthenticated.
 const maxWebhookBytes = 5 << 20
 
-// readWebhookBody lee el cuerpo de un webhook con un tope de tamaño y un
-// plazo de lectura, para que una petición lenta sin autenticar no retenga la
-// conexión ni la memoria.
+// readWebhookBody reads a webhook's body with a size cap and a read deadline,
+// so a slow unauthenticated request can't hold on to the connection or the
+// memory.
 func readWebhookBody(w http.ResponseWriter, r *http.Request) ([]byte, error) {
 	if rc := http.NewResponseController(w); rc != nil {
 		_ = rc.SetReadDeadline(time.Now().Add(15 * time.Second))
@@ -537,7 +538,7 @@ func (s *Server) handleDeleteGitLabApp(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleGitLabAuthorize devuelve la URL de la ventana de autorización.
+// handleGitLabAuthorize returns the URL of the authorization window.
 func (s *Server) handleGitLabAuthorize(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		AppID    int64  `json:"app_id"`
@@ -565,13 +566,13 @@ func (s *Server) handleGitLabCallback(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
 	st, ok := s.oauthStates.take(q.Get("state"), "gitlab")
 	if !ok {
-		writeCallback(w, false, "El enlace caducó o ya se usó. Vuelve a pulsar «Conectar con GitLab».")
+		writeCallback(w, false, "The link expired or was already used. Click “Connect with GitLab” again.")
 		return
 	}
 	if e := q.Get("error"); e != "" {
-		msg := "Cancelaste la autorización."
+		msg := "You canceled the authorization."
 		if e != "access_denied" {
-			msg = "GitLab devolvió un error: " + q.Get("error_description")
+			msg = "GitLab returned an error: " + q.Get("error_description")
 		}
 		writeCallback(w, false, msg)
 		return
@@ -579,7 +580,7 @@ func (s *Server) handleGitLabCallback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	app, err := s.Store.GetGitLabApp(ctx, st.appID)
 	if err != nil {
-		writeCallback(w, false, "La aplicación de GitLab ya no existe.")
+		writeCallback(w, false, "The GitLab application no longer exists.")
 		return
 	}
 	secret, err := s.Secrets.Open(app.ClientSecretEnc)
@@ -596,7 +597,7 @@ func (s *Server) handleGitLabCallback(w http.ResponseWriter, r *http.Request) {
 	p, _ := gitprovider.NewWithOptions(gitprovider.GitLab, apiURL, tok.AccessToken, gitprovider.Options{OAuth: true})
 	user, err := p.CurrentUser(ctx)
 	if err != nil {
-		writeCallback(w, false, "No se pudo leer tu usuario de GitLab: "+err.Error())
+		writeCallback(w, false, "Couldn't read your GitLab user: "+err.Error())
 		return
 	}
 	conn := &store.GitConnection{
@@ -614,5 +615,5 @@ func (s *Server) handleGitLabCallback(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
-	writeCallback(w, true, "GitLab conectado: "+user)
+	writeCallback(w, true, "GitLab connected: "+user)
 }

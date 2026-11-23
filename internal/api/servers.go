@@ -25,9 +25,9 @@ import (
 	"github.com/dockfly/dockfly/internal/tunnel"
 )
 
-// Servidores remotos: cada uno ejecuta "dockfly agent", que se conecta al
-// panel por un túnel. El panel usa su Docker para desplegar las apps y le
-// envía las rutas de su Traefik.
+// Remote servers: each one runs "dockfly agent", which connects to the panel
+// through a tunnel. The panel uses its Docker to deploy the apps and sends it
+// the routes for its Traefik.
 
 const agentTokenPrefix = "dfa_"
 
@@ -45,17 +45,17 @@ var (
 
 var serverNameRe = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]{0,30}[a-z0-9])?$`)
 
-// remotes guarda un cliente Docker por servidor (se crean al primer uso).
+// remotes keeps one Docker client per server (created on first use).
 type remotes struct {
 	mu      sync.Mutex
 	clients map[int64]*docker.Client
-	// Los envíos de configuración a cada servidor van de uno en uno, y uno
-	// que ya quedó viejo (llegó otro después) no se envía.
+	// Configuration pushes to a given server go one at a time, and one that
+	// has gone stale (another came after it) is not sent at all.
 	push map[int64]*sync.Mutex
 	gen  map[int64]uint64
 }
 
-// nextPush reserva el turno de envío a un servidor.
+// nextPush claims the next push slot for a server.
 func (r *remotes) nextPush(id int64) (*sync.Mutex, uint64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -75,7 +75,7 @@ func (r *remotes) latest(id int64, gen uint64) bool {
 	return r.gen[id] == gen
 }
 
-// RemoteDocker es el Docker de un servidor remoto.
+// RemoteDocker is the Docker of a remote server.
 func (s *Server) RemoteDocker(id int64) *docker.Client {
 	s.remotes.mu.Lock()
 	defer s.remotes.mu.Unlock()
@@ -84,7 +84,7 @@ func (s *Server) RemoteDocker(id int64) *docker.Client {
 	}
 	c, ok := s.remotes.clients[id]
 	if !ok {
-		c = docker.NewRemote(fmt.Sprintf("servidor %d", id), func(ctx context.Context) (net.Conn, error) {
+		c = docker.NewRemote(fmt.Sprintf("server %d", id), func(ctx context.Context) (net.Conn, error) {
 			return s.Hub.Dial(ctx, id, tunnel.TargetDocker)
 		})
 		s.remotes.clients[id] = c
@@ -92,8 +92,8 @@ func (s *Server) RemoteDocker(id int64) *docker.Client {
 	return c
 }
 
-// RemoteNetwork es la red de Dockfly en un servidor remoto (la que informó
-// su agente al conectarse).
+// RemoteNetwork is Dockfly's network on a remote server (the one its agent
+// reported when it connected).
 func (s *Server) RemoteNetwork(id int64) string {
 	if info, ok := s.Hub.Online(id); ok && info.Network != "" {
 		return info.Network
@@ -101,10 +101,10 @@ func (s *Server) RemoteNetwork(id int64) string {
 	return "dockfly"
 }
 
-// RemoteProbe pide al agente que compruebe si una app está lista.
+// RemoteProbe asks the agent to check whether an app is ready.
 func (s *Server) RemoteProbe(ctx context.Context, id int64, hostport, path string) bool {
 	q := url.Values{"addr": {hostport}, "path": {path}}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://agente/probe?"+q.Encode(), nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://agent/probe?"+q.Encode(), nil)
 	if err != nil {
 		return false
 	}
@@ -116,7 +116,7 @@ func (s *Server) RemoteProbe(ctx context.Context, id int64, hostport, path strin
 	return resp.StatusCode == http.StatusNoContent
 }
 
-// agentClient habla con la API del agente de un servidor.
+// agentClient talks to the API of a server's agent.
 func (s *Server) agentClient(id int64) *http.Client {
 	return &http.Client{Timeout: 30 * time.Second, Transport: &http.Transport{
 		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
@@ -146,8 +146,8 @@ func (s *Server) handleListServers(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, out)
 }
 
-// handleServerStats devuelve el uso de CPU, memoria y disco de un servidor.
-// El id 0 es el del propio panel; los remotos se le piden a su agente.
+// handleServerStats returns a server's CPU, memory and disk usage. The id 0
+// is the panel itself; remote ones are asked of their agent.
 func (s *Server) handleServerStats(w http.ResponseWriter, r *http.Request) {
 	if chi.URLParam(r, "id") == "0" {
 		st, err := sysinfo.Read(r.Context(), s.DataDir)
@@ -170,13 +170,13 @@ func (s *Server) handleServerStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, st)
 }
 
-// remoteStats le pide a un agente los recursos de su servidor.
+// remoteStats asks an agent for its server's resources.
 func (s *Server) remoteStats(ctx context.Context, id int64) (sysinfo.Stats, error) {
 	var st sysinfo.Stats
 	if _, online := s.Hub.Online(id); !online {
 		return st, errServerOffline
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://agente/stats", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://agent/stats", nil)
 	if err != nil {
 		return st, errServerStats
 	}
@@ -188,7 +188,7 @@ func (s *Server) remoteStats(ctx context.Context, id int64) (sysinfo.Stats, erro
 	switch resp.StatusCode {
 	case http.StatusOK:
 	case http.StatusNotFound:
-		// Un agente anterior a esta versión no tiene /stats.
+		// An agent older than this version has no /stats.
 		return st, errAgentOutdated
 	default:
 		return st, errServerStats
@@ -199,14 +199,14 @@ func (s *Server) remoteStats(ctx context.Context, id int64) (sysinfo.Stats, erro
 	return st, nil
 }
 
-// joinCommand es lo que se ejecuta en el servidor nuevo para conectarlo.
-// joinCommand arma el comando que conecta un servidor nuevo. warning != ""
-// si falta la URL pública HTTPS: el token del agente y la API de Docker del
-// servidor viajan por ese canal, así que debe ir cifrado.
+// joinCommand builds the command to run on the new server to connect it.
+// warning != "" when the public HTTPS URL is missing: the agent's token and
+// the server's Docker API travel over that channel, so it has to be
+// encrypted.
 func (s *Server) joinCommand(ctx context.Context, token string) (cmd, warning string) {
 	panel, _ := s.Store.GetSetting(ctx, store.SettingPublicURL)
 	if !strings.HasPrefix(panel, "https://") {
-		return "", "configura primero la URL pública del panel (https://) en Integraciones: el agente se conecta a ella y el canal debe ir cifrado"
+		return "", "set the panel's public URL (https://) in Integrations first: the agent connects to it and the channel has to be encrypted"
 	}
 	image := s.Image
 	if image == "" {
@@ -262,7 +262,7 @@ func (s *Server) loadServer(w http.ResponseWriter, r *http.Request) (*store.Serv
 	return sv, true
 }
 
-// handleServerToken genera un token nuevo (el anterior deja de valer).
+// handleServerToken issues a new token (the previous one stops working).
 func (s *Server) handleServerToken(w http.ResponseWriter, r *http.Request) {
 	sv, ok := s.loadServer(w, r)
 	if !ok {
@@ -273,7 +273,7 @@ func (s *Server) handleServerToken(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
-	// Echa al agente conectado: el token viejo deja de valer y debe reconectar.
+	// Kick the connected agent: its old token is void and it must reconnect.
 	if s.Hub != nil {
 		s.Hub.Disconnect(sv.ID)
 	}
@@ -303,7 +303,7 @@ func (s *Server) handleDeleteServer(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// --- Lo que llama el agente ---
+// --- What the agent calls ---
 
 func (s *Server) agentServer(w http.ResponseWriter, r *http.Request) (*store.Server, bool) {
 	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
@@ -327,14 +327,14 @@ func (s *Server) handleAgentControl(w http.ResponseWriter, r *http.Request) {
 	addr := middleware.GetClientIP(r.Context())
 	version := r.Header.Get("X-Dockfly-Agent-Version")
 	_ = s.Store.ServerSeen(r.Context(), sv.ID, addr, version)
-	s.Log.Info("agente conectado", "servidor", sv.Name, "ip", addr, "versión", version)
+	s.Log.Info("agent connected", "server", sv.Name, "ip", addr, "version", version)
 	network := r.Header.Get("X-Dockfly-Agent-Network")
 	if network == "" {
 		network = "dockfly"
 	}
 	s.Hub.ServeControl(w, r, sv.ID, tunnel.Info{Version: version, Addr: addr, Network: network, Since: time.Now()})
 	_ = s.Store.ServerSeen(context.WithoutCancel(r.Context()), sv.ID, addr, version)
-	s.Log.Info("agente desconectado", "servidor", sv.Name)
+	s.Log.Info("agent disconnected", "server", sv.Name)
 }
 
 func (s *Server) handleAgentData(w http.ResponseWriter, r *http.Request) {
@@ -345,12 +345,12 @@ func (s *Server) handleAgentData(w http.ResponseWriter, r *http.Request) {
 	s.Hub.ServeData(w, r, sv.ID, chi.URLParam(r, "connID"))
 }
 
-// --- Rutas de cada servidor ---
+// --- Each server's routes ---
 
-// pushServer envía a un servidor la configuración de Traefik de sus apps.
+// pushServer sends a server the Traefik configuration for its apps.
 func (s *Server) pushServer(ctx context.Context, id int64, routes []traefik.Route, extra map[string]any) error {
-	// Enviar a este agente solo los middlewares que usan sus rutas (los hashes
-	// de las listas de acceso de otros servidores no deben salir a este).
+	// Send this agent only the middlewares its own routes use (the access
+	// list hashes of other servers must not leak to this one).
 	used := map[string]any{}
 	for _, rt := range routes {
 		for _, name := range rt.Middlewares {
@@ -363,7 +363,7 @@ func (s *Server) pushServer(ctx context.Context, id int64, routes []traefik.Rout
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, "http://agente/dynamic", bytes.NewReader(data))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPut, "http://agent/dynamic", bytes.NewReader(data))
 	if err != nil {
 		return err
 	}
@@ -373,22 +373,22 @@ func (s *Server) pushServer(ctx context.Context, id int64, routes []traefik.Rout
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("el agente respondió %s", resp.Status)
+		return fmt.Errorf("the agent replied %s", resp.Status)
 	}
 	return nil
 }
 
-// OnAgentConnect envía su configuración al agente que se acaba de conectar
-// (Apply la envía a todos los servidores conectados).
+// OnAgentConnect sends its configuration to the agent that has just
+// connected (Apply sends it to every connected server).
 func (s *Server) OnAgentConnect(int64) {
 	if err := s.Apply(context.Background()); err != nil {
-		s.Log.Warn("aplicando la configuración", "error", err)
+		s.Log.Warn("applying the configuration", "error", err)
 	}
 }
 
-// pushServers envía a cada servidor conectado las rutas de sus apps. Un
-// servidor desconectado conserva su última configuración: sus apps siguen
-// sirviendo, y la recibirá al volver a conectarse.
+// pushServers sends every connected server the routes of its apps. A
+// disconnected server keeps its last configuration: its apps keep serving,
+// and it will get the new one when it connects again.
 func (s *Server) pushServers(routes map[int64][]traefik.Route, extra map[string]any) {
 	servers, err := s.Store.ListServers(context.Background())
 	if err != nil {
@@ -403,12 +403,12 @@ func (s *Server) pushServers(routes map[int64][]traefik.Route, extra map[string]
 			mu.Lock()
 			defer mu.Unlock()
 			if !s.remotes.latest(sv.ID, gen) {
-				return // ya hay una configuración más nueva en camino
+				return // a newer configuration is already on its way
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 			defer cancel()
 			if err := s.pushServer(ctx, sv.ID, routes[sv.ID], extra); err != nil {
-				s.Log.Warn("enviando la configuración al servidor", "servidor", sv.Name, "error", err)
+				s.Log.Warn("sending the configuration to the server", "server", sv.Name, "error", err)
 			}
 		}()
 	}

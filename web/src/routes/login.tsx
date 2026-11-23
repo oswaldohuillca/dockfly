@@ -8,11 +8,11 @@ export const Route = createFileRoute('/login')({
   validateSearch: (search: Record<string, unknown>): { redirect?: string } => ({
     redirect: typeof search.redirect === 'string' ? search.redirect : undefined,
   }),
-  // Con la sesión ya iniciada, no tiene sentido ver el login.
+  // With a session already open, there is no point in showing the login.
   beforeLoad: async ({ search }) => {
     if (await getUser()) throw redirect({ href: safeRedirect(search.redirect) });
   },
-  // En la primera instalación, el mismo formulario crea el administrador.
+  // On the first install, the same form creates the administrator.
   loader: () => api.setupStatus(),
   component: Login,
 });

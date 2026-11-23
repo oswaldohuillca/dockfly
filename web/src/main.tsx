@@ -10,19 +10,19 @@ import { routeTree } from './routeTree.gen';
 
 const router = createRouter({
   routeTree,
-  // Precarga el código de una página al pasar el ratón por su enlace.
+  // Preloads a page's code when the pointer hovers over its link.
   defaultPreload: 'intent',
   scrollRestoration: true,
 });
 
-// Registra el router para que Link, navigate y los parámetros estén tipados.
+// Registers the router so that Link, navigate and the route params are typed.
 declare module '@tanstack/react-router' {
   interface Register {
     router: typeof router;
   }
 }
 
-// El idioma se carga antes de pintar nada: así no hay un instante en inglés.
+// The language is loaded before anything is rendered, so there is no flash of English.
 activateLocale(savedLocale()).then(() =>
   createRoot(document.getElementById('app')!).render(
     <StrictMode>

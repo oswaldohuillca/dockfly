@@ -1,4 +1,4 @@
-// Cliente mínimo de la API de Dockfly. Los tipos reflejan los structs de Go
+// Minimal client for the Dockfly API. The types mirror the Go structs
 // (internal/store, internal/docker, internal/traefik).
 
 import { i18n } from '@lingui/core';
@@ -21,7 +21,7 @@ export interface User {
 export type Role = 'admin' | 'deployer' | 'viewer';
 
 export interface UserEntry extends User {
-  /** Invitado que todavía no ha elegido contraseña. */
+  /** An invited user who has not chosen a password yet. */
   pending: boolean;
 }
 
@@ -58,7 +58,7 @@ export interface DBBackup {
 }
 
 export interface DBBackups {
-  /** '' si la app no es una base de datos conocida. */
+  /** '' when the app is not a known database. */
   engine: DBEngine | '';
   can_restore: boolean;
   policy: DBBackupPolicy;
@@ -96,7 +96,7 @@ export interface TrafficTotals {
 
 export type TrafficRange = '1h' | '24h' | '7d';
 
-/** Últimas 24 h de un proxy host, sitio o app; spark = peticiones por hora. */
+/** The last 24 h of a proxy host, site or app; spark = requests per hour. */
 export interface TrafficSummary extends TrafficTotals {
   spark: number[];
 }
@@ -106,7 +106,7 @@ export interface PasswordLink {
   expires_at: string;
 }
 
-/** Respuesta del login: la sesión, o el ticket para el segundo paso. */
+/** The login response: the session, or the ticket for the second step. */
 export type LoginResult = User | { two_factor: true; ticket: string };
 
 export interface TwoFactorSetup {
@@ -129,7 +129,7 @@ export interface ProxyHost {
   preserve_host: boolean;
   enabled: boolean;
   access_list_id: number | null;
-  /** Ubicaciones personalizadas: una parte del dominio (/api) va a otro destino. */
+  /** Custom locations: part of the domain (/api) goes to a different target. */
   locations: ProxyLocation[];
   created_at: string;
   updated_at: string;
@@ -143,13 +143,13 @@ export interface ProxyLocation {
   forward_scheme: Scheme;
   forward_host: string;
   forward_port: number;
-  /** Quita la ruta antes de reenviar (/api/users → /users). */
+  /** Strips the path before forwarding (/api/users → /users). */
   strip_prefix: boolean;
   access: LocationAccess;
   access_list_id: number | null;
 }
 
-/** Campos editables de un proxy host (lo que acepta la API al crear/editar). */
+/** The editable fields of a proxy host (what the API accepts on create/update). */
 export type ProxyHostInput = Omit<ProxyHost, 'id' | 'created_at' | 'updated_at'>;
 
 export interface SaveResult {
@@ -192,11 +192,11 @@ export interface Deployment {
   commit_sha: string;
   commit_message: string;
   branch: string;
-  /** Rama de la preview ('' = producción). */
+  /** The preview's branch ('' = production). */
   preview: string;
 }
 
-/** Último despliegue de una rama publicada como preview. */
+/** The latest deployment of a branch published as a preview. */
 export interface Preview {
   preview: string;
   branch: string;
@@ -208,11 +208,11 @@ export interface Settings {
   public_url: string;
   preview_domain: string;
   preview_access_list_id: number | null;
-  /** Hay un certificado comodín (zona DNS o propio) para las previews. */
+  /** There is a wildcard certificate (DNS zone or custom) for the previews. */
   preview_ssl: boolean;
 }
 
-/** Configuración de build de un sitio enlazado a un repositorio. */
+/** Build configuration of a site linked to a repository. */
 export interface SiteGit {
   git_connection_id: number | null;
   repo: string;
@@ -234,7 +234,7 @@ export interface SiteGitInput {
   build_command: string;
   output_dir: string;
   build_image: string;
-  /** null = conservar las variables actuales. */
+  /** null = keep the current variables. */
   env: Record<string, string> | null;
 }
 
@@ -310,7 +310,7 @@ export interface Site extends SiteGit {
   spa: boolean;
   previews: boolean;
   access_list_id: number | null;
-  /** Ubicaciones personalizadas: /api → un contenedor; el resto lo sirve el sitio. */
+  /** Custom locations: /api → a container; the site serves everything else. */
   locations: ProxyLocation[];
   active_deployment_id: number | null;
   active_deployment?: Deployment;
@@ -323,7 +323,7 @@ export type SiteInput = Pick<
   'name' | 'domains' | 'ssl' | 'force_https' | 'hsts' | 'spa' | 'previews' | 'access_list_id' | 'locations'
 >;
 
-/** Lo que se sube: un .zip, o los archivos de una carpeta con su ruta relativa. */
+/** What gets uploaded: a .zip, or a folder's files with their relative paths. */
 export type UploadPayload = { archive: File } | { files: { path: string; file: File }[] };
 
 export type CertState = 'valid' | 'expiring' | 'expired' | 'error' | 'pending';
@@ -364,7 +364,7 @@ export interface NotificationChannel {
   last_error: string;
   last_sent_at: string | null;
   created_at: string;
-  /** Los campos secretos llegan enmascarados (SECRET_MASK). */
+  /** The secret fields arrive masked (SECRET_MASK). */
   config: Record<string, unknown>;
 }
 
@@ -376,7 +376,7 @@ export interface ChannelInput {
   config: Record<string, unknown>;
 }
 
-/** Valor con el que el servidor enmascara los secretos; reenviarlo los conserva. */
+/** The value the server masks secrets with; sending it back keeps them. */
 export const SECRET_MASK = '••••••••';
 
 export type AppSource = 'image' | 'git' | 'compose';
@@ -429,9 +429,9 @@ export interface App {
   stopped: boolean;
   current_deployment_id: number | null;
   current?: AppDeployment;
-  /** Servidor remoto donde corre (null = el del panel). */
+  /** The remote server it runs on (null = the panel's own). */
   server_id: number | null;
-  /** Estado real del contenedor (running, exited, restarting…, offline si su servidor no está conectado). */
+  /** The container's real state (running, exited, restarting…, offline when its server is not connected). */
   state: string;
   created_at: string;
   updated_at: string;
@@ -453,7 +453,7 @@ export interface AppInput {
   ssl: boolean;
   force_https: boolean;
   hsts: boolean;
-  /** null = conservar las variables actuales. */
+  /** null = keep the current variables. */
   env: Record<string, string> | null;
   volumes: AppVolume[];
   command: string;
@@ -462,18 +462,18 @@ export interface AppInput {
   health_path: string;
   access_list_id: number | null;
   deploy?: boolean;
-  /** Solo al crearla. */
+  /** Only when creating it. */
   server_id?: number | null;
 }
 
 export interface AppJobInput {
   command: string;
-  /** Expresión cron de cinco campos, en UTC. */
+  /** A five-field cron expression, in UTC. */
   schedule: string;
   enabled: boolean;
 }
 
-/** Tarea programada de una app. last_exit_code: null = sin terminar ninguna vez; -1 = no llegó a ejecutarse. */
+/** An app's scheduled task. last_exit_code: null = it has never finished; -1 = it never ran. */
 export interface AppJob extends AppJobInput {
   id: number;
   last_run_at: string | null;
@@ -481,14 +481,14 @@ export interface AppJob extends AppJobInput {
   last_output: string;
 }
 
-/** Consumo del contenedor de una app; cpu_percent es sobre todos los núcleos del servidor. */
+/** An app container's usage; cpu_percent is across all of the server's cores. */
 export interface AppUsage {
   cpu_percent: number;
   mem_used: number;
   mem_limit: number;
 }
 
-/** Recursos de un servidor; los tamaños van en bytes. */
+/** A server's resources; sizes are in bytes. */
 export interface ServerStats {
   cpu_percent: number;
   cores: number;
@@ -515,7 +515,7 @@ export interface RemoteServer {
   created_at: string;
 }
 
-/** Actualización de Dockfly desde el panel. */
+/** Updating Dockfly from the panel. */
 export interface UpdateInfo {
   current: string;
   latest: { version: string; url: string; notes: string } | null;
@@ -538,7 +538,7 @@ export interface AccessList {
 
 export interface AccessListInput {
   name: string;
-  /** password vacío al editar = conservar la actual. */
+  /** An empty password when editing = keep the current one. */
   users: { username: string; password: string }[];
   allow_ips: string[];
 }
@@ -565,7 +565,7 @@ export interface Stream {
   forward_port: number;
   enabled: boolean;
   created_at: string;
-  /** null si no se puede saber (Dockfly no corre en Docker). */
+  /** null when it cannot be known (Dockfly is not running in Docker). */
   published: boolean | null;
 }
 
@@ -589,7 +589,7 @@ export interface DNSProvider {
   id: number;
   provider: string;
   zones: string[];
-  /** Valores enmascarados (SECRET_MASK); reenviarlos los conserva. */
+  /** Masked values (SECRET_MASK); sending them back keeps them. */
   env: Record<string, string>;
   created_at: string;
 }
@@ -604,9 +604,9 @@ export interface CustomCertificate {
 }
 
 /**
- * Error de la API. code identifica el error (los textos de cada idioma
- * están en api-errors.gen.ts, generado desde Go) y params lleva sus datos;
- * message es el texto de respaldo que envía el servidor, en inglés.
+ * An API error. code identifies the error (the text for each language lives
+ * in api-errors.gen.ts, generated from Go) and params carries its data;
+ * message is the fallback text the server sends, in English.
  */
 export class ApiError extends Error {
   constructor(
@@ -619,14 +619,14 @@ export class ApiError extends Error {
   }
 }
 
-/** Aviso con código que devuelve la API junto a una respuesta correcta (se traduce como un error). */
+/** A coded warning the API returns alongside a successful response (translated like an error). */
 export interface Problem {
   error: string;
   code: string;
   params?: Record<string, unknown>;
 }
 
-/** Construye el ApiError a partir del cuerpo de una respuesta con error. */
+/** Builds the ApiError from the body of an error response. */
 function apiError(status: number, data: { error?: string; code?: string; params?: Record<string, unknown> } | null, fallback: string) {
   return new ApiError(status, data?.error || fallback, data?.code ?? '', data?.params ?? {});
 }
@@ -638,8 +638,8 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     opts.body = JSON.stringify(body);
   }
   const res = await fetch('/api' + path, opts);
-  // Si la sesión caduca mientras se usa el panel, volvemos al login (y de
-  // ahí a la misma página).
+  // If the session expires while the panel is in use, we go back to the login
+  // (and from there back to the same page).
   if (res.status === 401 && !path.startsWith('/auth/') && !path.startsWith('/setup')) {
     const here = window.location.pathname + window.location.search;
     window.location.href = `/login?redirect=${encodeURIComponent(here)}`;
@@ -679,7 +679,7 @@ export const api = {
     ),
   trafficSummary: () => request<Record<string, TrafficSummary>>('GET', '/traffic'),
   listServers: () => request<RemoteServer[]>('GET', '/servers'),
-  /** id 0 = el servidor del panel. */
+  /** id 0 = the panel's own server. */
   serverStats: (id: number) => request<ServerStats>('GET', `/servers/${id}/stats`),
   createServer: (name: string) =>
     request<{ server: RemoteServer; token: string; command: string; warning: string }>('POST', '/servers', { name }),
@@ -796,7 +796,7 @@ export const api = {
   appLogsURL: (id: number) => `/api/apps/${id}/logs`,
 
   getSettings: () => request<Settings>('GET', '/settings'),
-  /** Guarda solo los ajustes indicados (preview_access_list_id: 0 = ninguna). */
+  /** Saves only the settings given (preview_access_list_id: 0 = none). */
   putSettings: (data: Partial<Omit<Settings, 'preview_ssl'>>) =>
     request<{ settings: Settings; warnings: string[] | null }>('PUT', '/settings', data),
 
@@ -819,31 +819,31 @@ export const api = {
   listBuilds: (id: number) => request<Build[]>('GET', `/sites/${id}/builds`),
   triggerBuild: (id: number) => request<Build>('POST', `/sites/${id}/builds`),
   clearBuildCache: (id: number) => request<void>('DELETE', `/sites/${id}/cache`),
-  /** token "" = el sitio no tiene deploy hook. */
+  /** token "" = the site has no deploy hook. */
   getDeployHook: (id: number) => request<{ token: string }>('GET', `/sites/${id}/deploy-hook`),
-  /** Crea el deploy hook o lo regenera (la URL anterior deja de valer). */
+  /** Creates the deploy hook, or regenerates it (the previous URL stops working). */
   createDeployHook: (id: number) => request<{ token: string }>('POST', `/sites/${id}/deploy-hook`),
   deleteDeployHook: (id: number) => request<{ token: string }>('DELETE', `/sites/${id}/deploy-hook`),
   cancelBuild: (id: number) => request<void>('POST', `/builds/${id}/cancel`),
   buildLogsURL: (id: number) => `/api/builds/${id}/logs`,
 };
 
-/** Sube un despliegue: un .zip o los archivos de una carpeta. */
+/** Uploads a deployment: a .zip, or the files of a folder. */
 function uploadDeployment(siteId: number, payload: UploadPayload, onProgress?: (p: number) => void) {
   const form = new FormData();
   if ('archive' in payload) {
     form.append('archive', payload.archive);
   } else {
-    // El servidor lee la ruta del nombre del campo: el nombre del archivo
-    // se recorta a su base al viajar en multipart.
+    // The server reads the path from the field name: the file name itself is
+    // trimmed to its basename while travelling in a multipart body.
     for (const { path, file } of payload.files) form.append(`file:${path}`, file, file.name);
   }
   return upload<Deployment>(`/api/sites/${siteId}/deployments`, form, onProgress);
 }
 
 /**
- * Sube una copia de seguridad para restaurarla. Se confirma con la contraseña
- * del administrador o, en una instalación nueva, con el código de instalación.
+ * Uploads a backup in order to restore it. It is confirmed with the
+ * administrator's password or, on a fresh install, with the setup code.
  */
 export function restoreBackup(
   file: File,
@@ -851,7 +851,7 @@ export function restoreBackup(
   onProgress?: (p: number) => void,
 ) {
   const form = new FormData();
-  // Los campos de confirmación van antes que el archivo (el servidor los lee en orden).
+  // The confirmation fields go before the file (the server reads them in order).
   if (confirm.password) form.append('password', confirm.password);
   if (confirm.setup_token) form.append('setup_token', confirm.setup_token);
   if (confirm.encryption_password) form.append('encryption_password', confirm.encryption_password);
@@ -860,8 +860,8 @@ export function restoreBackup(
 }
 
 /**
- * Descarga la copia completa. Con contraseña, el servidor la cifra (la
- * contraseña va por cabecera, no en la URL). Devuelve el blob a guardar.
+ * Downloads the full backup. With a password, the server encrypts it (the
+ * password travels in a header, not in the URL). Returns the blob to save.
  */
 export async function downloadBackup(password?: string): Promise<Blob> {
   const res = await fetch('/api/backup', {
@@ -872,14 +872,14 @@ export async function downloadBackup(password?: string): Promise<Blob> {
 }
 
 /**
- * Envía un formulario multipart. Usa XMLHttpRequest porque fetch todavía no
- * informa del progreso de subida. onProgress recibe un valor entre 0 y 1.
+ * Sends a multipart form. It uses XMLHttpRequest because fetch still does not
+ * report upload progress. onProgress receives a value between 0 and 1.
  */
 function upload<T>(url: string, form: FormData, onProgress?: (p: number) => void) {
   return new Promise<T>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', url);
-    // Cabecera propia: un formulario de otro sitio no puede añadirla (CSRF).
+    // A custom header: a form from another site cannot add it (CSRF).
     xhr.setRequestHeader('X-Dockfly-Upload', '1');
     xhr.responseType = 'json';
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);
@@ -892,10 +892,10 @@ function upload<T>(url: string, form: FormData, onProgress?: (p: number) => void
   });
 }
 
-/** Mensaje legible de cualquier error capturado en un `catch`. */
-// Valores de parámetros que también se traducen: el tipo de recurso de
-// domain_in_use («…already used by another {kind}»; en español lleva el
-// determinante: «otra app»).
+/** A readable message for any error caught in a `catch`. */
+// Parameter values that are translated as well: the resource kind in
+// domain_in_use ("…already used by another {kind}"; in Spanish it takes a
+// determiner: "otra app").
 const paramLabels: Record<string, Record<string, ReturnType<typeof msg>>> = {
   kind: {
     proxy_host: msg({ context: 'domain owner', message: 'proxy host' }),
@@ -905,7 +905,7 @@ const paramLabels: Record<string, Record<string, ReturnType<typeof msg>>> = {
   },
 };
 
-/** El mensaje de un error, en el idioma activo si la API lo identifica con un código. */
+/** An error's message, in the active language when the API identifies it with a code. */
 export function errorMessage(e: unknown): string {
   if (e instanceof ApiError && e.code && apiErrors[e.code]) {
     const values: Record<string, unknown> = { ...e.params };
@@ -918,7 +918,7 @@ export function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : String(e);
 }
 
-/** Texto traducido de un aviso de la API ("" si no hay aviso). */
+/** The translated text of an API warning ("" when there is no warning). */
 export function problemMessage(p: Problem | null | undefined): string {
   return p ? errorMessage(new ApiError(0, p.error, p.code, p.params ?? {})) : '';
 }

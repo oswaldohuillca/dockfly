@@ -4,5 +4,5 @@ package sysinfo
 
 import "context"
 
-// Read solo existe en Linux, donde corren el panel y los agentes.
+// Read only exists on Linux, where the panel and the agents run.
 func Read(context.Context, string) (Stats, error) { return Stats{}, ErrUnsupported }

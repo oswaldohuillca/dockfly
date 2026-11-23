@@ -20,11 +20,11 @@ import (
 	"github.com/dockfly/dockfly/internal/store"
 )
 
-// Las apps desde docker-compose.yml se despliegan con un contenedor
-// auxiliar efímero que tiene la CLI de Docker y Compose (la imagen de
-// Dockfly es scratch y no los incluye) y habla con el Docker del host.
+// Apps coming from a docker-compose.yml are deployed through an ephemeral
+// helper container that carries the Docker and Compose CLIs (Dockfly's own
+// image is scratch and does not ship them) and talks to the host's Docker.
 
-// ComposeImage es la imagen oficial con la CLI de Docker y Compose.
+// ComposeImage is the official image with the Docker and Compose CLIs.
 const ComposeImage = "docker:cli"
 
 const (
@@ -35,12 +35,12 @@ const (
 	composeService = "com.docker.compose.service"
 )
 
-// ComposeProject es el nombre del proyecto de Compose de una app.
+// ComposeProject is the name of an app's Compose project.
 func ComposeProject(app *store.App) string { return "dockfly-" + app.Name }
 
 func (m *Manager) deployCompose(ctx context.Context, app *store.App, d *store.AppDeployment, log io.Writer) error {
 	if app.ServerID != nil {
-		return errors.New("las apps de Compose solo se pueden desplegar en el servidor principal")
+		return errors.New("Compose apps can only be deployed on the main server")
 	}
 	dc := m.cfg.Docker
 	rc, err := m.fetchSource(ctx, app, d, log)
@@ -55,15 +55,15 @@ func (m *Manager) deployCompose(ctx context.Context, app *store.App, d *store.Ap
 	}
 	env, err := Env(m.cfg.Secrets, app)
 	if err != nil {
-		return fmt.Errorf("leyendo las variables de entorno: %w", err)
+		return fmt.Errorf("reading the environment variables: %w", err)
 	}
 	envList := make([]string, 0, len(env))
 	for k, v := range env {
 		envList = append(envList, k+"="+v)
 	}
 
-	// El código va al contenedor auxiliar en /project, junto con el override
-	// que conecta el servicio web a la red de Dockfly.
+	// The code goes into the helper container at /project, together with the
+	// override that joins the web service to Dockfly's network.
 	var composeYAML []byte
 	pr, pw := io.Pipe()
 	go func() {
@@ -86,7 +86,7 @@ func (m *Manager) deployCompose(ctx context.Context, app *store.App, d *store.Ap
 		return err
 	}
 
-	// El contenedor del servicio web es el que recibe el tráfico.
+	// The container of the web service is the one that takes the traffic.
 	if app.ComposeService != "" {
 		name, err := m.serviceContainer(ctx, app, app.ComposeService)
 		if err != nil {
@@ -101,16 +101,16 @@ func (m *Manager) deployCompose(ctx context.Context, app *store.App, d *store.Ap
 		return err
 	}
 	if err := m.cfg.Apply(context.WithoutCancel(ctx)); err != nil {
-		fmt.Fprintf(log, "⚠ no se pudo actualizar Traefik: %v\n", err)
+		fmt.Fprintf(log, "⚠ Traefik could not be updated: %v\n", err)
 	}
-	_ = dc // el resto lo gestiona Compose
+	_ = dc // Compose takes care of the rest
 	return nil
 }
 
-// runHelper ejecuta un comando en el contenedor auxiliar de Compose y, si
-// archive no es nil, con el proyecto en /project. El auxiliar habla con
-// Docker a través del proxy con permisos mínimos (solo su proyecto, nada de
-// contenedores privilegiados) o, sin proxy, con el socket del host.
+// runHelper runs a command in the Compose helper container and, if archive
+// is not nil, with the project at /project. The helper talks to Docker
+// through the least-privilege proxy (its project only, no privileged
+// containers) or, with no proxy, through the host's socket.
 func (m *Manager) runHelper(ctx context.Context, app *store.App, cmd, env []string, archive io.Reader, log io.Writer) error {
 	dc := m.cfg.Docker
 	ctx, cancel := context.WithTimeout(ctx, composeTimeout)
@@ -126,7 +126,7 @@ func (m *Manager) runHelper(ctx context.Context, app *store.App, cmd, env []stri
 	if m.cfg.ComposeProxy != nil {
 		sess, err := m.proxySession(ctx, app)
 		if err != nil {
-			return fmt.Errorf("preparando el proxy de Docker: %w", err)
+			return fmt.Errorf("preparing the Docker proxy: %w", err)
 		}
 		defer sess.close()
 		spec.Network = sess.network
@@ -141,7 +141,7 @@ func (m *Manager) runHelper(ctx context.Context, app *store.App, cmd, env []stri
 	}
 	id, err := dc.CreateContainer(ctx, spec)
 	if err != nil {
-		return fmt.Errorf("creando el contenedor de Compose: %w", err)
+		return fmt.Errorf("creating the Compose container: %w", err)
 	}
 	defer func() {
 		bg, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -150,7 +150,7 @@ func (m *Manager) runHelper(ctx context.Context, app *store.App, cmd, env []stri
 	}()
 	if archive != nil {
 		if err := dc.PutArchive(ctx, id, "/", archive); err != nil {
-			return fmt.Errorf("copiando el proyecto: %w", err)
+			return fmt.Errorf("copying the project: %w", err)
 		}
 	}
 	if err := dc.StartContainer(ctx, id); err != nil {
@@ -172,15 +172,15 @@ func (m *Manager) runHelper(ctx context.Context, app *store.App, cmd, env []stri
 		return err
 	}
 	if code != 0 {
-		return fmt.Errorf("docker compose terminó con código %d", code)
+		return fmt.Errorf("docker compose exited with code %d", code)
 	}
 	return nil
 }
 
-// proxySession es la conexión de una ejecución del auxiliar con el proxy:
-// una red interna en la que solo están el auxiliar y Dockfly, y un servidor
-// que escucha únicamente en la IP de Dockfly en esa red. Quien llega a él
-// es, por fuerza, el auxiliar de este proyecto.
+// proxySession is the connection between one helper run and the proxy: an
+// internal network holding only the helper and Dockfly, plus a server
+// listening solely on Dockfly's IP in that network. Whoever reaches it can
+// only be this project's helper.
 type proxySession struct {
 	network, addr string
 	close         func()
@@ -197,7 +197,7 @@ func (m *Manager) proxySession(ctx context.Context, app *store.App) (*proxySessi
 		defer cancel()
 		_ = dc.DisconnectNetwork(bg, network, self)
 		if err := dc.RemoveNetwork(bg, network); err != nil {
-			m.cfg.Log.Warn("borrando la red del auxiliar de Compose", "red", network, "error", err)
+			m.cfg.Log.Warn("deleting the Compose helper network", "network", network, "error", err)
 		}
 	}
 	if err := dc.ConnectNetwork(ctx, network, self); err != nil {
@@ -222,8 +222,8 @@ func (m *Manager) proxySession(ctx context.Context, app *store.App) (*proxySessi
 	}}, nil
 }
 
-// CleanupProxyNetworks borra las redes de auxiliares que quedaran de una
-// ejecución interrumpida (p. ej. si Dockfly se reinició a mitad).
+// CleanupProxyNetworks deletes the helper networks left behind by an
+// interrupted run (e.g. if Dockfly restarted halfway through).
 func (m *Manager) CleanupProxyNetworks(ctx context.Context) {
 	if m.cfg.ComposeProxy == nil {
 		return
@@ -243,11 +243,11 @@ func (m *Manager) ensureImage(ctx context.Context, image string, log io.Writer) 
 	if err != nil || ok {
 		return err
 	}
-	fmt.Fprintf(log, "▶ Descargando %s…\n", image)
+	fmt.Fprintf(log, "▶ Pulling %s…\n", image)
 	return m.cfg.Docker.PullImage(ctx, image, log)
 }
 
-// serviceContainer devuelve el nombre del contenedor de un servicio.
+// serviceContainer returns the container name of a service.
 func (m *Manager) serviceContainer(ctx context.Context, app *store.App, service string) (string, error) {
 	ids, err := m.cfg.Docker.ContainersWithLabel(ctx, composeService+"="+service)
 	if err != nil {
@@ -259,16 +259,16 @@ func (m *Manager) serviceContainer(ctx context.Context, app *store.App, service 
 			return info.Name, nil
 		}
 	}
-	return "", fmt.Errorf("no hay ningún contenedor en marcha del servicio %q: revisa el nombre del servicio web", service)
+	return "", fmt.Errorf("no running container for the service %q: check the name of the web service", service)
 }
 
-// projectContainers devuelve los contenedores de un proyecto de Compose.
+// projectContainers returns the containers of a Compose project.
 func (m *Manager) projectContainers(ctx context.Context, app *store.App) ([]string, error) {
 	return m.cfg.Docker.ContainersWithLabel(ctx, composeProject+"="+ComposeProject(app))
 }
 
-// overrideYAML conecta el servicio web a la red de Dockfly (para que
-// Traefik llegue a él) sin tocar el docker-compose.yml del usuario.
+// overrideYAML joins the web service to Dockfly's network (so Traefik can
+// reach it) without touching the user's docker-compose.yml.
 func overrideYAML(network, service string) []byte {
 	doc := map[string]any{}
 	if network != "" && service != "" {
@@ -279,12 +279,12 @@ func overrideYAML(network, service string) []byte {
 	return out
 }
 
-// projectArchive escribe el proyecto como tar bajo project/, añade el
-// override y guarda en composeYAML el contenido del docker-compose.yml.
+// projectArchive writes the project as a tar under project/, adds the
+// override and stores the docker-compose.yml contents in composeYAML.
 func projectArchive(gz io.Reader, w io.Writer, rootDir, composeFile string, composeYAML *[]byte, override []byte) error {
 	zr, err := gzip.NewReader(gz)
 	if err != nil {
-		return fmt.Errorf("el código descargado no es un .tar.gz: %w", err)
+		return fmt.Errorf("the downloaded code is not a .tar.gz: %w", err)
 	}
 	prefix := strings.Trim(path.Clean("/"+rootDir), "/")
 	tr, tw := tar.NewReader(zr), tar.NewWriter(w)
@@ -313,7 +313,7 @@ func projectArchive(gz io.Reader, w io.Writer, rootDir, composeFile string, comp
 			continue
 		}
 		if total += hdr.Size; total > maxContextBytes {
-			return fmt.Errorf("el código supera %d MiB", maxContextBytes>>20)
+			return fmt.Errorf("the code is larger than %d MiB", maxContextBytes>>20)
 		}
 		out := *hdr
 		out.Name = "project/" + rest
@@ -348,9 +348,9 @@ func projectArchive(gz io.Reader, w io.Writer, rootDir, composeFile string, comp
 	return tw.Close()
 }
 
-// relativeBinds detecta bind mounts con rutas relativas al proyecto
-// ("./datos:/datos"): Compose corre en el contenedor auxiliar y esas rutas
-// no existen en el host, así que no funcionarían como se espera.
+// relativeBinds spots bind mounts with paths relative to the project
+// ("./data:/data"): Compose runs inside the helper container and those
+// paths do not exist on the host, so they would not work as expected.
 func relativeBinds(composeYAML []byte) []string {
 	var doc struct {
 		Services map[string]struct {
@@ -372,7 +372,7 @@ func relativeBinds(composeYAML []byte) []string {
 			}
 			if strings.HasPrefix(src, ".") || strings.HasPrefix(src, "~") {
 				out = append(out, fmt.Sprintf(
-					"el servicio %s monta %q, una ruta relativa: no funcionará en Dockfly. Usa un volumen con nombre (p. ej. datos:/ruta).",
+					"the service %s mounts %q, a relative path: that will not work in Dockfly. Use a named volume (e.g. data:/path).",
 					name, src))
 			}
 		}

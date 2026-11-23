@@ -11,7 +11,7 @@ import (
 	"github.com/dockfly/dockfly/internal/traffic"
 )
 
-// Rangos de las gráficas de tráfico: duración y tamaño de cada barra.
+// Ranges for the traffic charts: the total span and the width of each bar.
 var trafficRanges = map[string]struct{ span, step time.Duration }{
 	"1h":  {time.Hour, time.Minute},
 	"24h": {24 * time.Hour, 30 * time.Minute},
@@ -25,7 +25,7 @@ var (
 
 var ownerRe = regexp.MustCompile(`^(ph|site|app|rd)-[0-9]+$|^previews$`)
 
-// handleTraffic devuelve la gráfica de tráfico de un proxy host, sitio o app.
+// handleTraffic returns the traffic chart for a proxy host, site or app.
 func (s *Server) handleTraffic(w http.ResponseWriter, r *http.Request) {
 	owner := chi.URLParam(r, "owner")
 	if !ownerRe.MatchString(owner) {
@@ -42,7 +42,7 @@ func (s *Server) handleTraffic(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	n := int(rg.span / rg.step)
-	// Las barras empiezan en un múltiplo del paso: así no bailan al refrescar.
+	// Bars start on a multiple of the step, so they don't jump on a refresh.
 	end := time.Now().UTC().Truncate(rg.step).Add(rg.step)
 	from := end.Add(-time.Duration(n) * rg.step)
 	rows, err := s.Store.Traffic(r.Context(), owner, from.Unix()/60)
@@ -54,7 +54,8 @@ func (s *Server) handleTraffic(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{"points": points, "totals": totals, "step_seconds": rg.step.Seconds()})
 }
 
-// handleTrafficSummary resume las últimas 24 horas de cada dueño, para las listas.
+// handleTrafficSummary sums up the last 24 hours of every owner, for the
+// lists.
 func (s *Server) handleTrafficSummary(w http.ResponseWriter, r *http.Request) {
 	end := time.Now().UTC().Truncate(time.Hour).Add(time.Hour)
 	from := end.Add(-24 * time.Hour)

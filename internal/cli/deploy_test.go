@@ -15,7 +15,7 @@ func TestDeploy(t *testing.T) {
 	dir := t.TempDir()
 	os.MkdirAll(filepath.Join(dir, "assets"), 0o755)
 	os.MkdirAll(filepath.Join(dir, ".git"), 0o755)
-	os.WriteFile(filepath.Join(dir, "index.html"), []byte("<h1>hola</h1>"), 0o644)
+	os.WriteFile(filepath.Join(dir, "index.html"), []byte("<h1>hi</h1>"), 0o644)
 	os.WriteFile(filepath.Join(dir, "assets", "app.js"), []byte("console.log(1)"), 0o644)
 	os.WriteFile(filepath.Join(dir, ".git", "HEAD"), []byte("ref"), 0o644)
 
@@ -23,7 +23,7 @@ func TestDeploy(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Authorization") != "Bearer dfy_ok" {
 			w.WriteHeader(401)
-			io.WriteString(w, `{"error":"token de API inválido, caducado o revocado"}`)
+			io.WriteString(w, `{"error":"Invalid, expired or revoked API token"}`)
 			return
 		}
 		switch {
@@ -53,28 +53,28 @@ func TestDeploy(t *testing.T) {
 
 	var out, errOut bytes.Buffer
 	if code := Deploy([]string{dir, "--site", "web", "--url", srv.URL + "/", "--token", "dfy_ok"}, &out, &errOut); code != 0 {
-		t.Fatalf("código %d: %s", code, errOut.String())
+		t.Fatalf("exit code %d: %s", code, errOut.String())
 	}
-	if len(got) != 2 || got["file:index.html"] != "<h1>hola</h1>" || got["file:assets/app.js"] != "console.log(1)" {
-		t.Errorf("archivos subidos: %v", got)
+	if len(got) != 2 || got["file:index.html"] != "<h1>hi</h1>" || got["file:assets/app.js"] != "console.log(1)" {
+		t.Errorf("uploaded files: %v", got)
 	}
-	if !strings.Contains(out.String(), "Despliegue #3 publicado") || !strings.Contains(out.String(), "https://web.test") {
-		t.Errorf("salida: %s", out.String())
+	if !strings.Contains(out.String(), "Deployment #3 published") || !strings.Contains(out.String(), "https://web.test") {
+		t.Errorf("output: %s", out.String())
 	}
 
-	// Por variables de entorno, la carpeta después de las opciones.
+	// Through environment variables, with the directory after the options.
 	t.Setenv("DOCKFLY_URL", srv.URL)
-	t.Setenv("DOCKFLY_TOKEN", "dfy_malo")
+	t.Setenv("DOCKFLY_TOKEN", "dfy_bad")
 	errOut.Reset()
-	if code := Deploy([]string{"--site", "web", dir}, io.Discard, &errOut); code != 1 || !strings.Contains(errOut.String(), "token de API inválido") {
-		t.Errorf("token inválido: %d %s", code, errOut.String())
+	if code := Deploy([]string{"--site", "web", dir}, io.Discard, &errOut); code != 1 || !strings.Contains(errOut.String(), "Invalid, expired or revoked API token") {
+		t.Errorf("invalid token: %d %s", code, errOut.String())
 	}
 	if code := Deploy([]string{dir}, io.Discard, io.Discard); code != 2 {
-		t.Errorf("sin --site debe mostrar el uso: %d", code)
+		t.Errorf("without --site it must print the usage: %d", code)
 	}
 	t.Setenv("DOCKFLY_TOKEN", "dfy_ok")
 	errOut.Reset()
-	if code := Deploy([]string{dir, "--site", "otro"}, io.Discard, &errOut); code != 1 || !strings.Contains(errOut.String(), `"otro"`) {
-		t.Errorf("sitio inexistente: %d %s", code, errOut.String())
+	if code := Deploy([]string{dir, "--site", "other"}, io.Discard, &errOut); code != 1 || !strings.Contains(errOut.String(), `"other"`) {
+		t.Errorf("site that does not exist: %d %s", code, errOut.String())
 	}
 }

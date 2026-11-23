@@ -19,7 +19,7 @@ import (
 	"github.com/dockfly/dockfly/internal/traefik"
 )
 
-// --- Catálogo de proveedores DNS (los más habituales de lego) ---
+// --- Catalog of DNS providers (lego's most common ones) ---
 
 type dnsField struct {
 	Env      string `json:"env"`
@@ -35,22 +35,22 @@ type dnsProviderInfo struct {
 	Help   string     `json:"help"`
 }
 
-// Los nombres de variables están verificados en el binario de Traefik v3.7.
+// The variable names are verified against the Traefik v3.7 binary.
 var dnsCatalog = []dnsProviderInfo{
-	{Code: "cloudflare", Name: "Cloudflare", Help: "Crea un API token con el permiso Zone → DNS → Edit para la zona.",
+	{Code: "cloudflare", Name: "Cloudflare", Help: "Create an API token with the Zone → DNS → Edit permission for the zone.",
 		Fields: []dnsField{{Env: "CLOUDFLARE_DNS_API_TOKEN", Label: "API token", Secret: true}}},
-	{Code: "route53", Name: "Amazon Route 53", Help: "Un usuario IAM con permisos sobre route53:ChangeResourceRecordSets en la zona.",
+	{Code: "route53", Name: "Amazon Route 53", Help: "An IAM user with permissions on route53:ChangeResourceRecordSets for the zone.",
 		Fields: []dnsField{{Env: "AWS_ACCESS_KEY_ID", Label: "Access key ID"}, {Env: "AWS_SECRET_ACCESS_KEY", Label: "Secret access key", Secret: true},
-			{Env: "AWS_REGION", Label: "Región", Optional: true}, {Env: "AWS_HOSTED_ZONE_ID", Label: "Hosted zone ID", Optional: true}}},
-	{Code: "digitalocean", Name: "DigitalOcean", Help: "Un token personal con permiso de escritura.",
+			{Env: "AWS_REGION", Label: "Region", Optional: true}, {Env: "AWS_HOSTED_ZONE_ID", Label: "Hosted zone ID", Optional: true}}},
+	{Code: "digitalocean", Name: "DigitalOcean", Help: "A personal token with write permission.",
 		Fields: []dnsField{{Env: "DO_AUTH_TOKEN", Label: "Token", Secret: true}}},
-	{Code: "ovh", Name: "OVH", Help: "Crea las claves en api.ovh.com/createToken con acceso a /domain/zone.",
+	{Code: "ovh", Name: "OVH", Help: "Create the keys at api.ovh.com/createToken with access to /domain/zone.",
 		Fields: []dnsField{{Env: "OVH_ENDPOINT", Label: "Endpoint (ovh-eu, ovh-ca…)"}, {Env: "OVH_APPLICATION_KEY", Label: "Application key"},
 			{Env: "OVH_APPLICATION_SECRET", Label: "Application secret", Secret: true}, {Env: "OVH_CONSUMER_KEY", Label: "Consumer key", Secret: true}}},
 	{Code: "gandiv5", Name: "Gandi", Fields: []dnsField{{Env: "GANDIV5_PERSONAL_ACCESS_TOKEN", Label: "Personal access token", Secret: true}}},
 	{Code: "godaddy", Name: "GoDaddy", Fields: []dnsField{{Env: "GODADDY_API_KEY", Label: "API key"}, {Env: "GODADDY_API_SECRET", Label: "API secret", Secret: true}}},
-	{Code: "namecheap", Name: "Namecheap", Help: "Activa el acceso a la API y añade la IP del servidor a la lista blanca.",
-		Fields: []dnsField{{Env: "NAMECHEAP_API_USER", Label: "Usuario"}, {Env: "NAMECHEAP_API_KEY", Label: "API key", Secret: true}}},
+	{Code: "namecheap", Name: "Namecheap", Help: "Enable API access and add the server's IP to the allowlist.",
+		Fields: []dnsField{{Env: "NAMECHEAP_API_USER", Label: "User"}, {Env: "NAMECHEAP_API_KEY", Label: "API key", Secret: true}}},
 	{Code: "porkbun", Name: "Porkbun", Fields: []dnsField{{Env: "PORKBUN_API_KEY", Label: "API key"}, {Env: "PORKBUN_SECRET_API_KEY", Label: "Secret API key", Secret: true}}},
 	{Code: "duckdns", Name: "Duck DNS", Fields: []dnsField{{Env: "DUCKDNS_TOKEN", Label: "Token", Secret: true}}},
 }
@@ -60,8 +60,8 @@ var (
 	envKeyRe       = regexp.MustCompile(`^[A-Z][A-Z0-9_]{1,63}$`)
 )
 
-// dnsEnvDenied son nombres de variable que no se pasan al proceso de Traefik
-// aunque cumplan el patrón: alterarían la carga de librerías o la salida de red.
+// dnsEnvDenied are variable names that never reach the Traefik process even
+// if they match the pattern: they would alter library loading or network egress.
 var dnsEnvDenied = map[string]bool{
 	"LD_PRELOAD": true, "LD_LIBRARY_PATH": true, "LD_AUDIT": true, "PATH": true,
 	"HTTP_PROXY": true, "HTTPS_PROXY": true, "ALL_PROXY": true, "NO_PROXY": true,
@@ -98,7 +98,7 @@ func (s *Server) handleDNSCatalog(w http.ResponseWriter, r *http.Request) {
 
 type dnsProviderView struct {
 	*store.DNSProvider
-	Env map[string]string `json:"env"` // secretos enmascarados
+	Env map[string]string `json:"env"` // secrets masked out
 }
 
 func (s *Server) dnsEnv(p *store.DNSProvider) map[string]string {
@@ -119,7 +119,7 @@ func (s *Server) handleListDNSProviders(w http.ResponseWriter, r *http.Request) 
 	for i, p := range list {
 		env := s.dnsEnv(p)
 		for k := range env {
-			env[k] = secretMask // todas las variables pueden ser credenciales
+			env[k] = secretMask // any of these variables may be a credential
 		}
 		out[i] = dnsProviderView{DNSProvider: p, Env: env}
 	}
@@ -129,7 +129,7 @@ func (s *Server) handleListDNSProviders(w http.ResponseWriter, r *http.Request) 
 type dnsProviderInput struct {
 	Provider string            `json:"provider"`
 	Zones    []string          `json:"zones"`
-	Env      map[string]string `json:"env"` // un valor enmascarado conserva el guardado
+	Env      map[string]string `json:"env"` // a masked value keeps the stored one
 }
 
 func (in *dnsProviderInput) build(previous map[string]string) (*store.DNSProvider, map[string]string, error) {
@@ -201,7 +201,7 @@ func (s *Server) handleSaveDNSProvider(w http.ResponseWriter, r *http.Request) {
 		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
-	// Una zona solo puede tener un proveedor.
+	// A zone can only have one provider.
 	for _, other := range list {
 		if other.Provider == p.Provider {
 			continue
@@ -225,7 +225,7 @@ func (s *Server) handleSaveDNSProvider(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
-	// Las credenciales llegan a Traefik al arrancar: siempre se reinicia.
+	// The credentials reach Traefik at startup: it always gets restarted.
 	if err := s.syncDNSProviders(ctx, true); err != nil {
 		s.internalError(w, err)
 		return
@@ -256,8 +256,8 @@ func (s *Server) handleDeleteDNSProvider(w http.ResponseWriter, r *http.Request)
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// syncDNSProviders reescribe traefik.yml con un resolver por proveedor y
-// reinicia Traefik (que lee las credenciales al arrancar).
+// syncDNSProviders rewrites traefik.yml with one resolver per provider and
+// restarts Traefik (which reads the credentials at startup).
 func (s *Server) syncDNSProviders(ctx context.Context, restart bool) error {
 	list, err := s.Store.ListDNSProviders(ctx)
 	if err != nil {
@@ -280,8 +280,7 @@ func (s *Server) syncDNSProviders(ctx context.Context, restart bool) error {
 	return nil
 }
 
-// DNSEnv son las credenciales de todos los proveedores, para el entorno de
-// Traefik.
+// DNSEnv is every provider's credentials, for Traefik's environment.
 func (s *Server) DNSEnv() []string {
 	list, err := s.Store.ListDNSProviders(context.Background())
 	if err != nil {
@@ -296,7 +295,7 @@ func (s *Server) DNSEnv() []string {
 	return out
 }
 
-// --- Certificados propios ---
+// --- Own certificates ---
 
 func (s *Server) certDir() string { return filepath.Join(s.DataDir, "certs") }
 
@@ -318,7 +317,7 @@ func (s *Server) handleUploadCustomCert(w http.ResponseWriter, r *http.Request) 
 	if !decode(w, r, &in) {
 		return
 	}
-	// X509KeyPair comprueba que la clave corresponde al certificado.
+	// X509KeyPair checks that the key matches the certificate.
 	pair, err := tls.X509KeyPair([]byte(in.Cert), []byte(in.Key))
 	if err != nil {
 		writeError(w, http.StatusBadRequest, errCertKeyPairInvalid.With("detail", err.Error()))
@@ -377,9 +376,9 @@ func (s *Server) handleDeleteCustomCert(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// writeCertFiles escribe en disco los certificados propios (Traefik los lee
-// de archivos) y borra los que ya no existen. La clave va en claro en disco,
-// con permisos 0600: Traefik la necesita así.
+// writeCertFiles writes our own certificates to disk (Traefik reads them from
+// files) and removes the ones that no longer exist. The key goes to disk in
+// the clear, with 0600 permissions: that's how Traefik needs it.
 func (s *Server) writeCertFiles(ctx context.Context) error {
 	list, err := s.Store.ListCertificates(ctx)
 	if err != nil {
@@ -413,11 +412,11 @@ func (s *Server) writeCertFiles(ctx context.Context) error {
 	return nil
 }
 
-// --- Elección del certificado de cada ruta ---
+// --- Picking the certificate for each route ---
 
-// certPlan decide, para un conjunto de dominios con SSL, de dónde sale el
-// certificado: uno propio que los cubra, Let's Encrypt por DNS si están en
-// una zona configurada, o Let's Encrypt por HTTP.
+// certPlan decides, for a set of domains with SSL, where the certificate
+// comes from: one of ours that covers them, Let's Encrypt over DNS if they
+// sit in a configured zone, or Let's Encrypt over HTTP.
 type certPlan struct {
 	custom []*store.Certificate
 	dns    []*store.DNSProvider
@@ -435,8 +434,8 @@ func (s *Server) loadCertPlan(ctx context.Context) (*certPlan, error) {
 	return &certPlan{custom: custom, dns: dns}, nil
 }
 
-// covers indica si un certificado para names cubre domain (los comodines
-// cubren un solo nivel).
+// covers reports whether a certificate for names covers domain (wildcards
+// cover a single level).
 func covers(names []string, domain string) bool {
 	for _, n := range names {
 		if n == domain {
@@ -451,7 +450,7 @@ func covers(names []string, domain string) bool {
 	return false
 }
 
-// inZone indica si domain pertenece a la zona (o es ella).
+// inZone reports whether domain belongs to the zone (or is the zone).
 func inZone(zone, domain string) bool {
 	domain = strings.TrimPrefix(domain, "*.")
 	return domain == zone || strings.HasSuffix(domain, "."+zone)
@@ -474,8 +473,9 @@ func (p *certPlan) resolver(domains []string) string {
 	return ""
 }
 
-// checkSSL responde 400 si se pide SSL para un comodín que no cubre ni un
-// certificado propio ni una zona DNS: Let's Encrypt no emite comodines por HTTP.
+// checkSSL answers 400 if SSL is asked for a wildcard covered by neither one
+// of our certificates nor a DNS zone: Let's Encrypt doesn't issue wildcards
+// over HTTP.
 func (s *Server) checkSSL(w http.ResponseWriter, r *http.Request, domains []string, ssl bool) bool {
 	if !ssl || !slices.ContainsFunc(domains, func(d string) bool { return strings.HasPrefix(d, "*.") }) {
 		return true
@@ -492,8 +492,8 @@ func (s *Server) checkSSL(w http.ResponseWriter, r *http.Request, domains []stri
 	return true
 }
 
-// customCertMap devuelve los certificados propios indexados por dominio,
-// para el estado de los certificados.
+// customCertMap returns our own certificates indexed by domain, for the
+// certificate status view.
 func (s *Server) customCertMap(ctx context.Context) map[string]*x509.Certificate {
 	out := map[string]*x509.Certificate{}
 	list, err := s.Store.ListCertificates(ctx)
@@ -516,6 +516,6 @@ func (s *Server) customCertMap(ctx context.Context) map[string]*x509.Certificate
 	return out
 }
 
-// PrepareCertificates escribe en disco los certificados propios. Se llama al
-// arrancar, antes del primer Apply (la configuración de Traefik los referencia).
+// PrepareCertificates writes our own certificates to disk. It's called at
+// startup, before the first Apply (Traefik's configuration references them).
 func (s *Server) PrepareCertificates(ctx context.Context) error { return s.writeCertFiles(ctx) }

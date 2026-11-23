@@ -51,7 +51,7 @@ var (
 	errBuildCacheClearFailed = newError("build_cache_clear_failed", "Couldn't clear the cache (is a build running?): {detail}")
 )
 
-// --- Cuentas de GitHub / GitLab ---
+// --- GitHub / GitLab accounts ---
 
 func (s *Server) handleListConnections(w http.ResponseWriter, r *http.Request) {
 	conns, err := s.Store.ListGitConnections(r.Context())
@@ -85,7 +85,7 @@ func (s *Server) handleCreateConnection(w http.ResponseWriter, r *http.Request) 
 		writeErrorFrom(w, http.StatusBadRequest, err, errUnexpected)
 		return
 	}
-	// Validamos el token antes de guardarlo.
+	// Validate the token before storing it.
 	p, _ := gitprovider.New(in.Provider, base, in.Token)
 	user, err := p.CurrentUser(r.Context())
 	if err != nil {
@@ -120,7 +120,7 @@ func (s *Server) handleDeleteConnection(w http.ResponseWriter, r *http.Request) 
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// connectionProvider carga una cuenta y crea su cliente.
+// connectionProvider loads an account and builds its client.
 func (s *Server) connectionProvider(ctx context.Context, id int64) (*store.GitConnection, gitprovider.Provider, error) {
 	conn, err := s.Store.GetGitConnection(ctx, id)
 	if err != nil {
@@ -175,13 +175,13 @@ func (s *Server) handleListBranches(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, branches)
 }
 
-// --- Ajustes ---
+// --- Settings ---
 
 type settingsView struct {
 	PublicURL         string `json:"public_url"`
 	PreviewDomain     string `json:"preview_domain"`
 	PreviewAccessList *int64 `json:"preview_access_list_id"`
-	// PreviewSSL indica si hay un certificado comodín para las previews.
+	// PreviewSSL reports whether there is a wildcard certificate for previews.
 	PreviewSSL bool `json:"preview_ssl"`
 }
 
@@ -218,12 +218,12 @@ func (s *Server) handleGetSettings(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, v)
 }
 
-// handlePutSettings guarda solo los ajustes que vienen en la petición.
+// handlePutSettings saves only the settings present in the request.
 func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 	var in struct {
 		PublicURL     *string `json:"public_url"`
 		PreviewDomain *string `json:"preview_domain"`
-		// 0 = sin lista de acceso.
+		// 0 = no access list.
 		PreviewAccessList *int64 `json:"preview_access_list_id"`
 	}
 	if !decode(w, r, &in) {
@@ -236,7 +236,7 @@ func (s *Server) handlePutSettings(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := s.Apply(ctx); err != nil {
-			s.internalError(w, fmt.Errorf("aplicando configuración: %w", err))
+			s.internalError(w, fmt.Errorf("applying configuration: %w", err))
 			return
 		}
 	}
@@ -304,7 +304,7 @@ func (s *Server) putPublicURL(w http.ResponseWriter, r *http.Request, raw string
 	return publicURL, true
 }
 
-// --- Repositorio de un sitio ---
+// --- A site's repository ---
 
 var (
 	imageRe   = regexp.MustCompile(`^[a-z0-9]+([._/:@-][a-zA-Z0-9]+)*$`)
@@ -323,12 +323,13 @@ type siteGitInput struct {
 	Env            map[string]string `json:"env"`
 }
 
-// relDir normaliza un directorio relativo al repositorio. "" y "." son la raíz.
+// relDir normalizes a directory relative to the repository. "" and "." are the
+// root.
 func relDir(field, dir string) (string, error) {
 	dir = strings.TrimSpace(dir)
 	clean := strings.TrimPrefix(path.Clean("/"+dir), "/")
 	if strings.Contains(dir, "..") {
-		return "", fmt.Errorf("%s no puede contener «..»", field)
+		return "", fmt.Errorf("%s can't contain \"..\"", field)
 	}
 	return clean, nil
 }
@@ -348,11 +349,11 @@ func (in *siteGitInput) validate() error {
 		return errGitInvalidBuildImage.With("image", in.BuildImage)
 	}
 	var err error
-	// relDir solo falla si el directorio contiene "..".
-	if in.RootDir, err = relDir("el directorio raíz", in.RootDir); err != nil {
+	// relDir only fails if the directory contains "..".
+	if in.RootDir, err = relDir("the root directory", in.RootDir); err != nil {
 		return errGitRootDirDotDot
 	}
-	if in.OutputDir, err = relDir("el directorio de salida", in.OutputDir); err != nil {
+	if in.OutputDir, err = relDir("the output directory", in.OutputDir); err != nil {
 		return errGitOutputDirDotDot
 	}
 	for k := range in.Env {
@@ -363,8 +364,8 @@ func (in *siteGitInput) validate() error {
 	return nil
 }
 
-// handlePutSiteGit enlaza un sitio con un repositorio (o actualiza su
-// configuración de build) y registra el webhook de push si es posible.
+// handlePutSiteGit links a site to a repository (or updates its build
+// configuration) and registers the push webhook when possible.
 func (s *Server) handlePutSiteGit(w http.ResponseWriter, r *http.Request) {
 	site, ok := s.loadSite(w, r)
 	if !ok {
@@ -392,7 +393,7 @@ func (s *Server) handlePutSiteGit(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, err)
 		return
 	}
-	// Comprobamos que la rama existe con el token de la cuenta.
+	// Check that the branch exists, using the account's token.
 	if _, err := prov.LatestCommit(ctx, in.Repo, in.Branch); err != nil {
 		writeError(w, http.StatusBadRequest, errGitBranchUnreachable.With("repo", in.Repo, "branch", in.Branch, "detail", err.Error()))
 		return
@@ -401,7 +402,7 @@ func (s *Server) handlePutSiteGit(w http.ResponseWriter, r *http.Request) {
 	git := site.SiteGit
 	sameRepo := git.Repo == in.Repo && git.GitConnectionID != nil && *git.GitConnectionID == conn.ID
 	if !sameRepo {
-		// Otro repositorio: el webhook anterior ya no sirve.
+		// A different repository: the old webhook is no longer any use.
 		s.removeWebhook(ctx, siteHook(site))
 		git.WebhookID, git.WebhookSecret = "", ""
 	}
@@ -476,7 +477,7 @@ func (s *Server) handleListBuilds(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, builds)
 }
 
-// handleTriggerBuild construye el último commit de la rama del sitio.
+// handleTriggerBuild builds the latest commit on the site's branch.
 func (s *Server) handleTriggerBuild(w http.ResponseWriter, r *http.Request) {
 	site, ok := s.loadSite(w, r)
 	if !ok {
@@ -529,9 +530,9 @@ func (s *Server) handleCancelBuild(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// handleBuildLogs transmite el log por Server-Sent Events: primero lo que ya
-// hay y después lo que se va escribiendo, hasta que el build termina.
-// Eventos: "log" (texto), "status" (el build cambió) y "end" (terminó).
+// handleBuildLogs streams the log over Server-Sent Events: first whatever is
+// already there, then whatever gets written, until the build finishes.
+// Events: "log" (text), "status" (the build changed) and "end" (finished).
 func (s *Server) handleBuildLogs(w http.ResponseWriter, r *http.Request) {
 	b, ok := s.loadBuild(w, r)
 	if !ok {
@@ -539,8 +540,8 @@ func (s *Server) handleBuildLogs(w http.ResponseWriter, r *http.Request) {
 	}
 	send := newSSE(w).send
 
-	// El cliente puede tener un estado viejo (p. ej. el de la lista): le
-	// mandamos el actual nada más conectar.
+	// The client may hold a stale state (the one from the list, say), so send
+	// it the current one as soon as it connects.
 	if !send("status", b) {
 		return
 	}
@@ -556,7 +557,7 @@ func (s *Server) handleBuildLogs(w http.ResponseWriter, r *http.Request) {
 	defer tick.Stop()
 
 	for {
-		// El build en cola todavía no tiene log.
+		// A queued build has no log yet.
 		if f == nil {
 			f, _ = os.Open(s.Builds.LogPath(b.ID))
 		}
@@ -574,8 +575,8 @@ func (s *Server) handleBuildLogs(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		}
-		// Comprobamos el estado después de leer: si ya terminó, todo lo que
-		// escribió está en el archivo y lo acabamos de enviar.
+		// Check the status after reading: if it already finished, everything
+		// it wrote is in the file and we just sent it.
 		if b.Finished() {
 			send("end", b)
 			return
@@ -589,8 +590,8 @@ func (s *Server) handleBuildLogs(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return
 		}
-		// Avisamos de los cambios de estado (en cola → construyendo) y del
-		// commit, que en un build manual se conoce al empezar.
+		// Report status changes (queued → building) and the commit, which on a
+		// manual build is only known once it starts.
 		if cur.Status != b.Status || cur.CommitSHA != b.CommitSHA {
 			if !send("status", cur) {
 				return
@@ -602,22 +603,23 @@ func (s *Server) handleBuildLogs(w http.ResponseWriter, r *http.Request) {
 
 // --- Webhooks ---
 
-// denyWebhook responde igual a todo webhook que no se puede verificar: id
-// inexistente, sin webhooks, de otro proveedor o con la firma incorrecta. Así
-// quien llama sin el secreto no averigua qué ids existen.
+// denyWebhook answers the same way to every webhook that can't be verified:
+// unknown id, no webhooks, another provider or a wrong signature. That way a
+// caller without the secret can't find out which ids exist.
 func denyWebhook(w http.ResponseWriter) {
 	writeError(w, http.StatusUnauthorized, errWebhookBadSignature)
 }
 
-// handleWebhook recibe los pushes de GitHub y GitLab. Es la única ruta de
-// escritura sin sesión: la autentica la firma del propio webhook.
+// handleWebhook receives pushes from GitHub and GitLab. It is the only write
+// route without a session: the webhook's own signature authenticates it.
 func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	provider := chi.URLParam(r, "provider")
 	id, ok := pathID(w, r)
 	if !ok {
 		return
 	}
-	// El cuerpo se lee antes de buscar el sitio: un 413 tampoco debe depender de si existe.
+	// The body is read before looking up the site: a 413 must not depend on
+	// whether it exists either.
 	body, err := readWebhookBody(w, r)
 	if err != nil {
 		return
@@ -653,10 +655,10 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, errWebhookBadPayload)
 		return
 	}
-	// GitHub y GitLab reintentan si no reciben 2xx: los eventos que no nos
-	// interesan se confirman igualmente.
+	// GitHub and GitLab retry unless they get a 2xx, so acknowledge the events
+	// we don't care about as well.
 	if !isPush {
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ignorado"})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ignored"})
 		return
 	}
 	id, status, err := s.handleSitePush(r.Context(), site, push)
@@ -673,9 +675,9 @@ func (s *Server) handleWebhook(w http.ResponseWriter, r *http.Request) {
 
 // --- Deploy hook ---
 //
-// Una URL secreta por sitio que lanza un build de su rama: para reconstruir
-// cuando cambia el contenido de un CMS, desde un cron… Solo sirve para eso y
-// solo para ese sitio; si se filtra, se regenera.
+// A secret URL per site that triggers a build of its branch: to rebuild when a
+// CMS's content changes, from a cron job… That is all it can do, and only for
+// that site; if it leaks, regenerate it.
 
 func (s *Server) handleGetDeployHook(w http.ResponseWriter, r *http.Request) {
 	site, ok := s.loadSite(w, r)
@@ -685,8 +687,8 @@ func (s *Server) handleGetDeployHook(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]string{"token": site.DeployHook})
 }
 
-// handleCreateDeployHook crea el hook o, si ya existe, lo regenera (la URL
-// anterior deja de funcionar).
+// handleCreateDeployHook creates the hook or, if it already exists,
+// regenerates it (the old URL stops working).
 func (s *Server) handleCreateDeployHook(w http.ResponseWriter, r *http.Request) {
 	s.setDeployHook(w, r, randomHex(24))
 }
@@ -707,9 +709,9 @@ func (s *Server) setDeployHook(w http.ResponseWriter, r *http.Request, token str
 	writeJSON(w, http.StatusOK, map[string]string{"token": token})
 }
 
-// handleDeployHook lanza un build del sitio dueño del secreto. No lee el
-// cuerpo: cada CMS manda el suyo. Varias llamadas seguidas no se acumulan
-// (Enqueue descarta los builds que seguían en cola).
+// handleDeployHook triggers a build of the site that owns the secret. It does
+// not read the body: every CMS sends its own. Several calls in a row don't
+// pile up (Enqueue drops the builds still waiting in the queue).
 func (s *Server) handleDeployHook(w http.ResponseWriter, r *http.Request) {
 	site, err := s.Store.GetSiteByDeployHook(r.Context(), chi.URLParam(r, "token"))
 	if errors.Is(err, store.ErrNotFound) {
@@ -731,8 +733,8 @@ func (s *Server) handleDeployHook(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusAccepted, map[string]any{"status": "queued", "build_id": b.ID})
 }
 
-// handleClearBuildCache vacía la caché de dependencias del sitio (útil si
-// una caché corrupta provoca errores extraños en el build).
+// handleClearBuildCache empties the site's dependency cache (handy when a
+// corrupt cache causes odd build errors).
 func (s *Server) handleClearBuildCache(w http.ResponseWriter, r *http.Request) {
 	site, ok := s.loadSite(w, r)
 	if !ok {

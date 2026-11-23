@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { api, type AccessList } from '@/lib/api';
 
-/** Elegir quién puede acceder: público o una lista de acceso. */
+/** Choose who can access: everyone, or an access list. */
 export function AccessSelect({ value, onChange }: { value: number | null; onChange: (id: number | null) => void }) {
   const [lists, setLists] = useState<AccessList[]>([]);
   useEffect(() => {

@@ -16,19 +16,19 @@ func TestNormalizeBaseURL(t *testing.T) {
 	cases := []struct{ provider, in, want string }{
 		{GitHub, "", "https://api.github.com"},
 		{GitHub, "https://api.github.com/", "https://api.github.com"},
-		{GitHub, "https://github.miempresa.com", "https://github.miempresa.com/api/v3"},
+		{GitHub, "https://github.mycompany.com", "https://github.mycompany.com/api/v3"},
 		{GitLab, "", "https://gitlab.com/api/v4"},
-		{GitLab, "https://gitlab.miempresa.com", "https://gitlab.miempresa.com/api/v4"},
-		{GitLab, "https://gitlab.miempresa.com/api/v4", "https://gitlab.miempresa.com/api/v4"},
+		{GitLab, "https://gitlab.mycompany.com", "https://gitlab.mycompany.com/api/v4"},
+		{GitLab, "https://gitlab.mycompany.com/api/v4", "https://gitlab.mycompany.com/api/v4"},
 	}
 	for _, c := range cases {
 		got, err := NormalizeBaseURL(c.provider, c.in)
 		if err != nil || got != c.want {
-			t.Errorf("NormalizeBaseURL(%s, %q) = %q, %v; esperaba %q", c.provider, c.in, got, err, c.want)
+			t.Errorf("NormalizeBaseURL(%s, %q) = %q, %v; wanted %q", c.provider, c.in, got, err, c.want)
 		}
 	}
 	if _, err := NormalizeBaseURL(GitHub, "ftp://x"); err == nil {
-		t.Error("una URL que no es http(s) debe rechazarse")
+		t.Error("a URL that is not http(s) must be rejected")
 	}
 }
 
@@ -44,7 +44,7 @@ func TestGitHubClient(t *testing.T) {
 		case "/user/repos":
 			io.WriteString(w, `[{"full_name":"oswa/web","default_branch":"main","private":true},{"full_name":"oswa/api","default_branch":"dev"}]`)
 		case "/repos/oswa/web/commits/main":
-			io.WriteString(w, `{"sha":"abc123","commit":{"message":"Arregla el menú\n\nDetalles largos"}}`)
+			io.WriteString(w, `{"sha":"abc123","commit":{"message":"Fix the menu\n\nLong details"}}`)
 		case "/repos/oswa/web/tarball/abc123":
 			io.WriteString(w, "TARBALL")
 		case "/repos/oswa/web/hooks":
@@ -63,11 +63,11 @@ func TestGitHubClient(t *testing.T) {
 	}
 	repos, err := p.ListRepos(ctx, "WEB")
 	if err != nil || len(repos) != 1 || repos[0].FullName != "oswa/web" || !repos[0].Private {
-		t.Errorf("ListRepos con búsqueda: %+v %v", repos, err)
+		t.Errorf("ListRepos with a search term: %+v %v", repos, err)
 	}
 	c, err := p.LatestCommit(ctx, "oswa/web", "main")
-	if err != nil || c.SHA != "abc123" || c.Message != "Arregla el menú" {
-		t.Errorf("LatestCommit debe quedarse con la primera línea: %+v %v", c, err)
+	if err != nil || c.SHA != "abc123" || c.Message != "Fix the menu" {
+		t.Errorf("LatestCommit must keep only the first line: %+v %v", c, err)
 	}
 	rc, err := p.Tarball(ctx, "oswa/web", "abc123")
 	if err != nil {
@@ -82,12 +82,12 @@ func TestGitHubClient(t *testing.T) {
 		t.Errorf("CreateWebhook: %q %v", id, err)
 	}
 	if err := p.DeleteWebhook(ctx, "oswa/web", "999"); err != nil {
-		t.Errorf("borrar un webhook que ya no existe no es un error: %v", err)
+		t.Errorf("deleting a webhook that is already gone is not an error: %v", err)
 	}
 
-	bad, _ := New(GitHub, srv.URL, "otro")
-	if _, err := bad.CurrentUser(ctx); err == nil || err.Error() != "token inválido o caducado" {
-		t.Errorf("token inválido: %v", err)
+	bad, _ := New(GitHub, srv.URL, "other")
+	if _, err := bad.CurrentUser(ctx); err == nil || err.Error() != "invalid or expired token" {
+		t.Errorf("invalid token: %v", err)
 	}
 }
 
@@ -100,9 +100,9 @@ func TestGitLabClientKeepsEncodedProjectID(t *testing.T) {
 		}
 		gotPath = r.URL.EscapedPath()
 		switch gotPath {
-		case "/api/v4/projects/grupo%2Fsub%2Fweb/repository/commits/main":
-			io.WriteString(w, `{"id":"def456","message":"Primer commit\n"}`)
-		case "/api/v4/projects/grupo%2Fsub%2Fweb/repository/archive.tar.gz":
+		case "/api/v4/projects/group%2Fsub%2Fweb/repository/commits/main":
+			io.WriteString(w, `{"id":"def456","message":"First commit\n"}`)
+		case "/api/v4/projects/group%2Fsub%2Fweb/repository/archive.tar.gz":
 			if r.URL.Query().Get("sha") != "def456" {
 				w.WriteHeader(400)
 				return
@@ -116,13 +116,13 @@ func TestGitLabClientKeepsEncodedProjectID(t *testing.T) {
 	ctx := context.Background()
 
 	p, _ := New(GitLab, srv.URL+"/api/v4", "tok")
-	c, err := p.LatestCommit(ctx, "grupo/sub/web", "main")
-	if err != nil || c.SHA != "def456" || c.Message != "Primer commit" {
-		t.Fatalf("LatestCommit: %+v %v (ruta recibida %s)", c, err, gotPath)
+	c, err := p.LatestCommit(ctx, "group/sub/web", "main")
+	if err != nil || c.SHA != "def456" || c.Message != "First commit" {
+		t.Fatalf("LatestCommit: %+v %v (path received %s)", c, err, gotPath)
 	}
-	rc, err := p.Tarball(ctx, "grupo/sub/web", "def456")
+	rc, err := p.Tarball(ctx, "group/sub/web", "def456")
 	if err != nil {
-		t.Fatalf("Tarball: %v (ruta recibida %s)", err, gotPath)
+		t.Fatalf("Tarball: %v (path received %s)", err, gotPath)
 	}
 	rc.Close()
 }
@@ -134,25 +134,25 @@ func sign(secret string, body []byte) string {
 }
 
 func TestParseGitHubWebhook(t *testing.T) {
-	body := []byte(`{"ref":"refs/heads/main","after":"abc","deleted":false,"head_commit":{"id":"abc","message":"Nueva portada\n\ncuerpo"}}`)
+	body := []byte(`{"ref":"refs/heads/main","after":"abc","deleted":false,"head_commit":{"id":"abc","message":"New home page\n\nbody"}}`)
 	h := http.Header{}
 	h.Set("X-GitHub-Event", "push")
 	h.Set("X-Hub-Signature-256", sign("s3cr3t", body))
 
 	push, ok, err := ParseGitHubWebhook(h, body, "s3cr3t")
-	if err != nil || !ok || push.Branch != "main" || push.Commit.SHA != "abc" || push.Commit.Message != "Nueva portada" {
-		t.Fatalf("push válido: %+v %v %v", push, ok, err)
+	if err != nil || !ok || push.Branch != "main" || push.Commit.SHA != "abc" || push.Commit.Message != "New home page" {
+		t.Fatalf("valid push: %+v %v %v", push, ok, err)
 	}
 
-	if _, _, err := ParseGitHubWebhook(h, body, "otro-secreto"); !errors.Is(err, ErrBadSignature) {
-		t.Error("una firma con otro secreto debe rechazarse")
+	if _, _, err := ParseGitHubWebhook(h, body, "another-secret"); !errors.Is(err, ErrBadSignature) {
+		t.Error("a signature made with a different secret must be rejected")
 	}
 	tampered := []byte(string(body[:len(body)-1]) + " }")
 	if _, _, err := ParseGitHubWebhook(h, tampered, "s3cr3t"); !errors.Is(err, ErrBadSignature) {
-		t.Error("un cuerpo alterado debe rechazarse")
+		t.Error("a tampered body must be rejected")
 	}
 	if _, _, err := ParseGitHubWebhook(h, body, ""); !errors.Is(err, ErrBadSignature) {
-		t.Error("sin secreto configurado nunca debe aceptarse un webhook")
+		t.Error("with no secret configured a webhook must never be accepted")
 	}
 
 	ignore := func(name, event string, body []byte) {
@@ -160,37 +160,37 @@ func TestParseGitHubWebhook(t *testing.T) {
 		h.Set("X-GitHub-Event", event)
 		h.Set("X-Hub-Signature-256", sign("s", body))
 		if _, ok, err := ParseGitHubWebhook(h, body, "s"); ok || err != nil {
-			t.Errorf("%s debe ignorarse sin error: ok=%v err=%v", name, ok, err)
+			t.Errorf("%s must be ignored without an error: ok=%v err=%v", name, ok, err)
 		}
 	}
 	ignore("ping", "ping", []byte(`{"zen":"x"}`))
 	ignore("tag", "push", []byte(`{"ref":"refs/tags/v1","head_commit":{"id":"a"}}`))
 
-	del := []byte(`{"ref":"refs/heads/vieja","deleted":true,"head_commit":null,"repository":{"full_name":"u/r"}}`)
+	del := []byte(`{"ref":"refs/heads/old","deleted":true,"head_commit":null,"repository":{"full_name":"u/r"}}`)
 	h = http.Header{}
 	h.Set("X-GitHub-Event", "push")
 	h.Set("X-Hub-Signature-256", sign("s", del))
-	if p, ok, err := ParseGitHubWebhook(h, del, "s"); !ok || err != nil || !p.Deleted || p.Branch != "vieja" || p.Repo != "u/r" {
-		t.Errorf("una rama borrada debe avisarse: %+v ok=%v err=%v", p, ok, err)
+	if p, ok, err := ParseGitHubWebhook(h, del, "s"); !ok || err != nil || !p.Deleted || p.Branch != "old" || p.Repo != "u/r" {
+		t.Errorf("a deleted branch must be reported: %+v ok=%v err=%v", p, ok, err)
 	}
 }
 
 func TestParseGitLabWebhook(t *testing.T) {
 	body := []byte(`{"object_kind":"push","ref":"refs/heads/main","checkout_sha":"b2",
-		"commits":[{"id":"b1","message":"viejo"},{"id":"b2","message":"Último cambio\n"}]}`)
+		"commits":[{"id":"b1","message":"old"},{"id":"b2","message":"Last change\n"}]}`)
 	h := http.Header{}
 	h.Set("X-Gitlab-Event", "Push Hook")
 	h.Set("X-Gitlab-Token", "tk")
 
 	push, ok, err := ParseGitLabWebhook(h, body, "tk")
-	if err != nil || !ok || push.Branch != "main" || push.Commit.SHA != "b2" || push.Commit.Message != "Último cambio" {
-		t.Fatalf("push válido: %+v %v %v", push, ok, err)
+	if err != nil || !ok || push.Branch != "main" || push.Commit.SHA != "b2" || push.Commit.Message != "Last change" {
+		t.Fatalf("valid push: %+v %v %v", push, ok, err)
 	}
-	if _, _, err := ParseGitLabWebhook(h, body, "otro"); !errors.Is(err, ErrBadSignature) {
-		t.Error("un token incorrecto debe rechazarse")
+	if _, _, err := ParseGitLabWebhook(h, body, "other"); !errors.Is(err, ErrBadSignature) {
+		t.Error("a wrong token must be rejected")
 	}
-	deleted := []byte(`{"ref":"refs/heads/vieja","checkout_sha":null,"commits":[]}`)
-	if p, ok, err := ParseGitLabWebhook(h, deleted, "tk"); !ok || err != nil || !p.Deleted || p.Branch != "vieja" {
-		t.Errorf("una rama borrada debe avisarse: %+v ok=%v err=%v", p, ok, err)
+	deleted := []byte(`{"ref":"refs/heads/old","checkout_sha":null,"commits":[]}`)
+	if p, ok, err := ParseGitLabWebhook(h, deleted, "tk"); !ok || err != nil || !p.Deleted || p.Branch != "old" {
+		t.Errorf("a deleted branch must be reported: %+v ok=%v err=%v", p, ok, err)
 	}
 }

@@ -11,8 +11,8 @@ import (
 	"strings"
 )
 
-// ContainerSpec es el subconjunto de la configuración de contenedor que
-// usan los builds.
+// ContainerSpec is the subset of the container configuration that builds
+// use.
 type ContainerSpec struct {
 	Name       string
 	Image      string
@@ -24,20 +24,20 @@ type ContainerSpec struct {
 	MemoryMB   int64
 	CPUs       float64
 	PidsLimit  int64
-	// Volumes monta volúmenes con nombre: nombre → ruta en el contenedor.
+	// Volumes mounts named volumes: name → path inside the container.
 	Volumes map[string]string
-	// KeepCaps conserva las capabilities por defecto (solo para contenedores
-	// auxiliares de Dockfly que no ejecutan código del usuario).
+	// KeepCaps keeps the default capabilities (only for Dockfly's own helper
+	// containers, which never run user code).
 	KeepCaps bool
-	// Binds monta rutas del host ("origen:destino"). Solo para auxiliares.
+	// Binds mounts host paths ("source:target"). Helpers only.
 	Binds []string
-	// Network, si no está vacío, es la red del contenedor (en vez de bridge).
+	// Network, when not empty, is the container's network (instead of bridge).
 	Network string
-	// Restart es la política de reinicio ("" = no reiniciar).
+	// Restart is the restart policy ("" = do not restart).
 	Restart string
-	// ReadOnly monta el sistema de archivos raíz en solo lectura.
+	// ReadOnly mounts the root filesystem read-only.
 	ReadOnly bool
-	// NoHealthcheck desactiva el healthcheck de la imagen.
+	// NoHealthcheck turns off the image's healthcheck.
 	NoHealthcheck bool
 }
 
@@ -69,8 +69,8 @@ func IsNotFound(err error) bool {
 	return errors.As(err, &e) && e.Status == http.StatusNotFound
 }
 
-// WithDefaultTag añade ":latest" si la referencia no tiene tag ni digest.
-// Sin tag, la API de Docker descargaría todas las tags de la imagen.
+// WithDefaultTag adds ":latest" when the reference carries no tag or digest.
+// Without a tag, the Docker API would pull every tag of the image.
 func WithDefaultTag(ref string) string {
 	if strings.Contains(ref, "@") {
 		return ref
@@ -90,15 +90,15 @@ func (c *Client) ImageExists(ctx context.Context, ref string) (bool, error) {
 	return err == nil, err
 }
 
-// PullImage descarga una imagen y escribe en log un resumen del progreso.
+// PullImage downloads an image and writes a summary of the progress to log.
 func (c *Client) PullImage(ctx context.Context, ref string, log io.Writer) error {
 	resp, err := c.raw(ctx, c.stream, http.MethodPost, "/images/create?fromImage="+url.QueryEscape(WithDefaultTag(ref)), nil, "")
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
-	// La respuesta es un flujo de objetos JSON; un error a mitad de la
-	// descarga llega como {"error": "..."} con código 200.
+	// The response is a stream of JSON objects; an error midway through the
+	// download arrives as {"error": "..."} with status 200.
 	dec := json.NewDecoder(resp.Body)
 	for {
 		var msg struct {
@@ -114,7 +114,7 @@ func (c *Client) PullImage(ctx context.Context, ref string, log io.Writer) error
 		if msg.Error != "" {
 			return errors.New(msg.Error)
 		}
-		// Solo las líneas de estado general: las de progreso por capa son ruido.
+		// Only the overall status lines: per-layer progress is just noise.
 		if msg.ID == "" || strings.HasPrefix(msg.Status, "Pull complete") || strings.HasPrefix(msg.Status, "Digest") {
 			fmt.Fprintf(log, "%s %s\n", msg.ID, msg.Status)
 		}
@@ -124,11 +124,11 @@ func (c *Client) PullImage(ctx context.Context, ref string, log io.Writer) error
 func (c *Client) CreateContainer(ctx context.Context, spec ContainerSpec) (string, error) {
 	host := map[string]any{
 		"Memory":      spec.MemoryMB << 20,
-		"MemorySwap":  spec.MemoryMB << 20, // sin swap extra
+		"MemorySwap":  spec.MemoryMB << 20, // no extra swap
 		"NanoCpus":    int64(spec.CPUs * 1e9),
 		"PidsLimit":   spec.PidsLimit,
 		"SecurityOpt": []string{"no-new-privileges"},
-		"Init":        true, // reaprovecha procesos huérfanos de los scripts
+		"Init":        true, // reaps the orphan processes left by scripts
 	}
 	if !spec.KeepCaps {
 		host["CapDrop"] = []string{"ALL"}
@@ -159,9 +159,9 @@ func (c *Client) CreateContainer(ctx context.Context, spec ContainerSpec) (strin
 		"User":       spec.User,
 		"WorkingDir": spec.WorkingDir,
 		"Labels":     spec.Labels,
-		// Sin TTY: las herramientas no dibujan barras de progreso con \r
-		// (ilegibles en un log) y los logs llegan multiplexados (stdout y
-		// stderr con una cabecera de 8 bytes por trama).
+		// No TTY: tools then skip the \r progress bars (unreadable in a log)
+		// and the logs arrive multiplexed (stdout and stderr with an 8-byte
+		// header per frame).
 		"Tty":        false,
 		"HostConfig": host,
 	}
@@ -181,7 +181,7 @@ func (c *Client) CreateContainer(ctx context.Context, spec ContainerSpec) (strin
 	return out.ID, nil
 }
 
-// PutArchive extrae un tar dentro del contenedor, en dir.
+// PutArchive extracts a tar inside the container, into dir.
 func (c *Client) PutArchive(ctx context.Context, id, dir string, tar io.Reader) error {
 	resp, err := c.raw(ctx, c.stream, http.MethodPut,
 		"/containers/"+id+"/archive?path="+url.QueryEscape(dir), tar, "application/x-tar")
@@ -192,8 +192,8 @@ func (c *Client) PutArchive(ctx context.Context, id, dir string, tar io.Reader) 
 	return nil
 }
 
-// GetArchive devuelve como tar el contenido de path. Las entradas empiezan
-// por el nombre base de path (p. ej. "dist/index.html").
+// GetArchive returns the contents of path as a tar. Entries start with the
+// base name of path (e.g. "dist/index.html").
 func (c *Client) GetArchive(ctx context.Context, id, path string) (io.ReadCloser, error) {
 	resp, err := c.raw(ctx, c.stream, http.MethodGet, "/containers/"+id+"/archive?path="+url.QueryEscape(path), nil, "")
 	if err != nil {
@@ -206,7 +206,7 @@ func (c *Client) StartContainer(ctx context.Context, id string) error {
 	return c.do(ctx, http.MethodPost, "/containers/"+id+"/start", nil, nil)
 }
 
-// Logs sigue la salida del contenedor hasta que termina.
+// Logs follows the container's output until it finishes.
 func (c *Client) Logs(ctx context.Context, id string) (io.ReadCloser, error) {
 	resp, err := c.raw(ctx, c.stream, http.MethodGet, "/containers/"+id+"/logs?follow=1&stdout=1&stderr=1", nil, "")
 	if err != nil {
@@ -215,7 +215,7 @@ func (c *Client) Logs(ctx context.Context, id string) (io.ReadCloser, error) {
 	return resp.Body, nil
 }
 
-// Wait espera a que el contenedor termine y devuelve su código de salida.
+// Wait waits for the container to finish and returns its exit code.
 func (c *Client) Wait(ctx context.Context, id string) (int, error) {
 	resp, err := c.raw(ctx, c.stream, http.MethodPost, "/containers/"+id+"/wait?condition=not-running", nil, "")
 	if err != nil {
@@ -237,8 +237,8 @@ func (c *Client) Wait(ctx context.Context, id string) (int, error) {
 	return out.StatusCode, nil
 }
 
-// RemoveContainer borra el contenedor (deteniéndolo si hace falta) y sus
-// volúmenes anónimos. No es un error que ya no exista.
+// RemoveContainer deletes the container (stopping it if need be) and its
+// anonymous volumes. It no longer existing is not an error.
 func (c *Client) RemoveContainer(ctx context.Context, id string) error {
 	err := c.do(ctx, http.MethodDelete, "/containers/"+id+"?force=1&v=1", nil, nil)
 	if IsNotFound(err) {
@@ -247,8 +247,8 @@ func (c *Client) RemoveContainer(ctx context.Context, id string) error {
 	return err
 }
 
-// ContainersWithLabel devuelve los IDs de los contenedores (en cualquier
-// estado) que tienen la etiqueta indicada.
+// ContainersWithLabel returns the IDs of the containers (in any state) that
+// carry the given label.
 func (c *Client) ContainersWithLabel(ctx context.Context, label string) ([]string, error) {
 	filters, _ := json.Marshal(map[string][]string{"label": {label}})
 	var raw []struct {
@@ -264,7 +264,7 @@ func (c *Client) ContainersWithLabel(ctx context.Context, label string) ([]strin
 	return ids, nil
 }
 
-// VolumeExists indica si existe un volumen con ese nombre.
+// VolumeExists reports whether a volume with that name exists.
 func (c *Client) VolumeExists(ctx context.Context, name string) (bool, error) {
 	err := c.do(ctx, http.MethodGet, "/volumes/"+url.PathEscape(name), nil, nil)
 	if IsNotFound(err) {
@@ -277,7 +277,7 @@ func (c *Client) CreateVolume(ctx context.Context, name string, labels map[strin
 	return c.do(ctx, http.MethodPost, "/volumes/create", map[string]any{"Name": name, "Labels": labels}, nil)
 }
 
-// RemoveVolume borra un volumen. No es un error que no exista.
+// RemoveVolume deletes a volume. It not existing is not an error.
 func (c *Client) RemoveVolume(ctx context.Context, name string) error {
 	err := c.do(ctx, http.MethodDelete, "/volumes/"+url.PathEscape(name)+"?force=1", nil, nil)
 	if IsNotFound(err) {

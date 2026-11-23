@@ -1,6 +1,6 @@
-// Package sysinfo lee el uso de CPU, memoria y disco de la máquina. Dentro
-// de un contenedor, /proc/stat y /proc/meminfo siguen siendo los del host,
-// que es lo que interesa: los recursos del servidor, no los del contenedor.
+// Package sysinfo reads the machine's CPU, memory and disk usage. Inside a
+// container, /proc/stat and /proc/meminfo are still the host's, which is what
+// matters here: the server's resources, not the container's.
 package sysinfo
 
 import (
@@ -9,10 +9,10 @@ import (
 	"strings"
 )
 
-// ErrUnsupported: solo hay lectura de recursos en Linux.
-var ErrUnsupported = errors.New("recursos del sistema no disponibles en esta plataforma")
+// ErrUnsupported: resource readings are only available on Linux.
+var ErrUnsupported = errors.New("system resources are not available on this platform")
 
-// Stats es una foto de los recursos de un servidor. Los tamaños van en bytes.
+// Stats is a snapshot of a server's resources. Sizes are in bytes.
 type Stats struct {
 	CPUPercent    float64 `json:"cpu_percent"`
 	Cores         int     `json:"cores"`
@@ -28,8 +28,8 @@ type Stats struct {
 	UptimeSeconds int64   `json:"uptime_seconds"`
 }
 
-// cpuTimes saca de la primera línea de /proc/stat el tiempo total y el ocioso
-// (idle + iowait), en ticks.
+// cpuTimes takes the total and the idle time (idle + iowait) from the first
+// line of /proc/stat, in ticks.
 func cpuTimes(stat string) (total, idle uint64, ok bool) {
 	line, _, _ := strings.Cut(stat, "\n")
 	f := strings.Fields(line)
@@ -41,7 +41,7 @@ func cpuTimes(stat string) (total, idle uint64, ok bool) {
 		if err != nil {
 			return 0, 0, false
 		}
-		// guest y guest_nice (campos 9 y 10) ya van dentro de user y nice.
+		// guest and guest_nice (fields 9 and 10) are already inside user and nice.
 		if i < 8 {
 			total += v
 		}
@@ -52,7 +52,7 @@ func cpuTimes(stat string) (total, idle uint64, ok bool) {
 	return total, idle, true
 }
 
-// cpuPercent es el uso de CPU entre dos lecturas de /proc/stat.
+// cpuPercent is the CPU usage between two readings of /proc/stat.
 func cpuPercent(before, after string) float64 {
 	t0, i0, ok0 := cpuTimes(before)
 	t1, i1, ok1 := cpuTimes(after)
@@ -62,7 +62,7 @@ func cpuPercent(before, after string) float64 {
 	return 100 * (1 - float64(i1-i0)/float64(t1-t0))
 }
 
-// meminfo devuelve, en bytes, los campos de /proc/meminfo (que van en kB).
+// meminfo returns the fields of /proc/meminfo (which are in kB) in bytes.
 func meminfo(data string) map[string]uint64 {
 	out := map[string]uint64{}
 	for line := range strings.SplitSeq(data, "\n") {

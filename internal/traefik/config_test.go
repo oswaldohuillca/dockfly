@@ -12,7 +12,7 @@ import (
 func TestBuildDynamicEmpty(t *testing.T) {
 	httpCfg := BuildDynamic(nil, nil)["http"].(map[string]any)
 	if _, ok := httpCfg["routers"]; ok {
-		t.Error("sin hosts no debe haber sección routers (Traefik la rechaza vacía)")
+		t.Error("with no hosts there must be no routers section (Traefik rejects an empty one)")
 	}
 }
 
@@ -36,38 +36,38 @@ func TestBuildDynamic(t *testing.T) {
 	services := httpCfg["services"].(map[string]any)
 
 	if _, ok := routers["ph-3"]; ok {
-		t.Error("un host desactivado no debe generar routers")
+		t.Error("a disabled host must not generate routers")
 	}
 
 	r1 := routers["ph-1"].(map[string]any)
 	if r1["rule"] != "Host(`a.com`) || Host(`www.a.com`)" {
-		t.Errorf("regla inesperada: %v", r1["rule"])
+		t.Errorf("unexpected rule: %v", r1["rule"])
 	}
 	if mw := r1["middlewares"].([]string); mw[0] != mwRedirectHTTPS {
-		t.Errorf("el router HTTP debe redirigir a HTTPS, tiene %v", mw)
+		t.Errorf("the HTTP router must redirect to HTTPS, it has %v", mw)
 	}
 	sec := routers["ph-1-secure"].(map[string]any)
 	if sec["tls"].(map[string]any)["certResolver"] != CertResolver {
-		t.Error("el router seguro debe usar el resolver ACME")
+		t.Error("the secure router must use the ACME resolver")
 	}
 
 	if _, ok := routers["ph-2-secure"]; ok {
-		t.Error("sin SSL no debe haber router seguro")
+		t.Error("without SSL there must be no secure router")
 	}
 	lb2 := services["ph-2"].(map[string]any)["loadBalancer"].(map[string]any)
 	if lb2["passHostHeader"] != false {
-		t.Error("sin preserve_host, Traefik debe enviar el Host del destino")
+		t.Error("without preserve_host, Traefik must send the target's Host")
 	}
 	if lb2["serversTransport"] != transportNoCheck {
-		t.Error("skip_tls_verify debe usar el transporte inseguro")
+		t.Error("skip_tls_verify must use the insecure transport")
 	}
 	if _, ok := httpCfg["serversTransports"]; !ok {
-		t.Error("falta definir serversTransports")
+		t.Error("serversTransports is not defined")
 	}
 
 	lb4 := services["ph-4"].(map[string]any)["loadBalancer"].(map[string]any)
 	if url := lb4["servers"].([]map[string]any)[0]["url"]; url != "http://[fd00::1]:80" {
-		t.Errorf("URL IPv6 mal formada: %v", url)
+		t.Errorf("malformed IPv6 URL: %v", url)
 	}
 }
 
@@ -75,26 +75,26 @@ func TestSiteRoute(t *testing.T) {
 	site := &store.Site{ID: 3, Domains: []string{"web.com"}, SSL: true, ForceHTTPS: true}
 	rt, ok := SiteRoute(site, "http://127.0.0.1:8099")
 	if !ok {
-		t.Fatal("un sitio con dominios debe generar ruta")
+		t.Fatal("a site with domains must generate a route")
 	}
 	httpCfg := BuildDynamic([]Route{rt}, nil)["http"].(map[string]any)
 	routers := httpCfg["routers"].(map[string]any)
 
 	secure := routers["site-3-secure"].(map[string]any)
 	if mw := secure["middlewares"].([]string); mw[0] != mwCompress {
-		t.Errorf("los sitios deben comprimirse: %v", mw)
+		t.Errorf("sites must be compressed: %v", mw)
 	}
-	// Con redirección a HTTPS, el router HTTP solo redirige.
+	// With the HTTPS redirect, the HTTP router only redirects.
 	if mw := routers["site-3"].(map[string]any)["middlewares"].([]string); len(mw) != 1 || mw[0] != mwRedirectHTTPS {
-		t.Errorf("el router HTTP debe solo redirigir: %v", mw)
+		t.Errorf("the HTTP router must only redirect: %v", mw)
 	}
 	lb := httpCfg["services"].(map[string]any)["site-3"].(map[string]any)["loadBalancer"].(map[string]any)
 	if lb["passHostHeader"] != true {
-		t.Error("el servidor estático necesita el Host original para elegir el sitio")
+		t.Error("the static server needs the original Host to pick the site")
 	}
 
 	if _, ok := SiteRoute(&store.Site{ID: 4}, "x"); ok {
-		t.Error("un sitio sin dominios no debe generar ruta")
+		t.Error("a site without domains must not generate a route")
 	}
 }
 
@@ -102,13 +102,13 @@ func TestAccessListMiddlewares(t *testing.T) {
 	extra := map[string]any{}
 	names := AccessListMiddlewares(4, []string{"10.0.0.0/8"}, map[string]string{"oswa": "$2a$10$x"}, extra)
 	if len(names) != 2 || names[0] != "acl-4-ip" || names[1] != "acl-4-auth" {
-		t.Fatalf("nombres: %v", names)
+		t.Fatalf("names: %v", names)
 	}
 	rt := Route{Name: "ph-1", Domains: []string{"a.com"}, URL: "http://x", SSL: true, ForceHTTPS: true, Compress: true, Middlewares: names}
 	httpCfg := BuildDynamic([]Route{rt}, extra)["http"].(map[string]any)
 	secure := httpCfg["routers"].(map[string]any)["ph-1-secure"].(map[string]any)["middlewares"].([]string)
 	if strings.Join(secure, ",") != "acl-4-ip,acl-4-auth,dockfly-compress" {
-		t.Errorf("el acceso debe comprobarse antes de comprimir: %v", secure)
+		t.Errorf("access must be checked before compressing: %v", secure)
 	}
 	auth := httpCfg["middlewares"].(map[string]any)["acl-4-auth"].(map[string]any)["basicAuth"].(map[string]any)
 	if auth["users"].([]string)[0] != "oswa:$2a$10$x" || auth["removeHeader"] != true {
@@ -117,69 +117,69 @@ func TestAccessListMiddlewares(t *testing.T) {
 }
 
 func TestRedirectRoute(t *testing.T) {
-	rt := Route{Name: "rd-1", Domains: []string{"viejo.com"}, SSL: true, ForceHTTPS: true,
-		Redirect: &Redirect{Target: "https://nuevo.com", Permanent: true, PreservePath: true}}
+	rt := Route{Name: "rd-1", Domains: []string{"old.com"}, SSL: true, ForceHTTPS: true,
+		Redirect: &Redirect{Target: "https://new.com", Permanent: true, PreservePath: true}}
 	httpCfg := BuildDynamic([]Route{rt}, nil)["http"].(map[string]any)
 	routers := httpCfg["routers"].(map[string]any)
 	for _, name := range []string{"rd-1", "rd-1-secure"} {
 		r := routers[name].(map[string]any)
 		if r["service"] != "noop@internal" || !slices.Contains(r["middlewares"].([]string), "rd-1-redirect") {
-			t.Errorf("%s debe redirigir sin backend: %v", name, r)
+			t.Errorf("%s must redirect with no backend: %v", name, r)
 		}
 	}
 	mw := httpCfg["middlewares"].(map[string]any)["rd-1-redirect"].(map[string]any)["redirectRegex"].(map[string]any)
-	if mw["replacement"] != "https://nuevo.com${1}" || mw["permanent"] != true {
+	if mw["replacement"] != "https://new.com${1}" || mw["permanent"] != true {
 		t.Errorf("redirectRegex: %v", mw)
 	}
-	// Solo hay redirecciones: sin la sección services (Traefik rechaza las vacías).
+	// Only redirects: no services section (Traefik rejects empty ones).
 	if _, ok := httpCfg["services"]; ok {
-		t.Error("sin servicios reales no debe haber sección services")
+		t.Error("with no real services there must be no services section")
 	}
 }
 
 func TestWildcardAndResolvers(t *testing.T) {
 	routes := []Route{
-		{Name: "comodin", Domains: []string{"*.ejemplo.com", "ejemplo.com"}, URL: "http://x", SSL: true, Resolver: DNSResolver("cloudflare")},
-		{Name: "concreto", Domains: []string{"app.ejemplo.com"}, URL: "http://y", SSL: true, Resolver: NoResolver},
+		{Name: "wildcard", Domains: []string{"*.example.com", "example.com"}, URL: "http://x", SSL: true, Resolver: DNSResolver("cloudflare")},
+		{Name: "concrete", Domains: []string{"app.example.com"}, URL: "http://y", SSL: true, Resolver: NoResolver},
 	}
 	httpCfg := BuildDynamic(routes, nil)["http"].(map[string]any)
 	routers := httpCfg["routers"].(map[string]any)
-	w := routers["comodin-secure"].(map[string]any)
-	if w["rule"] != "HostRegexp(`^[a-z0-9-]+\\.ejemplo\\.com$`) || Host(`ejemplo.com`)" {
-		t.Errorf("regla comodín: %v", w["rule"])
+	w := routers["wildcard-secure"].(map[string]any)
+	if w["rule"] != "HostRegexp(`^[a-z0-9-]+\\.example\\.com$`) || Host(`example.com`)" {
+		t.Errorf("wildcard rule: %v", w["rule"])
 	}
 	if w["priority"] != 1 {
-		t.Error("el comodín debe tener la prioridad mínima para no tragarse los hosts concretos")
+		t.Error("the wildcard must have the lowest priority so it does not swallow the concrete hosts")
 	}
 	tls := w["tls"].(map[string]any)
-	if tls["certResolver"] != "dns-cloudflare" || tls["domains"].([]map[string]any)[0]["main"] != "*.ejemplo.com" {
-		t.Errorf("tls del comodín: %v", tls)
+	if tls["certResolver"] != "dns-cloudflare" || tls["domains"].([]map[string]any)[0]["main"] != "*.example.com" {
+		t.Errorf("wildcard tls: %v", tls)
 	}
-	c := routers["concreto-secure"].(map[string]any)
+	c := routers["concrete-secure"].(map[string]any)
 	if _, has := c["tls"].(map[string]any)["certResolver"]; has {
-		t.Errorf("con certificado propio no debe pedirse a Let's Encrypt: %v", c)
+		t.Errorf("with a custom certificate nothing must be asked of Let's Encrypt: %v", c)
 	}
 }
 
-// Una ubicación larga de un comodín no gana al host concreto del dominio.
+// A long location of a wildcard does not beat the domain's concrete host.
 func TestWildcardLocationBelowConcreteHost(t *testing.T) {
 	routes := []Route{
-		{Name: "comodin", Domains: []string{"*.example.com"}, URL: "http://x", PathPrefix: "/api/v1/internal-service"},
-		{Name: "concreto", Domains: []string{"app.example.com"}, URL: "http://y"},
-		{Name: "concreto-loc", Domains: []string{"app.example.com"}, URL: "http://z", PathPrefix: "/api"},
+		{Name: "wildcard", Domains: []string{"*.example.com"}, URL: "http://x", PathPrefix: "/api/v1/internal-service"},
+		{Name: "concrete", Domains: []string{"app.example.com"}, URL: "http://y"},
+		{Name: "concrete-loc", Domains: []string{"app.example.com"}, URL: "http://z", PathPrefix: "/api"},
 	}
 	routers := BuildDynamic(routes, nil)["http"].(map[string]any)["routers"].(map[string]any)
 	prio := func(name string) int { return routers[name].(map[string]any)["priority"].(int) }
-	if prio("comodin") >= prio("concreto") {
-		t.Errorf("comodín %d debe quedar por debajo del host concreto %d", prio("comodin"), prio("concreto"))
+	if prio("wildcard") >= prio("concrete") {
+		t.Errorf("the wildcard %d must stay below the concrete host %d", prio("wildcard"), prio("concrete"))
 	}
-	if prio("concreto-loc") <= prio("concreto") {
-		t.Errorf("la ubicación %d debe ganar a su host %d", prio("concreto-loc"), prio("concreto"))
+	if prio("concrete-loc") <= prio("concrete") {
+		t.Errorf("the location %d must beat its host %d", prio("concrete-loc"), prio("concrete"))
 	}
 }
 
-// Traefik no debe leer etiquetas de los contenedores: las rutas solo las
-// genera Dockfly.
+// Traefik must not read container labels: routes are generated by Dockfly
+// and nothing else.
 func TestStaticWithoutDockerProvider(t *testing.T) {
 	o := Options{DataDir: t.TempDir(), HTTPAddr: ":80", HTTPSAddr: ":443", DockerNet: "dockfly"}
 	if err := WriteStatic(o); err != nil {
@@ -187,12 +187,12 @@ func TestStaticWithoutDockerProvider(t *testing.T) {
 	}
 	raw, _ := os.ReadFile(o.StaticFile())
 	if strings.Contains(string(raw), "docker:") || strings.Contains(string(raw), "exposedByDefault") {
-		t.Errorf("la configuración estática no debe tener el proveedor Docker:\n%s", raw)
+		t.Errorf("the static configuration must not have the Docker provider:\n%s", raw)
 	}
 }
 
-// Tras Cloudflare o un balanceador, Traefik solo acepta X-Forwarded-For de
-// los proxies de confianza (y no en el entrypoint de métricas).
+// Behind Cloudflare or a load balancer, Traefik only accepts
+// X-Forwarded-For from trusted proxies (and never on the metrics entrypoint).
 func TestEntryPointsTrustedProxies(t *testing.T) {
 	eps := entryPoints(Options{HTTPAddr: ":80", HTTPSAddr: ":443", TrustedProxies: []string{"173.245.48.0/20"}})
 	for _, name := range []string{"web", "websecure"} {
@@ -202,9 +202,9 @@ func TestEntryPointsTrustedProxies(t *testing.T) {
 		}
 	}
 	if _, ok := eps[metricsEntryPoint].(map[string]any)["forwardedHeaders"]; ok {
-		t.Error("el entrypoint de métricas no debe confiar en proxies")
+		t.Error("the metrics entrypoint must not trust any proxy")
 	}
 	if _, ok := entryPoints(Options{})["web"].(map[string]any)["forwardedHeaders"]; ok {
-		t.Error("sin proxies de confianza no debe haber forwardedHeaders")
+		t.Error("without trusted proxies there must be no forwardedHeaders")
 	}
 }

@@ -29,19 +29,19 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	// Con la base de datos abierta, este cambio está en el WAL y no en
-	// dockfly.db: es justo lo que se perdería copiando el archivo a mano.
+	// With the database open, this change lives in the WAL and not in
+	// dockfly.db: exactly what copying the file by hand would lose.
 	st.CreateSite(ctx, &store.Site{Name: "web", Domains: []string{"web.com"}})
 	if fi, err := os.Stat(filepath.Join(src, "dockfly.db-wal")); err != nil || fi.Size() == 0 {
-		t.Fatalf("el test necesita datos en el WAL: %v", err)
+		t.Fatalf("the test needs data in the WAL: %v", err)
 	}
-	write(t, filepath.Join(src, "secret.key"), "clave-sesion")
-	write(t, filepath.Join(src, "encryption.key"), "clave-cifrado")
+	write(t, filepath.Join(src, "secret.key"), "session-key")
+	write(t, filepath.Join(src, "encryption.key"), "encryption-key")
 	write(t, filepath.Join(src, "traefik/acme.json"), `{"certs":1}`)
-	write(t, filepath.Join(src, "sites/1/7/index.html"), "hola")
-	write(t, filepath.Join(src, "sites/1/.staging-x/basura"), "no")
+	write(t, filepath.Join(src, "sites/1/7/index.html"), "hello")
+	write(t, filepath.Join(src, "sites/1/.staging-x/junk"), "no")
 	write(t, filepath.Join(src, "builds/1.log"), "no")
-	write(t, filepath.Join(src, "db-backups/pg/pg-1.sql.gz"), "volcado")
+	write(t, filepath.Join(src, "db-backups/pg/pg-1.sql.gz"), "dump")
 
 	var buf bytes.Buffer
 	if err := Create(ctx, st, src, "1.2.3", &buf); err != nil {
@@ -49,25 +49,25 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	}
 	st.Close()
 
-	// Restaurar en otra instalación que ya tenía datos propios.
+	// Restore into another installation that already had data of its own.
 	dst := t.TempDir()
-	write(t, filepath.Join(dst, "dockfly.db"), "vieja")
-	write(t, filepath.Join(dst, "secret.key"), "vieja")
+	write(t, filepath.Join(dst, "dockfly.db"), "old")
+	write(t, filepath.Join(dst, "secret.key"), "old")
 	os.MkdirAll(filepath.Join(dst, "traefik"), 0o755)
 	m, err := Stage(bytes.NewReader(buf.Bytes()), dst)
 	if err != nil || m.Dockfly != "1.2.3" {
 		t.Fatalf("Stage: %+v %v", m, err)
 	}
-	// Preparar la copia no toca los datos en uso.
-	if b, _ := os.ReadFile(filepath.Join(dst, "secret.key")); string(b) != "vieja" {
-		t.Fatal("Stage no debe modificar los datos actuales")
+	// Staging the backup does not touch the data in use.
+	if b, _ := os.ReadFile(filepath.Join(dst, "secret.key")); string(b) != "old" {
+		t.Fatal("Stage must not modify the current data")
 	}
 	applied, kept, err := ApplyPending(dst)
 	if err != nil || !applied {
 		t.Fatalf("ApplyPending: %v %v", applied, err)
 	}
 	if again, _, _ := ApplyPending(dst); again {
-		t.Error("una copia solo se aplica una vez")
+		t.Error("a backup is only applied once")
 	}
 
 	st2, err := store.Open(ctx, filepath.Join(dst, "dockfly.db"))
@@ -76,27 +76,27 @@ func TestBackupRestoreRoundTrip(t *testing.T) {
 	}
 	defer st2.Close()
 	if sites, _ := st2.ListSites(ctx); len(sites) != 1 || sites[0].Name != "web" {
-		t.Errorf("los datos que estaban en el WAL deben restaurarse: %v", sites)
+		t.Errorf("the data that was in the WAL must be restored: %v", sites)
 	}
 	for name, want := range map[string]string{
-		"secret.key": "clave-sesion", "encryption.key": "clave-cifrado",
-		"traefik/acme.json": `{"certs":1}`, "sites/1/7/index.html": "hola",
-		"db-backups/pg/pg-1.sql.gz": "volcado",
+		"secret.key": "session-key", "encryption.key": "encryption-key",
+		"traefik/acme.json": `{"certs":1}`, "sites/1/7/index.html": "hello",
+		"db-backups/pg/pg-1.sql.gz": "dump",
 	} {
 		if b, err := os.ReadFile(filepath.Join(dst, name)); err != nil || string(b) != want {
 			t.Errorf("%s: %q %v", name, b, err)
 		}
 	}
 	if fi, _ := os.Stat(filepath.Join(dst, "traefik/acme.json")); fi.Mode().Perm() != 0o600 {
-		t.Errorf("acme.json debe conservar sus permisos 0600 (Traefik lo exige): %v", fi.Mode().Perm())
+		t.Errorf("acme.json must keep its 0600 permissions (Traefik requires it): %v", fi.Mode().Perm())
 	}
 	for _, name := range []string{"sites/1/.staging-x", "builds/1.log"} {
 		if _, err := os.Stat(filepath.Join(dst, name)); err == nil {
-			t.Errorf("%s no debe formar parte de la copia", name)
+			t.Errorf("%s must not be part of the backup", name)
 		}
 	}
-	if b, _ := os.ReadFile(filepath.Join(kept, "secret.key")); string(b) != "vieja" {
-		t.Error("los datos anteriores deben conservarse en before-restore-*")
+	if b, _ := os.ReadFile(filepath.Join(kept, "secret.key")); string(b) != "old" {
+		t.Error("the previous data must be kept in before-restore-*")
 	}
 }
 
@@ -115,52 +115,53 @@ func makeTarGz(t *testing.T, entries map[string]string) []byte {
 
 func TestStageRejectsBadArchives(t *testing.T) {
 	cases := map[string]map[string]string{
-		"sin manifiesto":        {"dockfly.db": "x"},
-		"sin base de datos":     {manifestName: `{"version":1}`},
-		"de una versión futura": {manifestName: `{"version":99,"dockfly":"9.0"}`, "dockfly.db": "x"},
+		"no manifest":    {"dockfly.db": "x"},
+		"no database":    {manifestName: `{"version":1}`},
+		"future version": {manifestName: `{"version":99,"dockfly":"9.0"}`, "dockfly.db": "x"},
 	}
 	for name, entries := range cases {
 		t.Run(name, func(t *testing.T) {
 			dir := t.TempDir()
 			if _, err := Stage(bytes.NewReader(makeTarGz(t, entries)), dir); !errors.Is(err, ErrInvalid) {
-				t.Errorf("esperaba ErrInvalid, obtuve %v", err)
+				t.Errorf("expected ErrInvalid, got %v", err)
 			}
 			if _, err := os.Stat(filepath.Join(dir, pendingDir)); err == nil {
-				t.Error("una copia inválida no debe quedar preparada")
+				t.Error("an invalid backup must not be left staged")
 			}
 		})
 	}
-	if _, err := Stage(strings.NewReader("no es gzip"), t.TempDir()); !errors.Is(err, ErrInvalid) {
-		t.Errorf("basura: %v", err)
+	if _, err := Stage(strings.NewReader("not gzip"), t.TempDir()); !errors.Is(err, ErrInvalid) {
+		t.Errorf("garbage: %v", err)
 	}
 
-	// Rutas maliciosas y archivos ajenos a Dockfly se ignoran.
+	// Malicious paths and files foreign to Dockfly are ignored.
 	dir := t.TempDir()
 	archive := makeTarGz(t, map[string]string{
 		manifestName: `{"version":1}`, "dockfly.db": "x",
-		"../../fuera.txt": "malo", "sites/../../../etc/x": "malo", "otro/archivo": "ajeno",
+		"../../outside.txt": "bad", "sites/../../../etc/x": "bad", "other/file": "foreign",
 	})
 	if _, err := Stage(bytes.NewReader(archive), dir); err != nil {
 		t.Fatal(err)
 	}
-	for _, p := range []string{"../fuera.txt", "restore-pending/otro", "restore-pending/fuera.txt"} {
+	for _, p := range []string{"../outside.txt", "restore-pending/other", "restore-pending/outside.txt"} {
 		if _, err := os.Stat(filepath.Join(dir, p)); err == nil {
-			t.Errorf("%s no debería existir", p)
+			t.Errorf("%s should not exist", p)
 		}
 	}
 }
 
-// Si el proceso muere a medias al aplicar la copia, el siguiente arranque
-// termina el trabajo sin apartar lo ya restaurado ni pisar los datos viejos.
+// If the process dies halfway through applying the backup, the next startup
+// finishes the job without setting aside what was already restored and
+// without overwriting the old data.
 func TestApplyPendingResumes(t *testing.T) {
 	dir := t.TempDir()
-	write(t, filepath.Join(dir, "dockfly.db"), "vieja")
-	write(t, filepath.Join(dir, "secret.key"), "vieja")
-	write(t, filepath.Join(dir, pendingDir, "dockfly.db"), "nueva")
-	write(t, filepath.Join(dir, pendingDir, "secret.key"), "nueva")
+	write(t, filepath.Join(dir, "dockfly.db"), "old")
+	write(t, filepath.Join(dir, "secret.key"), "old")
+	write(t, filepath.Join(dir, pendingDir, "dockfly.db"), "new")
+	write(t, filepath.Join(dir, pendingDir, "secret.key"), "new")
 
-	// Primer intento cortado: apartó lo viejo y movió secret.key, pero
-	// murió antes de mover la base de datos.
+	// First attempt interrupted: it set the old data aside and moved
+	// secret.key, but died before moving the database.
 	keep := "before-restore-1"
 	write(t, filepath.Join(dir, pendingDir, keepMarker), keep)
 	os.MkdirAll(filepath.Join(dir, keep), 0o700)
@@ -173,15 +174,15 @@ func TestApplyPendingResumes(t *testing.T) {
 		t.Fatalf("ApplyPending: %v %s %v", applied, kept, err)
 	}
 	for path, want := range map[string]string{
-		"dockfly.db": "nueva", "secret.key": "nueva",
-		keep + "/dockfly.db": "vieja", keep + "/secret.key": "vieja",
+		"dockfly.db": "new", "secret.key": "new",
+		keep + "/dockfly.db": "old", keep + "/secret.key": "old",
 	} {
 		if b, _ := os.ReadFile(filepath.Join(dir, path)); string(b) != want {
-			t.Errorf("%s = %q, quería %q", path, b, want)
+			t.Errorf("%s = %q, wanted %q", path, b, want)
 		}
 	}
 	if _, err := os.Stat(filepath.Join(dir, pendingDir)); !os.IsNotExist(err) {
-		t.Error("la copia pendiente debe desaparecer")
+		t.Error("the pending backup must disappear")
 	}
 }
 
@@ -189,10 +190,10 @@ type noSnapshot struct{}
 
 func (noSnapshot) Snapshot(context.Context, string) error { return errors.ErrUnsupported }
 
-// Con PostgreSQL o MySQL la copia lleva los archivos pero no la base de datos.
+// With PostgreSQL or MySQL the backup carries the files but not the database.
 func TestBackupWithoutLocalDatabase(t *testing.T) {
 	dir := t.TempDir()
-	write(t, filepath.Join(dir, "secret.key"), "clave")
+	write(t, filepath.Join(dir, "secret.key"), "key")
 	var buf bytes.Buffer
 	if err := Create(context.Background(), noSnapshot{}, dir, "test", &buf); err != nil {
 		t.Fatal(err)
@@ -210,6 +211,6 @@ func TestBackupWithoutLocalDatabase(t *testing.T) {
 		names[hdr.Name] = true
 	}
 	if !names["secret.key"] || names["dockfly.db"] {
-		t.Fatalf("contenido inesperado: %v", names)
+		t.Fatalf("unexpected contents: %v", names)
 	}
 }

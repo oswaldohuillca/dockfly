@@ -1,9 +1,9 @@
--- Previews por rama: los despliegues de ramas que no son la de producción.
+-- Per-branch previews: the deployments of branches other than production.
 ALTER TABLE sites ADD COLUMN previews BOOLEAN NOT NULL DEFAULT FALSE;
 
 --bun:split
 
-ALTER TABLE deployments ADD COLUMN preview TEXT NOT NULL DEFAULT ''; -- '' = producción
+ALTER TABLE deployments ADD COLUMN preview TEXT NOT NULL DEFAULT ''; -- '' = production
 
 --bun:split
 

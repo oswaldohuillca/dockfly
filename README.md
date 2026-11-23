@@ -1,12 +1,12 @@
 # Dockfly
 
-Panel para publicar aplicaciones detrás de **Traefik** con SSL automático, al estilo de
-Nginx Proxy Manager. Todo va en **una sola imagen** (`scratch`, ~54 MB comprimida) con dos
-binarios: `dockfly` (API en Go + frontend React incrustado) y `traefik`.
+A panel to publish applications behind **Traefik** with automatic SSL, in the style of
+Nginx Proxy Manager. Everything ships in **a single image** (`scratch`, ~54 MB compressed) with
+two binaries: `dockfly` (Go API + embedded React frontend) and `traefik`.
 
-## Instalación
+## Installation
 
-Solo hace falta Docker. Crea un `docker-compose.yml`:
+All you need is Docker. Create a `docker-compose.yml`:
 
 ```yaml
 services:
@@ -16,32 +16,32 @@ services:
     restart: unless-stopped
 
     ports:
-      # Formato <puerto-del-host>:<puerto-del-contenedor>
-      - '80:80'   # HTTP público (Traefik)
-      - '443:443' # HTTPS público (Traefik)
-      - '127.0.0.1:81:81' # Panel de Dockfly (solo local; publícalo con HTTPS, ver abajo)
-      # Añade los puertos de los streams TCP/UDP que quieras exponer
+      # Format <host-port>:<container-port>
+      - '80:80'   # Public HTTP (Traefik)
+      - '443:443' # Public HTTPS (Traefik)
+      - '127.0.0.1:81:81' # Dockfly panel (local only; publish it over HTTPS, see below)
+      # Add the ports of any TCP/UDP streams you want to expose
       # - '5432:5432' # PostgreSQL
 
     environment:
-      # Red de Docker que Dockfly comparte con las apps (la crea si no existe).
+      # Docker network Dockfly shares with your apps (created if it doesn't exist).
       DOCKFLY_NETWORK: 'dockfly'
 
-      # Email para Let's Encrypt (avisos de caducidad). Opcional.
-      # DOCKFLY_ACME_EMAIL: 'tu@email.com'
+      # Email for Let's Encrypt (expiry notices). Optional.
+      # DOCKFLY_ACME_EMAIL: 'you@email.com'
 
-      # Descomenta para probar con el entorno de pruebas de Let's Encrypt
-      # (sin límites, pero los certificados no son de confianza).
+      # Uncomment to test against Let's Encrypt's staging environment
+      # (no rate limits, but the certificates aren't trusted).
       # DOCKFLY_ACME_STAGING: 'true'
 
     volumes:
-      # Base de datos, certificados, sitios publicados, copias…
+      # Database, certificates, published sites, backups…
       - ./data:/data
-      # Para gestionar contenedores y apps. Sin él, solo proxy hosts y sitios.
+      # To manage containers and apps. Without it, only proxy hosts and sites.
       - /var/run/docker.sock:/var/run/docker.sock
 
     extra_hosts:
-      # Para apuntar a servicios que corren directamente en el servidor.
+      # To point at services running directly on the server.
       - 'host.docker.internal:host-gateway'
 ```
 
@@ -49,189 +49,190 @@ services:
 docker compose up -d
 ```
 
-El panel se publica solo en `127.0.0.1:81` para que no quede expuesto en HTTP plano. Para el
-primer acceso, abre un túnel SSH desde tu máquina:
+The panel is published on `127.0.0.1:81` only, so it is never exposed over plain HTTP. For your
+first visit, open an SSH tunnel from your machine:
 
 ```bash
-ssh -L 8081:127.0.0.1:81 usuario@TU_SERVIDOR
+ssh -L 8081:127.0.0.1:81 user@YOUR_SERVER
 ```
 
-y entra en `http://127.0.0.1:8081` para crear la cuenta de administrador (el primer usuario que
-se registra es el administrador). Después, publica el propio panel con HTTPS creando un **proxy
-host** que apunte a `127.0.0.1:81`, y accede por ese dominio.
+then go to `http://127.0.0.1:8081` to create the admin account (the first user to register is
+the administrator). After that, publish the panel itself over HTTPS by creating a **proxy host**
+pointing at `127.0.0.1:81`, and use that domain from then on.
 
-**Actualizar.** En **Ajustes → Versión de Dockfly** aparece un aviso cuando hay una versión
-nueva; con el botón **Actualizar**, Dockfly copia sus datos en `/data/pre-update.tar.gz`,
-descarga la imagen nueva y se recrea con ella (mismos volúmenes, puertos, redes y variables).
-Si la versión nueva no arranca sana, vuelve a la anterior. Funciona con la etiqueta `:latest` o
-con una versión (`:1.2.3`, que pasa a la nueva; cambia también la etiqueta en tu
-`docker-compose.yml`, o un `docker compose up` posterior volvería a la anterior). También se
-puede hacer a mano:
+**Updating.** **Settings → Dockfly version** shows a notice when a new version is available.
+With the **Update** button, Dockfly copies its data to `/data/pre-update.tar.gz`, pulls the new
+image and recreates itself with it (same volumes, ports, networks and variables). If the new
+version doesn't come up healthy, it rolls back to the previous one. This works with the `:latest`
+tag or with a pinned version (`:1.2.3` moves to the new one; change the tag in your
+`docker-compose.yml` too, or a later `docker compose up` would bring the old version back). You
+can also do it by hand:
 
 ```bash
 docker compose pull && docker compose up -d
 ```
 
-| Puerto | Uso |
+| Port | Use |
 |---|---|
-| 80 / 443 | Tráfico de las aplicaciones (Traefik) |
-| 81 | Panel de Dockfly |
+| 80 / 443 | Application traffic (Traefik) |
+| 81 | Dockfly panel |
 
-Las imágenes están en `ghcr.io/oswaldohuillca/dockfly` para **amd64 y arm64**: `:latest` es la
-última versión publicada, `:1.2.3` una versión concreta y `:edge` lo último de `main`. Todas las
-variables de entorno están en [Configuración](#configuración).
+Images live at `ghcr.io/oswaldohuillca/dockfly` for **amd64 and arm64**: `:latest` is the most
+recent release, `:1.2.3` a specific version and `:edge` the latest commit on `main`. Every
+environment variable is listed under [Configuration](#configuration).
 
-> ⚠️ El socket de Docker da control total del servidor: protege el puerto 81 (cortafuegos o
-> VPN), o publica el panel con un dominio y SSL desde un proxy host y cierra el 81.
+> ⚠️ The Docker socket grants full control of the server: protect port 81 (firewall or VPN), or
+> publish the panel with a domain and SSL through a proxy host and close port 81.
 
-Para desarrollar Dockfly, el `docker-compose.yml` del repositorio construye la imagen desde el
-código: `docker compose up -d --build`.
+To hack on Dockfly, the repository's `docker-compose.yml` builds the image from source:
+`docker compose up -d --build`.
 
-## Funciones
+## Features
 
-### Destinos de un proxy host
+### Proxy host targets
 
-- **Contenedor Docker**: eliges el contenedor de una lista. Si no comparte red con Dockfly,
-  se conecta automáticamente a la red `dockfly`.
-- **Este servidor**: apps fuera de Docker vía `host.docker.internal` (requiere el
-  `extra_hosts` del compose; la app debe escuchar en una IP accesible desde Docker).
-- **IP / URL externa**: cualquier IP o dominio. Desactiva *Conservar el Host original* si el
-  destino exige su propio dominio (CDN, SaaS).
+- **Docker container**: pick the container from a list. If it doesn't share a network with
+  Dockfly, it is connected to the `dockfly` network automatically.
+- **This server**: apps outside Docker, via `host.docker.internal` (requires the compose
+  `extra_hosts` entry; the app must listen on an address reachable from Docker).
+- **External IP / URL**: any IP or domain. Turn off *Preserve the original Host* if the target
+  expects its own domain (CDN, SaaS).
 
-**Ubicaciones personalizadas** (*Custom locations*): una parte del dominio va a otro destino,
-como en Nginx Proxy Manager. Por ejemplo, `app.midominio.com` al frontend y
-`app.midominio.com/api` al contenedor de la API. Cada ubicación tiene su destino, su lista de
-acceso (la del proxy host, pública u otra) y, si el servicio no espera el prefijo, la opción de
-quitarlo (`/api/users` llega como `/users`). Gana la ubicación más larga: `/api/v2` antes que `/api`.
+**Custom locations**: part of a domain goes to a different target, like in Nginx Proxy Manager.
+For example, `app.mydomain.com` to the frontend and `app.mydomain.com/api` to the API container.
+Each location has its own target, its own access list (the proxy host's, public, or another one)
+and, if the service doesn't expect the prefix, the option to strip it (`/api/users` arrives as
+`/users`). The longest location wins: `/api/v2` before `/api`.
 
-### Sitios estáticos
+### Static sites
 
-Al estilo de Cloudflare Pages: creas un sitio con sus dominios y subes la carpeta de tu build
-(`dist/`, `build/`…) o un `.zip`, arrastrándolos al panel. Cada subida es un **despliegue
-inmutable** que se publica al instante; para hacer **rollback** basta con publicar uno anterior.
-Se conservan los 10 más recientes por sitio.
+Cloudflare Pages style: you create a site with its domains and upload your build folder
+(`dist/`, `build/`…) or a `.zip` by dragging it onto the panel. Every upload is an **immutable
+deployment** that goes live instantly; to **roll back**, publish an earlier one. The 10 most
+recent are kept per site.
 
-- URLs limpias: `/about` sirve `about.html` o `about/index.html`.
-- `404.html` personalizado, o modo **SPA** (cualquier ruta sirve `index.html`).
-- Compresión gzip/brotli, SSL de Let's Encrypt y ETag por despliegue.
-- Los archivos que empiezan por punto (`.env`, `.git`…) nunca se sirven, salvo `.well-known`.
-- **`_redirects` y `_headers`** en la raíz del build, con el formato de Cloudflare Pages:
+- Clean URLs: `/about` serves `about.html` or `about/index.html`.
+- Custom `404.html`, or **SPA** mode (any path serves `index.html`).
+- gzip/brotli compression, Let's Encrypt SSL and a per-deployment ETag.
+- Dotfiles (`.env`, `.git`…) are never served, except `.well-known`.
+- **`_redirects` and `_headers`** at the root of the build, in Cloudflare Pages format:
 
   ```
   # _redirects
-  /viejo        /nuevo           301
-  /blog/*       /noticias/:splat 301
-  /app/*        /app/index.html  200   # reescritura: misma URL, otro archivo
+  /old          /new           301
+  /blog/*       /news/:splat   301
+  /app/*        /app/index.html  200   # rewrite: same URL, different file
   ```
   ```
   # _headers
   /assets/*
     Cache-Control: public, max-age=31536000, immutable
   ```
-  Las redirecciones se aplican antes que los archivos; las reescrituras (200), solo si el
-  archivo pedido no existe.
-- **Ubicaciones personalizadas**, como en los proxy hosts: una parte del dominio (`/api`)
-  va a un contenedor u otro destino y el resto lo sirve el sitio. Así un frontend y su API
-  comparten host (y cookies) sin CORS. El destino recibe el `Host` original y no pasa por
-  la compresión del sitio; las previews de ramas no las llevan.
+  Redirects are applied before files; rewrites (200) only if the requested file doesn't exist.
+- **Custom locations**, as in proxy hosts: part of the domain (`/api`) goes to a container or
+  another target and the site serves the rest. That way a frontend and its API share a host (and
+  cookies) with no CORS. The target receives the original `Host` and skips the site's
+  compression; branch previews don't carry these locations.
 
-Los archivos los sirve un servidor interno de Dockfly (`127.0.0.1:8099`) al que Traefik reenvía
-los dominios de cada sitio; no hace falta ningún contenedor extra.
+The files are served by an internal Dockfly server (`127.0.0.1:8099`) that Traefik forwards each
+site's domains to; no extra container needed.
 
-### Despliegue desde GitHub y GitLab
+### Deploying from GitHub and GitLab
 
-Conecta un repositorio y cada push a la rama elegida construye el sitio y lo publica.
+Connect a repository and every push to the chosen branch builds the site and publishes it.
 
-- **GitHub**: en *Integraciones → Conectar con GitHub*, GitHub crea con un clic la app
-  «Dockfly» de esta instalación (ya configurada) y te deja elegir la cuenta u organización
-  y los repositorios. Dockfly solo pide permiso de lectura del código (y de escritura de los
-  estados de commit, para marcar cada build con ✓/✗) y usa tokens que caducan cada hora.
-  Funciona también con GitHub Enterprise.
-- **GitLab**: la aplicación OAuth se registra una vez en GitLab (el panel indica los pasos y
-  la Redirect URI); después, conectar una cuenta es pulsar «Autorizar». Funciona con
-  gitlab.com y con instancias propias.
-- **Tokens de acceso personal**: opción avanzada, para entornos sin navegador.
+- **GitHub**: under *Integrations → Connect with GitHub*, GitHub creates this installation's
+  "Dockfly" app in one click (already configured) and lets you choose the account or organisation
+  and the repositories. Dockfly only asks for read access to the code (plus write access to
+  commit statuses, to mark each build with ✓/✗) and uses tokens that expire every hour. It works
+  with GitHub Enterprise too.
+- **GitLab**: the OAuth application is registered once in GitLab (the panel walks you through the
+  steps and the Redirect URI); after that, connecting an account is a single "Authorize" click.
+  Works with gitlab.com and self-hosted instances.
+- **Personal access tokens**: an advanced option, for environments without a browser.
 
-Cada sitio tiene una **caché de dependencias** (bun, npm, yarn, pnpm) que se conserva entre builds:
-en la prueba, `bun install` pasa de ~6 s a ~40 ms en el segundo build.
+Each site has a **dependency cache** (bun, npm, yarn, pnpm) that is kept between builds: in
+testing, `bun install` went from ~6 s to ~40 ms on the second build.
 
-Los builds corren en un contenedor efímero (`oven/bun:1` por defecto, configurable por sitio)
-**sin privilegios** y con límites de memoria, CPU, procesos y tiempo. El código lo descarga
-Dockfly y lo copia dentro: **las credenciales nunca entran en el contenedor de build**.
+Builds run in an ephemeral container (`oven/bun:1` by default, configurable per site)
+**without privileges** and with memory, CPU, process and time limits. Dockfly downloads the code
+and copies it in: **credentials never enter the build container**.
 
-Para desplegar en cada push, GitHub/GitLab deben poder llegar a Dockfly: publica el panel con
-un proxy host y escribe su dirección en *Integraciones → URL pública*. Sin ella, los sitios se
-despliegan con el botón «Desplegar ahora».
+To deploy on every push, GitHub/GitLab must be able to reach Dockfly: publish the panel with a
+proxy host and enter its address under *Integrations → Public URL*. Without it, sites are
+deployed with the "Deploy now" button.
 
-Cada build marca su commit con el resultado (✓/✗ en el commit y en sus pull requests), con un
-enlace a la web publicada o, si falla, al panel. Las GitHub Apps creadas con versiones
-anteriores de Dockfly no tienen ese permiso: acéptalo en *GitHub → Settings → Applications →
-Dockfly → Permissions* (los builds funcionan igual sin él).
+Each build marks its commit with the result (✓/✗ on the commit and on its pull requests), linking
+to the published site or, if it failed, to the panel. GitHub Apps created with older Dockfly
+versions don't have that permission: accept it under *GitHub → Settings → Applications →
+Dockfly → Permissions* (builds work fine without it).
 
-#### Previews por rama
+#### Branch previews
 
-Con un **dominio de previews** (*Ajustes → Previews por rama*, p. ej. `previews.midominio.com`) y
-las previews activadas en el sitio, cada push a una rama que no es la de producción se publica en
-`rama--sitio.previews.midominio.com` sin tocar producción, y se borra al borrar la rama (por ejemplo,
-al fusionar el pull request). Basta un registro DNS `*.previews.midominio.com` apuntando al servidor.
-Para HTTPS hace falta un certificado comodín: configura la zona DNS en *Ajustes → Certificados* o
-sube un certificado propio. Las previews se pueden proteger con una lista de acceso. Las pull
-requests desde forks no se construyen: su código no es de confianza.
+With a **preview domain** (*Settings → Branch previews*, e.g. `previews.mydomain.com`) and
+previews enabled on the site, every push to a branch other than production is published at
+`branch--site.previews.mydomain.com` without touching production, and is deleted when the branch
+is deleted (when the pull request is merged, for instance). A single `*.previews.mydomain.com`
+DNS record pointing at the server is enough. HTTPS needs a wildcard certificate: configure the
+DNS zone under *Settings → Certificates* or upload your own certificate. Previews can be
+protected with an access list. Pull requests from forks are not built: their code isn't trusted.
 
-### Usuarios y roles
+### Users and roles
 
-En *Ajustes → Usuarios* se invita al equipo con un enlace de un solo uso (válido 7 días), que
-el administrador envía como prefiera. Cada usuario tiene un rol:
+Under *Settings → Users* you invite your team with a single-use link (valid for 7 days) that the
+administrator sends however they like. Each user has a role:
 
-| Rol | Puede |
+| Role | Can |
 | --- | --- |
-| Administrador | Todo: proxy hosts, certificados, integraciones, notificaciones, ajustes y usuarios |
-| Despliegues | Sitios, apps, builds y despliegues, incluidas sus variables de entorno |
-| Solo lectura | Ver el panel y los logs, sin cambiar nada ni ver secretos |
+| Administrator | Everything: proxy hosts, certificates, integrations, notifications, settings and users |
+| Deployments | Sites, apps, builds and deployments, including their environment variables |
+| Read only | View the panel and the logs, without changing anything or seeing secrets |
 
-Si alguien olvida su contraseña, el administrador le genera un enlace para restablecerla. Cambiar
-la contraseña cierra las demás sesiones del usuario. Siempre queda al menos un administrador.
+If someone forgets their password, the administrator generates a reset link for them. Changing
+the password signs the user out everywhere else. There is always at least one administrator.
 
-### Tokens de API y CLI
+### API tokens and CLI
 
-En *Mi cuenta → Tokens de API* se crean tokens para desplegar desde la terminal o la integración
-continua. Cada token tiene un rol (nunca más que el de su usuario) y una caducidad, y se puede
-revocar en cualquier momento. El mismo binario `dockfly` es el CLI:
+Under *My account → API tokens* you create tokens to deploy from a terminal or from CI. Each
+token has a role (never higher than its user's) and an expiry, and can be revoked at any time.
+The `dockfly` binary is also the CLI:
 
 ```sh
-export DOCKFLY_URL=https://dockfly.midominio.com DOCKFLY_TOKEN=dfy_…
-dockfly deploy ./dist --site mi-web
+export DOCKFLY_URL=https://dockfly.mydomain.com DOCKFLY_TOKEN=dfy_…
+dockfly deploy ./dist --site my-web
 ```
 
-Los binarios para Linux, macOS y Windows están en cada release; también se puede usar la imagen:
+Binaries for Linux, macOS and Windows are attached to every release; you can also use the image:
 
 ```yaml
 # .github/workflows/deploy.yml
 - run: npm ci && npm run build
 - run: >
     docker run --rm -v "$PWD/dist:/dist" -e DOCKFLY_URL -e DOCKFLY_TOKEN
-    ghcr.io/oswaldohuillca/dockfly deploy /dist --site mi-web
+    ghcr.io/oswaldohuillca/dockfly deploy /dist --site my-web
   env:
-    DOCKFLY_URL: https://dockfly.midominio.com
+    DOCKFLY_URL: https://dockfly.mydomain.com
     DOCKFLY_TOKEN: ${{ secrets.DOCKFLY_TOKEN }}
 ```
 
-Con un token no se puede cambiar la contraseña, la verificación en dos pasos ni crear otros tokens.
+A token cannot change the password, manage two-step verification or create other tokens.
 
-### Seguridad de Docker
+### Docker security
 
-Las apps de **Compose** se despliegan con un contenedor auxiliar con la CLI de Docker. Ese
-auxiliar no recibe el socket de Docker: habla con un **proxy con permisos mínimos** de Dockfly,
-por una red interna propia de cada despliegue, que rechaza lo que daría el control del servidor:
+**Compose** apps are deployed with a helper container that carries the Docker CLI. That helper
+does not get the Docker socket: it talks to a **least-privilege proxy** inside Dockfly, over an
+internal network created per deployment, which rejects anything that would hand over control of
+the server:
 
-- contenedores `privileged`, `cap_add`, `devices`/GPUs, `network_mode: host` y namespaces del host;
-- montar rutas sensibles del host (`/`, `/etc`, `/home`, `/root`, sockets…) o los datos de Dockfly;
-- tocar contenedores, volúmenes o redes de otras apps (o del propio Dockfly), y los `prune`.
+- `privileged` containers, `cap_add`, `devices`/GPUs, `network_mode: host` and host namespaces;
+- mounting sensitive host paths (`/`, `/etc`, `/home`, `/root`, sockets…) or Dockfly's own data;
+- touching containers, volumes or networks belonging to other apps (or to Dockfly itself), and
+  the `prune` endpoints.
 
-Si un `docker-compose.yml` necesita algo de eso, Compose muestra el motivo en el log del
-despliegue (`Dockfly: los contenedores privilegiados… no están permitidos`).
+If a `docker-compose.yml` needs any of that, Compose shows the reason in the deployment log
+(`Dockfly: privileged containers… are not allowed`).
 
-Para no darle a Dockfly el socket completo, puede ir detrás de
+To avoid giving Dockfly the full socket, it can sit behind
 [docker-socket-proxy](https://github.com/Tecnativa/docker-socket-proxy):
 
 ```yaml
@@ -255,229 +256,235 @@ services:
     image: ghcr.io/oswaldohuillca/dockfly
     environment:
       DOCKFLY_DOCKER_SOCKET: tcp://socket-proxy:2375
-    # …sin montar /var/run/docker.sock
+    # …without mounting /var/run/docker.sock
 ```
 
-Con docker-socket-proxy, los `build:` de los `docker-compose.yml` no funcionan: BuildKit
-necesita un canal (`/grpc`) que su HAProxy no reenvía. Las apps con Dockerfile y las imágenes
-ya construidas funcionan igual.
+With docker-socket-proxy, `build:` entries in a `docker-compose.yml` don't work: BuildKit needs a
+channel (`/grpc`) that its HAProxy doesn't forward. Apps with a Dockerfile and prebuilt images
+work as usual.
 
-### Verificación en dos pasos
+### Two-step verification
 
-En *Mi cuenta* (menú del usuario) se activa la verificación en dos pasos con cualquier app TOTP
-(Google Authenticator, 1Password, Bitwarden…). Al activarla, Dockfly muestra 10 **códigos de
-recuperación** de un solo uso. Si pierdes el móvil y los códigos, desactívala desde el servidor:
+Under *My account* (the user menu) you enable two-step verification with any TOTP app (Google
+Authenticator, 1Password, Bitwarden…). When you turn it on, Dockfly shows 10 single-use
+**recovery codes**. If you lose both your phone and the codes, disable it from the server:
 
 ```sh
-docker exec dockfly dockfly reset-2fa tu@email.com
+docker exec dockfly dockfly reset-2fa you@email.com
 ```
 
-### Tráfico
+### Traffic
 
-Cada proxy host, sitio y app muestra sus **peticiones** (por estado: 2xx/3xx, 4xx, 5xx) y su
-**latencia** (p50 y p95) de la última hora, el último día o la última semana; la lista de proxy
-hosts incluye una minigráfica de las últimas 24 horas. Los datos salen de las métricas de Traefik
-(que solo escuchan en `127.0.0.1` dentro del contenedor), se recogen cada minuto y se guardan 7 días.
+Every proxy host, site and app shows its **requests** (by status: 2xx/3xx, 4xx, 5xx) and its
+**latency** (p50 and p95) over the last hour, day or week; the proxy host list includes a
+sparkline for the last 24 hours. The data comes from Traefik's metrics (which only listen on
+`127.0.0.1` inside the container), is collected every minute and kept for 7 days.
 
-### Varios servidores
+### Multiple servers
 
-En *Servidores → Añadir servidor*, Dockfly da un comando para ejecutar en otra máquina con Docker:
+Under *Servers → Add server*, Dockfly gives you a command to run on another machine with Docker:
 
 ```sh
 docker run -d --name dockfly-agent --restart unless-stopped \
   -p 80:80 -p 443:443 \
   -v /var/run/docker.sock:/var/run/docker.sock -v dockfly-agent:/data \
-  ghcr.io/oswaldohuillca/dockfly agent --join https://dockfly.midominio.com --token dfa_…
+  ghcr.io/oswaldohuillca/dockfly agent --join https://dockfly.mydomain.com --token dfa_…
 ```
 
-El **agente** se conecta al panel (no hay que abrir puertos en el servidor, funciona tras NAT) y
-ejecuta su propio Traefik. Al crear una app se elige en qué servidor corre: el panel la despliega
-en él por el túnel del agente (builds de Dockerfile, despliegues sin corte, logs, copias de las
-bases de datos…) y le envía sus rutas. Sus dominios deben apuntar a la IP de ese servidor, que
-pide sus propios certificados. **Si el panel se cae, las apps de los servidores siguen sirviendo**;
-al volver, el agente se reconecta solo. Un servidor desconectado se notifica.
+The **agent** connects to the panel (no ports to open on the server, it works behind NAT) and
+runs its own Traefik. When you create an app you choose which server it runs on: the panel
+deploys it there through the agent's tunnel (Dockerfile builds, zero-downtime deployments, logs,
+database backups…) and sends it its routes. Its domains must point at that server's IP, which
+requests its own certificates. **If the panel goes down, apps on those servers keep serving**;
+when it comes back, the agent reconnects by itself. A disconnected server raises a notification.
 
-Por ahora, los proxy hosts, los sitios estáticos y las apps de Compose van en el servidor del panel.
+For now, proxy hosts, static sites and Compose apps run on the panel's own server.
 
-### Copias de seguridad
+### Backups
 
-En *Ajustes → Copias de seguridad* se descarga una copia con la base de datos, las claves, los
-sitios publicados y los certificados, y se restaura subiéndola (también desde la pantalla de
-primera instalación, para migrar de servidor). Desde la terminal:
+Under *Settings → Backups* you can download a backup with the database, the keys, the published
+sites and the certificates, and restore it by uploading it (also from the first-run screen, to
+migrate to another server). From a terminal:
 
 ```bash
-docker exec dockfly dockfly backup /data/copia.tar.gz   # crear
-docker exec dockfly dockfly restore /data/copia.tar.gz  # preparar; se aplica al reiniciar
+docker exec dockfly dockfly backup /data/backup.tar.gz   # create
+docker exec dockfly dockfly restore /data/backup.tar.gz  # stage; applied on restart
 ```
 
-> Copiar `dockfly.db` a mano no basta: SQLite trabaja en modo WAL y los cambios recientes están
-> en `dockfly.db-wal`. La copia de Dockfly usa `VACUUM INTO`, que sí es consistente.
+> Copying `dockfly.db` by hand is not enough: SQLite runs in WAL mode and recent changes live in
+> `dockfly.db-wal`. Dockfly's backup uses `VACUUM INTO`, which is consistent.
 
 ### Apps
 
-Contenedores que Dockfly despliega y gestiona: APIs, bases de datos, servicios… desde una
-**imagen** (`postgres:17`, `ghcr.io/usuario/app`) o desde un **Dockerfile** de un repo de
-GitHub/GitLab, que se reconstruye en cada push. Hay plantillas (un clic) para PostgreSQL, MySQL,
-Redis, n8n y Uptime Kuma.
+Containers that Dockfly deploys and manages: APIs, databases, services… from an **image**
+(`postgres:17`, `ghcr.io/user/app`) or from a **Dockerfile** in a GitHub/GitLab repo, rebuilt on
+every push. There are one-click templates for PostgreSQL, MySQL, Redis, n8n and Uptime Kuma.
 
-- **Sin corte**: el contenedor nuevo arranca, pasa la comprobación de salud (ruta HTTP,
-  `HEALTHCHECK` de la imagen o puerto abierto) y solo entonces recibe el tráfico. Si falla, la
-  versión anterior sigue sirviendo y el log muestra la salida del contenedor.
-- **Con volúmenes** (bases de datos) la versión actual se detiene antes de arrancar la nueva:
-  dos instancias escribiendo en los mismos datos los corromperían.
-- Las apps se encuentran por su nombre en la red interna (`postgres:5432`), sin exponerlas.
-- También desde un **`docker-compose.yml`** del repo: Dockfly lo ejecuta con un contenedor auxiliar
-  con Compose y conecta el servicio web a su red. Usa volúmenes con nombre: las rutas relativas
-  del host (`./datos:/datos`) no funcionan.
-- Variables de entorno cifradas, límites de memoria y CPU, logs en vivo, reiniciar, detener y
-  volver a una versión anterior.
-- **Recursos**: CPU y memoria del contenedor en vivo (la CPU, sobre todos los núcleos del
-  servidor). En una app de Compose mide el servicio que recibe el tráfico.
-- **Consola**: ejecuta un comando suelto en el contenedor (una migración, mirar un archivo) y
-  muestra su salida y su código. No es una terminal: cada comando empieza de cero. Máximo
-  2 minutos y 256 KB de salida; roles «desplegar» y administrador.
-- **Tareas programadas**: comandos que se ejecutan en el contenedor según una expresión cron de
-  cinco campos en **UTC** (`0 3 * * *`, `*/15 * * * *`). Se pueden pausar y lanzar a mano, y
-  guardan la salida y el código de la última ejecución. Máximo 30 minutos; si fallan, se notifica.
+- **Zero downtime**: the new container starts, passes its health check (HTTP path, the image's
+  `HEALTHCHECK` or an open port) and only then receives traffic. If it fails, the previous
+  version keeps serving and the log shows the container's output.
+- **With volumes** (databases) the current version is stopped before the new one starts: two
+  instances writing the same data would corrupt it.
+- Apps find each other by name on the internal network (`postgres:5432`), without being exposed.
+- Also from a **`docker-compose.yml`** in the repo: Dockfly runs it with a helper container that
+  carries Compose and connects the web service to its network. Use named volumes: relative host
+  paths (`./data:/data`) don't work.
+- Encrypted environment variables, memory and CPU limits, live logs, restart, stop and rollback
+  to an earlier version.
+- **Resources**: the container's live CPU and memory (CPU across all of the server's cores). For
+  a Compose app it measures the service that receives the traffic.
+- **Console**: runs a one-off command in the container (a migration, inspecting a file) and shows
+  its output and exit code. It is not a terminal: every command starts fresh. Limited to
+  2 minutes and 256 KB of output; "deployments" and administrator roles.
+- **Scheduled tasks**: commands that run in the container on a five-field cron expression in
+  **UTC** (`0 3 * * *`, `*/15 * * * *`). They can be paused and triggered by hand, and keep the
+  output and exit code of their last run. Limited to 30 minutes; failures raise a notification.
 
-Los servidores (el del panel y los remotos conectados) avisan cuando el **disco** llega al 90 %,
-o la **memoria** o la **CPU** se mantienen al 90 % durante 5 y 10 minutos, y de nuevo cuando
-vuelven a la normalidad.
+Servers (the panel's own and any connected remote ones) raise a notification when **disk** usage
+reaches 90 %, or **memory** or **CPU** stay at 90 % for 5 and 10 minutes, and again when they go
+back to normal.
 
-#### Copias de las bases de datos
+#### Database backups
 
-Las apps de **PostgreSQL**, **MySQL/MariaDB** y **Redis** tienen la pestaña *Copias*: copias
-completas (`pg_dumpall`, `mysqldump`, `redis-cli --rdb`) comprimidas, programadas cada hora, día
-o semana, conservando las N últimas, y con botón «Copia ahora». Se descargan y, las de
-PostgreSQL y MySQL, se restauran desde el panel. Las copias fallidas se notifican.
+**PostgreSQL**, **MySQL/MariaDB** and **Redis** apps have a *Backups* tab: compressed full
+backups (`pg_dumpall`, `mysqldump`, `redis-cli --rdb`), scheduled hourly, daily or weekly,
+keeping the last N, with a "Back up now" button. They can be downloaded and — for PostgreSQL and
+MySQL — restored from the panel. Failed backups raise a notification.
 
-Se guardan en el servidor (`/data/db-backups`) o, mejor, en un bucket compatible con **S3**
-(AWS, Cloudflare R2, Backblaze B2, MinIO…), configurado en *Ajustes → Copias de las bases de
-datos*: así sobreviven aunque se pierda el servidor. Al guardar el bucket, Dockfly comprueba que
-puede escribir en él.
+They are stored on the server (`/data/db-backups`) or, better, in an **S3**-compatible bucket
+(AWS, Cloudflare R2, Backblaze B2, MinIO…), configured under *Settings → Database backups*: that
+way they survive losing the server. When you save the bucket, Dockfly checks that it can write
+to it.
 
-## Configuración
+## Configuration
 
-| Variable | Por defecto | Descripción |
+| Variable | Default | Description |
 |---|---|---|
-| `DOCKFLY_DATA_DIR` | `/data` | Base de datos, clave de sesión, config y certificados de Traefik |
-| `DOCKFLY_DATABASE_URL` | — | Base de datos del panel. Sin ella, SQLite en la carpeta de datos. Ver [Base de datos del panel](#base-de-datos-del-panel) |
-| `DOCKFLY_LISTEN` | `:81` | Dirección del panel |
-| `DOCKFLY_ACME_EMAIL` | — | Email para Let's Encrypt (opcional) |
-| `DOCKFLY_ACME_STAGING` | `false` | Usa el entorno de pruebas de Let's Encrypt |
-| `DOCKFLY_NETWORK` | `dockfly` | Red Docker compartida con las apps |
-| `DOCKFLY_DOCKER_SOCKET` | `/var/run/docker.sock` | Socket de Docker, o `tcp://host:puerto` detrás de un proxy del socket |
-| `DOCKFLY_COMPOSE_PROXY` | `1` | `0` desactiva el proxy con permisos mínimos de las apps de Compose (no recomendado) |
-| `DOCKFLY_TRAEFIK` | `on` | `off` para no lanzar Traefik (desarrollo) |
-| `DOCKFLY_TRUSTED_PROXIES` | — | Rangos CIDR (separados por comas) de los proxies que tienen delante el panel y Traefik (p. ej. los de Cloudflare). Solo de ellos se acepta `X-Forwarded-For`, así el límite de intentos y las listas de acceso ven la IP real. Vacío = expuesto directamente |
-| `DOCKFLY_BUILD_TIMEOUT_MIN` | `15` | Tiempo máximo de un build |
-| `DOCKFLY_BUILD_MEMORY_MB` / `DOCKFLY_BUILD_CPUS` | `2048` / `2` | Recursos de cada build |
-| `DOCKFLY_BUILD_CONCURRENCY` | `1` | Builds simultáneos |
-| `DOCKFLY_BUILD_EGRESS` | `filtered` | `filtered`: los builds salen a internet solo por un proxy HTTP(S) (contenedor `dockfly-egress`) que bloquea la red local, el host y la metadata de la nube; las conexiones que no son HTTP(S) por proxy (p. ej. `git+ssh`) fallan. `open`: salida libre, como antes |
-| `DOCKFLY_MAX_UPLOAD_MB` | `512` | Tamaño máximo de una subida de sitio estático |
-| `DOCKFLY_STATIC_ADDR` | `127.0.0.1:8099` | Dirección interna del servidor de sitios estáticos |
-| `DOCKFLY_LOG_LEVEL` / `DOCKFLY_TRAEFIK_LOG_LEVEL` | `info` / `warn` | Nivel de logs |
+| `DOCKFLY_DATA_DIR` | `/data` | Database, session key, Traefik config and certificates |
+| `DOCKFLY_DATABASE_URL` | — | The panel's database. Without it, SQLite in the data directory. See [The panel's database](#the-panels-database) |
+| `DOCKFLY_LISTEN` | `:81` | Panel address |
+| `DOCKFLY_ACME_EMAIL` | — | Email for Let's Encrypt (optional) |
+| `DOCKFLY_ACME_STAGING` | `false` | Use Let's Encrypt's staging environment |
+| `DOCKFLY_NETWORK` | `dockfly` | Docker network shared with the apps |
+| `DOCKFLY_DOCKER_SOCKET` | `/var/run/docker.sock` | Docker socket, or `tcp://host:port` behind a socket proxy |
+| `DOCKFLY_COMPOSE_PROXY` | `1` | `0` disables the least-privilege proxy for Compose apps (not recommended) |
+| `DOCKFLY_TRAEFIK` | `on` | `off` to not launch Traefik (development) |
+| `DOCKFLY_TRUSTED_PROXIES` | — | CIDR ranges (comma separated) of the proxies sitting in front of the panel and Traefik (Cloudflare's, for instance). `X-Forwarded-For` is only accepted from them, so rate limiting and access lists see the real IP. Empty = directly exposed |
+| `DOCKFLY_BUILD_TIMEOUT_MIN` | `15` | Maximum time for a build |
+| `DOCKFLY_BUILD_MEMORY_MB` / `DOCKFLY_BUILD_CPUS` | `2048` / `2` | Resources for each build |
+| `DOCKFLY_BUILD_CONCURRENCY` | `1` | Concurrent builds |
+| `DOCKFLY_BUILD_EGRESS` | `filtered` | `filtered`: builds reach the internet only through an HTTP(S) proxy (the `dockfly-egress` container) that blocks the local network, the host and cloud metadata; connections that aren't HTTP(S) through the proxy (`git+ssh`, for instance) fail. `open`: unrestricted egress, as before |
+| `DOCKFLY_MAX_UPLOAD_MB` | `512` | Maximum size of a static site upload |
+| `DOCKFLY_STATIC_ADDR` | `127.0.0.1:8099` | Internal address of the static site server |
+| `DOCKFLY_LOG_LEVEL` / `DOCKFLY_TRAEFIK_LOG_LEVEL` | `info` / `warn` | Log level |
 
-## Arquitectura
+## Architecture
 
 ```
-cmd/dockfly        punto de entrada: API, supervisor de Traefik, healthcheck
-internal/api       API REST (chi) + sirve el frontend
-internal/store     modelos y consultas con Bun sobre SQLite, PostgreSQL o MySQL (Go puro, sin CGO)
-  └─ migrations/   migraciones SQL versionadas, incrustadas en el binario
-internal/pages     sitios estáticos: subida segura (zip/carpeta), despliegues y servidor
-internal/apps      apps: despliegues sin corte, salud, volúmenes y ciclo de vida
-internal/builder   cola de builds y ejecución en contenedores efímeros
-internal/gitprovider  APIs de GitHub/GitLab: repos, código, webhooks, GitHub App y OAuth
-internal/gitauth   credenciales vigentes por conexión (tokens de instalación, refresco OAuth)
-internal/secrets   cifrado AES-GCM de tokens y variables de entorno
-internal/traefik   genera traefik.yml (estático) y dockfly.yml (dinámico); supervisa el proceso
-internal/docker    cliente mínimo del socket de Docker (sin SDK)
-web/               frontend React 19 + TypeScript + Tailwind 4 + shadcn/ui, incrustado con go:embed
-  └─ src/routes/   rutas de TanStack Router basadas en archivos (una carpeta = un segmento de la URL)
+cmd/dockfly        entry point: API, Traefik supervisor, healthcheck
+internal/api       REST API (chi) + serves the frontend
+internal/store     models and queries with Bun over SQLite, PostgreSQL or MySQL (pure Go, no CGO)
+  └─ migrations/   versioned SQL migrations, embedded in the binary
+internal/pages     static sites: safe uploads (zip/folder), deployments and server
+internal/apps      apps: zero-downtime deployments, health, volumes and lifecycle
+internal/builder   build queue and execution in ephemeral containers
+internal/gitprovider  GitHub/GitLab APIs: repos, code, webhooks, GitHub App and OAuth
+internal/gitauth   fresh credentials per connection (installation tokens, OAuth refresh)
+internal/secrets   AES-GCM encryption of tokens and environment variables
+internal/traefik   generates traefik.yml (static) and dockfly.yml (dynamic); supervises the process
+internal/docker    minimal Docker socket client (no SDK)
+web/               React 19 + TypeScript + Tailwind 4 + shadcn/ui frontend, embedded with go:embed
+  └─ src/routes/   file-based TanStack Router routes (one folder = one URL segment)
 ```
 
-La base de datos es la única fuente de verdad: en cada cambio (y al arrancar) se regenera
-`/data/traefik/dynamic/dockfly.yml` de forma atómica y Traefik lo recarga en caliente
-(~200 ms) sin reiniciarse.
+The database is the single source of truth: on every change (and at startup)
+`/data/traefik/dynamic/dockfly.yml` is regenerated atomically and Traefik hot-reloads it
+(~200 ms) without restarting.
 
-> ⚠️ Montar el socket de Docker da control total del host. Protege el puerto 81
-> (firewall o VPN, o publica el panel detrás de un proxy host con SSL).
+> ⚠️ Mounting the Docker socket grants full control of the host. Protect port 81 (firewall or
+> VPN, or publish the panel behind a proxy host with SSL).
 
-## Base de datos del panel
+## The panel's database
 
-Dockfly guarda su estado en **SQLite** (`dockfly.db`, en la carpeta de datos) sin configurar nada.
-Para usar un servidor aparte, define `DOCKFLY_DATABASE_URL` antes del primer arranque:
+Dockfly stores its state in **SQLite** (`dockfly.db`, in the data directory) with no
+configuration. To use a separate server, set `DOCKFLY_DATABASE_URL` before the first start:
 
 ```yaml
 environment:
-  # PostgreSQL (añade ?sslmode=disable si el servidor no usa TLS)
-  DOCKFLY_DATABASE_URL: postgres://dockfly:secreto@db.ejemplo.com:5432/dockfly
-  # MySQL 8 o MariaDB 10.11+ (añade ?tls=true para cifrar la conexión)
-  # DOCKFLY_DATABASE_URL: mysql://dockfly:secreto@db.ejemplo.com:3306/dockfly
+  # PostgreSQL (add ?sslmode=disable if the server doesn't use TLS)
+  DOCKFLY_DATABASE_URL: postgres://dockfly:secret@db.example.com:5432/dockfly
+  # MySQL 8 or MariaDB 10.11+ (add ?tls=true to encrypt the connection)
+  # DOCKFLY_DATABASE_URL: mysql://dockfly:secret@db.example.com:3306/dockfly
 ```
 
-La base de datos debe existir y estar vacía; Dockfly crea las tablas al arrancar. Ten en cuenta:
+The database must exist and be empty; Dockfly creates the tables at startup. Keep in mind:
 
-- **Copias de seguridad**: la copia del panel lleva solo los archivos (claves, sitios, certificados).
-  La base de datos se copia con `pg_dump` o `mysqldump`, y la restauración desde el panel no está
-  disponible. Guarda siempre la carpeta de datos junto con la base de datos: sin `encryption.key`
-  los secretos guardados no se pueden leer.
-- **Cambiar de motor** no migra los datos: una instalación que ya usa SQLite empieza vacía si le
-  pones `DOCKFLY_DATABASE_URL`.
-- No uses como base de datos del panel una app desplegada con el propio Dockfly: el panel la
-  necesita para arrancar.
+- **Backups**: the panel's backup only carries the files (keys, sites, certificates). The
+  database is backed up with `pg_dump` or `mysqldump`, and restoring from the panel is not
+  available. Always keep the data directory together with the database: without `encryption.key`
+  the stored secrets cannot be read.
+- **Switching engines** does not migrate the data: an installation already on SQLite starts empty
+  if you point it at `DOCKFLY_DATABASE_URL`.
+- Don't use an app deployed by Dockfly itself as the panel's database: the panel needs it to
+  start.
 
-## Publicar una versión
+## Publishing a release
 
-Cada push a `main` publica `ghcr.io/oswaldohuillca/dockfly:edge`. Una etiqueta publica la
-versión, `:latest` y los binarios del CLI en la release de GitHub:
+Every push to `main` publishes `ghcr.io/oswaldohuillca/dockfly:edge`. A tag publishes the
+version, `:latest` and the CLI binaries on the GitHub release:
 
 ```bash
 git tag v0.1.0 && git push origin v0.1.0
 ```
 
-## Desarrollo
+## Development
 
 ```bash
-make dev                  # backend en :8181 sin Traefik
-cd web && npm run dev     # frontend con recarga en caliente (proxy /api → :8181)
+make dev                  # backend on :8181 without Traefik
+cd web && npm run dev     # frontend with hot reload (proxies /api → :8181)
 make test
 ```
 
-La landing está en `site/` (Astro, salida estática): `cd site && bun install && bun run dev`.
-`bun run build` deja el sitio en `site/dist/`, listo para cualquier alojamiento estático.
+The landing page lives in `site/` (Astro, static output): `cd site && bun install && bun run dev`.
+`bun run build` leaves the site in `site/dist/`, ready for any static host.
 
-### Idiomas
+### Languages
 
-El panel está en **inglés** (por defecto) y **español**; cada usuario lo cambia en su menú. Los
-textos se escriben en inglés en el código con las macros de [Lingui](https://lingui.dev)
-(`<Trans>…</Trans>`, ``t`…` ``) y sus traducciones están en `web/src/locales/<idioma>/messages.po`:
-
-```bash
-cd web && npm run extract   # añade los textos nuevos a los catálogos (y quita los que ya no se usan)
-```
-
-Los errores de la API también se traducen en el panel: cada uno lleva un código estable
-(`{"error": "Wrong email or password", "code": "bad_credentials"}`) y el mensaje en inglés como
-respaldo. Los códigos se definen en Go con `newError` y se exportan a `web/src/lib/api-errors.gen.ts`:
+The panel is available in **English** (the default) and **Spanish**; each user switches it from
+their own menu. Strings are written in English in the code with [Lingui](https://lingui.dev)
+macros (`<Trans>…</Trans>`, ``t`…` ``) and their translations live in
+`web/src/locales/<language>/messages.po`:
 
 ```bash
-go test ./internal/api -run TestAPIErrorsTS -update   # tras añadir o cambiar un código
-cd web && npm run extract                              # y traducir los nuevos en el .po
+cd web && npm run extract   # adds new strings to the catalogues (and drops unused ones)
 ```
 
-El build falla si a un idioma le falta alguna traducción. Para añadir otro idioma, inclúyelo en
-`web/lingui.config.ts` y en `web/src/lib/i18n.ts`, ejecuta `npm run extract` y traduce su `.po`.
+API errors are translated in the panel too: each one carries a stable code
+(`{"error": "Wrong email or password", "code": "bad_credentials"}`) with the English message as a
+fallback. The codes are defined in Go with `newError` and exported to
+`web/src/lib/api-errors.gen.ts`:
+
+```bash
+go test ./internal/api -run TestAPIErrorsTS -update   # after adding or changing a code
+cd web && npm run extract                              # then translate the new ones in the .po
+```
+
+The build fails if a language is missing any translation. To add another language, list it in
+`web/lingui.config.ts` and `web/src/lib/i18n.ts`, run `npm run extract` and translate its `.po`.
+
+### Contributing
+
+Code, comments and commit messages are written in **English**. User-facing strings in the panel
+are written in English too and translated through the `.po` catalogues described above.
 
 ## Roadmap
 
-1. ✅ Proxy hosts con SSL automático (Docker, host, externos)
-2. ✅ Sitios estáticos con subida directa, despliegues inmutables y rollback
-3. ✅ Sitios estáticos desde GitHub/GitLab: build en cada push
-4. ✅ Apps en contenedores desde una imagen o un Dockerfile
-5. ✅ Previews por rama y estado del despliegue en los commits
+1. ✅ Proxy hosts with automatic SSL (Docker, host, external)
+2. ✅ Static sites with direct uploads, immutable deployments and rollback
+3. ✅ Static sites from GitHub/GitLab: build on every push
+4. ✅ Containerised apps from an image or a Dockerfile
+5. ✅ Branch previews and deployment status on commits
 
-## Licencia
+## License
 
 [Apache-2.0](LICENSE).
